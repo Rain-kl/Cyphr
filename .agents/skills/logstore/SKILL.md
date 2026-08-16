@@ -54,7 +54,7 @@ description: "Wavelet 项目专用：当新增或修改日志/分析用途表（
    - 写入：`BatchInsert`（flush 目标；内调 `ensureWritable`）
    - 查询：业务需要的 List/Count/聚合
    - 迁移：`ListForMigration(afterID, limit)`、`MigrationRange`、`DeleteAll`、`EnsurePartitions`（PG 按月预建，CH/SQLite no-op）
-   - 清理：`DeleteBefore(cutoff)`
+   - 清理：`DeleteBefore(cutoff)`、`DropEmptyPartitions`、`DropExpiredPartitions`（仅 PG；CH/SQLite no-op）
 
 4. **双实现**  
    - CH：委托 `analyticsrepo`，零额外查询路径。  
@@ -70,7 +70,7 @@ description: "Wavelet 项目专用：当新增或修改日志/分析用途表（
    在 `copy*` 流程增加该表：`DeleteAll` 目标 → `MigrationRange` + `EnsurePartitions` → 按 id 分页复制。不要改切换协议（仍冻结写入、源数据不删、成功才翻转）。
 
 8. **清理**  
-   `CleanupExpired` 对该表 `DeleteBefore`；保留天数用已有 `log_retention_days_*`，不要为单表再发明一套 key，除非产品明确要求独立 TTL。
+   `CleanupExpired`：PG 先 `DropExpiredPartitions`（整月过期分区），再 `DeleteBefore`（边界月），最后 `DropEmptyPartitions`。保留天数用已有 `log_retention_days_*`。apps 禁止 import `repository/analytics`（`imports_test.go`）。
 
 ## 禁止
 

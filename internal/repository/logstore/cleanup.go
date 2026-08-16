@@ -45,11 +45,18 @@ func CleanupExpired(ctx context.Context) (CleanupSummary, error) {
 		logger.WarnF(ctx, "logstore: ensure partitions during cleanup failed: %v", err)
 	}
 	cutoff := now.AddDate(0, 0, -days)
+	// 先 DROP 完全过期的整月分区，再对边界月逐行 DeleteBefore。
+	if err := store.UserAccessLogs.DropExpiredPartitions(ctx, cutoff); err != nil {
+		return summary, fmt.Errorf("drop expired partitions: %w", err)
+	}
 	deleted, err := store.UserAccessLogs.DeleteBefore(ctx, cutoff)
 	if err != nil {
 		return summary, fmt.Errorf("delete expired user access logs: %w", err)
 	}
 	summary.Deleted = deleted
+	if err := store.UserAccessLogs.DropEmptyPartitions(ctx, now); err != nil {
+		logger.WarnF(ctx, "drop empty log partitions failed: %v", err)
+	}
 	return summary, nil
 }
 

@@ -15,7 +15,6 @@ import (
 
 	"github.com/Rain-kl/Wavelet/internal/apps/admin"
 	"github.com/Rain-kl/Wavelet/internal/repository"
-	analyticsrepo "github.com/Rain-kl/Wavelet/internal/repository/analytics"
 	"github.com/Rain-kl/Wavelet/internal/repository/logstore"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	"github.com/gin-gonic/gin"
@@ -157,8 +156,8 @@ type accessLogsResponse struct {
 	List  []accessLogItem `json:"list"`
 }
 
-func buildAccessLogFilter(ctx context.Context, c *gin.Context) (analyticsrepo.AccessLogFilter, error) {
-	filter := analyticsrepo.AccessLogFilter{}
+func buildAccessLogFilter(ctx context.Context, c *gin.Context) (logstore.AccessLogFilter, error) {
+	filter := logstore.AccessLogFilter{}
 
 	username := c.Query("username")
 	if username != "" {

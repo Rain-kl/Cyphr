@@ -26,7 +26,7 @@ Wavelet 的访问审计等日志表不绑死 ClickHouse。`internal/repository/l
 | 主库实现 | `logstore` GORM | PostgreSQL 按月分区；SQLite 普通表 |
 | 入队 | `risk_control` + `batchwriter` | `FlushFunc` → `logstore.Active` |
 | 切换 | `logs:db_switch` | 冻结 → 排空 → 复制 → 翻转 |
-| 清理 | `logstore.CleanupExpired` | `system:cleanup` 按库读 `log_retention_days_*` 后 `DeleteBefore` |
+| 清理 | `logstore.CleanupExpired` | `system:cleanup` 按库读 `log_retention_days_*`：PG 先 `DropExpiredPartitions` 再 `DeleteBefore`，最后 `DropEmptyPartitions` |
 
 `log_database` 只能是「随业务主库」或 `clickhouse`。`log_database` / `log_db_migration` 受保护，管理端不可改。
 

@@ -29,7 +29,16 @@ type UserAccessLogStore interface {
 	ListForMigration(ctx context.Context, afterID uint64, limit int) ([]analyticsmodel.UserAccessLog, error)
 	MigrationRange(ctx context.Context) (from, to time.Time, err error)
 	EnsurePartitions(ctx context.Context, from, to time.Time) error
+	// DropEmptyPartitions 幂等清理 PG 空分区表：删除 before 月份之前、且无任何数据的按月分区；
+	// CH/SQLite 为 no-op。
+	DropEmptyPartitions(ctx context.Context, before time.Time) error
+	// DropExpiredPartitions 直接删除完全过期的 PG 整月分区（候选为月份早于 cutoff 月的分区，
+	// 删除前校验分区内无保留期内数据，避免时区偏移下误删；迁移冻结期间拒绝执行）；CH/SQLite 为 no-op。
+	DropExpiredPartitions(ctx context.Context, cutoff time.Time) error
 }
+
+// AccessLogFilter 是查询过滤器的别名，供 apps 使用，避免 import repository/analytics。
+type AccessLogFilter = analyticsrepo.AccessLogFilter
 
 // StatusStore 日志库状态。
 type StatusStore interface {

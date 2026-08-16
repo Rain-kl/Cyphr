@@ -86,6 +86,14 @@ func (s *clickhouseUserAccessLogStore) EnsurePartitions(_ context.Context, _, _ 
 	return nil
 }
 
+func (s *clickhouseUserAccessLogStore) DropEmptyPartitions(_ context.Context, _ time.Time) error {
+	return nil
+}
+
+func (s *clickhouseUserAccessLogStore) DropExpiredPartitions(_ context.Context, _ time.Time) error {
+	return nil
+}
+
 func (s *clickhouseUserAccessLogStore) MigrationRange(ctx context.Context) (time.Time, time.Time, error) {
 	if db.ChConn == nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("clickhouse connection is not initialized")
