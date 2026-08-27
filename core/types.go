@@ -1,0 +1,71 @@
+package core
+
+import (
+	"context"
+	"errors"
+)
+
+// Standard sentinel errors returned by core operations.
+var (
+	// ErrServiceNotFound is returned when a requested service is not registered in the IoC container.
+	ErrServiceNotFound = errors.New("core: service not found")
+
+	// ErrServiceNotReady is returned when one or more required services are not ready in Using/UsingN.
+	ErrServiceNotReady = errors.New("core: service not ready")
+
+	// ErrNilContext is returned when a nil Context is passed to an operation requiring a valid Context.
+	ErrNilContext = errors.New("core: context is nil")
+
+	// ErrNilService is returned when attempting to provide a nil service implementation.
+	ErrNilService = errors.New("core: service is nil")
+
+	// ErrInvalidManifest is returned when a plugin manifest fails validation.
+	ErrInvalidManifest = errors.New("core: invalid manifest")
+
+	// ErrInvalidManifestName is returned when a plugin manifest has an empty name.
+	ErrInvalidManifestName = errors.New("core: manifest name is required")
+
+	// ErrDriverNotFound is returned when a requested driver type is not registered.
+	ErrDriverNotFound = errors.New("core: driver not found")
+)
+
+// Plugin is the unified contract for all core and downstream plugins.
+type Plugin interface {
+	// Name returns the globally unique identifier of the plugin (e.g. "auth", "database").
+	Name() string
+	// Apply is the core mounting entrypoint: provides services, registers routes, tasks, and event listeners.
+	Apply(ctx *Context) error
+}
+
+// PluginWithManifest is an optional extension interface for plugins that declare metadata.
+type PluginWithManifest interface {
+	Plugin
+	Manifest() Manifest
+}
+
+// DriverType identifies the category of a runtime driver engine.
+type DriverType string
+
+const (
+	// DriverTypeHTTP represents HTTP web server drivers (e.g. Gin).
+	DriverTypeHTTP DriverType = "http"
+
+	// DriverTypeWorker represents asynchronous background worker drivers (e.g. Asynq worker server).
+	DriverTypeWorker DriverType = "worker"
+
+	// DriverTypeScheduler represents cron and timer schedule drivers (e.g. Asynq scheduler).
+	DriverTypeScheduler DriverType = "schedule"
+)
+
+// Driver is a runtime engine that manages an event loop or listening port.
+type Driver interface {
+	// Type returns the category of this driver engine.
+	Type() DriverType
+	// Start starts the driver lifecycle loop.
+	Start(ctx context.Context) error
+	// Stop gracefully shuts down the driver.
+	Stop(ctx context.Context) error
+}
+
+// Disposer is a cleanup function executed when a Context is disposed.
+type Disposer func() error
