@@ -15,12 +15,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 )
 
 const minPasswordLength = 8
@@ -243,7 +243,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	currUser, _ := oauth.GetFromContext[*model.User](c, oauth.UserObjKey)
+	currUser, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
 	if currUser == nil {
 		response.AbortUnauthorized(c, AdminRequired)
 		return
@@ -334,7 +334,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	currUser, _ := oauth.GetFromContext[*model.User](c, oauth.UserObjKey)
+	currUser, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
 	if currUser == nil {
 		response.AbortUnauthorized(c, AdminRequired)
 		return
@@ -388,10 +388,10 @@ func updateUserStatus(ctx context.Context, id uint64, active bool) error {
 
 	err = repository.UpdateUserActive(ctx, id, active)
 	if err == nil {
-		oauth.InvalidateCachedUser(ctx, id)
+		auth.InvalidateCachedUser(ctx, id)
 		if !active {
 			for _, token := range tokens {
-				oauth.InvalidateCachedToken(ctx, token.TokenHash)
+				auth.InvalidateCachedToken(ctx, token.TokenHash)
 			}
 		}
 	}
@@ -414,9 +414,9 @@ func deleteUser(ctx context.Context, currentUserID, targetID uint64) error {
 
 	err = repository.DeleteUserWithRelations(ctx, targetID)
 	if err == nil {
-		oauth.InvalidateCachedUser(ctx, targetID)
+		auth.InvalidateCachedUser(ctx, targetID)
 		for _, token := range tokens {
-			oauth.InvalidateCachedToken(ctx, token.TokenHash)
+			auth.InvalidateCachedToken(ctx, token.TokenHash)
 		}
 	}
 	return err
@@ -539,10 +539,10 @@ func updateUser(ctx context.Context, currentUserID uint64, param updateUserParam
 
 	err = repository.UpdateUser(ctx, &targetUser)
 	if err == nil {
-		oauth.InvalidateCachedUser(ctx, param.ID)
+		auth.InvalidateCachedUser(ctx, param.ID)
 		if needRevokeTokens {
 			for _, token := range tokens {
-				oauth.InvalidateCachedToken(ctx, token.TokenHash)
+				auth.InvalidateCachedToken(ctx, token.TokenHash)
 			}
 		}
 	}

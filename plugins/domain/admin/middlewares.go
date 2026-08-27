@@ -4,11 +4,11 @@
 package admin
 
 import (
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,15 +18,15 @@ func LoginAdminRequired() gin.HandlerFunc {
 		ctx, span := otel_trace.Start(c.Request.Context(), "LoginAdminRequired")
 		defer span.End()
 
-		user, _ := oauth.GetFromContext[*model.User](c, oauth.UserObjKey)
+		user, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
 		if user == nil {
 			response.AbortNotFound(c, AdminRequired)
 			return
 		}
 
 		// 如果是通过 Access Token 鉴权，需要检查令牌本身是否具有管理员权限
-		if tokenAuth, _ := oauth.GetFromContext[bool](c, oauth.TokenAuthKey); tokenAuth {
-			tokenAdmin, _ := oauth.GetFromContext[bool](c, oauth.TokenAdminKey)
+		if tokenAuth, _ := auth.GetFromContext[bool](c, auth.TokenAuthKey); tokenAuth {
+			tokenAdmin, _ := auth.GetFromContext[bool](c, auth.TokenAdminKey)
 			if !tokenAdmin {
 				response.AbortNotFound(c, TokenAdminRequired)
 				return

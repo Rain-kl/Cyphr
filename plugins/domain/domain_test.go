@@ -64,7 +64,7 @@ func (m *mockOAuthProvider) Name() string {
 }
 
 func (m *mockOAuthProvider) GetAuthURL(state string) string {
-	return "https://oauth.example.com/auth?state=" + state
+	return "https://auth.example.com/auth?state=" + state
 }
 
 func (m *mockOAuthProvider) ExchangeCode(ctx context.Context, code string) (*contracts.OAuthUserInfoDTO, error) {
@@ -349,7 +349,7 @@ func TestAdminPlugin(t *testing.T) {
 
 	// 1. Admin Routes
 	routes := ctx.Router().Routes()
-	var hasStatus, hasDBOverview, hasUsers, hasTasks, hasPushEvents bool
+	var hasStatus, hasDBOverview, hasUsers, hasTasks, hasConfigs bool
 	for _, r := range routes {
 		if r.Path == "/api/v1/admin/status" {
 			hasStatus = true
@@ -363,15 +363,15 @@ func TestAdminPlugin(t *testing.T) {
 		if r.Path == "/api/v1/admin/tasks/types" {
 			hasTasks = true
 		}
-		if r.Path == "/api/v1/admin/push/events" {
-			hasPushEvents = true
+		if r.Path == "/api/v1/admin/system-configs" {
+			hasConfigs = true
 		}
 	}
 	assert.True(t, hasStatus)
 	assert.True(t, hasDBOverview)
 	assert.True(t, hasUsers)
 	assert.True(t, hasTasks)
-	assert.True(t, hasPushEvents)
+	assert.True(t, hasConfigs)
 
 	// 2. Task & Schedule
 	_, ok := ctx.Tasks().Get("admin:system_cleanup")

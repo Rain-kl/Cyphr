@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package user provides the user profile, credential management, role management, and access token domain plugin for Cordis.
 package user
 
@@ -8,8 +11,7 @@ import (
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
-	"github.com/Rain-kl/Wavelet/internal/apps/user"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/hibiken/asynq"
 )
 
@@ -71,20 +73,20 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 3. Register HTTP Routes
 	userGroup := ctx.Router().Group("/api/v1/user")
 	{
-		userGroup.POST("/login", user.Login)
-		userGroup.POST("/register", user.Register)
-		userGroup.GET("/logout", user.Logout)
-		userGroup.POST("/send-email-code", user.SendEmailCode)
-		userGroup.POST("/change-password", oauth.LoginRequired(), user.ChangePassword)
-		userGroup.PUT("/profile", oauth.LoginRequired(), user.UpdateProfile)
+		userGroup.POST("/login", Login)
+		userGroup.POST("/register", Register)
+		userGroup.GET("/logout", Logout)
+		userGroup.POST("/send-email-code", SendEmailCode)
+		userGroup.POST("/change-password", auth.LoginRequired(), ChangePassword)
+		userGroup.PUT("/profile", auth.LoginRequired(), UpdateProfile)
 
 		// Access Tokens
-		tokensGroup := userGroup.Group("/access-tokens", oauth.LoginRequired(), oauth.DisallowTokenAuth())
+		tokensGroup := userGroup.Group("/access-tokens", auth.LoginRequired(), auth.DisallowTokenAuth())
 		{
-			tokensGroup.GET("", user.ListAccessTokens)
-			tokensGroup.POST("", user.CreateAccessToken)
-			tokensGroup.DELETE("/:id", user.DeleteAccessToken)
-			tokensGroup.POST("/:id/rotate", user.RotateAccessToken)
+			tokensGroup.GET("", ListAccessTokens)
+			tokensGroup.POST("", CreateAccessToken)
+			tokensGroup.DELETE("/:id", DeleteAccessToken)
+			tokensGroup.POST("/:id/rotate", RotateAccessToken)
 		}
 	}
 

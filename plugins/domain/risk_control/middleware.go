@@ -9,14 +9,17 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/infra/config"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/model/analytics"
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-gonic/gin"
 )
+
+// Middleware is an alias for RiskControlMiddleware.
+var Middleware = RiskControlMiddleware
 
 // RiskControlMiddleware 全局日志采集中间件
 func RiskControlMiddleware() gin.HandlerFunc {
@@ -39,7 +42,7 @@ func RiskControlMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		// 3. 后置身份检查：仅记录通过认证的请求
-		userObj, exists := oauth.GetFromContext[*model.User](c, oauth.UserObjKey)
+		userObj, exists := auth.GetFromContext[*model.User](c, auth.UserObjKey)
 		if !exists || userObj == nil {
 			return
 		}

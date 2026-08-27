@@ -13,12 +13,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/migrator"
 	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/platform/bootstrap"
 	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 )
@@ -52,7 +51,6 @@ var resetPasswdCmd = &cobra.Command{
 	},
 	Run: func(_ *cobra.Command, _ []string) {
 		ctx := context.Background()
-		runBootstrap(bootstrap.Options{})
 
 		var username string
 		if usernameFlag != "" {
@@ -101,7 +99,7 @@ var resetPasswdCmd = &cobra.Command{
 			var tokens []model.AccessToken
 			if err := tx.Where("user_id = ?", user.ID).Find(&tokens).Error; err == nil {
 				for _, token := range tokens {
-					oauth.InvalidateCachedToken(ctx, token.TokenHash)
+					auth.InvalidateCachedToken(ctx, token.TokenHash)
 				}
 			}
 
@@ -111,7 +109,7 @@ var resetPasswdCmd = &cobra.Command{
 			log.Fatalf("重置密码失败: %v\n", err)
 		}
 
-		oauth.InvalidateCachedUser(ctx, user.ID)
+		auth.InvalidateCachedUser(ctx, user.ID)
 
 		fmt.Println("成功重置密码！")
 		fmt.Printf("用户名: %s\n", user.Username)

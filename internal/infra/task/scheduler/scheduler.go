@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/platform/bootstrap"
+
 	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 
@@ -33,7 +33,6 @@ func GetAsynqClient() *asynq.Client {
 
 // StartScheduler 启动调度器 (该函数阻塞，直到调度器退出)
 func StartScheduler() error {
-	bootstrap.RegisterScheduler()
 
 	var err error
 	schedulerOnce.Do(func() {

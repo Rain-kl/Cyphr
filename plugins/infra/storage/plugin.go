@@ -8,9 +8,9 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/internal/apps/upload/ingest"
 	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
 	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
 )
 
 // Option configures the storage plugin.

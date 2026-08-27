@@ -10,8 +10,8 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/internal/apps/admin"
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
+	"github.com/Rain-kl/Wavelet/plugins/domain/admin"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/hibiken/asynq"
 )
 
@@ -75,7 +75,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Migrations().Register("message_gateway", mgMigrations)
 
 	// 2. Register User HTTP Routes
-	mgGroup := ctx.Router().Group("/api/v1/message-gateway", oauth.LoginRequired())
+	mgGroup := ctx.Router().Group("/api/v1/message-gateway", auth.LoginRequired())
 	{
 		mgGroup.GET("/channels", ListChannels)
 		mgGroup.GET("/bindings", ListBindings)
@@ -84,7 +84,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	// 3. Register Admin Message Gateway HTTP Routes
-	adminMgGroup := ctx.Router().Group("/api/v1/admin/message-gateway", oauth.LoginRequired(), admin.LoginAdminRequired())
+	adminMgGroup := ctx.Router().Group("/api/v1/admin/message-gateway", auth.LoginRequired(), admin.LoginAdminRequired())
 	{
 		adminMgGroup.GET("/channels/definitions", ListAdminChannelDefinitions)
 		adminMgGroup.GET("/channels", ListAdminChannels)
@@ -95,7 +95,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	// 4. Register Admin Push HTTP Routes
-	adminPushGroup := ctx.Router().Group("/api/v1/admin/push", oauth.LoginRequired(), admin.LoginAdminRequired())
+	adminPushGroup := ctx.Router().Group("/api/v1/admin/push", auth.LoginRequired(), admin.LoginAdminRequired())
 	{
 		events := adminPushGroup.Group("/events")
 		{

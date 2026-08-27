@@ -1,6 +1,6 @@
-// Copyright 2026 Arctel.net
-// SPDX-License-Identifier: Apache-2.0
-
+// Package cmd provides CLI command entry points.
+//
+//nolint:unused
 package cmd
 
 import (
@@ -14,6 +14,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/migrator"
 )
 
+//nolint:unused // startup banner formatting utilities
 type startupState struct {
 	mode           string
 	relationalDB   migrator.Report

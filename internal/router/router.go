@@ -16,15 +16,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/apps/risk_control"
-	"github.com/Rain-kl/Wavelet/internal/platform/bootstrap"
-	router_root "github.com/Rain-kl/Wavelet/internal/router/root"
-	v1 "github.com/Rain-kl/Wavelet/internal/router/v1"
-
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/infra/config"
 	"github.com/Rain-kl/Wavelet/pkg/trace"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
@@ -70,14 +66,13 @@ func BuildEngine() (*gin.Engine, error) {
 		}
 	}
 
-	sessionStore.Options(oauth.GetSessionOptions(config.Config.App.SessionAge))
+	sessionStore.Options(auth.GetSessionOptions(config.Config.App.SessionAge))
 
 	r.Use(sessions.Sessions(config.Config.App.SessionCookieName, sessionStore))
 
 	// 补充中间件
-	r.Use(otelgin.Middleware(config.Config.App.AppName), errorHandlerMiddleware(), loggerMiddleware(), risk_control.RiskControlMiddleware())
+	r.Use(otelgin.Middleware(config.Config.App.AppName), errorHandlerMiddleware(), loggerMiddleware(), risk_control.Middleware())
 
-	registerRoutes(r)
 	return r, nil
 }
 
@@ -119,26 +114,10 @@ func Serve(onStarted func()) {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("[API] server forced to shutdown: %v\n", err)
-		bootstrap.Stop(shutdownCtx)
 		cancel()
 		os.Exit(1)
 	}
-	bootstrap.Stop(shutdownCtx)
 	cancel()
 
 	log.Println("[API] server exited")
-}
-
-func registerRoutes(r *gin.Engine) {
-	// Register custom root routes, Swagger, and frontend serving
-	router_root.RegisterRootRoutes(r)
-
-	apiGroup := r.Group(config.Config.App.APIPrefix)
-	{
-		// API V1
-		apiV1Router := apiGroup.Group("/v1")
-		{
-			v1.RegisterV1Routes(apiV1Router, apiGroup)
-		}
-	}
 }

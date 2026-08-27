@@ -13,11 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-
-	"github.com/Rain-kl/Wavelet/internal/apps/cap"
-	"github.com/Rain-kl/Wavelet/internal/apps/upload"
 	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
 	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
@@ -25,6 +20,10 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	mail "github.com/Rain-kl/Wavelet/pkg/mail"
+	"github.com/Rain-kl/Wavelet/plugins/domain/cap"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 const maskedConfigValue = "******"

@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/infra/config"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/batchwriter"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/model/analytics"
 	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -99,7 +99,7 @@ func TestRiskControlMiddleware(t *testing.T) {
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
 			user := &model.User{ID: 12345}
-			oauth.SetToContext(c, oauth.UserObjKey, user)
+			auth.SetToContext(c, auth.UserObjKey, user)
 			c.Next()
 		})
 		r.Use(risk_control.RiskControlMiddleware())

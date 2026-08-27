@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-gonic/gin"
 )
 
 func currentUser(c *gin.Context) (*model.User, bool) {
-	return oauth.GetFromContext[*model.User](c, oauth.UserObjKey)
+	return auth.GetFromContext[*model.User](c, auth.UserObjKey)
 }
 
 // ListChannels lists enabled channels a user can bind.
@@ -137,7 +137,7 @@ func UnbindBinding(c *gin.Context) {
 
 // RegisterUserRoutes mounts user-facing message gateway endpoints.
 func RegisterUserRoutes(r *gin.RouterGroup) {
-	mg := r.Group("/message-gateway", oauth.LoginRequired())
+	mg := r.Group("/message-gateway", auth.LoginRequired())
 	{
 		mg.GET("/channels", ListChannels)
 		mg.GET("/bindings", ListBindings)
