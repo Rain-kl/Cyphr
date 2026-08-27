@@ -6,15 +6,9 @@
 package cmd
 
 import (
-	"context"
 	"log"
-	"sync"
 
-	gwrunner "github.com/Rain-kl/Wavelet/internal/apps/message_gateway/runner"
-	"github.com/Rain-kl/Wavelet/internal/infra/task/scheduler"
-	"github.com/Rain-kl/Wavelet/internal/infra/task/worker"
-	"github.com/Rain-kl/Wavelet/internal/platform/bootstrap"
-	"github.com/Rain-kl/Wavelet/internal/router"
+	"github.com/Rain-kl/Wavelet/core"
 	"github.com/spf13/cobra"
 )
 
@@ -22,48 +16,9 @@ var allCmd = &cobra.Command{
 	Use:   "all",
 	Short: "以融合模式同时启动 API、Worker 和 Scheduler",
 	Run: func(_ *cobra.Command, _ []string) {
-		log.Println("[All] 融合模式启动")
-		bootstrap.RegisterAll()
-		runBootstrap(bootstrap.Options{API: true})
-
-		var wg sync.WaitGroup
-
-		// 启动 API HTTP 服务
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			log.Println("[All] 启动 API 服务")
-			router.Serve(func() {
-				printStartupBanner(startupState{mode: "API + Worker + Scheduler", relationalDB: latestMigrationState.relationalDB, clickHouseDB: latestMigrationState.clickHouseDB, listensForHTTP: true})
-			})
-		}()
-
-		go func() {
-			if err := gwrunner.Start(context.Background()); err != nil {
-				log.Printf("[All] message gateway stopped: %v", err)
-			}
-		}()
-
-		// 启动 Asynq Worker 任务处理服务
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			log.Println("[All] 启动 Worker 服务")
-			if err := worker.StartWorker(); err != nil {
-				log.Printf("[All] Worker 启动失败: %v\n", err)
-			}
-		}()
-
-		// 启动 Asynq 定时任务调度器
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			log.Println("[All] 启动 Scheduler 服务")
-			if err := scheduler.StartScheduler(); err != nil {
-				log.Printf("[All] Scheduler 启动失败: %v\n", err)
-			}
-		}()
-
-		wg.Wait()
+		app := newWaveletApp(core.ProfileAll)
+		if err := app.Run(); err != nil {
+			log.Fatalf("[All] run failed: %v\n", err)
+		}
 	},
 }

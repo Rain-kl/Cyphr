@@ -24,7 +24,7 @@ func StartWorker() error {
 		asynq.Config{
 			Concurrency:     config.Config.Worker.Concurrency,
 			ShutdownTimeout: workerShutdownTimeout,
-			Queues:          buildQueuesFromConfig(),
+			Queues:          BuildQueuesFromConfig(),
 			StrictPriority:  config.Config.Worker.StrictPriority,
 		},
 	)
@@ -44,8 +44,34 @@ func StartWorker() error {
 	return asynqServer.Run(mux)
 }
 
-// buildQueuesFromConfig 从配置构建队列映射
-func buildQueuesFromConfig() map[string]int {
+// StartWorkerServer 异步启动 Asynq 工作器服务并返回 Server 实例以支持平滑停机
+func StartWorkerServer() (*asynq.Server, error) {
+	bootstrap.RegisterWorker()
+	asynqServer := asynq.NewServer(
+		task.RedisOpt,
+		asynq.Config{
+			Concurrency:     config.Config.Worker.Concurrency,
+			ShutdownTimeout: workerShutdownTimeout,
+			Queues:          BuildQueuesFromConfig(),
+			StrictPriority:  config.Config.Worker.StrictPriority,
+		},
+	)
+
+	mux := asynq.NewServeMux()
+	mux.Use(taskLoggingMiddleware)
+
+	for _, taskName := range task.GetRegisteredAsynqTasks() {
+		mux.HandleFunc(taskName, task.ProcessTask)
+	}
+
+	if err := asynqServer.Start(mux); err != nil {
+		return nil, err
+	}
+	return asynqServer, nil
+}
+
+// BuildQueuesFromConfig 从配置构建队列映射
+func BuildQueuesFromConfig() map[string]int {
 	queues := make(map[string]int)
 
 	// 从配置读取队列

@@ -101,7 +101,7 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 	return toUserDTO(user), nil
 }
 
-func (s *authServiceImpl) CreateSession(ctx context.Context, userID uint64, extras map[string]any) (string, error) {
+func (s *authServiceImpl) CreateSession(_ context.Context, _ uint64, _ map[string]any) (string, error) {
 	// Session creation helper
 	return "", nil
 }

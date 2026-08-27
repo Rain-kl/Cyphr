@@ -29,6 +29,12 @@ var (
 
 	// ErrDriverNotFound is returned when a requested driver type is not registered.
 	ErrDriverNotFound = errors.New("core: driver not found")
+
+	// ErrAppRunning is returned when attempting to start an already running App.
+	ErrAppRunning = errors.New("core: app is already running")
+
+	// ErrAppNotRunning is returned when attempting to operate on an App that is not running.
+	ErrAppNotRunning = errors.New("core: app is not running")
 )
 
 // Plugin is the unified contract for all core and downstream plugins.
@@ -67,6 +73,36 @@ type Driver interface {
 	Start(ctx context.Context) error
 	// Stop gracefully shuts down the driver.
 	Stop(ctx context.Context) error
+}
+
+// Profile identifies the runtime aspect or execution mode of an application.
+type Profile string
+
+const (
+	// ProfileAPI runs HTTP API server drivers.
+	ProfileAPI Profile = "api"
+
+	// ProfileWorker runs asynchronous background worker drivers.
+	ProfileWorker Profile = "worker"
+
+	// ProfileSchedule runs cron and timer schedule drivers.
+	ProfileSchedule Profile = "schedule"
+
+	// ProfileAll runs all registered drivers concurrently in fused mode.
+	ProfileAll Profile = "all"
+)
+
+// MigrationEngine is the interface for executing database migrations across registered plugins.
+type MigrationEngine interface {
+	Migrate(ctx context.Context, entries []MigrationEntry) error
+}
+
+// MigrationRunner is a function adapter implementing MigrationEngine.
+type MigrationRunner func(ctx context.Context, entries []MigrationEntry) error
+
+// Migrate calls the underlying migration function.
+func (fn MigrationRunner) Migrate(ctx context.Context, entries []MigrationEntry) error {
+	return fn(ctx, entries)
 }
 
 // Disposer is a cleanup function executed when a Context is disposed.

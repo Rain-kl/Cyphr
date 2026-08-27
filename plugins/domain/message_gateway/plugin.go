@@ -70,12 +70,14 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		mgGroup.DELETE("/bindings/:id", appgw.UnbindBinding)
 	}
 
-	// 3. Register Asynq background tasks
-	ctx.Task().Register("message_gateway:push_notification", func(c context.Context, t *asynq.Task) error {
-		return nil
-	}, extpoints.WithTaskRetry(3))
+	const defaultTaskRetry = 3
 
-	ctx.Task().Register("message_gateway:dispatch_bot_msg", func(c context.Context, t *asynq.Task) error {
+	// 3. Register Asynq background tasks
+	ctx.Task().Register("message_gateway:push_notification", func(_ context.Context, _ *asynq.Task) error {
+		return nil
+	}, extpoints.WithTaskRetry(defaultTaskRetry))
+
+	ctx.Task().Register("message_gateway:dispatch_bot_msg", func(_ context.Context, _ *asynq.Task) error {
 		return nil
 	})
 
@@ -83,7 +85,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Schedule().RegisterCron("*/10 * * * *", "message_gateway:cleanup_pairing_codes", map[string]any{"action": "cleanup"})
 
 	// 5. Register EventBus listeners for decoupled push triggers
-	ctx.Events().On("notification:push", func(c context.Context, e PushNotificationEvent) error {
+	ctx.Events().On("notification:push", func(_ context.Context, _ PushNotificationEvent) error {
 		// Event triggered push handling
 		return nil
 	})

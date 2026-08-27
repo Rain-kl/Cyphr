@@ -1,0 +1,57 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
+package cmd
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/Rain-kl/Wavelet/core"
+)
+
+func TestNewWaveletAppProfiles(t *testing.T) {
+	profiles := []core.Profile{
+		core.ProfileAPI,
+		core.ProfileWorker,
+		core.ProfileSchedule,
+		core.ProfileAll,
+	}
+
+	for _, prof := range profiles {
+		t.Run(string(prof), func(t *testing.T) {
+			app := newWaveletApp(prof)
+			require.NotNil(t, app)
+			assert.Equal(t, prof, app.Profile())
+
+			// Verify 4 infra plugins + 3 driver plugins registered
+			plugins := app.Plugins()
+			assert.Len(t, plugins, 7)
+
+			// Verify each standard infra plugin is registered
+			_, ok := app.Plugin("database")
+			assert.True(t, ok, "database plugin missing")
+
+			_, ok = app.Plugin("cache")
+			assert.True(t, ok, "cache plugin missing")
+
+			_, ok = app.Plugin("logger")
+			assert.True(t, ok, "logger plugin missing")
+
+			_, ok = app.Plugin("storage")
+			assert.True(t, ok, "storage plugin missing")
+
+			// Verify driver plugins
+			_, ok = app.Plugin("driver_wavelet_http")
+			assert.True(t, ok, "http driver missing")
+
+			_, ok = app.Plugin("driver_wavelet_worker")
+			assert.True(t, ok, "worker driver missing")
+
+			_, ok = app.Plugin("driver_wavelet_scheduler")
+			assert.True(t, ok, "scheduler driver missing")
+		})
+	}
+}

@@ -7,9 +7,7 @@ package cmd
 import (
 	"log"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/task/scheduler"
-	"github.com/Rain-kl/Wavelet/internal/platform/bootstrap"
-
+	"github.com/Rain-kl/Wavelet/core"
 	"github.com/spf13/cobra"
 )
 
@@ -17,11 +15,9 @@ var schedulerCmd = &cobra.Command{
 	Use:   "scheduler",
 	Short: "wavelet Scheduler",
 	Run: func(_ *cobra.Command, _ []string) {
-		runBootstrap(bootstrap.Options{})
-		printStartupBanner(startupState{mode: "Scheduler", relationalDB: latestMigrationState.relationalDB, clickHouseDB: latestMigrationState.clickHouseDB})
-		log.Println("[Scheduler] 启动定时任务调度服务")
-		if err := scheduler.StartScheduler(); err != nil {
-			log.Fatalf("[调度器] 启动失败: %v", err)
+		app := newWaveletApp(core.ProfileSchedule)
+		if err := app.Run(); err != nil {
+			log.Fatalf("[Scheduler] run failed: %v\n", err)
 		}
 	},
 }

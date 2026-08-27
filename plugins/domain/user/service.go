@@ -166,7 +166,7 @@ func (s *userServiceImpl) VerifyPassword(ctx context.Context, id uint64, passwor
 	return user.CheckPassword(password)
 }
 
-func (s *userServiceImpl) UpdateLastLogin(ctx context.Context, id uint64, ip string) error {
+func (s *userServiceImpl) UpdateLastLogin(ctx context.Context, id uint64, _ string) error {
 	return db.DB(ctx).Model(&model.User{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"last_login_at": time.Now(),

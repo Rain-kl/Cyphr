@@ -210,7 +210,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	// 2. Register Background Tasks
-	ctx.Task().Register("admin:system_cleanup", func(c context.Context, t *asynq.Task) error {
+	ctx.Task().Register("admin:system_cleanup", func(_ context.Context, _ *asynq.Task) error {
 		return nil
 	}, extpoints.WithTaskRetry(1))
 

@@ -31,8 +31,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
-// Serve 启动 HTTP API 服务。onStarted 仅会在 HTTP 地址成功绑定后调用。
-func Serve(onStarted func()) {
+// BuildEngine 构建并初始化 Gin 路由引擎及全部中间件和路由
+func BuildEngine() (*gin.Engine, error) {
 	// 运行模式
 	if config.Config.App.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
@@ -60,7 +60,7 @@ func Serve(onStarted func()) {
 		[]byte(config.Config.App.SessionSecret),
 	)
 	if err != nil {
-		log.Fatalf("[API] init session store failed: %v\n", err)
+		return nil, err
 	}
 
 	// 设置 Session Redis Key 前缀
@@ -78,6 +78,15 @@ func Serve(onStarted func()) {
 	r.Use(otelgin.Middleware(config.Config.App.AppName), errorHandlerMiddleware(), loggerMiddleware(), risk_control.RiskControlMiddleware())
 
 	registerRoutes(r)
+	return r, nil
+}
+
+// Serve 启动 HTTP API 服务。onStarted 仅会在 HTTP 地址成功绑定后调用。
+func Serve(onStarted func()) {
+	r, err := BuildEngine()
+	if err != nil {
+		log.Fatalf("[API] init session store failed: %v\n", err)
+	}
 
 	srv := &http.Server{
 		Addr:              config.Config.App.Addr,
