@@ -62,3 +62,4 @@ s3_cache
 .dmux/
 
 .worktrees/
+/.superpowers/
