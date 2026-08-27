@@ -178,9 +178,12 @@ var (
 // GetDefaultManager yields the global singleton CAPTCHA manager.
 func GetDefaultManager() *Manager {
 	once.Do(func() {
-		secret := []byte("default-captcha-secret-key-at-least-16-bytes")
-		if config.Config != nil && config.Config.App.SessionSecret != "" {
+		var secret []byte
+		if config.Config != nil && strings.TrimSpace(config.Config.App.SessionSecret) != "" {
 			secret = []byte(config.Config.App.SessionSecret)
+		}
+		if len(secret) == 0 {
+			return
 		}
 
 		var store pkgcap.Store

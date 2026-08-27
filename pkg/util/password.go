@@ -3,7 +3,11 @@
 
 package util
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"sync"
+
+	"golang.org/x/crypto/bcrypt"
+)
 
 // HashPassword 使用 bcrypt 对密码进行哈希处理
 func HashPassword(password string) (string, error) {
@@ -14,7 +18,31 @@ func HashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
+var dummyPasswordHashOnce sync.Once
+var dummyPasswordHash string
+
+func dummyHash() string {
+	dummyPasswordHashOnce.Do(func() {
+		hash, err := bcrypt.GenerateFromPassword([]byte("x"), bcrypt.DefaultCost)
+		if err != nil {
+			return
+		}
+		dummyPasswordHash = string(hash)
+	})
+	return dummyPasswordHash
+}
+
 // CheckPasswordHash 比较 bcrypt 哈希值与明文密码是否匹配
 func CheckPasswordHash(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+// DummyCheckPassword runs a bcrypt compare against a dummy hash so missing-user
+// login failures take a similar amount of time as a real password miss.
+func DummyCheckPassword(password string) {
+	hash := dummyHash()
+	if hash == "" {
+		return
+	}
+	_ = CheckPasswordHash(hash, password)
 }

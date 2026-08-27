@@ -160,7 +160,7 @@ export function SiteHeader({
             <Search className='absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' />
             <div className='flex h-8 items-center rounded-md border border-border/60 bg-muted/70 pl-10 pr-2.5 text-sm text-muted-foreground transition-colors hover:border-border hover:bg-muted'>
               <span>{t('search')}</span>
-              <Kbd className='ml-auto gap-0.5 font-mono'>
+              <Kbd className='ml-auto gap-0.5 font-mono text-foreground/70'>
                 <span>{metaKey}</span>
                 <span>K</span>
               </Kbd>

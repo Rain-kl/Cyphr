@@ -55,7 +55,8 @@
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(58.5% 51% 277.117);
+  /* indigo-600: 亮色下与 primary-foreground(#fafafa) 对比度 ~6.8，满足 WCAG AA；indigo-500 仅 4.27 */
+  --primary: oklch(51.1% 0.262 276.966);
   --primary-foreground: oklch(98.5% 0% 0);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);

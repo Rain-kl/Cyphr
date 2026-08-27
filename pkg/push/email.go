@@ -10,6 +10,8 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 func init() {
@@ -86,9 +88,9 @@ func (p *EmailPusher) Send(ctx context.Context, cfg Config, target string, body 
 
 	// 异步超时处理
 	errChan := make(chan error, 1)
-	go func() {
+	util.Go(func() {
 		errChan <- smtp.SendMail(host+":"+port, auth, from, []string{to}, msg)
-	}()
+	})
 
 	select {
 	case <-ctx.Done():

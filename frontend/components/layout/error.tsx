@@ -74,7 +74,7 @@ export function ErrorDisplay({
         <Icon className='size-6 text-red-600 dark:text-red-400' />
       </div>
 
-      <h3 className='text-lg font-semibold mb-2'>{displayTitle}</h3>
+      <p className='text-lg font-semibold mb-2'>{displayTitle}</p>
 
       <p className='text-sm text-muted-foreground max-w-md mb-4'>
         {errorMessage}

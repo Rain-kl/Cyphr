@@ -11,6 +11,7 @@ import (
 	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
 	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -70,10 +71,10 @@ func ListAdminUsers(ctx context.Context, filter AdminUserListFilter) (int64, []m
 		query = query.Where("id = ?", *filter.UserID)
 	}
 	if filter.Username != "" {
-		query = query.Where("username LIKE ?", filter.Username+"%")
+		query = query.Where("username LIKE ? ESCAPE '\\'", util.EscapeLike(filter.Username)+"%")
 	}
 	if filter.Email != "" {
-		query = query.Where("email LIKE ?", filter.Email+"%")
+		query = query.Where("email LIKE ? ESCAPE '\\'", util.EscapeLike(filter.Email)+"%")
 	}
 
 	var total int64
@@ -185,7 +186,7 @@ func ListUserIDsByUsernameContains(ctx context.Context, username string) ([]uint
 	}
 	var userIDs []uint64
 	if err := db.DB(ctx).Model(&model.User{}).
-		Where("username LIKE ?", "%"+username+"%").
+		Where("username LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(username)+"%").
 		Pluck("id", &userIDs).Error; err != nil {
 		return nil, err
 	}
@@ -225,7 +226,7 @@ func CreateUserFromOAuth(ctx context.Context, userOut *model.User, oauthInfo *mo
 func ListUsernamesMatchingBase(ctx context.Context, base string) ([]string, error) {
 	var names []string
 	if err := db.DB(ctx).Model(&model.User{}).
-		Where("username = ? OR username LIKE ?", base, base+"-%").
+		Where("username = ? OR username LIKE ? ESCAPE '\\'", base, util.EscapeLike(base)+"-%").
 		Pluck("username", &names).Error; err != nil {
 		return nil, err
 	}

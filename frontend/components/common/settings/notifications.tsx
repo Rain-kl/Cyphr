@@ -23,6 +23,7 @@ export function NotificationsMain() {
   return (
     <div className='py-6 space-y-6'>
       <div className='font-semibold'>
+        <h1 className='sr-only'>{tn('breadcrumb')}</h1>
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>

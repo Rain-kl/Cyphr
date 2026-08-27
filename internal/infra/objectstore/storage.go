@@ -16,6 +16,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -86,7 +87,7 @@ func startPubSubListener() {
 	if db.Redis == nil {
 		return
 	}
-	go func() {
+	util.Go(func() {
 		pubsub := db.Redis.Subscribe(context.Background(), ConfigInvalidationChannel)
 		defer func() {
 			_ = pubsub.Close()
@@ -96,7 +97,7 @@ func startPubSubListener() {
 		for range ch {
 			ResetCache()
 		}
-	}()
+	})
 }
 
 // Active returns the configured active driver and backend, using an in-memory cache with 5s TTL.

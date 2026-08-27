@@ -219,7 +219,7 @@ export function AccessTokenMain() {
       </div>
 
       {/* 安全警告提示 */}
-      <div className='rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex gap-3 text-amber-600 text-xs leading-relaxed'>
+      <div className='rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex gap-3 text-amber-700 text-xs leading-relaxed'>
         <AlertTriangle className='size-4 shrink-0 mt-0.5' />
         <div className='space-y-1'>
           <span className='font-bold'>{ta('securityTitle')}</span>

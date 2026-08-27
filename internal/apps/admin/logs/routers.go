@@ -17,6 +17,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/Rain-kl/Wavelet/internal/repository/logstore"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/gin-gonic/gin"
 
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
@@ -105,7 +106,7 @@ func HandleLogWebSocket(c *gin.Context) {
 
 	// 在独立 goroutine 中读取客户端消息（保持连接活跃 + 检测断开）
 	done := make(chan struct{})
-	go func() {
+	util.Go(func() {
 		defer close(done)
 		for {
 			_, _, err := conn.ReadMessage()
@@ -113,7 +114,7 @@ func HandleLogWebSocket(c *gin.Context) {
 				return
 			}
 		}
-	}()
+	})
 
 	// 主循环：推送日志
 	for {

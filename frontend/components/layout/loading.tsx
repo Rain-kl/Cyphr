@@ -120,9 +120,7 @@ export function LoadingState({
       </div>
 
       {displayTitle && (
-        <h3 className='text-sm font-medium mb-1 animate-pulse'>
-          {displayTitle}
-        </h3>
+        <p className='text-sm font-medium mb-1 animate-pulse'>{displayTitle}</p>
       )}
 
       {displayDescription && (

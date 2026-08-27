@@ -4,20 +4,17 @@
 package user
 
 import (
-	"context"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
 	"github.com/Rain-kl/Wavelet/internal/listener"
 	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared"
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	pkgu "github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -53,41 +50,6 @@ type updateProfileRequest struct {
 	Location  string `json:"location"`
 }
 
-func setLoginSession(ctx context.Context, c *gin.Context, user *model.User) error {
-	session := sessions.Default(c)
-	session.Set(oauth.UserIDKey, user.ID)
-	session.Set(oauth.UserNameKey, user.Username)
-	session.Set(oauth.PasswordHashKey, user.Password)
-
-	// 根据系统配置动态设置 Session 过期时间
-	maxAge := config.Config.App.SessionAge
-	isSessionCookie := false
-
-	ttlHours, err := repository.GetIntByKey(ctx, model.ConfigKeyLoginSessionTTLHours)
-	if err == nil {
-		switch {
-		case ttlHours == -1:
-			// 永不过期，设置为 10 年
-			maxAge = 10 * 365 * 24 * 3600
-		case ttlHours > 0:
-			maxAge = ttlHours * 3600
-		case ttlHours == 0:
-			isSessionCookie = true
-		}
-	}
-	session.Options(oauth.GetSessionOptions(maxAge))
-
-	if err := session.Save(); err != nil {
-		return err
-	}
-
-	if isSessionCookie {
-		oauth.StripCookieMaxAgeAndExpires(c.Writer.Header(), config.Config.App.SessionCookieName)
-	}
-
-	return nil
-}
-
 // Login 用户密码登录
 // @Summary 用户密码登录
 // @Description 使用用户名和密码登录，登录成功后建立 Session。若管理员已关闭密码登录功能则返回错误。
@@ -96,13 +58,17 @@ func setLoginSession(ctx context.Context, c *gin.Context, user *model.User) erro
 // @Produce json
 // @Param request body user.loginRequest true "登录请求参数"
 // @Success 200 {object} response.Any{data=oauth.BasicUserInfo} "登录成功，返回用户信息"
-// @Failure 400 {object} response.Any "用户名或密码错误、帐号已禁用等"
+// @Failure 400 {object} response.Any "用户名或密码错误"
 // @Failure 500 {object} response.Any "服务内部错误"
 // @Router /api/v1/user/login [post]
 func Login(c *gin.Context) {
 	ctx := c.Request.Context()
 	if !isPasswordLoginEnabled(ctx) {
 		response.AbortBadRequest(c, errPasswordLoginDisabled)
+		return
+	}
+	if loginAttemptsBlocked(ctx, c.ClientIP()) {
+		response.AbortBadRequest(c, errLoginRateLimited)
 		return
 	}
 	var req loginRequest
@@ -118,13 +84,16 @@ func Login(c *gin.Context) {
 
 	user, err := getUserByUsernameOrEmail(ctx, req.Username)
 	if err != nil {
+		pkgu.DummyCheckPassword(req.Password)
+		recordFailedLogin(ctx, c.ClientIP())
 		logger.WarnF(ctx, "[LoginAudit] failed login attempt (username not found) for input: %s, IP: %s", req.Username, c.ClientIP())
 		response.AbortBadRequest(c, errUsernameOrPasswordWrong)
 		return
 	}
 	if !user.IsActive {
+		recordFailedLogin(ctx, c.ClientIP())
 		logger.WarnF(ctx, "[LoginAudit] banned user login attempt for username: %s, ID: %d, IP: %s", user.Username, user.ID, c.ClientIP())
-		response.AbortBadRequest(c, shared.BannedAccount)
+		response.AbortBadRequest(c, errUsernameOrPasswordWrong)
 		return
 	}
 
@@ -132,6 +101,7 @@ func Login(c *gin.Context) {
 	isPlaintext := !user.IsPasswordEncrypted()
 
 	if !user.CheckPassword(req.Password) {
+		recordFailedLogin(ctx, c.ClientIP())
 		logger.WarnF(ctx, "[LoginAudit] failed login attempt (incorrect password) for username: %s, ID: %d, IP: %s", user.Username, user.ID, c.ClientIP())
 		response.AbortBadRequest(c, errUsernameOrPasswordWrong)
 		return
@@ -149,21 +119,19 @@ func Login(c *gin.Context) {
 		}
 	}
 
-	session := sessions.Default(c)
 	needChangePassword := isPlaintext
-
-	if isPlaintext {
-		session.Set("need_change_password", true)
-	} else {
-		session.Delete("need_change_password")
-	}
 
 	user.LastLoginAt = time.Now()
 	if err := updateLastLogin(ctx, user); err != nil {
 		response.AbortBadRequest(c, "更新登录时间失败，请稍后再试")
 		return
 	}
-	if err := setLoginSession(ctx, c, user); err != nil {
+	extras := map[string]any{}
+	if isPlaintext {
+		extras["need_change_password"] = true
+	}
+	clearFailedLogins(ctx, c.ClientIP())
+	if err := oauth.SetLoginSession(ctx, c, user, extras); err != nil {
 		response.AbortBadRequest(c, errSaveSessionFailed)
 		return
 	}
@@ -253,7 +221,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	if err := setLoginSession(ctx, c, &user); err != nil {
+	if err := oauth.SetLoginSession(ctx, c, &user); err != nil {
 		response.AbortBadRequest(c, errSaveSessionFailed)
 		return
 	}

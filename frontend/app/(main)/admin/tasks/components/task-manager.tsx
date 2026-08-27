@@ -372,9 +372,9 @@ export function TaskManager() {
                     <div className='space-y-2'>
                       <div className='flex items-start justify-between'>
                         <div className='space-y-1'>
-                          <h3 className='font-semibold text-base tracking-tight'>
+                          <p className='font-semibold text-base tracking-tight'>
                             {task.name}
-                          </h3>
+                          </p>
                           <p className='text-xs text-muted-foreground leading-relaxed line-clamp-2 min-h-[36px]'>
                             {task.description}
                           </p>

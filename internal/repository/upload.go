@@ -9,6 +9,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -31,7 +32,7 @@ func ListUploads(ctx context.Context, filter UploadListFilter) (int64, []model.U
 		query = query.Where("user_id = ?", filter.UserID)
 	}
 	if filter.Keyword != "" {
-		query = query.Where("LOWER(file_name) LIKE ?", "%"+strings.ToLower(filter.Keyword)+"%")
+		query = query.Where("LOWER(file_name) LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(strings.ToLower(filter.Keyword))+"%")
 	}
 	if filter.Type != "" {
 		query = query.Where("type = ?", filter.Type)

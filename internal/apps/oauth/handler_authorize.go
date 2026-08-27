@@ -5,6 +5,7 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -58,6 +59,10 @@ func GetLoginURL(c *gin.Context) {
 
 	userID := GetUserIDFromSession(session)
 	sessionHash := hashSessionToken(token)
+	if err := reserveOAuthStateSlot(ctx, sessionHash); err != nil {
+		response.AbortBadRequest(c, err.Error())
+		return
+	}
 
 	state := uuid.NewString()
 	payloadValue, err := encodeOAuthStatePayload(oauthStatePayload{
@@ -70,7 +75,7 @@ func GetLoginURL(c *gin.Context) {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := db.Redis.Set(c.Request.Context(), db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
+	if err := db.Redis.Set(ctx, db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
@@ -96,6 +101,24 @@ func buildAuthorizeURL(ctx context.Context, source *model.AuthSource, state stri
 		return authConfig.AuthCodeURL(state, oidc.Nonce(state)), nil
 	}
 	return authConfig.AuthCodeURL(state), nil
+}
+
+func reserveOAuthStateSlot(ctx context.Context, sessionHash string) error {
+	if db.Redis == nil || sessionHash == "" {
+		return nil
+	}
+	key := db.PrefixedKey(fmt.Sprintf(oauthStateLimitKeyFormat, sessionHash))
+	n, err := db.Redis.Incr(ctx, key).Result()
+	if err != nil {
+		return err
+	}
+	if n == 1 {
+		_ = db.Redis.Expire(ctx, key, OAuthStateCacheKeyExpiration).Err()
+	}
+	if n > oauthStateLimitMax {
+		return errors.New(errOAuthStateRateLimited)
+	}
+	return nil
 }
 
 // Authorize 发起指定认证源授权
@@ -147,6 +170,10 @@ func Authorize(c *gin.Context) {
 	}
 
 	sessionHash := hashSessionToken(token)
+	if err := reserveOAuthStateSlot(ctx, sessionHash); err != nil {
+		response.AbortBadRequest(c, err.Error())
+		return
+	}
 
 	state := uuid.NewString()
 	payloadValue, err := encodeOAuthStatePayload(oauthStatePayload{
@@ -159,7 +186,7 @@ func Authorize(c *gin.Context) {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := db.Redis.Set(c.Request.Context(), db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
+	if err := db.Redis.Set(ctx, db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}

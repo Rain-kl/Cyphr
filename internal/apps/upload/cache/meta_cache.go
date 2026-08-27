@@ -12,6 +12,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (
@@ -29,6 +30,7 @@ var (
 	uploadMetaListenerOnce   sync.Once
 	uploadMetaListenerCtx    context.Context
 	uploadMetaListenerCancel context.CancelFunc
+	uploadMetaListenerDone   chan struct{}
 )
 
 func uploadMetaRedisKey(id uint64) string {
@@ -48,17 +50,20 @@ func ensureUploadMetaCacheListener() {
 
 func startUploadMetaCacheInvalidationListener() {
 	uploadMetaListenerCtx, uploadMetaListenerCancel = context.WithCancel(context.Background())
+	uploadMetaListenerDone = make(chan struct{})
 
-	go func() {
-		pubsub := db.Redis.Subscribe(uploadMetaListenerCtx, uploadMetaInvalidationChan)
+	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	util.Go(func() {
+		defer close(uploadMetaListenerDone)
+		pubsub := redisClient.Subscribe(uploadMetaListenerCtx, uploadMetaInvalidationChan)
 		defer func() {
 			_ = pubsub.Close()
 		}()
 
-		go func() {
+		util.Go(func() {
 			<-uploadMetaListenerCtx.Done()
 			_ = pubsub.Close()
-		}()
+		})
 
 		for msg := range pubsub.Channel() {
 			var payload uploadMetaInvalidationMessage
@@ -68,7 +73,7 @@ func startUploadMetaCacheInvalidationListener() {
 			}
 			uploadMetaRAM.Invalidate(payload.ID)
 		}
-	}()
+	})
 }
 
 func publishUploadMetaRAMInvalidation(ctx context.Context, id uint64) {
@@ -145,7 +150,11 @@ func ResetUploadMetaCacheForTest() {
 func StopUploadMetaCacheListener() {
 	if uploadMetaListenerCancel != nil {
 		uploadMetaListenerCancel()
+		if uploadMetaListenerDone != nil {
+			<-uploadMetaListenerDone // 等待 goroutine 退出，保证之后置空 db.Redis 不再竞争
+		}
 		uploadMetaListenerCancel = nil
+		uploadMetaListenerDone = nil
 	}
 	uploadMetaListenerOnce = sync.Once{}
 }

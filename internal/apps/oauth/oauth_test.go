@@ -95,6 +95,25 @@ func (m *mockRedisClient) Del(ctx context.Context, keys ...string) *redis.IntCmd
 	return cmd
 }
 
+func (m *mockRedisClient) Incr(ctx context.Context, key string) *redis.IntCmd {
+	cmd := redis.NewIntCmd(ctx)
+	n := int64(1)
+	if raw, ok := m.store[key]; ok {
+		fmt.Sscan(raw, &n)
+		n++
+	}
+	m.store[key] = fmt.Sprintf("%d", n)
+	cmd.SetVal(n)
+	return cmd
+}
+
+func (m *mockRedisClient) Expire(ctx context.Context, key string, expiration time.Duration) *redis.BoolCmd {
+	cmd := redis.NewBoolCmd(ctx)
+	_, ok := m.store[key]
+	cmd.SetVal(ok)
+	return cmd
+}
+
 func (m *mockRedisClient) Scan(ctx context.Context, cursor uint64, match string, count int64) *redis.ScanCmd {
 	cmd := redis.NewScanCmd(ctx, nil, cursor, match, count)
 	var keys []string
@@ -689,6 +708,11 @@ func TestCallbackLoginAndUserInfo(t *testing.T) {
 	dbConn := setupTestDB(t)
 	mockRedis := newMockRedisClient()
 	seedTestAuthSource(t, dbConn)
+	dbConn.Create(&model.SystemConfig{
+		Key:   model.ConfigKeyRegistrationEnabled,
+		Value: "true",
+		Type:  "system",
+	})
 
 	var state string
 
@@ -815,14 +839,14 @@ func TestCallbackLoginAndUserInfo(t *testing.T) {
 	}
 
 	t.Run("OIDC login when registration disabled - need bind", func(t *testing.T) {
-		// Disable registration in database
-		dbConn.Create(&model.SystemConfig{
-			Key:   model.ConfigKeyRegistrationEnabled,
-			Value: "false",
+		dbConn.Model(&model.SystemConfig{}).Where("key = ?", model.ConfigKeyRegistrationEnabled).Update("value", "false")
+		repository.ResetSystemConfigRAMCacheForTest()
+		mockRedis.Del(context.Background(), db.PrefixedKey(repository.SystemConfigRedisHashKey)+":"+model.ConfigKeyRegistrationEnabled)
+		t.Cleanup(func() {
+			dbConn.Model(&model.SystemConfig{}).Where("key = ?", model.ConfigKeyRegistrationEnabled).Update("value", "true")
+			repository.ResetSystemConfigRAMCacheForTest()
+			mockRedis.Del(context.Background(), db.PrefixedKey(repository.SystemConfigRedisHashKey)+":"+model.ConfigKeyRegistrationEnabled)
 		})
-		defer func() {
-			dbConn.Where("key = ?", model.ConfigKeyRegistrationEnabled).Delete(&model.SystemConfig{})
-		}()
 
 		var state4 string
 		httpMock4 := newMockOIDCClient(testIssuerURL, testClientID, &state4, "77777", "need_bind_user", "needbind@linux.do", "Need Bind User")

@@ -24,6 +24,8 @@ const (
 const (
 	OAuthStateCacheKeyFormat     = "oauth:state:%s"
 	OAuthStateCacheKeyExpiration = 10 * time.Minute
+	oauthStateLimitKeyFormat     = "oauth:state:limit:%s"
+	oauthStateLimitMax           = 10
 )
 
 // OAuth 授权用途常量

@@ -17,6 +17,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (
@@ -190,7 +191,7 @@ func startRuntimeSettingsInvalidationListener() {
 		return
 	}
 
-	go func() {
+	util.Go(func() {
 		pubsub := db.Redis.Subscribe(context.Background(), repository.SystemConfigInvalidationChannel)
 		defer func() {
 			_ = pubsub.Close()
@@ -208,5 +209,5 @@ func startRuntimeSettingsInvalidationListener() {
 				InvalidateRuntimeSettings()
 			}
 		}
-	}()
+	})
 }

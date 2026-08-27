@@ -16,6 +16,10 @@ func VerifyMiddleware(mgr *Manager, scope string) gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		if mgr == nil {
+			response.AbortUnauthorized(c, errCapTokenInvalidOrExpired)
+			return
+		}
 
 		token := c.GetHeader("X-Cap-Token")
 		if token == "" {

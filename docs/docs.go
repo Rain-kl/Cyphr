@@ -5798,7 +5798,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "用户名或密码错误、帐号已禁用等",
+                        "description": "用户名或密码错误",
                         "schema": {
                             "$ref": "#/definitions/response.Any"
                         }

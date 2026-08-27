@@ -19,4 +19,5 @@ const (
 	errAuthSourceDisabled              = "认证源未启用"
 	errInvalidExternalAccountBindingID = "绑定记录 ID 无效"
 	ErrTokenAuthNotAllowed             = "该端点不允许使用访问令牌进行身份验证" //nolint:gosec // false positive: this is an error message, not hardcoded credentials
+	errOAuthStateRateLimited           = "请求授权过于频繁，请稍后重试"
 )

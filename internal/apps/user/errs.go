@@ -44,4 +44,5 @@ const (
 	errParseEmailPayloadFailed      = "解析邮件发送参数失败: %w"
 	errSMTPConfigIncomplete         = "系统 SMTP 邮件服务配置不完整"
 	errSendMailFailed               = "发送邮件失败: %w"
+	errLoginRateLimited             = "请求过于频繁，请稍后再试"
 )

@@ -44,6 +44,10 @@ func Challenge(c *gin.Context) {
 	}
 
 	mgr := GetDefaultManager()
+	if mgr == nil {
+		response.AbortInternal(c, "captcha is not configured")
+		return
+	}
 	resp, err := mgr.Generate(c.Request.Context(), req.Scope)
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "Generate cap challenge failed: %v", err)
@@ -77,6 +81,10 @@ func Redeem(c *gin.Context) {
 	}
 
 	mgr := GetDefaultManager()
+	if mgr == nil {
+		response.AbortInternal(c, "captcha is not configured")
+		return
+	}
 	resp, err := mgr.Redeem(c.Request.Context(), req.Token, req.Solutions, req.Scope)
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "Redeem cap solutions failed: %v", err)

@@ -189,9 +189,9 @@ export function CacheManager({ refreshTrigger }: CacheManagerProps) {
           <div className='grid grid-cols-1 lg:grid-cols-5 gap-6'>
             {/* 左边：状态区 (2/5 cols) */}
             <div className='lg:col-span-2 space-y-4'>
-              <h4 className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+              <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
                 {t('runtimeStatus')}
-              </h4>
+              </p>
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                 {/* 已占空间 */}
                 <div className='p-4 rounded-xl border border-border/40 bg-background/30 backdrop-blur-xs hover:border-primary/20 transition-all duration-300'>
@@ -240,9 +240,9 @@ export function CacheManager({ refreshTrigger }: CacheManagerProps) {
 
             {/* 右边：配置区 (3/5 cols) */}
             <div className='lg:col-span-3 border-t lg:border-t-0 lg:border-l border-border/40 pt-6 lg:pt-0 lg:pl-6 space-y-4'>
-              <h4 className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
+              <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
                 {t('policyConfig')}
-              </h4>
+              </p>
               <form onSubmit={handleSaveConfig} className='space-y-4'>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                   <div className='space-y-1.5'>

@@ -140,7 +140,10 @@ export function TableBrowser({
             <Skeleton className='h-8 w-48' />
           ) : (
             <Select value={selectedTable} onValueChange={handleTableChange}>
-              <SelectTrigger className='h-8 w-[200px] text-xs bg-background border-border/40'>
+              <SelectTrigger
+                aria-label={t('selectTable')}
+                className='h-8 w-[200px] text-xs bg-background border-border/40'
+              >
                 <SelectValue placeholder={t('selectTable')} />
               </SelectTrigger>
               <SelectContent className='max-h-[300px]'>

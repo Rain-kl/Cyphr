@@ -13,6 +13,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (
@@ -31,10 +32,12 @@ var (
 	tokenListenerOnce   sync.Once
 	tokenListenerCtx    context.Context
 	tokenListenerCancel context.CancelFunc
+	tokenListenerDone   chan struct{}
 
 	userListenerOnce   sync.Once
 	userListenerCtx    context.Context
 	userListenerCancel context.CancelFunc
+	userListenerDone   chan struct{}
 )
 
 func tokenCacheKey(tokenHash string) string {
@@ -54,17 +57,22 @@ func ensureTokenCacheListener() {
 
 func startTokenCacheInvalidationListener() {
 	tokenListenerCtx, tokenListenerCancel = context.WithCancel(context.Background())
+	tokenListenerDone = make(chan struct{})
 
-	go func() {
-		pubsub := db.Redis.Subscribe(tokenListenerCtx, oauthTokenInvalidationChannel)
+	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	util.Go(func() {
+		listenerCtx := tokenListenerCtx
+		defer close(tokenListenerDone)
+
+		pubsub := redisClient.Subscribe(listenerCtx, oauthTokenInvalidationChannel)
 		defer func() {
 			_ = pubsub.Close()
 		}()
 
-		go func() {
-			<-tokenListenerCtx.Done()
+		util.Go(func() {
+			<-listenerCtx.Done()
 			_ = pubsub.Close()
-		}()
+		})
 
 		for msg := range pubsub.Channel() {
 			tokenHash := msg.Payload
@@ -74,7 +82,7 @@ func startTokenCacheInvalidationListener() {
 				tokenRAM.Invalidate(tokenHash)
 			}
 		}
-	}()
+	})
 }
 
 func publishTokenRAMInvalidation(ctx context.Context, tokenHash string) {
@@ -93,17 +101,22 @@ func ensureUserCacheListener() {
 
 func startUserCacheInvalidationListener() {
 	userListenerCtx, userListenerCancel = context.WithCancel(context.Background())
+	userListenerDone = make(chan struct{})
 
-	go func() {
-		pubsub := db.Redis.Subscribe(userListenerCtx, oauthUserInvalidationChannel)
+	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	util.Go(func() {
+		listenerCtx := userListenerCtx
+		defer close(userListenerDone)
+
+		pubsub := redisClient.Subscribe(listenerCtx, oauthUserInvalidationChannel)
 		defer func() {
 			_ = pubsub.Close()
 		}()
 
-		go func() {
-			<-userListenerCtx.Done()
+		util.Go(func() {
+			<-listenerCtx.Done()
 			_ = pubsub.Close()
-		}()
+		})
 
 		for msg := range pubsub.Channel() {
 			userIDStr := msg.Payload
@@ -113,7 +126,7 @@ func startUserCacheInvalidationListener() {
 				userRAM.Invalidate(userID)
 			}
 		}
-	}()
+	})
 }
 
 func publishUserRAMInvalidation(ctx context.Context, userID uint64) {
@@ -213,13 +226,21 @@ func InvalidateCachedUser(ctx context.Context, userID uint64) {
 func StopOauthCacheListener() {
 	if tokenListenerCancel != nil {
 		tokenListenerCancel()
+		if tokenListenerDone != nil {
+			<-tokenListenerDone
+		}
 		tokenListenerCancel = nil
+		tokenListenerDone = nil
 	}
 	tokenListenerOnce = sync.Once{}
 
 	if userListenerCancel != nil {
 		userListenerCancel()
+		if userListenerDone != nil {
+			<-userListenerDone
+		}
 		userListenerCancel = nil
+		userListenerDone = nil
 	}
 	userListenerOnce = sync.Once{}
 }

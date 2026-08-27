@@ -6,14 +6,17 @@ package user
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
+	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/infra/task"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/repository"
@@ -49,6 +52,48 @@ type updateProfileInput struct {
 	Location  string
 }
 
+const (
+	loginFailLimitKeyFormat = "login:fail:%s"
+	loginFailLimitMax       = 20
+	loginFailLimitWindow    = 10 * time.Minute
+)
+
+func loginFailLimitKey(ip string) string {
+	return fmt.Sprintf(loginFailLimitKeyFormat, strings.TrimSpace(ip))
+}
+
+func loginAttemptsBlocked(ctx context.Context, ip string) bool {
+	if db.Redis == nil {
+		return false
+	}
+	n, err := db.Redis.Get(ctx, db.PrefixedKey(loginFailLimitKey(ip))).Int()
+	if err != nil {
+		return false
+	}
+	return n >= loginFailLimitMax
+}
+
+func recordFailedLogin(ctx context.Context, ip string) {
+	if db.Redis == nil {
+		return
+	}
+	key := db.PrefixedKey(loginFailLimitKey(ip))
+	n, err := db.Redis.Incr(ctx, key).Result()
+	if err != nil {
+		return
+	}
+	if n == 1 {
+		_ = db.Redis.Expire(ctx, key, loginFailLimitWindow).Err()
+	}
+}
+
+func clearFailedLogins(ctx context.Context, ip string) {
+	if db.Redis == nil {
+		return
+	}
+	_ = db.Redis.Del(ctx, db.PrefixedKey(loginFailLimitKey(ip))).Err()
+}
+
 func isPasswordLoginEnabled(ctx context.Context) bool {
 	enabled, err := repository.GetBoolByKey(ctx, model.ConfigKeyPasswordLoginEnabled)
 	if err != nil {
@@ -60,7 +105,7 @@ func isPasswordLoginEnabled(ctx context.Context) bool {
 func isPasswordRegisterEnabled(ctx context.Context) bool {
 	enabled, err := repository.GetBoolByKey(ctx, model.ConfigKeyPasswordRegisterEnabled)
 	if err != nil {
-		return true
+		return false
 	}
 	return enabled
 }
@@ -68,7 +113,7 @@ func isPasswordRegisterEnabled(ctx context.Context) bool {
 func isRegistrationEnabled(ctx context.Context) bool {
 	enabled, err := repository.GetBoolByKey(ctx, model.ConfigKeyRegistrationEnabled)
 	if err != nil {
-		return true
+		return false
 	}
 	return enabled
 }
@@ -161,7 +206,9 @@ func verifyEmailCode(ctx context.Context, email, scene, code string) bool {
 	if err := db.GetJSON(ctx, codeKey, &storedCode); err != nil {
 		return false
 	}
-	if storedCode != code {
+	sumGot := sha256.Sum256([]byte(strings.TrimSpace(code)))
+	sumWant := sha256.Sum256([]byte(strings.TrimSpace(storedCode)))
+	if subtle.ConstantTimeCompare(sumGot[:], sumWant[:]) != 1 {
 		return false
 	}
 	_ = db.Redis.Del(ctx, db.PrefixedKey(codeKey)).Err()

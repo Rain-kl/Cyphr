@@ -227,6 +227,7 @@ export function AccessAnalytics() {
             variant='ghost'
             size='icon'
             className='size-8'
+            aria-label={t('refresh')}
             onClick={fetchAnalytics}
             disabled={loading}
           >

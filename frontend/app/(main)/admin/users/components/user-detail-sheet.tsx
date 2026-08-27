@@ -104,9 +104,9 @@ export function UserDetailSheet({
 
                 <div className='p-6 space-y-6'>
                   <div className='space-y-4'>
-                    <h4 className='text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1'>
+                    <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1'>
                       {t('personalInfo')}
-                    </h4>
+                    </p>
                     <div className='rounded-lg border divide-y bg-background/50'>
                       <div className='flex items-center justify-between gap-4 p-3.5 text-sm'>
                         <span className='flex items-center gap-2 text-[10px] text-muted-foreground'>
@@ -167,9 +167,9 @@ export function UserDetailSheet({
                   </div>
 
                   <div className='space-y-4'>
-                    <h4 className='text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1'>
+                    <p className='text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1'>
                       {t('systemRecords')}
-                    </h4>
+                    </p>
                     <div className='rounded-lg border divide-y bg-background/50'>
                       <div className='flex items-center justify-between p-3.5 text-sm'>
                         <span className='text-[10px]'>

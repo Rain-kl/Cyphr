@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/gin-gonic/gin"
 
 	"github.com/Rain-kl/Wavelet/internal/shared/response"
@@ -58,11 +59,11 @@ func ApplyUpdate(c *gin.Context) {
 	logger.InfoF(c.Request.Context(), "[Updater] upgrade prepared; restarting with %s", stagedBinary)
 	c.JSON(http.StatusOK, response.OKNil())
 
-	go func() {
+	util.Go(func() {
 		time.Sleep(time.Second)
 		if err := replaceAndRestart(executable, stagedBinary); err != nil {
 			defaultManager.finishUpgrade()
 			logger.ErrorF(context.Background(), "[Updater] replace and restart failed: %v", err)
 		}
-	}()
+	})
 }

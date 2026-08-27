@@ -13,6 +13,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (
@@ -48,6 +49,7 @@ var (
 	authSourceListenerOnce   sync.Once
 	authSourceListenerCtx    context.Context
 	authSourceListenerCancel context.CancelFunc
+	authSourceListenerDone   chan struct{}
 )
 
 func cloneAuthSources(sources []model.AuthSource) []model.AuthSource {
@@ -116,23 +118,28 @@ func ensureAuthSourceCacheListener() {
 
 func startAuthSourceCacheInvalidationListener() {
 	authSourceListenerCtx, authSourceListenerCancel = context.WithCancel(context.Background())
+	authSourceListenerDone = make(chan struct{})
 
-	go func() {
-		pubsub := db.Redis.Subscribe(authSourceListenerCtx, authSourceInvalidationChannel)
+	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	util.Go(func() {
+		listenerCtx := authSourceListenerCtx
+		defer close(authSourceListenerDone)
+
+		pubsub := redisClient.Subscribe(listenerCtx, authSourceInvalidationChannel)
 		defer func() {
 			_ = pubsub.Close()
 		}()
 
-		go func() {
-			<-authSourceListenerCtx.Done()
+		util.Go(func() {
+			<-listenerCtx.Done()
 			_ = pubsub.Close()
-		}()
+		})
 
 		for range pubsub.Channel() {
 			authSourceActiveRAM.InvalidateAll()
 			authSourceByNameRAM.InvalidateAll()
 		}
-	}()
+	})
 }
 
 func publishAuthSourceRAMInvalidation(ctx context.Context) {
@@ -257,7 +264,11 @@ func InvalidateAuthSourceCache(ctx context.Context) error {
 func StopAuthSourceCacheListener() {
 	if authSourceListenerCancel != nil {
 		authSourceListenerCancel()
+		if authSourceListenerDone != nil {
+			<-authSourceListenerDone
+		}
 		authSourceListenerCancel = nil
+		authSourceListenerDone = nil
 	}
 	authSourceListenerOnce = sync.Once{}
 }

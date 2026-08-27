@@ -10,7 +10,9 @@
     "settings": "Settings",
     "search": "Search",
     "unknownError": "Something went wrong. Please try again.",
-    "loadFailed": "Load failed"
+    "loadFailed": "Load failed",
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   },
   "layout": {
     "nav": {
@@ -94,7 +96,9 @@
     "empty": {
       "noData": "No data",
       "noContent": "No records found"
-    }
+    },
+    "toggleSidebar": "Toggle sidebar",
+    "mainNavigation": "Main navigation"
   },
   "auth": {
     "login": {
@@ -1243,7 +1247,8 @@
         "noActiveUsersData": "No active user data",
         "unknown": "Unknown",
         "noNickname": "(no nickname)",
-        "requests": "requests"
+        "requests": "requests",
+        "refresh": "Refresh"
       },
       "appLogs": {
         "loading": "Loading...",

@@ -14,6 +14,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (
@@ -86,10 +87,16 @@ func (ConfigLoader) LoadOne(ctx context.Context, configType string, key string) 
 	}, nil
 }
 
+// PreloadSystemConfigs warms the in-memory RAM cache from database on startup.
+func PreloadSystemConfigs(ctx context.Context) error {
+	return ram.Refresh(ctx, ConfigCacheType, "", ConfigLoader{})
+}
+
 var (
 	systemConfigListenerOnce   sync.Once
 	systemConfigListenerCtx    context.Context
 	systemConfigListenerCancel context.CancelFunc
+	systemConfigListenerDone   chan struct{}
 )
 
 func ensureSystemConfigCacheListener() {
@@ -102,17 +109,22 @@ func startSystemConfigCacheInvalidationListener() {
 	}
 
 	systemConfigListenerCtx, systemConfigListenerCancel = context.WithCancel(context.Background())
+	systemConfigListenerDone = make(chan struct{})
 
-	go func() {
-		pubsub := db.Redis.Subscribe(systemConfigListenerCtx, SystemConfigBroadcastChannel)
+	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	util.Go(func() {
+		listenerCtx := systemConfigListenerCtx
+		defer close(systemConfigListenerDone)
+
+		pubsub := redisClient.Subscribe(listenerCtx, SystemConfigBroadcastChannel)
 		defer func() {
 			_ = pubsub.Close()
 		}()
 
-		go func() {
-			<-systemConfigListenerCtx.Done()
+		util.Go(func() {
+			<-listenerCtx.Done()
 			_ = pubsub.Close()
-		}()
+		})
 
 		for msg := range pubsub.Channel() {
 			var payload systemConfigBroadcastMessage
@@ -128,14 +140,18 @@ func startSystemConfigCacheInvalidationListener() {
 				ram.Delete(payload.Type, key)
 			}
 		}
-	}()
+	})
 }
 
 // StopSystemConfigCacheListener stops the Redis Pub/Sub subscription listener and resets the sync.Once guard.
 func StopSystemConfigCacheListener() {
 	if systemConfigListenerCancel != nil {
 		systemConfigListenerCancel()
+		if systemConfigListenerDone != nil {
+			<-systemConfigListenerDone
+		}
 		systemConfigListenerCancel = nil
+		systemConfigListenerDone = nil
 	}
 	systemConfigListenerOnce = sync.Once{}
 }

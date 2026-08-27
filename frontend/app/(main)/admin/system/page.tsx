@@ -8,10 +8,9 @@ import {
   ManageDetailPanel,
   ManagePage,
 } from '@/components/common/general/manage-pannel';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShieldCheck } from 'lucide-react';
 
-import { formatDateTime } from '@/lib/utils';
+import { cn, formatDateTime } from '@/lib/utils';
 import type { SystemConfig } from '@/lib/services/admin';
 import { AdminProvider, useAdmin } from '@/contexts/admin-context';
 
@@ -255,20 +254,28 @@ export function SystemConfigs() {
       emptyDescription={t('emptyDescription')}
       loadingDescription={t('loadingDescription')}
       headerExtra={
-        <Tabs
-          value={activeTab}
-          onValueChange={(val) => setActiveTab(val as 'system' | 'business')}
-          className='w-[180px]'
+        <div
+          role='group'
+          aria-label={t('configType')}
+          className='grid w-[180px] grid-cols-2 h-8 rounded-md border border-input bg-muted/40 p-0.5'
         >
-          <TabsList className='grid w-full grid-cols-2 h-8'>
-            <TabsTrigger value='business' className='text-[11px] h-7'>
-              {t('businessConfig')}
-            </TabsTrigger>
-            <TabsTrigger value='system' className='text-[11px] h-7'>
-              {t('systemConfig')}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+          {(['business', 'system'] as const).map((tab) => (
+            <button
+              key={tab}
+              type='button'
+              onClick={() => setActiveTab(tab)}
+              aria-pressed={activeTab === tab}
+              className={cn(
+                'h-full rounded-sm text-[11px] font-medium transition-colors',
+                activeTab === tab
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {tab === 'business' ? t('businessConfig') : t('systemConfig')}
+            </button>
+          ))}
+        </div>
       }
       columns={[
         {

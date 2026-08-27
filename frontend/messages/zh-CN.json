@@ -10,7 +10,9 @@
     "settings": "设置",
     "search": "搜索",
     "unknownError": "发生错误，请重试",
-    "loadFailed": "加载失败"
+    "loadFailed": "加载失败",
+    "previousPage": "上一页",
+    "nextPage": "下一页"
   },
   "layout": {
     "nav": {
@@ -94,7 +96,9 @@
     "empty": {
       "noData": "暂无数据",
       "noContent": "当前没有任何记录"
-    }
+    },
+    "toggleSidebar": "切换侧边栏",
+    "mainNavigation": "主导航"
   },
   "auth": {
     "login": {
@@ -1243,7 +1247,8 @@
         "noActiveUsersData": "暂无活跃用户数据",
         "unknown": "未知",
         "noNickname": "(无昵称)",
-        "requests": "次请求"
+        "requests": "次请求",
+        "refresh": "刷新"
       },
       "appLogs": {
         "loading": "加载中...",

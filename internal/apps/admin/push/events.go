@@ -16,6 +16,7 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -76,7 +77,7 @@ var DefaultTrigger = &EventTrigger{}
 //nolint:contextcheck
 func (t *EventTrigger) Trigger(ctx context.Context, meta EventMetadata, body map[string]any) {
 	asyncCtx := context.WithoutCancel(ctx)
-	go func() {
+	util.Go(func() {
 		if body == nil {
 			body = make(map[string]any)
 		}
@@ -100,7 +101,7 @@ func (t *EventTrigger) Trigger(ctx context.Context, meta EventMetadata, body map
 		flatBody := getFlatBody(body)
 		msg, _ := t.buildMessage(&event, meta, flatBody, body)
 		t.enqueuePushTasks(asyncCtx, meta, &event, msg, flatBody)
-	}()
+	})
 }
 
 func (t *EventTrigger) buildMessage(event *model.PushEvent, meta EventMetadata, flatBody map[string]any, body map[string]any) (NotificationMessage, string) {

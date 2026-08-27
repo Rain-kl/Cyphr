@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 
 export function UserFilterBar() {
   const t = useTranslations('admin.users');
+  const tCommon = useTranslations('common');
   const {
     total,
     loading,
@@ -223,6 +224,7 @@ export function UserFilterBar() {
           <Button
             variant='ghost'
             size='icon'
+            aria-label={tCommon('previousPage')}
             className='h-5.5 w-6 rounded-none rounded-l-md disabled:opacity-30'
             onClick={() => setPage(Math.max(1, page - 1))}
             disabled={page <= 1 || loading}
@@ -235,6 +237,7 @@ export function UserFilterBar() {
           <Button
             variant='ghost'
             size='icon'
+            aria-label={tCommon('nextPage')}
             className='h-5.5 w-6 rounded-none rounded-r-md disabled:opacity-30'
             onClick={() => setPage(Math.min(totalPages, page + 1))}
             disabled={page >= totalPages || loading}

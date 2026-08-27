@@ -81,7 +81,7 @@ export function EmptyState({
       </div>
 
       {displayTitle && (
-        <h3 className='text-base font-medium mb-1'>{displayTitle}</h3>
+        <p className='text-base font-medium mb-1'>{displayTitle}</p>
       )}
 
       {displayDescription && (

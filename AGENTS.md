@@ -121,6 +121,16 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - 管理员代码推荐使用 `db.DB(ctx)`（`internal/infra/persistence`，包名 `db`）保证 Trace 链路透传。
 - 禁止在 Handler 写复杂 SQL；迁移文件位于 `internal/infra/persistence/migrator/goose/`（禁止 GORM AutoMigrate）。
 - 不创建物理外键（显式建索引）；Go 模型零值需与数据库默认值匹配。
+- **SQL LIKE 查询防注入与转义**：所有含用户输入的模糊查询必须调用 `pkg/util.EscapeLike` 转义通配符，并显式指定 `ESCAPE '\\'` 语法（如 `Where("username LIKE ? ESCAPE '\\'", util.EscapeLike(keyword)+"%")`），同时兼容 PostgreSQL 与 SQLite 方言并杜绝通配符注入攻击。
+
+### 并发与安全防护规范
+- **Goroutine 安全**：禁止直接使用裸 `go func()`；统一使用 `pkg/util.Go`，确保具备未捕获 panic 恢复和调用栈日志记录能力。
+- **Pub/Sub 监听并发安全**：启动 Redis Pub/Sub 订阅监听前，必须捕获局部客户端实例（如 `redisClient := db.Redis`），禁止在 goroutine 闭包中直读可变全局 `db.Redis`；提供 `Stop*Listener` 时必须维护 `done` 通道等待 goroutine 完整退出后再重置状态，消除测试或重连时的数据竞争。
+- **Session 固定攻击防御**：用户登录/授权成功后，必须调用 `oauth.SetLoginSession`（内部执行 Session ID 轮换），防止 Session 固定攻击。
+- **防账户枚举与时序攻击**：
+  - 登录失败统一返回模糊报错；当查询用户不存在时，必须调用 `pkg/util.DummyCheckPassword` 执行同等开销的 bcrypt 哈希计算，彻底消除时序侧信道攻击。
+  - 验证码、签名 Token 等敏感字符串比对必须使用 `crypto/subtle.ConstantTimeCompare` 常量时间比对。
+- **敏感端点限流**：登录尝试、OAuth 授权发起等敏感接口必须接入基于 Redis 的滑动窗口限流机制，防止暴力破解与缓存资源耗尽。
 
 ## 前端开发规范
 
@@ -130,6 +140,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
     - 标题容器统一 `flex items-center gap-2`（带操作按钮用 `justify-between`）。
     - 图标直接使用 Lucide 组件（`size-5 text-primary`），禁止包裹背景小卡片或装饰边框。
     - 标题文字统一使用 `<h1 className="text-2xl font-semibold tracking-tight">`。
+- **无障碍语义与色彩规范 (a11y & WCAG)**：
+    - **标题层级规范 (Heading Hierarchy)**：页面中非顶级结构化标题（如空状态提示、加载提示、卡片眉题/卡片标题、抽屉区块名）严禁滥用 `<h3>`/`<h4>`，统一使用 `<p>` 配合样式，保证屏幕阅读器感知的标题层级连续。
+    - **无文本控件无障碍**：所有仅包含图标的按钮（如仅有 Icon 的 Button、Switch、无文本的 SelectTrigger）必须显式添加 `aria-label`。
+    - **色彩对比度**：正文、提示、徽章等小字颜色在亮色/暗色模式下必须满足 WCAG AA（对比度 ≥ 4.5:1）。
 - **组件拆分与维护**：
     - 物理路由页面 `page.tsx` 仅维护高级骨架与布局。
     - 单文件超过 600 行或含多 Tab/大复杂区块时，必须按就近原则拆分为子组件存放在路由同级的 `components/` 局部目录中（参考 `/admin/database` 的模块化拆分结构）。

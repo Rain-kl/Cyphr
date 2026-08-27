@@ -165,7 +165,10 @@ export function SQLConsole({ dbType, onClose }: SQLConsoleProps) {
                 {t('quickTemplates')}
               </span>
               <Select onValueChange={handlePresetSQLChange}>
-                <SelectTrigger className='h-7 w-[180px] text-[11px] bg-background'>
+                <SelectTrigger
+                  aria-label={t('selectPresetSQL')}
+                  className='h-7 w-[180px] text-[11px] bg-background'
+                >
                   <SelectValue placeholder={t('selectPresetSQL')} />
                 </SelectTrigger>
                 <SelectContent>

@@ -17,6 +17,7 @@ import (
 	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
 	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (
@@ -153,7 +154,7 @@ func ListTaskExecutions(ctx context.Context, req model.ListTaskExecutionsRequest
 	} else if types := parseTaskTypesFilter(req.TaskTypes); len(types) > 0 {
 		query = query.Where("task_type IN ?", types)
 	} else if req.TaskTypePrefix != "" {
-		query = query.Where("task_type LIKE ?", req.TaskTypePrefix+"%")
+		query = query.Where("task_type LIKE ? ESCAPE '\\'", util.EscapeLike(req.TaskTypePrefix)+"%")
 	}
 
 	var total int64

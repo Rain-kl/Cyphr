@@ -238,7 +238,7 @@ export function UserFileManager() {
               <Upload className='size-10' />
             </div>
             <div className='space-y-1'>
-              <h3 className='font-semibold text-sm'>{t('noFiles')}</h3>
+              <p className='font-semibold text-sm'>{t('noFiles')}</p>
               <p className='text-xs text-muted-foreground max-w-xs'>
                 {debouncedKeyword ? t('noMatchingFiles') : t('uploadFirstFile')}
               </p>
