@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 )
 
-// ChannelService 示例有状态 Service（放在 internal/apps/channel/service.go）
-// 需要注入 DB/客户端时使用；简单逻辑优先 logics.go 纯函数。
+// ChannelService 示例有状态 Service（位于 plugins/domain/channel/service.go）
+// 需要注入 DB/缓存时使用；简单逻辑优先 logics.go 纯函数。
 type ChannelService struct {
-	// 例如：repo ChannelRepository
+	// 例如：db *gorm.DB
 }
 
 // NewChannelService 构造函数

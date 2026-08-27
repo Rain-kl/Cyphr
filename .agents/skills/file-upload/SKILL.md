@@ -5,7 +5,7 @@ description: "Wavelet 项目专用：当业务需要上传文件、读取已上�
 
 # 存储引擎与文件上传开发规范
 
-本技能是 Wavelet **文件上传与对象存储**的唯一开发指导。开始开发前先阅读仓库根目录 [AGENTS.md](file:///Users/ryan/DEV/Go/Wavelet/AGENTS.md)，遵守项目级核心规则。
+本技能是 Wavelet **文件上传与对象存储**的唯一开发指导。开始开发前先阅读仓库根目录 [AGENTS.md](../../../AGENTS.md)，遵守项目级核心规则。
 
 ---
 
@@ -217,7 +217,7 @@ upload.RebuildUploadStats(ctx) // 从 w_uploads 全量重建统计
 - **禁止**在源码目录硬编码 `uploads/test` 路径；本地文件测试用 `t.TempDir()` 或 mock backend
 - 覆盖：三种 Policy、Remove 后统计归零、ReadOnly 拒绝写入
 
-参考：[internal/apps/upload/ingest/ingest_test.go](file:///Users/ryan/DEV/Go/Wavelet/internal/apps/upload/ingest/ingest_test.go)
+参考：`internal/apps/upload/ingest/ingest_test.go`
 
 ### Handler 回归
 

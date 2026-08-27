@@ -21,9 +21,9 @@ type createChannelResponse struct {
 	Name string `json:"name"`
 }
 
-// CreateChannel 示例：产品域 Handler（应放在 internal/apps/channel/routers.go）
+// CreateChannel 示例：插件内 HTTP Handler（位于 plugins/domain/channel/handlers.go）
 // @Summary 创建频道
-// @Description 示例：语义路径下的业务接口，而非 /api/v1/custom/...
+// @Description 示例：语义路径下的业务接口
 // @Tags channel
 // @Accept json
 // @Produce json
@@ -39,7 +39,7 @@ func CreateChannel(c *gin.Context) {
 		return
 	}
 
-	// 通常结合 oauth.LoginRequired()；此处仅演示从上下文取用户
+	// 从请求上下文中提取认证用户
 	userID := int64(9527)
 
 	result, err := CreateChannelLogic(c.Request.Context(), userID, req.Name)
