@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/Rain-kl/Wavelet/core/extpoints"
 )
 
 // Context is the central micro-kernel service bus and runtime lifecycle container.
@@ -16,6 +18,13 @@ type Context struct {
 	cancel    context.CancelFunc
 	parent    *Context
 	container *Container
+
+	events     *EventBus
+	router     extpoints.RouterExtension
+	migrations extpoints.MigrationExtension
+	tasks      extpoints.TaskExtension
+	schedules  extpoints.ScheduleExtension
+	settings   extpoints.SettingExtension
 
 	mu        sync.RWMutex
 	children  []*Context
@@ -34,10 +43,16 @@ func NewContext(base context.Context) *Context {
 	ctx, cancel := context.WithCancel(base)
 
 	return &Context{
-		goCtx:     ctx,
-		cancel:    cancel,
-		container: NewContainer(nil),
-		values:    make(map[any]any),
+		goCtx:      ctx,
+		cancel:     cancel,
+		container:  NewContainer(nil),
+		events:     NewEventBus(),
+		router:     extpoints.NewRouterRegistry(),
+		migrations: extpoints.NewMigrationRegistry(),
+		tasks:      extpoints.NewTaskRegistry(),
+		schedules:  extpoints.NewScheduleRegistry(),
+		settings:   extpoints.NewSettingRegistry(),
+		values:     make(map[any]any),
 	}
 }
 
@@ -127,11 +142,17 @@ func (c *Context) ForkWithContext(base context.Context) *Context {
 	ctx, cancel := context.WithCancel(base)
 
 	child := &Context{
-		goCtx:     ctx,
-		cancel:    cancel,
-		parent:    c,
-		container: NewContainer(c.container),
-		values:    make(map[any]any),
+		goCtx:      ctx,
+		cancel:     cancel,
+		parent:     c,
+		container:  NewContainer(c.container),
+		events:     c.Events(),
+		router:     c.Router(),
+		migrations: c.Migrations(),
+		tasks:      c.Tasks(),
+		schedules:  c.Schedules(),
+		settings:   c.Settings(),
+		values:     make(map[any]any),
 	}
 
 	c.mu.Lock()
@@ -139,6 +160,51 @@ func (c *Context) ForkWithContext(base context.Context) *Context {
 	c.mu.Unlock()
 
 	return child
+}
+
+// Events returns the domain EventBus associated with this Context hierarchy.
+func (c *Context) Events() *EventBus {
+	return c.events
+}
+
+// Router returns the RouterExtension registry.
+func (c *Context) Router() extpoints.RouterExtension {
+	return c.router
+}
+
+// Migrations returns the MigrationExtension registry.
+func (c *Context) Migrations() extpoints.MigrationExtension {
+	return c.migrations
+}
+
+// Tasks returns the TaskExtension registry.
+func (c *Context) Tasks() extpoints.TaskExtension {
+	return c.tasks
+}
+
+// Task is an alias for Tasks().
+func (c *Context) Task() extpoints.TaskExtension {
+	return c.tasks
+}
+
+// Schedules returns the ScheduleExtension registry.
+func (c *Context) Schedules() extpoints.ScheduleExtension {
+	return c.schedules
+}
+
+// Schedule is an alias for Schedules().
+func (c *Context) Schedule() extpoints.ScheduleExtension {
+	return c.schedules
+}
+
+// Settings returns the SettingExtension registry.
+func (c *Context) Settings() extpoints.SettingExtension {
+	return c.settings
+}
+
+// Setting is an alias for Settings().
+func (c *Context) Setting() extpoints.SettingExtension {
+	return c.settings
 }
 
 // OnDispose registers a cleanup callback function to be executed when this Context is disposed.

@@ -473,3 +473,27 @@ func TestConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestContextExtensionPointsAccessors(t *testing.T) {
+	ctx := core.NewContext(nil)
+	assert.NotNil(t, ctx.Events())
+	assert.NotNil(t, ctx.Router())
+	assert.NotNil(t, ctx.Migrations())
+	assert.NotNil(t, ctx.Tasks())
+	assert.NotNil(t, ctx.Task())
+	assert.NotNil(t, ctx.Schedules())
+	assert.NotNil(t, ctx.Schedule())
+	assert.NotNil(t, ctx.Settings())
+	assert.NotNil(t, ctx.Setting())
+
+	child := ctx.Fork()
+	assert.Equal(t, ctx.Events(), child.Events())
+	assert.Equal(t, ctx.Router(), child.Router())
+	assert.Equal(t, ctx.Migrations(), child.Migrations())
+	assert.Equal(t, ctx.Tasks(), child.Tasks())
+	assert.Equal(t, ctx.Task(), child.Task())
+	assert.Equal(t, ctx.Schedules(), child.Schedules())
+	assert.Equal(t, ctx.Schedule(), child.Schedule())
+	assert.Equal(t, ctx.Settings(), child.Settings())
+	assert.Equal(t, ctx.Setting(), child.Setting())
+}

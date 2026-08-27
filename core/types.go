@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"errors"
+
+	"github.com/Rain-kl/Wavelet/core/extpoints"
 )
 
 // Standard sentinel errors returned by core operations.
@@ -69,3 +71,19 @@ type Driver interface {
 
 // Disposer is a cleanup function executed when a Context is disposed.
 type Disposer func() error
+
+// Re-exported extension point types from core/extpoints for convenient usage.
+type (
+	RouterExtension    = extpoints.RouterExtension
+	RouteDefinition    = extpoints.RouteDefinition
+	MigrationExtension = extpoints.MigrationExtension
+	MigrationEntry     = extpoints.MigrationEntry
+	TaskExtension      = extpoints.TaskExtension
+	TaskDefinition     = extpoints.TaskDefinition
+	TaskOption         = extpoints.TaskOption
+	ScheduleExtension  = extpoints.ScheduleExtension
+	ScheduleDefinition = extpoints.ScheduleDefinition
+	ScheduleOption     = extpoints.ScheduleOption
+	SettingExtension   = extpoints.SettingExtension
+	SettingSchema      = extpoints.SettingSchema
+)
