@@ -1,3 +1,4 @@
+// Package driver_asynq_cron provides the Asynq cron schedule driver plugin for Cordis.
 package driver_asynq_cron
 
 import (

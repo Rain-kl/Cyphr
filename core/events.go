@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 )
 
+const maxHandlerParams = 2
+
 var ctxInterfaceType = reflect.TypeFor[context.Context]()
 var errInterfaceType = reflect.TypeFor[error]()
 
@@ -62,7 +64,7 @@ func (b *EventBus) On(topic string, handler any) Disposer {
 	}
 
 	numIn := fnType.NumIn()
-	if numIn > 2 {
+	if numIn > maxHandlerParams {
 		panic(fmt.Sprintf("core/events: handler has %d parameters, maximum 2 supported (ctx, event)", numIn))
 	}
 
@@ -150,6 +152,8 @@ func Subscribe[T any](bus *EventBus, topic string, handler func(ctx context.Cont
 // Emit publishes an event to all subscribers of the specified topic.
 // Handlers are executed synchronously. If any handler panics or returns an error,
 // the error is collected and returned via errors.Join.
+//
+//nolint:contextcheck
 func (b *EventBus) Emit(ctx context.Context, topic string, payload any) error {
 	if ctx == nil {
 		ctx = context.Background()

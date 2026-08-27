@@ -1,3 +1,4 @@
+// Package driver_asynq_worker provides the Asynq worker driver plugin for Cordis.
 package driver_asynq_worker
 
 import (
@@ -120,7 +121,7 @@ func (p *Plugin) Type() core.DriverType {
 }
 
 // Start boots the Asynq worker server and starts processing background tasks.
-func (p *Plugin) Start(ctx context.Context) error {
+func (p *Plugin) Start(_ context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -208,9 +209,9 @@ func toAsynqHandler(h any) (asynq.Handler, error) {
 	}
 
 	switch fn := h.(type) {
-	case asynq.Handler:
-		return fn, nil
 	case asynq.HandlerFunc:
+		return fn, nil
+	case asynq.Handler:
 		return fn, nil
 	case func(context.Context, *asynq.Task) error:
 		return asynq.HandlerFunc(fn), nil

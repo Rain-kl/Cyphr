@@ -1,3 +1,4 @@
+// Package core provides the micro-kernel service bus, generic IoC container, and runtime extensions.
 package core
 
 import (

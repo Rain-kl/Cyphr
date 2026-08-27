@@ -1,3 +1,4 @@
+// Package driver_http provides the Gin HTTP web server driver plugin for Cordis.
 package driver_http
 
 import (
@@ -172,6 +173,8 @@ func (p *Plugin) Start(ctx context.Context) error {
 }
 
 // Stop gracefully stops the HTTP server.
+//
+//nolint:contextcheck
 func (p *Plugin) Stop(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()

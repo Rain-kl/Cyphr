@@ -1,3 +1,4 @@
+// Package extpoints defines extension points for router, migrations, tasks, schedules, and settings.
 package extpoints
 
 import (

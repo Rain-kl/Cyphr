@@ -36,6 +36,8 @@ type Context struct {
 
 // NewContext creates a new root Context wrapping a standard Go context.
 // If base is nil, context.Background() is used by default.
+//
+//nolint:contextcheck
 func NewContext(base context.Context) *Context {
 	if base == nil {
 		base = context.Background()
@@ -135,6 +137,8 @@ func (c *Context) Fork() *Context {
 }
 
 // ForkWithContext creates a child Context using a specific standard Go context.
+//
+//nolint:contextcheck
 func (c *Context) ForkWithContext(base context.Context) *Context {
 	if base == nil {
 		base = c.goCtx
