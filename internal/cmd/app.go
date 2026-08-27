@@ -22,6 +22,11 @@ import (
 	"github.com/Rain-kl/Wavelet/internal/platform/bootstrap"
 	"github.com/Rain-kl/Wavelet/internal/router"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/admin"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
+	"github.com/Rain-kl/Wavelet/plugins/domain/user"
 	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/infra/logger"
@@ -29,7 +34,7 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// newWaveletApp creates a core.App wired with Wavelet platform infrastructure and profile drivers.
+// newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.
 //
 //nolint:contextcheck
 func newWaveletApp(profile core.Profile) *core.App {
@@ -44,6 +49,15 @@ func newWaveletApp(profile core.Profile) *core.App {
 		cache.New(),
 		logger.New(),
 		storage.New(),
+	)
+
+	// Register domain plugins
+	app.Use(
+		auth.New(),
+		user.New(),
+		message_gateway.New(),
+		risk_control.New(),
+		admin.New(),
 	)
 
 	// Bind Goose migration runner

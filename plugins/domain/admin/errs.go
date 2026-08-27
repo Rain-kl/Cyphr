@@ -65,12 +65,12 @@ const (
 
 // 用户管理（管理员视角）错误消息常量
 const (
-	userNotFound          = "用户不存在"
-	cannotDisable         = "不能禁用管理员账号"
-	cannotDelete          = "不能删除管理员账号"
-	cannotDeleteSelf      = "不能删除当前登录账号"
-	usernameRequired      = "用户名不能为空"
-	emailRequired         = "邮箱不能为空"
+	userNotFound     = "用户不存在"
+	cannotDisable    = "不能禁用管理员账号"
+	cannotDelete     = "不能删除管理员账号"
+	cannotDeleteSelf = "不能删除当前登录账号"
+	usernameRequired = "用户名不能为空"
+	emailRequired    = "邮箱不能为空"
 	//nolint:gosec // error message, not hardcoded credentials
 	passwordTooShort      = "密码长度不能少于 8 位"
 	usernameExists        = "用户名已存在"

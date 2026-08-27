@@ -26,9 +26,9 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 			require.NotNil(t, app)
 			assert.Equal(t, prof, app.Profile())
 
-			// Verify 4 infra plugins + 3 driver plugins registered
+			// Verify 4 infra plugins + 5 domain plugins + 3 driver plugins registered
 			plugins := app.Plugins()
-			assert.Len(t, plugins, 7)
+			assert.Len(t, plugins, 12)
 
 			// Verify each standard infra plugin is registered
 			_, ok := app.Plugin("database")
@@ -42,6 +42,22 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 
 			_, ok = app.Plugin("storage")
 			assert.True(t, ok, "storage plugin missing")
+
+			// Verify domain plugins
+			_, ok = app.Plugin("auth")
+			assert.True(t, ok, "auth plugin missing")
+
+			_, ok = app.Plugin("user")
+			assert.True(t, ok, "user plugin missing")
+
+			_, ok = app.Plugin("message_gateway")
+			assert.True(t, ok, "message_gateway plugin missing")
+
+			_, ok = app.Plugin("risk_control")
+			assert.True(t, ok, "risk_control plugin missing")
+
+			_, ok = app.Plugin("admin")
+			assert.True(t, ok, "admin plugin missing")
 
 			// Verify driver plugins
 			_, ok = app.Plugin("driver_wavelet_http")
