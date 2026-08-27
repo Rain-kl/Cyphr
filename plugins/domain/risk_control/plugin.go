@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package risk_control provides the access control, IP rate limiting, and telemetry risk analysis domain plugin for Cordis.
 package risk_control
 
@@ -6,7 +9,6 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/internal/apps/risk_control"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,12 +56,12 @@ func (p *Plugin) Manifest() core.Manifest {
 // Apply registers risk control middlewares, settings, and cleanup hooks into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	// 1. Initialize LogWriter if needed
-	risk_control.InitLogWriter(ctx.GoContext())
+	InitLogWriter(ctx.GoContext())
 
 	// 2. Register router middleware
 	mw := p.middleware
 	if mw == nil {
-		mw = risk_control.RiskControlMiddleware()
+		mw = RiskControlMiddleware()
 	}
 	ctx.Router().Use(mw)
 
@@ -81,7 +83,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 4. Register lifecycle disposal cleanup
 	ctx.OnDispose(func() error {
-		return risk_control.StopLogWriter(context.Background())
+		return StopLogWriter(context.Background())
 	})
 
 	return nil

@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package auth provides the authentication, OAuth, session management, and access token domain plugin for Cordis.
 package auth
 
@@ -7,7 +10,6 @@ import (
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 )
 
 //go:embed migrations/*.sql
@@ -81,16 +83,16 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 3. Register HTTP Routes
 	oauthGroup := ctx.Router().Group("/api/v1/oauth")
 	{
-		oauthGroup.GET("/sources", oauth.GetLoginSources)
-		oauthGroup.GET("/login", oauth.GetLoginURL)
-		oauthGroup.GET("/:source/authorize", oauth.Authorize)
-		oauthGroup.GET("/logout", oauth.Logout)
-		oauthGroup.POST("/callback", oauth.Callback)
-		oauthGroup.GET("/user-info", oauth.LoginRequired(), oauth.UserInfo)
-		oauthGroup.GET("/external-accounts", oauth.LoginRequired(), oauth.ListExternalAccounts)
-		oauthGroup.POST("/external-accounts/:id/delete", oauth.LoginRequired(), oauth.DeleteExternalAccount)
+		oauthGroup.GET("/sources", GetLoginSources)
+		oauthGroup.GET("/login", GetLoginURL)
+		oauthGroup.GET("/:source/authorize", Authorize)
+		oauthGroup.GET("/logout", Logout)
+		oauthGroup.POST("/callback", Callback)
+		oauthGroup.GET("/user-info", LoginRequired(), UserInfo)
+		oauthGroup.GET("/external-accounts", LoginRequired(), ListExternalAccounts)
+		oauthGroup.POST("/external-accounts/:id/delete", LoginRequired(), DeleteExternalAccount)
 	}
-	ctx.Router().GET("/api/v1/user-info", oauth.LoginRequired(), oauth.UserInfo)
+	ctx.Router().GET("/api/v1/user-info", LoginRequired(), UserInfo)
 
 	// 4. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{

@@ -1,4 +1,6 @@
-// Package auth provides authentication, OAuth, session management, and access token domain services.
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 package auth
 
 import (
@@ -7,8 +9,6 @@ import (
 	"sync"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/internal/apps/admin"
-	"github.com/Rain-kl/Wavelet/internal/apps/oauth"
 	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/gin-gonic/gin"
@@ -44,21 +44,21 @@ func newAuthService() contracts.AuthService {
 }
 
 func (s *authServiceImpl) RequireAuthMiddleware() any {
-	return oauth.LoginRequired()
+	return LoginRequired()
 }
 
 func (s *authServiceImpl) RequireAdminMiddleware() any {
-	return admin.LoginAdminRequired()
+	return AdminRequired()
 }
 
 func (s *authServiceImpl) GetCurrentUser(ctx context.Context) (*contracts.UserDTO, error) {
 	if ginCtx, ok := ctx.(*gin.Context); ok {
-		if u, ok := oauth.GetFromContext[*model.User](ginCtx, oauth.UserObjKey); ok && u != nil {
+		if u, ok := GetFromContext[*model.User](ginCtx, UserObjKey); ok && u != nil {
 			return toUserDTO(u), nil
 		}
 	}
 
-	if v := ctx.Value(oauth.UserObjKey); v != nil {
+	if v := ctx.Value(UserObjKey); v != nil {
 		if u, ok := v.(*model.User); ok && u != nil {
 			return toUserDTO(u), nil
 		}
@@ -76,25 +76,27 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 	}
 
 	tokenHash := model.HashToken(token)
-	tokenRecord, err := oauth.GetCachedToken(ctx, tokenHash)
+	tokenRecord, err := GetCachedToken(ctx, tokenHash)
 	if err != nil {
 		dbToken, err := repository.GetAccessTokenByHash(ctx, tokenHash)
 		if err != nil {
 			return nil, err
 		}
 		tokenRecord = &dbToken
+		SetCachedToken(ctx, tokenHash, tokenRecord)
 	}
 
-	user, err := oauth.GetCachedUser(ctx, tokenRecord.UserID)
+	user, err := GetCachedUser(ctx, tokenRecord.UserID)
 	if err != nil || !user.IsActive {
 		dbUser, err := repository.GetActiveUserByID(ctx, tokenRecord.UserID)
 		if err != nil {
 			return nil, err
 		}
 		user = &dbUser
+		SetCachedUser(ctx, tokenRecord.UserID, user)
 	}
 
-	if user.Username == "system" {
+	if user.Username == SystemUsername {
 		return nil, errors.New("auth: system user token not allowed")
 	}
 
@@ -102,12 +104,11 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 }
 
 func (s *authServiceImpl) CreateSession(_ context.Context, _ uint64, _ map[string]any) (string, error) {
-	// Session creation helper
 	return "", nil
 }
 
 func (s *authServiceImpl) RevokeUserSessions(ctx context.Context, userID uint64) error {
-	oauth.InvalidateCachedUser(ctx, userID)
+	InvalidateCachedUser(ctx, userID)
 	return nil
 }
 
