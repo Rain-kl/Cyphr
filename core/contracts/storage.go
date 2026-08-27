@@ -1,0 +1,58 @@
+package contracts
+
+import (
+	"context"
+	"io"
+)
+
+// StorageObject represents a retrieved file object from the storage backend.
+type StorageObject struct {
+	Key           string
+	CachePath     string
+	Body          io.ReadCloser
+	ContentLength int64
+	ContentType   string
+}
+
+// StoragePutResult describes the output of a successful Put operation.
+type StoragePutResult struct {
+	Key    string
+	Bucket string
+}
+
+// IngestOptions configures programmatic ingest of files into the platform storage.
+type IngestOptions struct {
+	UserID    uint64
+	Type      string
+	FileName  string
+	MimeType  string
+	Extension string
+	Size      int64
+	Policy    int
+	Metadata  map[string]any
+}
+
+// IngestResult reports the outcome of a programmatic file ingest operation.
+type IngestResult struct {
+	ID       uint64
+	Key      string
+	URL      string
+	Created  bool
+	Stored   bool
+	Resolved bool
+}
+
+// StorageService defines the contract for unified object storage and managed file ingestion.
+type StorageService interface {
+	// Put writes an object to storage.
+	Put(ctx context.Context, key string, body io.Reader, size int64, contentType string) (StoragePutResult, error)
+
+	// Get retrieves an object from storage.
+	Get(ctx context.Context, key string) (*StorageObject, error)
+
+	// Delete removes an object from storage.
+	Delete(ctx context.Context, key string) error
+
+	// Ingest performs managed file ingestion into the platform storage domain with deduplication and metadata tracking.
+	Ingest(ctx context.Context, reader io.Reader, opts IngestOptions) (*IngestResult, error)
+}
