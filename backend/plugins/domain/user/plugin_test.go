@@ -36,7 +36,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestUserPluginUnit(t *testing.T) {
 	ctx := core.NewContext(context.Background())
-	_ = setupTestDB(t)
+	testDB := setupTestDB(t)
+
+	dbPlugin := database.New(database.WithDB(testDB))
+	require.NoError(t, dbPlugin.Apply(ctx))
 
 	p := user.New()
 	assert.Equal(t, "user", p.Name())

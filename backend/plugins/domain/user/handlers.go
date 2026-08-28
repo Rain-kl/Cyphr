@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	database "Wavelet/plugins/infra/database"
-
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/response"
 	"github.com/gin-contrib/sessions"
@@ -136,7 +134,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	if err := gormDB.Create(newUser).Error; err != nil {
 		response.AbortBadRequest(c, "创建用户失败: "+err.Error())
 		return
@@ -183,7 +181,7 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	_ = gormDB.Save(&user)
 	invalidateUserCache(c.Request.Context(), user.ID)
 
@@ -213,7 +211,7 @@ func UpdateProfile(c *gin.Context) {
 	user.Website = req.Website
 	user.Location = req.Location
 
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	_ = gormDB.Save(&user)
 	invalidateUserCache(c.Request.Context(), user.ID)
 
@@ -224,7 +222,7 @@ func UpdateProfile(c *gin.Context) {
 func ListAccessTokens(c *gin.Context) {
 	userID := getUserIDFromSession(c)
 	var tokens []AccessToken
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	_ = gormDB.Where("user_id = ?", userID).Find(&tokens).Error
 	c.JSON(http.StatusOK, response.OK(tokens))
 }
@@ -262,7 +260,7 @@ func CreateAccessToken(c *gin.Context) {
 		IsAdmin:     req.IsAdmin,
 	}
 
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	if err := gormDB.Create(&token).Error; err != nil {
 		response.AbortInternal(c, "创建令牌失败")
 		return
@@ -285,7 +283,7 @@ func DeleteAccessToken(c *gin.Context) {
 
 	userID := getUserIDFromSession(c)
 	var token AccessToken
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
 		return
@@ -307,7 +305,7 @@ func RotateAccessToken(c *gin.Context) {
 
 	userID := getUserIDFromSession(c)
 	var token AccessToken
-	gormDB := database.DB(c.Request.Context())
+	gormDB := getDB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
 		return

@@ -7,6 +7,7 @@ package user
 import (
 	"context"
 	"embed"
+	"reflect"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
@@ -52,6 +53,13 @@ func (p *Plugin) Name() string {
 	return PluginName
 }
 
+// Inject declares required dependencies for the user domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+	}
+}
+
 // Manifest returns the plugin metadata.
 func (p *Plugin) Manifest() core.Manifest {
 	return core.Manifest{
@@ -64,7 +72,12 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers user migrations, services, routes, tasks, schedules, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
-	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	// 0. Bind DBService from Context
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	}
+
+	// 0.1 Resolve auth service for middleware (via IoC, not direct import)
 	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
 	var noTokenMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
 	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
