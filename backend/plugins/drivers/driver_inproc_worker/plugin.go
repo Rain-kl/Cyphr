@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 )
 
 const (
@@ -98,9 +99,12 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
-// Apply registers the worker driver into the Context.
+// Apply registers the worker driver and provides contracts.TaskService.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	p.coreCtx = ctx
+
+	taskSvc := newInprocTaskService(ctx.Tasks())
+	core.Provide[contracts.TaskService](ctx, taskSvc)
 
 	ctx.OnDispose(func() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)
