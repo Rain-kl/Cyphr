@@ -7,10 +7,12 @@ package message_gateway
 import (
 	"context"
 	"embed"
+	"reflect"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/util"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
@@ -48,6 +50,13 @@ func New(opts ...Option) *Plugin {
 // Name returns the unique identifier for the message_gateway domain plugin.
 func (p *Plugin) Name() string {
 	return "message_gateway"
+}
+
+// Inject declares required dependencies for the message_gateway domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+	}
 }
 
 // Manifest returns the plugin metadata.
@@ -199,9 +208,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	if p.autoStartRunner {
 		runnerCtx, cancel := context.WithCancel(ctx.GoContext())
 		p.cancelRunner = cancel
-		go func() {
+		util.Go(func() {
 			_ = Start(runnerCtx)
-		}()
+		})
 	}
 
 	ctx.OnDispose(func() error {

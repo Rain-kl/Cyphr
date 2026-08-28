@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/message_gateway"
 	tele "gopkg.in/telebot.v4"
 )
@@ -65,11 +66,13 @@ func (a *Adapter) Connect(ctx context.Context) error {
 		a.handleTeleMessage(ctx, c.Message())
 		return nil
 	})
-	go bot.Start()
-	go func() {
+	util.Go(func() {
+		bot.Start()
+	})
+	util.Go(func() {
 		<-ctx.Done()
 		bot.Stop()
-	}()
+	})
 	return nil
 }
 

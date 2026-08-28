@@ -7,8 +7,10 @@ package risk_control
 import (
 	"context"
 	"embed"
+	"reflect"
 
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +47,14 @@ func New(opts ...Option) *Plugin {
 // Name returns the unique identifier for the risk_control domain plugin.
 func (p *Plugin) Name() string {
 	return "risk_control"
+}
+
+// Inject declares required dependencies for the risk_control domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+		reflect.TypeFor[contracts.CacheService](),
+	}
 }
 
 // Manifest returns the plugin metadata.

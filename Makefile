@@ -34,34 +34,7 @@ build-embedded:
 		main.go
 
 code-check:
-	@echo "==> Architecture guards..."
-	@command -v rg >/dev/null 2>&1 || { echo 'error: rg (ripgrep) is required for architecture guards' >&2; exit 1; }
-	@echo "  → core/ must not import gin, gorm, asynq..."
-	@if rg -n '"github.com/gin-gonic/gin|"gorm.io/gorm|"github.com/hibiken/asynq' backend/core/ --glob '*.go' -g '!*contracts*' -g '!*_test.go' 2>/dev/null; then \
-		echo 'error: backend/core/ must not import gin, gorm, or asynq' >&2; \
-		exit 1; \
-	fi
-	@echo "  → core/contracts/ must not import plugins/..."
-	@if rg -n 'plugins/' backend/core/contracts --glob '*.go' 2>/dev/null; then \
-		echo 'error: backend/core/contracts/ must not import plugins/' >&2; \
-		exit 1; \
-	fi
-	@echo "  → pkg/ must not import plugins/..."
-	@if rg -n 'plugins/' backend/pkg --glob '*.go' -g '!*testhelper*' -g '!*_test.go' 2>/dev/null; then \
-		echo 'error: backend/pkg/ must not import plugins/' >&2; \
-		exit 1; \
-	fi
-	@echo "  → plugins/domain/ must not import other plugins/domain/..."
-	@for d in backend/plugins/domain/*/; do \
-		name=$$(basename $$d); \
-		imports=$$(rg -n '"$(MODULE)/plugins/domain/' backend/plugins/domain/"$$name" -g '*.go' 2>/dev/null | rg -v "backend/plugins/domain/$$name/" | rg -v '_test.go' || true); \
-		if [ -n "$$imports" ]; then \
-			echo "error: backend/plugins/domain/$$name must not import other domain plugins" >&2; \
-			echo "$$imports" >&2; \
-			exit 1; \
-			fi; \
-	done
-	@echo "  → Architecture guards PASS"
+	@scripts/check_cordis_architecture.sh
 	cd backend && golangci-lint run
 	cd frontend && pnpm tsc --noEmit --jsx preserve && npx eslint . --max-warnings 0
 

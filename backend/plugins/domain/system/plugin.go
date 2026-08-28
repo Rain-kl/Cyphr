@@ -6,11 +6,12 @@ package system
 
 import (
 	"net/http"
+	"reflect"
 
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/response"
-	database "Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,6 +26,13 @@ func New() *Plugin {
 // Name returns the unique identifier for the system domain plugin.
 func (p *Plugin) Name() string {
 	return "system"
+}
+
+// Inject declares required dependencies for the system domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+	}
 }
 
 // Manifest returns the plugin metadata.
@@ -54,7 +62,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 			Value string `json:"value"`
 		}
 		var configs []configItem
-		_ = database.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
+		if dbSvc := ctx.DB(); dbSvc != nil {
+			_ = dbSvc.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
+		}
 		c.JSON(http.StatusOK, response.OK(gin.H{
 			"configs": configs,
 			"app": gin.H{

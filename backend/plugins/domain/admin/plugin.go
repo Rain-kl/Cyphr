@@ -7,6 +7,7 @@ package admin
 import (
 	"context"
 	"embed"
+	"reflect"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
@@ -38,6 +39,16 @@ func New(opts ...Option) *Plugin {
 // Name returns the unique identifier for the admin domain plugin.
 func (p *Plugin) Name() string {
 	return "admin"
+}
+
+// Inject declares required dependencies for the admin domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+		reflect.TypeFor[contracts.CacheService](),
+		reflect.TypeFor[contracts.UserService](),
+		reflect.TypeFor[contracts.AuthService](),
+	}
 }
 
 // Manifest returns the plugin metadata.

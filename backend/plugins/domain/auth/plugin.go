@@ -7,6 +7,7 @@ package auth
 import (
 	"context"
 	"embed"
+	"reflect"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
@@ -53,6 +54,14 @@ func New(opts ...Option) *Plugin {
 // Name returns the unique identifier for the auth domain plugin.
 func (p *Plugin) Name() string {
 	return "auth"
+}
+
+// Inject declares required dependencies for the auth domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+		reflect.TypeFor[contracts.CacheService](),
+	}
 }
 
 // Manifest returns the plugin metadata.

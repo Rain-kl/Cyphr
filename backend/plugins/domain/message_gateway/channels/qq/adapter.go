@@ -5,6 +5,7 @@
 package qq
 
 import (
+	"Wavelet/pkg/util"
 	"context"
 	"fmt"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/message_gateway"
+
 	"github.com/tencent-connect/botgo"
 	"github.com/tencent-connect/botgo/dto"
 	"github.com/tencent-connect/botgo/event"
@@ -105,11 +107,11 @@ func (a *Adapter) Connect(ctx context.Context) error {
 	a.disconnected = false
 	a.mu.Unlock()
 
-	go func() {
+	util.Go(func() {
 		if err := botgo.NewSessionManager().Start(wsAP, tokSrc, &intent); err != nil {
 			logger.ErrorF(runCtx, "qq session stopped: %v", err)
 		}
-	}()
+	})
 	return nil
 }
 

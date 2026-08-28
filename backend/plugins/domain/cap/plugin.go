@@ -5,7 +5,10 @@
 package cap
 
 import (
+	"reflect"
+
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 )
 
@@ -20,6 +23,14 @@ func New() *Plugin {
 // Name returns the unique identifier for the cap domain plugin.
 func (p *Plugin) Name() string {
 	return "cap"
+}
+
+// Inject declares required dependencies for the cap domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+		reflect.TypeFor[contracts.CacheService](),
+	}
 }
 
 // Manifest returns the plugin metadata.

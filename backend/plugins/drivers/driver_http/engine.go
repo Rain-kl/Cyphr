@@ -18,8 +18,6 @@ import (
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/trace"
 	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/auth"
-	"Wavelet/plugins/domain/risk_control"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
@@ -65,12 +63,19 @@ func BuildEngine() (*gin.Engine, error) {
 		}
 	}
 
-	sessionStore.Options(auth.GetSessionOptions(config.Config.App.SessionAge))
+	sessionStore.Options(sessions.Options{
+		Path:     "/",
+		Domain:   config.Config.App.SessionDomain,
+		MaxAge:   config.Config.App.SessionAge,
+		HttpOnly: config.Config.App.SessionHTTPOnly,
+		Secure:   config.Config.App.SessionSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
 
 	r.Use(sessions.Sessions(config.Config.App.SessionCookieName, sessionStore))
 
 	// 补充中间件
-	r.Use(otelgin.Middleware(config.Config.App.AppName), errorHandlerMiddleware(), loggerMiddleware(), risk_control.Middleware())
+	r.Use(otelgin.Middleware(config.Config.App.AppName), errorHandlerMiddleware(), loggerMiddleware())
 
 	return r, nil
 }

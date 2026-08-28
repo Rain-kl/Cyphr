@@ -7,6 +7,7 @@ package upload
 import (
 	"context"
 	"embed"
+	"reflect"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
@@ -32,6 +33,15 @@ func New() *Plugin {
 // Name returns the unique identifier for the upload domain plugin.
 func (p *Plugin) Name() string {
 	return "upload"
+}
+
+// Inject declares required dependencies for the upload domain plugin.
+func (p *Plugin) Inject() []reflect.Type {
+	return []reflect.Type{
+		reflect.TypeFor[contracts.DBService](),
+		reflect.TypeFor[contracts.StorageService](),
+		reflect.TypeFor[contracts.AuthService](),
+	}
 }
 
 // Manifest returns the plugin metadata.
