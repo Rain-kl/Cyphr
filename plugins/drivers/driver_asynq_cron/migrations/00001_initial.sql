@@ -13,7 +13,7 @@ CREATE INDEX IF NOT EXISTS idx_w_schedules_is_active ON w_schedules (is_active);
 
 -- Seed initial cleanup task
 INSERT INTO w_schedules (id, name, task_type, cron, payload, is_active, created_at, updated_at)
-VALUES (1, '清理未使用上传', 'cleanup_unused_uploads', '0 */2 * * *', '{}', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+VALUES (1, '系统定期垃圾清理', 'system_cleanup', '0 3 * * *', '{}', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (id) DO NOTHING;
 
 -- +goose Down

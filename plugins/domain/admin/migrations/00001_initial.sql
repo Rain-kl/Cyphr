@@ -1,5 +1,32 @@
 -- +goose Up
 -- +goose StatementBegin
+CREATE TABLE IF NOT EXISTS w_system_configs (
+    key VARCHAR(64) PRIMARY KEY,
+    value TEXT NOT NULL,
+    type VARCHAR(32) NOT NULL DEFAULT 'system',
+    visibility INTEGER NOT NULL DEFAULT 0,
+    description VARCHAR(255),
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS w_templates (
+    id BIGINT PRIMARY KEY,
+    key VARCHAR(80) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    type VARCHAR(20) NOT NULL DEFAULT 'email',
+    subject VARCHAR(255),
+    content TEXT NOT NULL,
+    description VARCHAR(255),
+    is_system BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_w_templates_is_system ON w_templates (is_system);
+CREATE INDEX IF NOT EXISTS idx_w_templates_created_at ON w_templates (created_at);
+CREATE INDEX IF NOT EXISTS idx_w_templates_updated_at ON w_templates (updated_at);
+
+-- Seed system configs (all default platform configs)
 INSERT INTO w_system_configs (key, value, type, visibility, description, created_at, updated_at) VALUES
     ('cap_login_enabled', 'false', 'system', 1, '是否启用登录人机验证（true/false）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('cap_auto_solve', 'true', 'system', 1, '打开页面后是否自动开始计算，关闭则需用户手动点击触发', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -30,7 +57,9 @@ INSERT INTO w_system_configs (key, value, type, visibility, description, created
     ('disk_cache_ttl_minutes', '1440', 'system', 0, '磁盘缓存默认有效期（分钟）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('disk_cache_lru_enabled', 'true', 'system', 0, '是否启用 LRU 淘汰机制', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
     ('file_access_whitelist', '["avatar"]', 'system', 0, '免登录访问的文件业务类型白名单 (JSON 数组)', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('login_session_ttl_hours', '168', 'system', 0, '登录会话过期时间（小时）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ('login_session_ttl_hours', '168', 'system', 0, '登录会话过期时间（小时）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('log_database', '', 'system', 0, '当前日志主库（postgres/sqlite/clickhouse），由切换任务写入', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('log_db_migration', '', 'system', 0, '日志库迁移冻结标记（空或 migrating）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO w_templates (id, key, name, type, subject, content, description, is_system, created_at, updated_at) VALUES
@@ -51,6 +80,8 @@ DELETE FROM w_system_configs WHERE key IN (
     'email_login_verification_enabled', 'email_register_verification_enabled',
     'menu_display_config', 'search_engine_indexing_enabled', 'update_upstream_repository',
     'storage_config', 'disk_cache_max_size_mb', 'disk_cache_ttl_minutes', 'disk_cache_lru_enabled',
-    'file_access_whitelist', 'login_session_ttl_hours'
+    'file_access_whitelist', 'login_session_ttl_hours', 'log_database', 'log_db_migration'
 );
+DROP TABLE IF EXISTS w_templates;
+DROP TABLE IF EXISTS w_system_configs;
 -- +goose StatementEnd

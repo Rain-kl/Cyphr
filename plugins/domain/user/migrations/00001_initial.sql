@@ -23,22 +23,14 @@ CREATE INDEX IF NOT EXISTS idx_w_users_is_active ON w_users (is_active);
 CREATE INDEX IF NOT EXISTS idx_w_users_last_login_at ON w_users (last_login_at);
 CREATE INDEX IF NOT EXISTS idx_w_users_created_at ON w_users (created_at);
 
-CREATE TABLE IF NOT EXISTS w_access_tokens (
-    id BIGINT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    token_hash VARCHAR(64) NOT NULL UNIQUE,
-    name VARCHAR(128) NOT NULL,
-    description VARCHAR(255),
-    is_admin BOOLEAN DEFAULT FALSE,
-    expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_w_access_tokens_user_id ON w_access_tokens (user_id);
+-- Seed system user
+INSERT INTO w_users (id, username, password, nickname, avatar_url, is_active, is_admin, last_login_at, created_at, updated_at)
+VALUES (999, 'system', '*', '系统', '', TRUE, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (username) DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS w_access_tokens;
+DELETE FROM w_users WHERE username = 'system';
 DROP TABLE IF EXISTS w_users;
 -- +goose StatementEnd
