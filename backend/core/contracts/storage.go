@@ -49,6 +49,7 @@ type IngestResult struct {
 // StorageDriver identifies a supported storage backend.
 type StorageDriver string
 
+// Storage drivers supported by the platform. Values persist in storage configs.
 const (
 	StorageDriverLocal  StorageDriver = "local"
 	StorageDriverS3     StorageDriver = "s3"

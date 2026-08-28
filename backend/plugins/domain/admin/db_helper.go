@@ -113,22 +113,25 @@ func GetDB(ctx context.Context) *gorm.DB {
 	return dbService.DB(ctx)
 }
 
-// GetCache returns the unified CacheService instance.
-func GetCache(ctx context.Context) contracts.CacheService {
+// GetCache returns the unified CacheService instance. ctx is kept for
+// signature symmetry with the other context-aware accessors.
+func GetCache(_ context.Context) contracts.CacheService {
 	servicesMu.RLock()
 	defer servicesMu.RUnlock()
 	return cacheService
 }
 
-// GetUserService returns the UserService instance.
-func GetUserService(ctx context.Context) contracts.UserService {
+// GetUserService returns the UserService instance. ctx is kept for
+// signature symmetry with the other context-aware accessors.
+func GetUserService(_ context.Context) contracts.UserService {
 	servicesMu.RLock()
 	defer servicesMu.RUnlock()
 	return userService
 }
 
-// GetAuthService returns the AuthService instance.
-func GetAuthService(ctx context.Context) contracts.AuthService {
+// GetAuthService returns the AuthService instance. ctx is kept for
+// signature symmetry with the other context-aware accessors.
+func GetAuthService(_ context.Context) contracts.AuthService {
 	servicesMu.RLock()
 	defer servicesMu.RUnlock()
 	return authService

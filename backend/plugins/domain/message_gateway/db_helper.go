@@ -21,6 +21,7 @@ var (
 	taskSvc  contracts.TaskService
 )
 
+// SetDBServiceForTest injects a DBService for tests. Production wiring must use Apply.
 func SetDBServiceForTest(s contracts.DBService) {
 	setDBService(s)
 }

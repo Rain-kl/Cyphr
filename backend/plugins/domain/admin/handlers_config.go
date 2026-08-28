@@ -507,7 +507,7 @@ func validateAndMergeStorageConfig(ctx context.Context, value, currentConfig str
 	return string(unmaskedVal), nil
 }
 
-func validateMergedStorageConfig(ctx context.Context, currentCfg, newCfg, targetCfg contracts.StorageConfigDTO) error {
+func validateMergedStorageConfig(ctx context.Context, currentCfg, newCfg, _ contracts.StorageConfigDTO) error {
 	if newCfg.Driver != "" && newCfg.Driver != currentCfg.Driver {
 		var uploadCount int64
 		gormDB := GetDB(ctx)

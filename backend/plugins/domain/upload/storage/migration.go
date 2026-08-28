@@ -36,7 +36,7 @@ func LatestMigrationExecution(ctx context.Context) (*contracts.TaskExecutionDTO,
 }
 
 // ParseMigrationTargetConfig parses and validates a storage migration target payload.
-func ParseMigrationTargetConfig(ctx context.Context, payload []byte) (contracts.StorageConfigDTO, error) {
+func ParseMigrationTargetConfig(_ context.Context, payload []byte) (contracts.StorageConfigDTO, error) {
 	if strings.TrimSpace(string(payload)) == "" {
 		return contracts.StorageConfigDTO{}, errors.New("storage migration target payload is required")
 	}
