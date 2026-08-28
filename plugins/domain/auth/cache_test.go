@@ -12,8 +12,8 @@ import (
 	"github.com/redis/go-redis/v9/maintnotifications"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 )
 
 func setupOauthCacheTest(t *testing.T) (*miniredis.Miniredis, func()) {

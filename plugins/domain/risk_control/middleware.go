@@ -11,10 +11,10 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 	"github.com/gin-gonic/gin"
 )
 

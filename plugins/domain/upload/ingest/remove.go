@@ -6,7 +6,7 @@ package ingest
 import (
 	"context"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
@@ -45,7 +45,7 @@ func RemoveOwned(ctx context.Context, userID, uploadID uint64) (models.Upload, e
 
 func softDeleteUploadWithStats(ctx context.Context, upload *models.Upload) error {
 	statsSnapshot := *upload
-	if err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := repository.SoftDeleteUploadTx(tx, upload); err != nil {
 			return err
 		}

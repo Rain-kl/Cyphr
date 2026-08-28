@@ -9,7 +9,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 )
@@ -54,7 +54,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 			Value string `json:"value"`
 		}
 		var configs []configItem
-		_ = db.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
+		_ = database.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
 		c.JSON(http.StatusOK, response.OK(gin.H{
 			"configs": configs,
 			"app": gin.H{

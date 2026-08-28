@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	persistence "github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
@@ -96,7 +96,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Create(newUser).Error; err != nil {
 		response.AbortBadRequest(c, "创建用户失败: "+err.Error())
 		return
@@ -143,7 +143,7 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	_ = gormDB.Save(&user)
 	auth.InvalidateCachedUser(c.Request.Context(), user.ID)
 
@@ -173,7 +173,7 @@ func UpdateProfile(c *gin.Context) {
 	user.Website = req.Website
 	user.Location = req.Location
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	_ = gormDB.Save(&user)
 	auth.InvalidateCachedUser(c.Request.Context(), user.ID)
 
@@ -184,7 +184,7 @@ func UpdateProfile(c *gin.Context) {
 func ListAccessTokens(c *gin.Context) {
 	userID := auth.GetUserIDFromContext(c)
 	var tokens []AccessToken
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	_ = gormDB.Where("user_id = ?", userID).Find(&tokens).Error
 	c.JSON(http.StatusOK, response.OK(tokens))
 }
@@ -222,7 +222,7 @@ func CreateAccessToken(c *gin.Context) {
 		IsAdmin:     req.IsAdmin,
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Create(&token).Error; err != nil {
 		response.AbortInternal(c, "创建令牌失败")
 		return
@@ -245,7 +245,7 @@ func DeleteAccessToken(c *gin.Context) {
 
 	userID := auth.GetUserIDFromContext(c)
 	var token AccessToken
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
 		return
@@ -267,7 +267,7 @@ func RotateAccessToken(c *gin.Context) {
 
 	userID := auth.GetUserIDFromContext(c)
 	var token AccessToken
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
 		return

@@ -10,7 +10,8 @@ import (
 	"sync"
 
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
@@ -42,7 +43,7 @@ func cloneUpload(u models.Upload) models.Upload {
 }
 
 func ensureUploadMetaCacheListener() {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return
 	}
 	uploadMetaListenerOnce.Do(startUploadMetaCacheInvalidationListener)
@@ -52,7 +53,7 @@ func startUploadMetaCacheInvalidationListener() {
 	uploadMetaListenerCtx, uploadMetaListenerCancel = context.WithCancel(context.Background())
 	uploadMetaListenerDone = make(chan struct{})
 
-	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	redisClient := cachepkg.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 cachepkg.Redis 竞争
 	util.Go(func() {
 		defer close(uploadMetaListenerDone)
 		pubsub := redisClient.Subscribe(uploadMetaListenerCtx, uploadMetaInvalidationChan)
@@ -77,14 +78,14 @@ func startUploadMetaCacheInvalidationListener() {
 }
 
 func publishUploadMetaRAMInvalidation(ctx context.Context, id uint64) {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return
 	}
 	payload, err := json.Marshal(uploadMetaInvalidationMessage{ID: id})
 	if err != nil {
 		return
 	}
-	_ = db.Redis.Publish(ctx, uploadMetaInvalidationChan, payload).Err()
+	_ = cachepkg.Redis.Publish(ctx, uploadMetaInvalidationChan, payload).Err()
 }
 
 // GetUploadByID loads upload metadata from RAM, Redis, or the database.
@@ -96,16 +97,16 @@ func GetUploadByID(ctx context.Context, id uint64) (models.Upload, error) {
 	}
 
 	key := uploadMetaRedisKey(id)
-	if db.Redis != nil {
+	if cachepkg.Redis != nil {
 		var u models.Upload
-		if err := db.GetJSON(ctx, key, &u); err == nil {
+		if err := cachepkg.GetJSON(ctx, key, &u); err == nil {
 			uploadMetaRAM.Set(id, cloneUpload(u))
 			return u, nil
 		}
 	}
 
 	var u models.Upload
-	if err := db.DB(ctx).
+	if err := database.DB(ctx).
 		Where("id = ? AND status IN (?, ?)", id, models.UploadStatusPending, models.UploadStatusUsed).
 		First(&u).Error; err != nil {
 		return models.Upload{}, err
@@ -125,8 +126,8 @@ func SetUploadMetaCache(ctx context.Context, u *models.Upload) {
 
 	cloned := cloneUpload(*u)
 	uploadMetaRAM.Set(u.ID, cloned)
-	if db.Redis != nil {
-		_ = db.SetJSON(ctx, uploadMetaRedisKey(u.ID), cloned, uploadMetaRedisCacheTTL)
+	if cachepkg.Redis != nil {
+		_ = cachepkg.SetJSON(ctx, uploadMetaRedisKey(u.ID), cloned, uploadMetaRedisCacheTTL)
 	}
 }
 
@@ -135,8 +136,8 @@ func InvalidateUploadMetaCache(ctx context.Context, id uint64) {
 	ensureUploadMetaCacheListener()
 
 	uploadMetaRAM.Invalidate(id)
-	if db.Redis != nil {
-		_ = db.Redis.Del(ctx, db.PrefixedKey(uploadMetaRedisKey(id))).Err()
+	if cachepkg.Redis != nil {
+		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey(uploadMetaRedisKey(id))).Err()
 		publishUploadMetaRAMInvalidation(ctx, id)
 	}
 }
@@ -151,7 +152,7 @@ func StopUploadMetaCacheListener() {
 	if uploadMetaListenerCancel != nil {
 		uploadMetaListenerCancel()
 		if uploadMetaListenerDone != nil {
-			<-uploadMetaListenerDone // 等待 goroutine 退出，保证之后置空 db.Redis 不再竞争
+			<-uploadMetaListenerDone // 等待 goroutine 退出，保证之后置空 cachepkg.Redis 不再竞争
 		}
 		uploadMetaListenerCancel = nil
 		uploadMetaListenerDone = nil

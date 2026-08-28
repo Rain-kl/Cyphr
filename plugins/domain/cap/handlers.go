@@ -6,14 +6,14 @@ package cap
 import (
 	"net/http"
 
-	pkgcap "github.com/Rain-kl/Wavelet/pkg/cap"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/plugins/domain/cap/pow"
 	"github.com/gin-gonic/gin"
 )
 
-// ChallengeResponse is a local type alias for the pkg/cap.ChallengeResponse struct
-type ChallengeResponse = pkgcap.ChallengeResponse
+// ChallengeResponse is a local type alias for the pow.ChallengeResponse struct
+type ChallengeResponse = pow.ChallengeResponse
 
 type challengeRequest struct {
 	Scope string `json:"scope" form:"scope"`

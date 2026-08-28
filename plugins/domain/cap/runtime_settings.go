@@ -14,9 +14,9 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
-
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (
@@ -148,7 +148,7 @@ func loadRuntimeSettings(ctx context.Context) (RuntimeSettings, error) {
 		Value string `gorm:"column:value"`
 	}
 	var records []configRecord
-	if err := db.DB(ctx).Table("w_system_configs").Where("key IN ?", runtimeConfigKeys).Find(&records).Error; err != nil {
+	if err := database.DB(ctx).Table("w_system_configs").Where("key IN ?", runtimeConfigKeys).Find(&records).Error; err != nil {
 		return RuntimeSettings{}, err
 	}
 	configs := make(map[string]string, len(records))
@@ -209,7 +209,7 @@ func (s *runtimeSettingsStore) ensureInvalidationListener() {
 const SystemConfigInvalidationChannel = "system_config:invalidation"
 
 func startRuntimeSettingsInvalidationListener() {
-	rdb := db.Redis
+	rdb := cachepkg.Redis
 	if rdb == nil {
 		return
 	}

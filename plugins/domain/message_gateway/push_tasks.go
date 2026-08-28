@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Rain-kl/Wavelet/pkg/push"
-	"github.com/Rain-kl/Wavelet/pkg/task"
+	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 const (
@@ -21,16 +21,16 @@ const (
 )
 
 // SendNotificationMeta represents the task metadata.
-var SendNotificationMeta = task.TaskMeta{
+var SendNotificationMeta = driver_asynq_worker.TaskMeta{
 	Type:         TaskTypeSendNotification,
 	AsynqTask:    SendNotificationTask,
 	Name:         "推送通知",
 	Description:  "异步执行系统通知的多渠道派发与推送",
 	SupportsTime: false,
-	MaxRetry:     task.DefaultMaxRetry,
-	Queue:        task.QueueDefault,
+	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
+	Queue:        driver_asynq_worker.QueueDefault,
 	Retryable:    true,
-	Params: []task.TaskParam{
+	Params: []driver_asynq_worker.TaskParam{
 		{
 			Name:        "event_key",
 			Label:       "事件标识",
@@ -69,20 +69,20 @@ func (h *PushHandler) ValidatePayload(payload []byte) ([]byte, error) {
 }
 
 // Execute performs the push send and logs delivery history audit.
-func (h *PushHandler) Execute(ctx context.Context, payload []byte) (*task.TaskResult, error) {
+func (h *PushHandler) Execute(ctx context.Context, payload []byte) (*driver_asynq_worker.TaskResult, error) {
 	var req SendPayload
 	if err := json.Unmarshal(payload, &req); err != nil {
-		task.AppendLog(ctx, "解析推送参数失败: %v", err)
+		driver_asynq_worker.AppendLog(ctx, "解析推送参数失败: %v", err)
 		return nil, fmt.Errorf("parse payload failed: %w", err)
 	}
 
-	task.AppendLog(ctx, "开始推送通知: 事件 = %s, 渠道 = %s, 接收目标 = %s", req.EventKey, req.Config.Channel, req.Target)
+	driver_asynq_worker.AppendLog(ctx, "开始推送通知: 事件 = %s, 渠道 = %s, 接收目标 = %s", req.EventKey, req.Config.Channel, req.Target)
 
 	pusher, err := push.GetPusher(req.Config.Channel)
 	if err != nil {
 		errWrap := fmt.Errorf("get pusher failed: %w", err)
-		task.AppendLog(ctx, "推送失败: %v", errWrap)
-		if task.IsFinalAttempt(ctx) {
+		driver_asynq_worker.AppendLog(ctx, "推送失败: %v", errWrap)
+		if driver_asynq_worker.IsFinalAttempt(ctx) {
 			h.recordHistory(ctx, req, "failed", errWrap.Error())
 		}
 		return nil, errWrap
@@ -95,29 +95,29 @@ func (h *PushHandler) Execute(ctx context.Context, payload []byte) (*task.TaskRe
 	content := req.Body.Content
 
 	if err != nil {
-		task.AppendLog(ctx, "消息推送失败 (标题: %s): %v", title, err)
+		driver_asynq_worker.AppendLog(ctx, "消息推送失败 (标题: %s): %v", title, err)
 		if upstreamResp != "" {
-			task.AppendLog(ctx, "上游返回: %s", upstreamResp)
+			driver_asynq_worker.AppendLog(ctx, "上游返回: %s", upstreamResp)
 		}
-		if task.IsFinalAttempt(ctx) {
+		if driver_asynq_worker.IsFinalAttempt(ctx) {
 			h.recordHistory(ctx, req, "failed", err.Error())
 		}
 		return nil, fmt.Errorf("pusher.Send failed: %w", err)
 	}
 
-	task.AppendLog(ctx, "消息推送成功 (标题: %s, 内容摘要: %s)", title, content)
+	driver_asynq_worker.AppendLog(ctx, "消息推送成功 (标题: %s, 内容摘要: %s)", title, content)
 	if upstreamResp != "" {
-		task.AppendLog(ctx, "上游返回: %s", upstreamResp)
+		driver_asynq_worker.AppendLog(ctx, "上游返回: %s", upstreamResp)
 	}
 	h.recordHistory(ctx, req, "success", "")
 
-	return &task.TaskResult{
+	return &driver_asynq_worker.TaskResult{
 		Message: fmt.Sprintf("推送成功: [%s] -> %s", req.Config.Channel, req.Target),
 	}, nil
 }
 
 func (h *PushHandler) recordHistory(ctx context.Context, req SendPayload, status string, errMsg string) {
 	if dbErr := recordPushHistory(ctx, req, status, errMsg); dbErr != nil {
-		task.AppendLog(ctx, "写入推送历史审计记录失败: %v", dbErr)
+		driver_asynq_worker.AppendLog(ctx, "写入推送历史审计记录失败: %v", dbErr)
 	}
 }

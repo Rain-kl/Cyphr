@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/task"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 const (
@@ -29,16 +29,16 @@ const (
 var warmImageCacheMu sync.Mutex
 
 // WarmImageCacheMeta represents the image cache warmup task metadata.
-var WarmImageCacheMeta = task.TaskMeta{
+var WarmImageCacheMeta = driver_asynq_worker.TaskMeta{
 	Type:         TaskTypeWarmImageCache,
 	AsynqTask:    WarmImageCacheTask,
 	Name:         "预热图片压缩缓存",
 	Description:  "串行将文件管理中的图片转换为指定质量的 WebP 并写入永久缓存",
 	SupportsTime: false,
-	MaxRetry:     task.DefaultMaxRetry,
-	Queue:        task.QueueDefault,
+	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
+	Queue:        driver_asynq_worker.QueueDefault,
 	Retryable:    true,
-	Params: []task.TaskParam{
+	Params: []driver_asynq_worker.TaskParam{
 		{
 			Name:        "quality",
 			Label:       "图片质量",
@@ -80,10 +80,10 @@ func (h *WarmImageCacheHandler) ValidatePayload(payload []byte) ([]byte, error) 
 }
 
 // Execute serially converts all managed images to WebP cache entries.
-func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*task.TaskResult, error) {
+func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*driver_asynq_worker.TaskResult, error) {
 	normalizedPayload, err := h.ValidatePayload(payload)
 	if err != nil {
-		task.AppendLog(ctx, "图片缓存预热参数无效: %v", err)
+		driver_asynq_worker.AppendLog(ctx, "图片缓存预热参数无效: %v", err)
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 		return nil, fmt.Errorf(shared.ErrParseImageCacheWarmupPayload, err)
 	}
 
-	task.AppendLog(ctx, "等待获取图片缓存预热执行锁，质量: %s", req.Quality)
+	driver_asynq_worker.AppendLog(ctx, "等待获取图片缓存预热执行锁，质量: %s", req.Quality)
 	warmImageCacheMu.Lock()
 	defer warmImageCacheMu.Unlock()
 
@@ -106,7 +106,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 	var totalGenerated int
 	var totalFailed int
 
-	task.AppendLog(ctx, "开始串行预热图片压缩缓存，质量: %s，每批: %d", req.Quality, batchSize)
+	driver_asynq_worker.AppendLog(ctx, "开始串行预热图片压缩缓存，质量: %s，每批: %d", req.Quality, batchSize)
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -114,7 +114,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 		}
 
 		var uploads []models.Upload
-		if err := db.DB(ctx).
+		if err := database.DB(ctx).
 			Where("id > ? AND status != ? AND (LOWER(mime_type) LIKE ? OR LOWER(extension) IN ?)",
 				lastID,
 				models.UploadStatusDeleted,
@@ -124,7 +124,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 			Order("id ASC").
 			Limit(batchSize).
 			Find(&uploads).Error; err != nil {
-			task.AppendLog(ctx, "查询图片上传记录失败: %v", err)
+			driver_asynq_worker.AppendLog(ctx, "查询图片上传记录失败: %v", err)
 			return nil, fmt.Errorf(shared.ErrQueryImagesForCacheWarmup, err)
 		}
 
@@ -149,7 +149,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 				totalFailed++
 				batchFailed++
 				if totalFailed <= maxFailureLogs {
-					task.AppendLog(ctx, "图片处理失败 [ID:%d]: %v", upload.ID, err)
+					driver_asynq_worker.AppendLog(ctx, "图片处理失败 [ID:%d]: %v", upload.ID, err)
 				}
 				continue
 			}
@@ -162,7 +162,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 			batchGenerated++
 		}
 
-		task.AppendLog(
+		driver_asynq_worker.AppendLog(
 			ctx,
 			"批次完成，末尾 ID: %d，生成: %d，命中: %d，失败: %d",
 			lastID,
@@ -179,6 +179,6 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 		totalCached,
 		totalFailed,
 	)
-	task.AppendLog(ctx, "%s", msg)
-	return &task.TaskResult{Message: msg}, nil
+	driver_asynq_worker.AppendLog(ctx, "%s", msg)
+	return &driver_asynq_worker.TaskResult{Message: msg}, nil
 }

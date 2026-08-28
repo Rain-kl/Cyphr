@@ -9,7 +9,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/migrator"
+	"github.com/Rain-kl/Wavelet/pkg/migrator"
 )
 
 func TestFormatStartupBanner(t *testing.T) {

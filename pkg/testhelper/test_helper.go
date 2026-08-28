@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"
@@ -249,7 +250,7 @@ func SetupTestEnvironment(t *testing.T) (*gorm.DB, *miniredis.Miniredis, func())
 	})
 
 	db.SetDB(sqliteDB)
-	db.Redis = redisClient
+	cachepkg.Redis = redisClient
 
 	seedDefaultConfigs(t, sqliteDB)
 
@@ -258,7 +259,7 @@ func SetupTestEnvironment(t *testing.T) (*gorm.DB, *miniredis.Miniredis, func())
 		_ = redisClient.Close()
 		mr.Close()
 		db.SetDB(nil)
-		db.Redis = nil
+		cachepkg.Redis = nil
 	}
 
 	return sqliteDB, mr, cleanup
@@ -327,6 +328,6 @@ func seedDefaultConfigs(t *testing.T, tx *gorm.DB) {
 		if _, ok := publicKeys[config.Key]; ok {
 			config.Visibility = "visible"
 		}
-		_ = db.HSetJSON(context.Background(), "system_configs", config.Key, &config)
+		_ = cachepkg.HSetJSON(context.Background(), "system_configs", config.Key, &config)
 	}
 }

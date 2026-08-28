@@ -11,7 +11,8 @@ import (
 	"sync"
 	"time"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
@@ -41,8 +42,8 @@ func ResetAccessCaches() {
 
 // PublishAccessCacheInvalidation broadcasts upload access cache eviction to all nodes.
 func PublishAccessCacheInvalidation(ctx context.Context) {
-	if db.Redis != nil {
-		_ = db.Redis.Publish(ctx, fileAccessInvalidationChannel, "reset").Err()
+	if cachepkg.Redis != nil {
+		_ = cachepkg.Redis.Publish(ctx, fileAccessInvalidationChannel, "reset").Err()
 	}
 }
 
@@ -51,7 +52,7 @@ func ensureAccessCacheListener() {
 }
 
 func startAccessCacheInvalidationListener() {
-	rdb := db.Redis
+	rdb := cachepkg.Redis
 	if rdb == nil {
 		return
 	}
@@ -114,7 +115,7 @@ func fetchFileAccessWhitelist(ctx context.Context) map[string]struct{} {
 
 func parseFileAccessWhitelist(ctx context.Context) []string {
 	var sc struct{ Value string }
-	err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error
+	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error
 	if err != nil || sc.Value == "" {
 		return []string{shared.DefaultPublicUploadType}
 	}

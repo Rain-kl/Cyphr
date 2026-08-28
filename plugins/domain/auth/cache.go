@@ -12,8 +12,8 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 )
 
 const (

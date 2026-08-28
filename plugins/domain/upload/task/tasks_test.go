@@ -17,13 +17,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/task"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	msg "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +48,7 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 	objectstore.ResetCache()
 
 	ctx := context.Background()
-	err := db.DB(ctx).AutoMigrate(&msg.PushHistory{})
+	err := database.DB(ctx).AutoMigrate(&msg.PushHistory{})
 	require.NoError(t, err)
 
 	// 准备测试数据：创建一些上传记录
@@ -85,7 +85,7 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 		},
 	}
 	for _, r := range records {
-		err := db.DB(ctx).Create(r).Error
+		err := database.DB(ctx).Create(r).Error
 		require.NoError(t, err)
 	}
 
@@ -110,21 +110,21 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 		Status:    "success",
 		CreatedAt: now,
 	}
-	err = db.DB(ctx).Create(oldPush).Error
+	err = database.DB(ctx).Create(oldPush).Error
 	require.NoError(t, err)
-	err = db.DB(ctx).Create(newPush).Error
+	err = database.DB(ctx).Create(newPush).Error
 	require.NoError(t, err)
 
-	oldTaskLog := &task.TaskExecution{
+	oldTaskLog := &driver_asynq_worker.TaskExecution{
 		TaskID:      "old_low_frequency_task_log",
 		TaskType:    "low:frequency",
 		TaskName:    "低频任务",
-		Status:      task.TaskExecutionStatusSucceeded,
+		Status:      driver_asynq_worker.TaskExecutionStatusSucceeded,
 		CreatedAt:   now.AddDate(0, 0, -31),
 		UpdatedAt:   now.AddDate(0, 0, -31),
 		TriggeredBy: "system",
 	}
-	err = task.CreateTaskExecution(ctx, oldTaskLog)
+	err = driver_asynq_worker.CreateTaskExecution(ctx, oldTaskLog)
 	require.NoError(t, err)
 
 	// 执行 handler
@@ -138,29 +138,29 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 
 	// 验证数据库状态：pending 且超过1小时的应被标记为 deleted
 	var pendingCount int64
-	db.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusPending).Count(&pendingCount)
+	database.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusPending).Count(&pendingCount)
 	assert.Equal(t, int64(1), pendingCount, "应只剩1条 pending 记录（最近的文件）")
 
 	var deletedCount int64
-	db.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusDeleted).Count(&deletedCount)
+	database.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusDeleted).Count(&deletedCount)
 	assert.Equal(t, int64(2), deletedCount, "应有2条被标记为 deleted")
 
 	var usedCount int64
-	db.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusUsed).Count(&usedCount)
+	database.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusUsed).Count(&usedCount)
 	assert.Equal(t, int64(1), usedCount, "used 状态的文件不应受影响")
 
 	// 验证推送历史数据状态：10天前的应被删除，今天的应保留
 	var pushCount int64
-	db.DB(ctx).Model(&msg.PushHistory{}).Count(&pushCount)
+	database.DB(ctx).Model(&msg.PushHistory{}).Count(&pushCount)
 	assert.Equal(t, int64(1), pushCount, "应只剩1条推送历史记录")
 
 	var remainingPush msg.PushHistory
-	err = db.DB(ctx).First(&remainingPush).Error
+	err = database.DB(ctx).First(&remainingPush).Error
 	require.NoError(t, err)
 	assert.Equal(t, "New Login", remainingPush.Title)
 
 	var taskLogCount int64
-	err = db.DB(ctx).Model(&task.TaskExecution{}).Where("task_id = ?", "old_low_frequency_task_log").Count(&taskLogCount).Error
+	err = database.DB(ctx).Model(&driver_asynq_worker.TaskExecution{}).Where("task_id = ?", "old_low_frequency_task_log").Count(&taskLogCount).Error
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), taskLogCount, "过期低频任务日志应被清理")
 }
@@ -180,7 +180,7 @@ func TestSystemCleanupHandler_ExecuteNoFiles(t *testing.T) {
 	defer storageMock()
 
 	ctx := context.Background()
-	err := db.DB(ctx).AutoMigrate(&msg.PushHistory{})
+	err := database.DB(ctx).AutoMigrate(&msg.PushHistory{})
 	require.NoError(t, err)
 
 	// 没有任何上传记录
@@ -194,7 +194,7 @@ func TestSystemCleanupHandler_ExecuteNoFiles(t *testing.T) {
 
 func TestSystemCleanupHandler_ImplementsTaskHandler(t *testing.T) {
 	// 编译期验证 SystemCleanupHandler 实现了 TaskHandler 接口
-	var _ task.TaskHandler = (*SystemCleanupHandler)(nil)
+	var _ driver_asynq_worker.TaskHandler = (*SystemCleanupHandler)(nil)
 }
 
 func TestWarmImageCacheHandlerValidatePayload(t *testing.T) {
@@ -362,8 +362,8 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 }
 
 func TestWarmImageCacheHandlerImplementsTaskInterfaces(t *testing.T) {
-	var _ task.TaskHandler = (*WarmImageCacheHandler)(nil)
-	var _ task.PayloadValidator = (*WarmImageCacheHandler)(nil)
+	var _ driver_asynq_worker.TaskHandler = (*WarmImageCacheHandler)(nil)
+	var _ driver_asynq_worker.PayloadValidator = (*WarmImageCacheHandler)(nil)
 }
 
 func writeTaskTestPNG(t *testing.T, path string, fill color.RGBA) {

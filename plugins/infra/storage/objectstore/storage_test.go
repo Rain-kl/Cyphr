@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 )
@@ -91,11 +91,11 @@ func TestStorageCachePubSub(t *testing.T) {
 	})
 	defer rdb.Close()
 
-	// 3. Set db.Redis to our client
-	oldRedis := db.Redis
-	db.Redis = rdb
+	// 3. Set cache.Redis to our client
+	oldRedis := cache.Redis
+	cache.Redis = rdb
 	defer func() {
-		db.Redis = oldRedis
+		cache.Redis = oldRedis
 	}()
 
 	// Reset cache and set some cached config

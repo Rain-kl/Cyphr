@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
@@ -276,7 +276,7 @@ type totalStatsSnapshot struct {
 
 func loadTotalStats(ctx context.Context) (totalStatsSnapshot, error) {
 	var rows []models.UploadStat
-	if err := db.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
+	if err := database.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
 		return totalStatsSnapshot{}, err
 	}
 	if len(rows) == 0 {

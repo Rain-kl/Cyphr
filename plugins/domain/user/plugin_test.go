@@ -15,7 +15,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/domain/user"
 )
 
@@ -30,7 +30,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&user.AccessToken{},
 	))
 
-	db.SetDB(testDB)
+	database.SetDB(testDB)
 	return testDB
 }
 

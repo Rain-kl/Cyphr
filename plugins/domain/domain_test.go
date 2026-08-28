@@ -18,15 +18,13 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/admin"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
 	"github.com/Rain-kl/Wavelet/plugins/domain/user"
 	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	"github.com/Rain-kl/Wavelet/plugins/infra/database"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/infra/logger"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage"
 )
@@ -80,7 +78,7 @@ func TestAuthPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
 	testDB := setupTestDB(t)
 
-	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, cache.New().Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
 
@@ -144,7 +142,7 @@ func TestUserPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
 	testDB := setupTestDB(t)
 
-	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, cache.New().Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
 
@@ -250,7 +248,7 @@ func TestMessageGatewayPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
 	testDB := setupTestDB(t)
 
-	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, cache.New().Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
 
@@ -338,7 +336,7 @@ func TestAdminPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
 	testDB := setupTestDB(t)
 
-	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, cache.New().Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
 
@@ -398,7 +396,7 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 	testDB := setupTestDB(t)
 
 	// Apply Infra plugins
-	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, cache.New(cache.WithRedis(rdb)).Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
 	require.NoError(t, storage.New().Apply(ctx))

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 )
 
@@ -29,8 +29,8 @@ func TestDiskCacheReloadConfig(t *testing.T) {
 	dbConn.Table("w_system_configs").Where("key = ?", "disk_cache_lru_enabled").Update("value", "false")
 
 	// Invalidate Redis config cache to force DB reload
-	if db.Redis != nil {
-		db.Redis.Del(context.Background(), db.PrefixedKey("system_configs"))
+	if cache.Redis != nil {
+		cache.Redis.Del(context.Background(), cache.PrefixedKey("system_configs"))
 	}
 
 	// Reload config

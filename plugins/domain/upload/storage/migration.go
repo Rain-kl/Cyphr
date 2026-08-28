@@ -10,8 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/pkg/task"
-
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
@@ -19,8 +18,8 @@ import (
 const StorageMigrationTask = "storage:migrate"
 
 // LatestMigrationExecution returns the most recent storage migration task execution.
-func LatestMigrationExecution(ctx context.Context) (*task.TaskExecution, bool, error) {
-	return task.GetLatestTaskExecutionByTaskType(ctx, StorageMigrationTask)
+func LatestMigrationExecution(ctx context.Context) (*driver_asynq_worker.TaskExecution, bool, error) {
+	return driver_asynq_worker.GetLatestTaskExecutionByTaskType(ctx, StorageMigrationTask)
 }
 
 // ParseMigrationTargetConfig parses and validates a storage migration target payload.

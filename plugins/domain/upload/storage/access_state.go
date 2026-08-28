@@ -9,9 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/task"
-
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
@@ -71,9 +70,9 @@ func buildMigrationAccessState(ctx context.Context) MigrationAccessState {
 	}
 
 	state := MigrationAccessState{
-		ReadOnly: execution.Status != task.TaskExecutionStatusSucceeded,
+		ReadOnly: execution.Status != driver_asynq_worker.TaskExecutionStatusSucceeded,
 	}
-	if execution.Status == task.TaskExecutionStatusSucceeded {
+	if execution.Status == driver_asynq_worker.TaskExecutionStatusSucceeded {
 		return state
 	}
 

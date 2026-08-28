@@ -141,8 +141,7 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
 | `w_uploads`<br>`w_upload_stats` | `plugins/domain/upload` | `models/models.go`<br>`repository/repository.go` | `core/contracts.StorageService`<br>`upload.Ingest` 流水线 |
 | `w_system_configs`<br>`w_templates` | `plugins/domain/admin` | `models.go`<br>`repository.go` | `ctx.Settings()` / `contracts.ConfigService`<br>Redis Pub/Sub 广播 |
 | `w_message_channels`<br>`w_message_bindings`<br>`w_message_pairing_codes`<br>`w_push_events`<br>`w_push_channels`<br>`w_push_histories` | `plugins/domain/message_gateway` | `models.go`<br>`repository.go` | `EventBus` 强类型事件广播订阅 |
-| `w_user_access_logs` (分析库/日志库) | `plugins/domain/risk_control` | 委托 `pkg/persistence/logstore` | `logstore.UserAccessLog` 抽象门面 |
-| `w_task_executions`<br>`w_schedules` | `pkg/task` & `plugins/drivers` | `pkg/task/types.go` | `ctx.Task()` 与 `ctx.Schedule()` 扩展点 |
+| `w_task_executions`<br>`w_schedules` | `plugins/drivers/driver_asynq_*` | `types.go`<br>`schedule.go` | `ctx.Task()` 与 `ctx.Schedule()` 扩展点 |
 
 ### 5.3 架构防线与单向依赖保障
 1. **测试脚手架绝对解耦**：底层通用的 `pkg/testhelper` 严禁反向引用任何上层业务插件。`testhelper` 维护轻量自包含的测试表脚手架，彻底杜绝包导入循环（Import Cycle）。

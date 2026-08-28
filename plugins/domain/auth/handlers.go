@@ -15,14 +15,12 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
-
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/shared"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -81,7 +79,7 @@ func GetLoginURL(c *gin.Context) {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := db.Redis.Set(ctx, db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
+	if err := cachepkg.Redis.Set(ctx, cachepkg.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
@@ -110,16 +108,16 @@ func buildAuthorizeURL(ctx context.Context, source *AuthSource, state string) (s
 }
 
 func reserveOAuthStateSlot(ctx context.Context, sessionHash string) error {
-	if db.Redis == nil || sessionHash == "" {
+	if cachepkg.Redis == nil || sessionHash == "" {
 		return nil
 	}
-	key := db.PrefixedKey(fmt.Sprintf(oauthStateLimitKeyFormat, sessionHash))
-	n, err := db.Redis.Incr(ctx, key).Result()
+	key := cachepkg.PrefixedKey(fmt.Sprintf(oauthStateLimitKeyFormat, sessionHash))
+	n, err := cachepkg.Redis.Incr(ctx, key).Result()
 	if err != nil {
 		return err
 	}
 	if n == 1 {
-		_ = db.Redis.Expire(ctx, key, OAuthStateCacheKeyExpiration).Err()
+		_ = cachepkg.Redis.Expire(ctx, key, OAuthStateCacheKeyExpiration).Err()
 	}
 	if n > oauthStateLimitMax {
 		return errors.New(errOAuthStateRateLimited)
@@ -153,7 +151,7 @@ func Authorize(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := GetUserIDFromSession(session)
 	if purpose == OAuthPurposeBind && userID == 0 {
-		response.AbortUnauthorized(c, shared.UnAuthorized)
+		response.AbortUnauthorized(c, errUnAuthorized)
 		return
 	}
 
@@ -182,7 +180,7 @@ func Authorize(c *gin.Context) {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := db.Redis.Set(ctx, db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
+	if err := cachepkg.Redis.Set(ctx, cachepkg.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
@@ -204,13 +202,13 @@ func Callback(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	stateKey := db.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, req.State))
-	payloadRaw, err := db.Redis.Get(ctx, stateKey).Result()
+	stateKey := cachepkg.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, req.State))
+	payloadRaw, err := cachepkg.Redis.Get(ctx, stateKey).Result()
 	if err != nil {
 		response.AbortBadRequest(c, errInvalidState)
 		return
 	}
-	_ = db.Redis.Del(ctx, stateKey)
+	_ = cachepkg.Redis.Del(ctx, stateKey)
 
 	payload, err := decodeOAuthStatePayload(payloadRaw)
 	if err != nil {
@@ -222,7 +220,7 @@ func Callback(c *gin.Context) {
 	currentUserID := GetUserIDFromSession(session)
 
 	if payload.Purpose == OAuthPurposeBind && currentUserID == 0 {
-		response.AbortUnauthorized(c, shared.UnAuthorized)
+		response.AbortUnauthorized(c, errUnAuthorized)
 		return
 	}
 
@@ -288,7 +286,7 @@ func Callback(c *gin.Context) {
 func handleCallbackBind(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) {
 	userID := GetUserIDFromContext(c)
 	if userID == 0 {
-		response.AbortUnauthorized(c, shared.UnAuthorized)
+		response.AbortUnauthorized(c, errUnAuthorized)
 		return
 	}
 	var user contracts.UserDTO
@@ -477,7 +475,7 @@ func ListExternalAccounts(c *gin.Context) {
 func DeleteExternalAccount(c *gin.Context) {
 	userID := GetUserIDFromContext(c)
 	if userID == 0 {
-		response.AbortUnauthorized(c, shared.UnAuthorized)
+		response.AbortUnauthorized(c, errUnAuthorized)
 		return
 	}
 	rawID := strings.TrimSpace(c.Param("id"))

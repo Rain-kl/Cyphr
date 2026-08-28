@@ -18,8 +18,8 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 type testUser struct {

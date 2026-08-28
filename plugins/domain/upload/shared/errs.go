@@ -40,4 +40,5 @@ const (
 	ErrQueryImagesForCacheWarmup       = "查询待预热图片失败: %w"
 	ErrQueryTypeListFailed             = "查询文件类型列表失败"
 	ErrUpdateFileFailed                = "更新文件失败"
+	ErrUnauthorized                    = "未登录"
 )

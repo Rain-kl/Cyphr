@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"gorm.io/gorm"
@@ -29,7 +29,7 @@ func TestApplyUploadStatsDeltaTxWithinTransaction(t *testing.T) {
 		CreatedAt: time.Now(),
 	}
 
-	if err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		return ApplyUploadStatsDeltaTx(tx, upload, 1)
 	}); err != nil {
 		t.Fatalf("ApplyUploadStatsDeltaTx returned error: %v", err)
@@ -90,7 +90,7 @@ type uploadStatsSnapshot struct {
 
 func loadUploadStats(ctx context.Context) (uploadStatsSnapshot, error) {
 	var rows []models.UploadStat
-	if err := db.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
+	if err := database.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
 		return uploadStatsSnapshot{}, err
 	}
 	if len(rows) == 0 {

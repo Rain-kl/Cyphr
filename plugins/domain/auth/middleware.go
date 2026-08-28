@@ -11,10 +11,9 @@ import (
 	"errors"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/shared"
 	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 
@@ -132,7 +131,7 @@ func LoginRequired() gin.HandlerFunc {
 
 		user, err := GetUserFromRequest(c)
 		if err != nil {
-			response.AbortUnauthorized(c, shared.UnAuthorized)
+			response.AbortUnauthorized(c, errUnAuthorized)
 			return
 		}
 
@@ -150,7 +149,7 @@ func AdminRequired() gin.HandlerFunc {
 
 		user, err := GetUserFromRequest(c)
 		if err != nil {
-			response.AbortUnauthorized(c, shared.UnAuthorized)
+			response.AbortUnauthorized(c, errUnAuthorized)
 			return
 		}
 

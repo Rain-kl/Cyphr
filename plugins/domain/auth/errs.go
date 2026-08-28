@@ -34,4 +34,6 @@ const (
 	errAdminRequired                        = "无权访问"
 	//nolint:gosec // error message, not hardcoded credentials
 	errTokenAdminRequired = "令牌无管理员权限"
+	errBannedAccount      = "账号已被封禁"
+	errUnAuthorized       = "未登录"
 )

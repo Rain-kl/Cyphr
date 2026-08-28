@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	pkgcap "github.com/Rain-kl/Wavelet/pkg/cap"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/cap/pow"
 )
 
 const (
@@ -28,11 +28,11 @@ const (
 // Manager orchestrates challenge generation and solution validation.
 type Manager struct {
 	secret []byte
-	store  pkgcap.Store
+	store  pow.Store
 }
 
 // NewManager creates a new CAPTCHA Manager.
-func NewManager(secret []byte, store pkgcap.Store) *Manager {
+func NewManager(secret []byte, store pow.Store) *Manager {
 	return &Manager{
 		secret: secret,
 		store:  store,
@@ -40,19 +40,19 @@ func NewManager(secret []byte, store pkgcap.Store) *Manager {
 }
 
 // Generate creates a challenge response.
-func (m *Manager) Generate(ctx context.Context, scope string) (*pkgcap.ChallengeResponse, error) {
+func (m *Manager) Generate(ctx context.Context, scope string) (*pow.ChallengeResponse, error) {
 	settings, err := CurrentSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	challengeConfig := pkgcap.ChallengeConfig{
+	challengeConfig := pow.ChallengeConfig{
 		Count:      settings.ChallengeCount,
 		Size:       settings.ChallengeSize,
 		Difficulty: settings.ChallengeDifficulty,
 		Expires:    settings.ChallengeTTL,
 	}
-	return pkgcap.GenerateChallenge(m.secret, challengeConfig, scope)
+	return pow.GenerateChallenge(m.secret, challengeConfig, scope)
 }
 
 // RedeemResponse is returned to the client on redeem.
@@ -65,14 +65,14 @@ type RedeemResponse struct {
 
 // Redeem verifies PoW solutions and returns a one-time redeem token.
 func (m *Manager) Redeem(ctx context.Context, token string, solutions []int, scope string) (*RedeemResponse, error) {
-	sigHex := pkgcap.JwtSigHex(token)
+	sigHex := pow.JwtSigHex(token)
 	if sigHex == "" {
 		return &RedeemResponse{Success: false, Error: "invalid_token"}, nil
 	}
 
 	nonceKey := "cap:nonce:" + sigHex
 
-	payload, err := pkgcap.VerifyChallengeSolutions(token, solutions, m.secret, scope)
+	payload, err := pow.VerifyChallengeSolutions(token, solutions, m.secret, scope)
 	if err != nil {
 		return &RedeemResponse{Success: false, Error: err.Error()}, nil //nolint:nilerr // validation errors are returned as response, not system errors
 	}
@@ -96,8 +96,8 @@ func (m *Manager) Redeem(ctx context.Context, token string, solutions []int, sco
 		return &RedeemResponse{Success: false, Error: "settings_load_error"}, err
 	}
 
-	id := pkgcap.RandomHex(redeemTokenIDLength)
-	verToken := pkgcap.RandomHex(redeemVerTokenLength)
+	id := pow.RandomHex(redeemTokenIDLength)
+	verToken := pow.RandomHex(redeemVerTokenLength)
 	verHashBytes := sha256.Sum256([]byte(verToken))
 	verHashHex := hex.EncodeToString(verHashBytes[:])
 
@@ -163,7 +163,7 @@ func (m *Manager) VerifyToken(ctx context.Context, token string, expectedScope s
 	return true, nil
 }
 
-func sGetAndDelete(ctx context.Context, store pkgcap.Store, key string) (string, bool, error) {
+func sGetAndDelete(ctx context.Context, store pow.Store, key string) (string, bool, error) {
 	if store == nil {
 		return "", false, nil
 	}
@@ -186,11 +186,11 @@ func GetDefaultManager() *Manager {
 			return
 		}
 
-		var store pkgcap.Store
+		var store pow.Store
 		if config.Config != nil && config.Config.Redis.Enabled && db.Redis != nil {
-			store = pkgcap.NewRedisStore(db.Redis)
+			store = pow.NewRedisStore(db.Redis)
 		} else {
-			store = pkgcap.NewMemoryStore(1 * time.Minute)
+			store = pow.NewMemoryStore(1 * time.Minute)
 		}
 
 		defaultManager = NewManager(secret, store)

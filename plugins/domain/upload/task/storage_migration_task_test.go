@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
@@ -239,16 +239,16 @@ func TestMigrationHandlerExecuteWithRedisLock(t *testing.T) {
 	})
 	defer rdb.Close()
 
-	oldRedis := db.Redis
-	db.Redis = rdb
+	oldRedis := cache.Redis
+	cache.Redis = rdb
 	defer func() {
-		db.Redis = oldRedis
+		cache.Redis = oldRedis
 	}()
 
 	ctx := context.Background()
 
 	// Acquire lock manually
-	lockKey := db.PrefixedKey("lock:storage:migrate")
+	lockKey := cache.PrefixedKey("lock:storage:migrate")
 	if err := rdb.Set(ctx, lockKey, "locked", time.Hour).Err(); err != nil {
 		t.Fatalf("Failed to set manual lock in Redis: %v", err)
 	}

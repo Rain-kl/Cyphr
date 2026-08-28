@@ -14,6 +14,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // Option configures the Asynq cron scheduler driver plugin.
@@ -61,7 +62,7 @@ type Plugin struct {
 // New creates a new Asynq Cron Scheduler driver plugin.
 func New(opts ...Option) *Plugin {
 	p := &Plugin{
-		redisOpt: asynq.RedisClientOpt{Addr: "127.0.0.1:6379"},
+		redisOpt: driver_asynq_worker.RedisOpt,
 		location: time.Local,
 	}
 

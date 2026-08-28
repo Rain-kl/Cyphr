@@ -18,8 +18,8 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
 	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 )
 
 var startTime = time.Now()

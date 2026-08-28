@@ -35,4 +35,5 @@ const (
 	ErrS3KeyStartsWithSlash         = shared.ErrS3KeyStartsWithSlash
 	ErrS3KeyContainsNullBytes       = shared.ErrS3KeyContainsNullBytes
 	ErrQueryUnusedUploadsFailed     = shared.ErrQueryUnusedUploadsFailed
+	ErrUnauthorized                 = shared.ErrUnauthorized
 )

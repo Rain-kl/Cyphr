@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 
 	"gorm.io/gorm"
 )
@@ -110,7 +110,7 @@ func LoadConfig(ctx context.Context) (Config, error) {
 
 func loadConfigByKey(ctx context.Context, key string, fallback Config) (Config, error) {
 	var val string
-	err := db.DB(ctx).Table("w_system_configs").Where("key = ?", key).Pluck("value", &val).Error
+	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", key).Pluck("value", &val).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return fallback, nil
@@ -182,7 +182,7 @@ func SaveActiveConfig(ctx context.Context, cfg Config) error {
 }
 
 func saveSystemConfig(ctx context.Context, key string, value any, description string) error {
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	err := database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		return upsertSystemConfig(ctx, tx, key, value, description)
 	})
 	if err == nil && key == "storage_config" {

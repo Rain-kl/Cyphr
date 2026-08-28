@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
 	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
@@ -50,7 +50,7 @@ func resolveAccessMode(uploadType string, explicit *int) int {
 
 func validateAllowedExtension(ctx context.Context, ext string) error {
 	var val string
-	err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Pluck("value", &val).Error
+	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Pluck("value", &val).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
@@ -128,7 +128,7 @@ func persistUploadRecord(ctx context.Context, upload *models.Upload, objectKey s
 }
 
 func createUploadWithStats(ctx context.Context, upload *models.Upload) error {
-	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := repository.CreateUploadTx(tx, upload); err != nil {
 			return err
 		}

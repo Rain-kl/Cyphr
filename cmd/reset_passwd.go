@@ -13,9 +13,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/migrator"
+	"github.com/Rain-kl/Wavelet/pkg/migrator"
 	userdomain "github.com/Rain-kl/Wavelet/plugins/domain/user"
+	"github.com/Rain-kl/Wavelet/plugins/infra/database"
 
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/spf13/cobra"
@@ -90,7 +90,7 @@ var resetPasswdCmd = &cobra.Command{
 			log.Fatalf("加密密码失败: %v\n", err)
 		}
 
-		err = db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+		err = database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 			if err := tx.Model(&user).Update("password", user.Password).Error; err != nil {
 				return err
 			}

@@ -20,8 +20,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/response"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (

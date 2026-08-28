@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
@@ -33,13 +33,13 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 		},
 	}
 	for i := range uploads {
-		if err := db.DB(ctx).Create(&uploads[i]).Error; err != nil {
+		if err := database.DB(ctx).Create(&uploads[i]).Error; err != nil {
 			t.Fatalf("seed upload failed: %v", err)
 		}
 	}
 
 	// Corrupt stats to ensure rebuild recalculates from uploads.
-	if err := db.DB(ctx).Create(&models.UploadStat{
+	if err := database.DB(ctx).Create(&models.UploadStat{
 		Dimension: models.UploadStatDimensionTotal,
 		StatKey:   "",
 		FileCount: 0,
@@ -58,7 +58,7 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 	}
 
 	var totalStat models.UploadStat
-	if err := db.DB(ctx).
+	if err := database.DB(ctx).
 		Where("dimension = ? AND stat_key = ?", models.UploadStatDimensionTotal, "").
 		First(&totalStat).Error; err != nil {
 		t.Fatalf("load total stat failed: %v", err)

@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/task"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // RegisterTaskListeners subscribes push notification handlers to task completion events.
 func RegisterTaskListeners() {
-	task.OnTaskCompleted(handleTaskCompleted)
+	driver_asynq_worker.OnTaskCompleted(handleTaskCompleted)
 }
 
-func handleTaskCompleted(ctx context.Context, execution *task.TaskExecution, result *task.TaskResult, execErr error) {
+func handleTaskCompleted(ctx context.Context, execution *driver_asynq_worker.TaskExecution, result *driver_asynq_worker.TaskResult, execErr error) {
 	events, err := listActivePushEventsByTaskType(ctx, execution.TaskType)
 	if err != nil {
 		logger.ErrorF(ctx, "push_task_completed_listener: failed to query push events for task type %s: %v", execution.TaskType, err)

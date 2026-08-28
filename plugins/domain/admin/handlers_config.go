@@ -15,9 +15,10 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	mail "github.com/Rain-kl/Wavelet/pkg/mail"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/cap"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -350,15 +351,15 @@ func invalidateCachesAfterConfigUpdate(ctx context.Context, key string) {
 	invalidateSystemConfigCaches(ctx, key)
 
 	if key == ConfigKeyStorageConfig {
-		if db.Redis != nil {
-			_ = db.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
+		if cachepkg.Redis != nil {
+			_ = cachepkg.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
 		}
 		objectstore.ResetCache()
 		objectstore.PublishCacheInvalidation(ctx)
 	}
 	if key == ConfigKeyFileAccessWhitelist {
-		if db.Redis != nil {
-			_ = db.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
+		if cachepkg.Redis != nil {
+			_ = cachepkg.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
 		}
 	}
 

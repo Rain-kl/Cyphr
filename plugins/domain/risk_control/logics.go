@@ -8,10 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Rain-kl/Wavelet/pkg/batchwriter"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-
-	"github.com/Rain-kl/Wavelet/pkg/persistence/batchwriter"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 )
 
 var (

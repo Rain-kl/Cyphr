@@ -16,12 +16,12 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const minPasswordLength = 8

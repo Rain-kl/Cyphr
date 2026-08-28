@@ -14,7 +14,8 @@ import (
 	"github.com/redis/go-redis/v9/maintnotifications"
 	"gorm.io/gorm"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 func setupSystemConfigTest(t *testing.T) (*gorm.DB, func()) {
@@ -51,15 +52,15 @@ func setupSystemConfigTest(t *testing.T) (*gorm.DB, func()) {
 		},
 	})
 
-	previousRedis := db.Redis
-	db.SetDB(sqliteDB)
-	db.Redis = redisClient
+	previousRedis := cache.Redis
+	database.SetDB(sqliteDB)
+	cache.Redis = redisClient
 
 	cleanup := func() {
 		StopSystemConfigCacheListener()
 		ResetSystemConfigRAMCacheForTest()
-		db.SetDB(nil)
-		db.Redis = previousRedis
+		database.SetDB(nil)
+		cache.Redis = previousRedis
 		_ = redisClient.Close()
 		mr.Close()
 	}

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	pkgmg "github.com/Rain-kl/Wavelet/pkg/message_gateway"
-
 	"gorm.io/gorm"
 )
 
@@ -37,7 +35,7 @@ func bindChannel(ctx context.Context, userID uint64, req BindRequest) (BindingDT
 	if err != nil || channelID == 0 {
 		return BindingDTO{}, errChannelIDRequired
 	}
-	code := pkgmg.NormalizeCode(req.Code)
+	code := NormalizeCode(req.Code)
 	if code == "" {
 		return BindingDTO{}, errCodeInvalid
 	}

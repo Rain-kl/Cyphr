@@ -14,7 +14,6 @@ import (
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/redis/go-redis/v9"
 )
@@ -82,7 +81,7 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	redisClient := p.redisClient
 	if redisClient == nil {
-		redisClient = db.Redis
+		redisClient = Redis
 	}
 
 	ramCache, err := ram.New[string, ramEntry](ram.Options{
@@ -128,7 +127,7 @@ func (s *cacheServiceImpl) prefixedKey(key string) string {
 	if s.keyPrefix != "" {
 		return s.keyPrefix + key
 	}
-	return db.PrefixedKey(key)
+	return PrefixedKey(key)
 }
 
 func (s *cacheServiceImpl) startPubSubListener() {

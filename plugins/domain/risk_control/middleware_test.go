@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/batchwriter"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/batchwriter"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )

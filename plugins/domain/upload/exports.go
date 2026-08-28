@@ -4,7 +4,6 @@
 package upload
 
 import (
-	"github.com/Rain-kl/Wavelet/pkg/task"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/handler"
@@ -12,6 +11,7 @@ import (
 	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
 	uploadtask "github.com/Rain-kl/Wavelet/plugins/domain/upload/task"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // HTTP handlers
@@ -116,11 +116,11 @@ type WarmImageCachePayload = uploadtask.WarmImageCachePayload
 
 // Ensure task handler types implement required interfaces.
 var (
-	_ task.TaskHandler = (*MigrationHandler)(nil)
-	_ task.TaskHandler = (*SystemCleanupHandler)(nil)
-	_ task.TaskHandler = (*RebuildUploadStatsHandler)(nil)
+	_ driver_asynq_worker.TaskHandler = (*MigrationHandler)(nil)
+	_ driver_asynq_worker.TaskHandler = (*SystemCleanupHandler)(nil)
+	_ driver_asynq_worker.TaskHandler = (*RebuildUploadStatsHandler)(nil)
 	_ interface {
-		task.TaskHandler
+		driver_asynq_worker.TaskHandler
 		ValidatePayload([]byte) ([]byte, error)
 	} = (*WarmImageCacheHandler)(nil)
 )

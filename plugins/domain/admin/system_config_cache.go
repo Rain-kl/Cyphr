@@ -13,8 +13,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 )
 
 const (
@@ -104,14 +104,14 @@ func ensureSystemConfigCacheListener() {
 }
 
 func startSystemConfigCacheInvalidationListener() {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return
 	}
 
 	systemConfigListenerCtx, systemConfigListenerCancel = context.WithCancel(context.Background())
 	systemConfigListenerDone = make(chan struct{})
 
-	redisClient := db.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 db.Redis 竞争
+	redisClient := cachepkg.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 cachepkg.Redis 竞争
 	util.Go(func() {
 		listenerCtx := systemConfigListenerCtx
 		defer close(systemConfigListenerDone)
@@ -169,8 +169,8 @@ func InvalidateSystemConfigCache(ctx context.Context, key string) error {
 	ram.Delete(ConfigCacheType, key)
 
 	// Broadcast to other nodes and clean legacy Redis cache key
-	if db.Redis != nil {
-		_ = db.HDel(ctx, SystemConfigRedisHashKey, key)
+	if cachepkg.Redis != nil {
+		_ = cachepkg.HDel(ctx, SystemConfigRedisHashKey, key)
 		publishSystemConfigBroadcast(ctx, ConfigCacheType, key)
 	}
 	return nil
@@ -184,22 +184,22 @@ func InvalidateAllSystemConfigCaches(ctx context.Context) error {
 	ram.UpdateTypeItems(ConfigCacheType, nil)
 
 	// Broadcast to other nodes and clean legacy Redis cache keys
-	if db.Redis != nil {
-		_ = db.Redis.Del(ctx, db.PrefixedKey(SystemConfigRedisHashKey), db.PrefixedKey(SystemConfigVisibleListRedisKey)).Err()
+	if cachepkg.Redis != nil {
+		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey(SystemConfigRedisHashKey), cachepkg.PrefixedKey(SystemConfigVisibleListRedisKey)).Err()
 		publishSystemConfigBroadcast(ctx, ConfigCacheType, "*")
 	}
 	return nil
 }
 
 func publishSystemConfigBroadcast(ctx context.Context, configType string, key string) {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return
 	}
 	payload, err := json.Marshal(systemConfigBroadcastMessage{Type: configType, Key: key})
 	if err != nil {
 		return
 	}
-	_ = db.Redis.Publish(ctx, SystemConfigBroadcastChannel, payload).Err()
+	_ = cachepkg.Redis.Publish(ctx, SystemConfigBroadcastChannel, payload).Err()
 }
 
 // ResetSystemConfigRAMCacheForTest clears only the process-local RAM cache.

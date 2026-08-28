@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
-	"github.com/Rain-kl/Wavelet/pkg/task"
+	pkgpush "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 
@@ -445,7 +445,7 @@ func findBuiltInEvent(key string) (EventMetadata, bool) {
 
 func getEventInfo(req CreatePushEventRequest) (string, string, []byte, error) {
 	if req.TaskType != "" {
-		meta := task.GetTaskMetaByAsynqTask(req.TaskType)
+		meta := driver_asynq_worker.GetTaskMetaByAsynqTask(req.TaskType)
 		if meta == nil {
 			return "", "", nil, errors.New("unsupported task type")
 		}
@@ -484,7 +484,7 @@ func enqueuePushTask(ctx context.Context, payload SendPayload) error {
 	if err != nil {
 		return err
 	}
-	_, err = task.DispatchTask(ctx, "send_notification", payloadBytes, "system")
+	_, err = driver_asynq_worker.DispatchTask(ctx, "send_notification", payloadBytes, "system")
 	return err
 }
 

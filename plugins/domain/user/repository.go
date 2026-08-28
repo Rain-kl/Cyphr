@@ -9,7 +9,7 @@ import (
 
 	"strings"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
@@ -17,7 +17,7 @@ import (
 // GetUserByID 通过 ID 获取用户
 func GetUserByID(ctx context.Context, id uint64) (*User, error) {
 	var u User
-	if err := db.DB(ctx).First(&u, id).Error; err != nil {
+	if err := database.DB(ctx).First(&u, id).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -26,7 +26,7 @@ func GetUserByID(ctx context.Context, id uint64) (*User, error) {
 // GetUserByUsername 通过用户名获取用户
 func GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
-	if err := db.DB(ctx).Where("username = ?", username).First(&u).Error; err != nil {
+	if err := database.DB(ctx).Where("username = ?", username).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -35,7 +35,7 @@ func GetUserByUsername(ctx context.Context, username string) (*User, error) {
 // GetUserByEmail 通过邮箱获取用户
 func GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
-	if err := db.DB(ctx).Where("email = ?", email).First(&u).Error; err != nil {
+	if err := database.DB(ctx).Where("email = ?", email).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -43,17 +43,17 @@ func GetUserByEmail(ctx context.Context, email string) (*User, error) {
 
 // CreateUser 创建用户
 func CreateUser(ctx context.Context, u *User) error {
-	return db.DB(ctx).Create(u).Error
+	return database.DB(ctx).Create(u).Error
 }
 
 // UpdateUser 更新用户
 func UpdateUser(ctx context.Context, u *User) error {
-	return db.DB(ctx).Save(u).Error
+	return database.DB(ctx).Save(u).Error
 }
 
 // ListUsers 分页查询用户
 func ListUsers(ctx context.Context, page, pageSize int, keyword string) ([]*User, int64, error) {
-	db := db.DB(ctx).Model(&User{})
+	db := database.DB(ctx).Model(&User{})
 	if keyword != "" {
 		escaped := util.EscapeLike(keyword)
 		db = db.Where("username LIKE ? ESCAPE '\\' OR nickname LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\'", "%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%")
@@ -75,7 +75,7 @@ func ListUsers(ctx context.Context, page, pageSize int, keyword string) ([]*User
 // GetAccessTokenByHash 通过 Hash 查询访问令牌
 func GetAccessTokenByHash(ctx context.Context, tokenHash string) (*AccessToken, error) {
 	var token AccessToken
-	if err := db.DB(ctx).Where("token_hash = ?", tokenHash).First(&token).Error; err != nil {
+	if err := database.DB(ctx).Where("token_hash = ?", tokenHash).First(&token).Error; err != nil {
 		return nil, err
 	}
 	return &token, nil
@@ -91,7 +91,7 @@ type AdminUserListFilter struct {
 
 // ListAdminUsers 获取后台管理用户列表
 func ListAdminUsers(ctx context.Context, filter AdminUserListFilter) (int64, []User, error) {
-	query := db.DB(ctx).Model(&User{})
+	query := database.DB(ctx).Model(&User{})
 	if filter.Username != "" {
 		escaped := util.EscapeLike(strings.ToLower(filter.Username))
 		query = query.Where("LOWER(username) LIKE ? ESCAPE '\\'", "%"+escaped+"%")
@@ -117,13 +117,13 @@ func ListAdminUsers(ctx context.Context, filter AdminUserListFilter) (int64, []U
 
 // UpdateUserActive 更新用户激活状态
 func UpdateUserActive(ctx context.Context, id uint64, active bool) error {
-	return db.DB(ctx).Model(&User{}).Where("id = ?", id).Update("is_active", active).Error
+	return database.DB(ctx).Model(&User{}).Where("id = ?", id).Update("is_active", active).Error
 }
 
 // GetActiveUserByID 获取处于激活状态的用户
 func GetActiveUserByID(ctx context.Context, id uint64) (*User, error) {
 	var u User
-	if err := db.DB(ctx).Where("id = ? AND is_active = ?", id, true).First(&u).Error; err != nil {
+	if err := database.DB(ctx).Where("id = ? AND is_active = ?", id, true).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -131,7 +131,7 @@ func GetActiveUserByID(ctx context.Context, id uint64) (*User, error) {
 
 // DeleteUserWithRelations 删除用户及其级联关系
 func DeleteUserWithRelations(ctx context.Context, id uint64) error {
-	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("user_id = ?", id).Delete(&AccessToken{}).Error; err != nil {
 			return err
 		}
@@ -142,7 +142,7 @@ func DeleteUserWithRelations(ctx context.Context, id uint64) error {
 // GetFirstAdminUser 获取第一个管理员用户
 func GetFirstAdminUser(ctx context.Context) (*User, error) {
 	var u User
-	if err := db.DB(ctx).Where("is_admin = ?", true).Order("id ASC").First(&u).Error; err != nil {
+	if err := database.DB(ctx).Where("is_admin = ?", true).Order("id ASC").First(&u).Error; err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -152,7 +152,7 @@ func GetFirstAdminUser(ctx context.Context) (*User, error) {
 func ListUsernamesMatchingBase(ctx context.Context, base string) ([]string, error) {
 	var usernames []string
 	escaped := util.EscapeLike(strings.ToLower(base))
-	if err := db.DB(ctx).Model(&User{}).
+	if err := database.DB(ctx).Model(&User{}).
 		Where("LOWER(username) LIKE ? ESCAPE '\\'", escaped+"%").
 		Pluck("username", &usernames).Error; err != nil {
 		return nil, err

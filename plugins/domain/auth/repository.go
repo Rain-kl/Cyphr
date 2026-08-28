@@ -7,7 +7,7 @@ package auth
 import (
 	"context"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 // GetAuthSourceByID 根据 ID 获取认证源

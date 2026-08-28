@@ -9,7 +9,6 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
 	"gorm.io/gorm"
 )
 
@@ -61,7 +60,7 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	targetDB := p.db
 	if targetDB == nil {
-		targetDB = db.DB(context.Background())
+		targetDB = DB(context.Background())
 	}
 
 	svc := &dbServiceImpl{
@@ -82,14 +81,14 @@ func (s *dbServiceImpl) GORM() *gorm.DB {
 	if s.primary != nil {
 		return s.primary
 	}
-	return db.DB(context.Background())
+	return DB(context.Background())
 }
 
 func (s *dbServiceImpl) DB(ctx context.Context) *gorm.DB {
 	if s.primary != nil {
 		return s.primary.WithContext(ctx)
 	}
-	return db.DB(ctx)
+	return DB(ctx)
 }
 
 func (s *dbServiceImpl) Named(name string) *gorm.DB {

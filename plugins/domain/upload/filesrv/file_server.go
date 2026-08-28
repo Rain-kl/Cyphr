@@ -17,7 +17,6 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	appshared "github.com/Rain-kl/Wavelet/pkg/shared"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
@@ -78,7 +77,7 @@ func ServeFileByID(c *gin.Context) {
 	}
 
 	if err := CheckFileAccessPermission(c, upload); err != nil {
-		response.AbortUnauthorized(c, appshared.UnAuthorized)
+		response.AbortUnauthorized(c, shared.ErrUnauthorized)
 		return
 	}
 

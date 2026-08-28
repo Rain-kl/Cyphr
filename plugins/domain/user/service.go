@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
 
 	pkgu "github.com/Rain-kl/Wavelet/pkg/util"
 )
@@ -65,7 +65,7 @@ func (s *userServiceImpl) GetUserByUsername(ctx context.Context, username string
 
 func (s *userServiceImpl) GetUserByEmail(ctx context.Context, email string) (*contracts.UserDTO, error) {
 	var u User
-	if err := db.DB(ctx).Where("email = ?", email).First(&u).Error; err != nil {
+	if err := database.DB(ctx).Where("email = ?", email).First(&u).Error; err != nil {
 		return nil, err
 	}
 	return toUserDTO(&u), nil
@@ -133,7 +133,7 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, id uint64, req cont
 	}
 	updates["updated_at"] = time.Now()
 
-	if err := db.DB(ctx).Model(&User{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+	if err := database.DB(ctx).Model(&User{}).Where("id = ?", id).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 
@@ -142,7 +142,7 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, id uint64, req cont
 
 func (s *userServiceImpl) UpdatePassword(ctx context.Context, id uint64, oldPassword, newPassword string) error {
 	var user User
-	if err := db.DB(ctx).Where("id = ?", id).First(&user).Error; err != nil {
+	if err := database.DB(ctx).Where("id = ?", id).First(&user).Error; err != nil {
 		return err
 	}
 
@@ -154,7 +154,7 @@ func (s *userServiceImpl) UpdatePassword(ctx context.Context, id uint64, oldPass
 		return err
 	}
 
-	return db.DB(ctx).Model(&User{}).Where("id = ?", id).
+	return database.DB(ctx).Model(&User{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"password":   user.Password,
 			"updated_at": time.Now(),
@@ -163,7 +163,7 @@ func (s *userServiceImpl) UpdatePassword(ctx context.Context, id uint64, oldPass
 
 func (s *userServiceImpl) VerifyPassword(ctx context.Context, id uint64, password string) bool {
 	var user User
-	if err := db.DB(ctx).Where("id = ?", id).First(&user).Error; err != nil {
+	if err := database.DB(ctx).Where("id = ?", id).First(&user).Error; err != nil {
 		pkgu.DummyCheckPassword(password)
 		return false
 	}
@@ -171,7 +171,7 @@ func (s *userServiceImpl) VerifyPassword(ctx context.Context, id uint64, passwor
 }
 
 func (s *userServiceImpl) UpdateLastLogin(ctx context.Context, id uint64, _ string) error {
-	return db.DB(ctx).Model(&User{}).Where("id = ?", id).
+	return database.DB(ctx).Model(&User{}).Where("id = ?", id).
 		Updates(map[string]any{
 			"last_login_at": time.Now(),
 			"updated_at":    time.Now(),
@@ -210,7 +210,7 @@ func (s *userServiceImpl) SetUserActive(ctx context.Context, id uint64, active b
 }
 
 func (s *userServiceImpl) SetUserAdmin(ctx context.Context, id uint64, admin bool) error {
-	return db.DB(ctx).Model(&User{}).Where("id = ?", id).Update("is_admin", admin).Error
+	return database.DB(ctx).Model(&User{}).Where("id = ?", id).Update("is_admin", admin).Error
 }
 
 func (s *userServiceImpl) VerifyAccessToken(ctx context.Context, tokenHash string) (*contracts.UserDTO, bool, error) {
@@ -233,13 +233,13 @@ func (s *userServiceImpl) DeleteUser(ctx context.Context, id uint64) error {
 
 func (s *userServiceImpl) CountUsers(ctx context.Context) (int64, error) {
 	var count int64
-	err := db.DB(ctx).Model(&User{}).Count(&count).Error
+	err := database.DB(ctx).Model(&User{}).Count(&count).Error
 	return count, err
 }
 
 func (s *userServiceImpl) CountActiveUsers(ctx context.Context) (int64, error) {
 	var count int64
-	err := db.DB(ctx).Model(&User{}).Where("is_active = ?", true).Count(&count).Error
+	err := database.DB(ctx).Model(&User{}).Where("is_active = ?", true).Count(&count).Error
 	return count, err
 }
 

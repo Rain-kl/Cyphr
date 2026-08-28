@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 

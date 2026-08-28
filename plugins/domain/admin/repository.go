@@ -17,9 +17,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (
@@ -482,7 +483,7 @@ func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*Ta
 
 // AppendTaskExecutionLog 将日志追加到 Redis 缓冲，任务完成后再持久化到数据库。
 func AppendTaskExecutionLog(ctx context.Context, taskID string, logLine string) error {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return errors.New("redis client is not initialized")
 	}
 
@@ -490,7 +491,7 @@ func AppendTaskExecutionLog(ctx context.Context, taskID string, logLine string) 
 	line := fmt.Sprintf("[%s] %s\n", now, logLine)
 	key := taskExecutionLogRedisKey(taskID)
 
-	_, err := db.Redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+	_, err := cachepkg.Redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		pipe.RPush(ctx, key, line)
 		pipe.LTrim(ctx, key, -taskExecutionLogMaxLines, -1)
 		pipe.Expire(ctx, key, taskExecutionLogExpiration)
@@ -504,12 +505,12 @@ func AppendTaskExecutionLog(ctx context.Context, taskID string, logLine string) 
 
 // FlushTaskExecutionLog 将 Redis 中的完整任务日志写入数据库，并在成功后清理缓存。
 func FlushTaskExecutionLog(ctx context.Context, taskID string) error {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return errors.New("redis client is not initialized")
 	}
 
 	key := taskExecutionLogRedisKey(taskID)
-	logLines, err := db.Redis.LRange(ctx, key, 0, -1).Result()
+	logLines, err := cachepkg.Redis.LRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return fmt.Errorf("get task execution log from redis: %w", err)
 	}
@@ -528,7 +529,7 @@ func FlushTaskExecutionLog(ctx context.Context, taskID string) error {
 		return fmt.Errorf("persist task execution log: task %q not found", taskID)
 	}
 
-	if err := db.Redis.Del(ctx, key).Err(); err != nil {
+	if err := cachepkg.Redis.Del(ctx, key).Err(); err != nil {
 		return fmt.Errorf("delete persisted task execution log from redis: %w", err)
 	}
 	return nil
@@ -658,15 +659,15 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 }
 
 func taskExecutionLogRedisKey(taskID string) string {
-	return db.PrefixedKey(taskExecutionLogRedisKeyPrefix + taskID)
+	return cachepkg.PrefixedKey(taskExecutionLogRedisKeyPrefix + taskID)
 }
 
 func loadTaskExecutionLog(ctx context.Context, execution *TaskExecution) error {
-	if db.Redis == nil {
+	if cachepkg.Redis == nil {
 		return nil
 	}
 
-	logLines, err := db.Redis.LRange(ctx, taskExecutionLogRedisKey(execution.TaskID), 0, -1).Result()
+	logLines, err := cachepkg.Redis.LRange(ctx, taskExecutionLogRedisKey(execution.TaskID), 0, -1).Result()
 	if err != nil {
 		return fmt.Errorf("get task execution log from redis: %w", err)
 	}
@@ -679,12 +680,12 @@ func loadTaskExecutionLog(ctx context.Context, execution *TaskExecution) error {
 }
 
 func loadTaskExecutionLogs(ctx context.Context, executions []TaskExecution) error {
-	if db.Redis == nil || len(executions) == 0 {
+	if cachepkg.Redis == nil || len(executions) == 0 {
 		return nil
 	}
 
 	commands := make([]*redis.StringSliceCmd, len(executions))
-	_, err := db.Redis.Pipelined(ctx, func(pipe redis.Pipeliner) error {
+	_, err := cachepkg.Redis.Pipelined(ctx, func(pipe redis.Pipeliner) error {
 		for i := range executions {
 			commands[i] = pipe.LRange(ctx, taskExecutionLogRedisKey(executions[i].TaskID), 0, -1)
 		}

@@ -83,7 +83,7 @@ type Plugin struct {
 // New creates a new Asynq Worker driver plugin.
 func New(opts ...Option) *Plugin {
 	p := &Plugin{
-		redisOpt:        asynq.RedisClientOpt{Addr: "127.0.0.1:6379"},
+		redisOpt:        RedisOpt,
 		concurrency:     defaultConcurrency,
 		shutdownTimeout: defaultShutdownTimeout,
 		queues:          map[string]int{"default": 1},
@@ -142,6 +142,10 @@ func (p *Plugin) Start(_ context.Context) error {
 			}
 			mux.Handle(td.Pattern, handler)
 		}
+	}
+
+	for _, taskName := range GetRegisteredAsynqTasks() {
+		mux.HandleFunc(taskName, ProcessTask)
 	}
 
 	if p.server == nil {
@@ -216,6 +220,11 @@ func toAsynqHandler(h any) (asynq.Handler, error) {
 		return fn, nil
 	case asynq.Handler:
 		return fn, nil
+	case TaskHandler:
+		return asynq.HandlerFunc(func(c context.Context, t *asynq.Task) error {
+			RegisterHandler(t.Type(), fn)
+			return ProcessTask(c, t)
+		}), nil
 	case func(context.Context, *asynq.Task) error:
 		return asynq.HandlerFunc(fn), nil
 	case func(context.Context, []byte) error:

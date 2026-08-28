@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"strconv"
 
-	persistence "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 
 // ListAuthSources lists all configured authentication sources.
 func ListAuthSources(c *gin.Context) {
 	var sources []auth.AuthSource
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Order("id ASC").Find(&sources).Error; err != nil {
 		response.AbortInternal(c, "获取认证源列表失败")
 		return
@@ -51,7 +51,7 @@ func CreateAuthSource(c *gin.Context) {
 		return
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Create(&source).Error; err != nil {
 		response.AbortBadRequest(c, "创建认证源失败: "+err.Error())
 		return
@@ -70,7 +70,7 @@ func UpdateAuthSource(c *gin.Context) {
 		return
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	var existing auth.AuthSource
 	if err := gormDB.First(&existing, id).Error; err != nil {
 		response.AbortNotFound(c, "认证源不存在")
@@ -115,7 +115,7 @@ func ToggleAuthSource(c *gin.Context) {
 		return
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	var existing auth.AuthSource
 	if err := gormDB.First(&existing, id).Error; err != nil {
 		response.AbortNotFound(c, "认证源不存在")
@@ -147,7 +147,7 @@ func DeleteAuthSource(c *gin.Context) {
 		return
 	}
 
-	gormDB := persistence.DB(c.Request.Context())
+	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Delete(&auth.AuthSource{}, id).Error; err != nil {
 		response.AbortInternal(c, "删除认证源失败")
 		return

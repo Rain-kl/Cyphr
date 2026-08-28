@@ -11,7 +11,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 
-	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
+	pkgpush "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
 
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"

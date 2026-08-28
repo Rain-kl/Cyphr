@@ -17,12 +17,12 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/task"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -497,16 +497,16 @@ const (
 )
 
 // LogDBSwitchMeta 描述切换日志数据库任务。
-var LogDBSwitchMeta = task.TaskMeta{
+var LogDBSwitchMeta = driver_asynq_worker.TaskMeta{
 	Type:         TaskTypeLogDBSwitch,
 	AsynqTask:    LogDBSwitchTask,
 	Name:         "切换日志数据库",
 	Description:  "复制迁移用户访问日志并在成功后切换日志主库（期间禁止日志写入）",
 	SupportsTime: false,
-	MaxRetry:     task.DefaultMaxRetry,
-	Queue:        task.QueueDefault,
+	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
+	Queue:        driver_asynq_worker.QueueDefault,
 	Retryable:    true,
-	Params: []task.TaskParam{
+	Params: []driver_asynq_worker.TaskParam{
 		{Name: "target", Label: "目标日志库", Type: "string", Required: true,
 			Placeholder: "postgres|sqlite|clickhouse", Description: "迁移目标：postgres（主库为 PG 时）、sqlite（主库为 SQLite 时）或 clickhouse"},
 	},
@@ -553,7 +553,7 @@ func validTarget(v string) bool {
 }
 
 // Execute 执行迁移。
-func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*task.TaskResult, error) {
+func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*driver_asynq_worker.TaskResult, error) {
 	var p logDBSwitchPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, fmt.Errorf("参数解析失败: %w", err)
@@ -565,10 +565,10 @@ func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*task
 
 	source, err := currentLogDatabase(ctx)
 	if err != nil {
-		task.AppendLog(ctx, "读取日志主库失败: %v", err)
+		driver_asynq_worker.AppendLog(ctx, "读取日志主库失败: %v", err)
 		return nil, err
 	}
-	task.AppendLog(ctx, "开始切换日志数据库：%s -> %s", source, p.Target)
+	driver_asynq_worker.AppendLog(ctx, "开始切换日志数据库：%s -> %s", source, p.Target)
 
 	if err := setMigrationFlag(ctx, "migrating"); err != nil {
 		return nil, err
@@ -612,8 +612,8 @@ func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*task
 		return nil, err
 	}
 	logstore.InvalidateCache()
-	task.AppendLog(ctx, "日志数据库已切换为 %s，写入恢复", p.Target)
-	return &task.TaskResult{Message: fmt.Sprintf("日志数据库已从 %s 切换为 %s", source, p.Target)}, nil
+	driver_asynq_worker.AppendLog(ctx, "日志数据库已切换为 %s，写入恢复", p.Target)
+	return &driver_asynq_worker.TaskResult{Message: fmt.Sprintf("日志数据库已从 %s 切换为 %s", source, p.Target)}, nil
 }
 
 func validateSwitch(ctx context.Context, target string) error {
@@ -676,7 +676,7 @@ func copyUserAccessLogs(ctx context.Context, src, dst *logstore.Store) error {
 		}
 		afterID = rows[len(rows)-1].ID
 		copied += len(rows)
-		task.AppendLog(ctx, "已复制用户访问日志 %d 条", copied)
+		driver_asynq_worker.AppendLog(ctx, "已复制用户访问日志 %d 条", copied)
 		if len(rows) < copyBatchSize {
 			break
 		}

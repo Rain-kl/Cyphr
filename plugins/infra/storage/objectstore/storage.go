@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
@@ -76,14 +77,14 @@ func ResetCache() {
 
 // PublishCacheInvalidation broadcasts cache eviction to all nodes in the cluster via Redis.
 func PublishCacheInvalidation(ctx context.Context) {
-	if db.Redis != nil {
-		_ = db.Redis.Publish(ctx, ConfigInvalidationChannel, "reset").Err()
+	if cache.Redis != nil {
+		_ = cache.Redis.Publish(ctx, ConfigInvalidationChannel, "reset").Err()
 	}
 }
 
 // startPubSubListener starts the background subscriber for cache invalidations.
 func startPubSubListener() {
-	rdb := db.Redis
+	rdb := cache.Redis
 	if rdb == nil {
 		return
 	}
@@ -126,7 +127,7 @@ func Active(ctx context.Context) (Driver, Backend, error) {
 	}
 
 	var val string
-	err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "storage_config").Pluck("value", &val).Error
+	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "storage_config").Pluck("value", &val).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil, err
 	}

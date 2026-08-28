@@ -10,8 +10,9 @@ import (
 
 	"gorm.io/gorm"
 
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (
@@ -223,8 +224,8 @@ func DeletePushChannelRecord(ctx context.Context, channel *PushChannel) error {
 func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel, error) {
 	cacheKey := "push:channel:active:" + name
 	var channel PushChannel
-	if db.Redis != nil {
-		if err := db.GetJSON(ctx, cacheKey, &channel); err == nil {
+	if cachepkg.Redis != nil {
+		if err := cachepkg.GetJSON(ctx, cacheKey, &channel); err == nil {
 			return &channel, nil
 		}
 	}
@@ -233,8 +234,8 @@ func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel,
 		return nil, err
 	}
 
-	if db.Redis != nil {
-		_ = db.SetJSON(ctx, cacheKey, channel, activePushChannelCacheTTL)
+	if cachepkg.Redis != nil {
+		_ = cachepkg.SetJSON(ctx, cacheKey, channel, activePushChannelCacheTTL)
 	}
 
 	return &channel, nil
@@ -242,8 +243,8 @@ func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel,
 
 // DeleteActivePushChannelCache 清理启用消息通道的缓存。
 func DeleteActivePushChannelCache(ctx context.Context, name string) {
-	if db.Redis != nil {
-		_ = db.Redis.Del(ctx, db.PrefixedKey("push:channel:active:"+name)).Err()
+	if cachepkg.Redis != nil {
+		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey("push:channel:active:"+name)).Err()
 	}
 }
 
@@ -333,8 +334,8 @@ func ListActivePushEventsByTaskTypeRecord(ctx context.Context, taskType string) 
 func GetActivePushEventByKey(ctx context.Context, key string) (*PushEvent, error) {
 	cacheKey := "push:event:active:" + key
 	var event PushEvent
-	if db.Redis != nil {
-		if err := db.GetJSON(ctx, cacheKey, &event); err == nil {
+	if cachepkg.Redis != nil {
+		if err := cachepkg.GetJSON(ctx, cacheKey, &event); err == nil {
 			return &event, nil
 		}
 	}
@@ -343,8 +344,8 @@ func GetActivePushEventByKey(ctx context.Context, key string) (*PushEvent, error
 		return nil, err
 	}
 
-	if db.Redis != nil {
-		_ = db.SetJSON(ctx, cacheKey, event, activePushEventCacheTTL)
+	if cachepkg.Redis != nil {
+		_ = cachepkg.SetJSON(ctx, cacheKey, event, activePushEventCacheTTL)
 	}
 
 	return &event, nil
@@ -352,8 +353,8 @@ func GetActivePushEventByKey(ctx context.Context, key string) (*PushEvent, error
 
 // DeleteActivePushEventCache 清理启用通知事件的缓存。
 func DeleteActivePushEventCache(ctx context.Context, key string) {
-	if db.Redis != nil {
-		_ = db.Redis.Del(ctx, db.PrefixedKey("push:event:active:"+key)).Err()
+	if cachepkg.Redis != nil {
+		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey("push:event:active:"+key)).Err()
 	}
 }
 

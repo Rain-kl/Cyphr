@@ -12,7 +12,7 @@ import (
 	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
 	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/persistence/migrator"
+	"github.com/Rain-kl/Wavelet/pkg/migrator"
 	"github.com/Rain-kl/Wavelet/pkg/trace"
 	"github.com/spf13/cobra"
 )

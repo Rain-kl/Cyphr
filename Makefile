@@ -36,8 +36,8 @@ build-embedded:
 code-check:
 	@echo "==> Architecture guards..."
 	@command -v rg >/dev/null 2>&1 || { echo 'error: rg (ripgrep) is required for architecture guards' >&2; exit 1; }
-	@if [ -d pkg/model ] && rg -n 'db\.DB\(|db\.Redis' pkg/model --glob '*.go' -g '!*_test.go' ; then \
-		echo 'error: pkg/model must not access db.DB or db.Redis (non-test code)' >&2; \
+	@if [ -d pkg/model ] && rg -n 'database\.DB\(|cachepkg\.Redis' pkg/model --glob '*.go' -g '!*_test.go' ; then \
+		echo 'error: pkg/model must not access database.DB or cachepkg.Redis (non-test code)' >&2; \
 		exit 1; \
 	fi
 	golangci-lint run

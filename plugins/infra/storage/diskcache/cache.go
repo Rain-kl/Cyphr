@@ -11,7 +11,7 @@ import (
 	"time"
 
 	pkgcache "github.com/Rain-kl/Wavelet/pkg/cache/disk"
-	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 // Status represents the runtime cache statistics.
@@ -63,14 +63,14 @@ func New(basePath string) *DiskCache {
 // ReloadConfig reloads policies from database configs dynamically.
 func (c *DiskCache) ReloadConfig(ctx context.Context) {
 	// Ensure DB is initialized before querying
-	if db.DB(ctx) == nil {
+	if database.DB(ctx) == nil {
 		return
 	}
 
 	// 1. Max Size
 	maxSizeMB := int64(defaultMaxSizeMB)
 	var maxVal string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "disk_cache_max_size_mb").Pluck("value", &maxVal).Error; err == nil && maxVal != "" {
+	if err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "disk_cache_max_size_mb").Pluck("value", &maxVal).Error; err == nil && maxVal != "" {
 		if val, err := strconv.ParseInt(maxVal, 10, 64); err == nil && val > 0 {
 			maxSizeMB = val
 		}
@@ -79,7 +79,7 @@ func (c *DiskCache) ReloadConfig(ctx context.Context) {
 	// 2. Default TTL
 	ttlMinutes := int64(defaultTTLMinutes)
 	var ttlVal string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "disk_cache_ttl_minutes").Pluck("value", &ttlVal).Error; err == nil && ttlVal != "" {
+	if err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "disk_cache_ttl_minutes").Pluck("value", &ttlVal).Error; err == nil && ttlVal != "" {
 		if val, err := strconv.ParseInt(ttlVal, 10, 64); err == nil && val >= 0 {
 			ttlMinutes = val
 		}
@@ -88,7 +88,7 @@ func (c *DiskCache) ReloadConfig(ctx context.Context) {
 	// 3. LRU Enabled
 	lruEnabled := true
 	var lruVal string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "disk_cache_lru_enabled").Pluck("value", &lruVal).Error; err == nil && lruVal != "" {
+	if err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "disk_cache_lru_enabled").Pluck("value", &lruVal).Error; err == nil && lruVal != "" {
 		if val, err := strconv.ParseBool(lruVal); err == nil {
 			lruEnabled = val
 		}

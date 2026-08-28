@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,7 +26,7 @@ func ApplyUploadStatsRemove(ctx context.Context, upload *models.Upload) error {
 
 // RebuildUploadStats rebuilds all incremental stats from current upload records.
 func RebuildUploadStats(ctx context.Context) error {
-	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("1 = 1").Delete(&models.UploadStat{}).Error; err != nil {
 			return err
 		}
@@ -49,7 +49,7 @@ func applyUploadStatsDelta(ctx context.Context, upload *models.Upload, sign int6
 	if upload == nil || !isActiveUploadStatus(upload.Status) {
 		return nil
 	}
-	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		return ApplyUploadStatsDeltaTx(tx, upload, sign)
 	})
 }
