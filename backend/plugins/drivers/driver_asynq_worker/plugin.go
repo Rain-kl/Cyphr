@@ -16,6 +16,7 @@ import (
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 	defaultShutdownTimeout = 10 * time.Second
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var workerMigrations embed.FS
 
 // Option configures the Asynq worker driver plugin.
@@ -131,11 +132,13 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 1. Provide contracts.TaskService
 	p.taskSvc = &taskServiceImpl{}
 	core.Provide[contracts.TaskService](ctx, p.taskSvc)
+	SetActiveTaskExtension(ctx.Tasks())
 
 	// 2. Register migrations for w_task_executions table
 	ctx.Migrations().Register("driver_asynq_worker", workerMigrations)
 
 	ctx.OnDispose(func() error {
+		SetActiveTaskExtension(nil)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)
 		defer cancel()
 		return p.Stop(shutdownCtx)
@@ -175,8 +178,26 @@ func (p *Plugin) Start(_ context.Context) error {
 	}
 
 	if p.server == nil {
+		opt := p.redisOpt
+		if opt == nil {
+			if RedisOpt != nil {
+				opt = RedisOpt
+			} else {
+				redisCfg := config.Config.Redis
+				addr := "127.0.0.1:6379"
+				if len(redisCfg.Addrs) > 0 && redisCfg.Addrs[0] != "" {
+					addr = redisCfg.Addrs[0]
+				}
+				opt = asynq.RedisClientOpt{
+					Addr:     addr,
+					Username: redisCfg.Username,
+					Password: redisCfg.Password,
+					DB:       redisCfg.DB,
+				}
+			}
+		}
 		p.server = asynq.NewServer(
-			p.redisOpt,
+			opt,
 			asynq.Config{
 				Concurrency:     p.concurrency,
 				Queues:          p.queues,

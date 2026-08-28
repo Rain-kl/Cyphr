@@ -7,16 +7,16 @@ CREATE TABLE IF NOT EXISTS w_users (
     nickname VARCHAR(255),
     email VARCHAR(255),
     avatar_url VARCHAR(255),
-    is_active BOOLEAN DEFAULT TRUE,
-    is_admin BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT 1,
+    is_admin BOOLEAN DEFAULT 0,
     bio VARCHAR(500),
     phone VARCHAR(32),
     gender VARCHAR(16),
     website VARCHAR(255),
     location VARCHAR(255),
-    last_login_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    last_login_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_w_users_email ON w_users (email);
 CREATE INDEX IF NOT EXISTS idx_w_users_is_active ON w_users (is_active);
@@ -25,7 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_w_users_created_at ON w_users (created_at);
 
 -- Seed system user
 INSERT INTO w_users (id, username, password, nickname, avatar_url, is_active, is_admin, last_login_at, created_at, updated_at)
-VALUES (999, 'system', '*', '系统', '', TRUE, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+VALUES (999, 'system', '*', '系统', '', 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (username) DO NOTHING;
 -- +goose StatementEnd
 

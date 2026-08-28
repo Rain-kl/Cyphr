@@ -14,7 +14,7 @@ import (
 	"Wavelet/core/extpoints"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var authMigrations embed.FS
 
 // Option configures the auth plugin.

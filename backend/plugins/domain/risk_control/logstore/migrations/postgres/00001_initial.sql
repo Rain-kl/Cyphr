@@ -1,4 +1,5 @@
 -- +goose Up
+-- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS w_user_access_logs (
     id          BIGINT NOT NULL,
     user_id     BIGINT NOT NULL DEFAULT 0,
@@ -11,10 +12,13 @@ CREATE TABLE IF NOT EXISTS w_user_access_logs (
     latency     BIGINT NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id, created_at)
-) PARTITION BY RANGE (created_at);
+);
 
 CREATE INDEX IF NOT EXISTS idx_w_user_access_logs_user_id ON w_user_access_logs (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_w_user_access_logs_created_at ON w_user_access_logs (created_at DESC);
+-- +goose StatementEnd
 
 -- +goose Down
+-- +goose StatementBegin
 DROP TABLE IF EXISTS w_user_access_logs;
+-- +goose StatementEnd

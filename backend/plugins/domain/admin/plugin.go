@@ -17,7 +17,7 @@ import (
 	"Wavelet/core/extpoints"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var adminMigrations embed.FS
 
 // Option configures the admin plugin.

@@ -17,7 +17,7 @@ import (
 	"Wavelet/core/extpoints"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var userMigrations embed.FS
 
 // Option configures the user plugin.

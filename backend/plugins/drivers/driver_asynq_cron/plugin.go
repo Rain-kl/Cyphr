@@ -16,9 +16,10 @@ import (
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var cronMigrations embed.FS
 
 // Option configures the Asynq cron scheduler driver plugin.
@@ -148,7 +149,25 @@ func (p *Plugin) Start(_ context.Context) error {
 			opts.Location = p.location
 		}
 
-		p.scheduler = asynq.NewScheduler(p.redisOpt, opts)
+		opt := p.redisOpt
+		if opt == nil {
+			if RedisOpt != nil {
+				opt = RedisOpt
+			} else {
+				redisCfg := config.Config.Redis
+				addr := "127.0.0.1:6379"
+				if len(redisCfg.Addrs) > 0 && redisCfg.Addrs[0] != "" {
+					addr = redisCfg.Addrs[0]
+				}
+				opt = asynq.RedisClientOpt{
+					Addr:     addr,
+					Username: redisCfg.Username,
+					Password: redisCfg.Password,
+					DB:       redisCfg.DB,
+				}
+			}
+		}
+		p.scheduler = asynq.NewScheduler(opt, opts)
 	}
 
 	if p.coreCtx != nil && p.coreCtx.Schedules() != nil {

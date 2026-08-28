@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS w_system_configs (
     type VARCHAR(32) NOT NULL DEFAULT 'system',
     visibility INTEGER NOT NULL DEFAULT 0,
     description VARCHAR(255),
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS w_templates (
@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS w_templates (
     subject VARCHAR(255),
     content TEXT NOT NULL,
     description VARCHAR(255),
-    is_system BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    is_system BOOLEAN NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_w_templates_is_system ON w_templates (is_system);
 CREATE INDEX IF NOT EXISTS idx_w_templates_created_at ON w_templates (created_at);
@@ -63,8 +63,8 @@ INSERT INTO w_system_configs (key, value, type, visibility, description, created
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO w_templates (id, key, name, type, subject, content, description, is_system, created_at, updated_at) VALUES
-    (1, 'login_email', '登录验证码邮件', 'email', 'Wavelet 登录验证码', '<h3>Wavelet 登录验证</h3><p>您的登录验证码为：<strong>{{.Code}}</strong>，5分钟内有效，请勿将验证码泄露给他人。</p>', '用户密码登录时发送的验证码邮件模板，支持变量：{{.Code}}', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    (2, 'register_email', '注册验证码邮件', 'email', 'Wavelet 注册验证码', '<h3>Wavelet 注册验证</h3><p>您的注册验证码为：<strong>{{.Code}}</strong>，5分钟内有效，请勿泄露给他人。</p>', '用户注册时发送的验证码邮件模板，支持变量：{{.Code}}', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    (1, 'login_email', '登录验证码邮件', 'email', 'Wavelet 登录验证码', '<h3>Wavelet 登录验证</h3><p>您的登录验证码为：<strong>{{.Code}}</strong>，5分钟内有效，请勿将验证码泄露给他人。</p>', '用户密码登录时发送的验证码邮件模板，支持变量：{{.Code}}', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    (2, 'register_email', '注册验证码邮件', 'email', 'Wavelet 注册验证码', '<h3>Wavelet 注册验证</h3><p>您的注册验证码为：<strong>{{.Code}}</strong>，5分钟内有效，请勿泄露给他人。</p>', '用户注册时发送的验证码邮件模板，支持变量：{{.Code}}', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (key) DO NOTHING;
 -- +goose StatementEnd
 

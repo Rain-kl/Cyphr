@@ -17,7 +17,7 @@ import (
 	"Wavelet/pkg/util"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var mgMigrations embed.FS
 
 // Option configures the message_gateway plugin.

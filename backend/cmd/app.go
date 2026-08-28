@@ -7,7 +7,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/pressly/goose/v3"
@@ -67,13 +69,13 @@ func newWaveletApp(profile core.Profile) *core.App {
 		)
 	}
 
-	// 3. Register all 8 domain business plugins
+	// 3. Register all 8 domain business plugins (admin first to ensure schema and base config tables exist)
 	app.Use(
-		auth.New(),
+		admin.New(),
 		user.New(),
+		auth.New(),
 		message_gateway.New(),
 		risk_control.New(),
-		admin.New(),
 		upload.New(),
 		cap.New(),
 		system.New(),
@@ -179,8 +181,7 @@ func (s *sharedStore) ListMigrations(ctx context.Context, db goosedb.DBTxConn) (
 	var results []*goosedb.ListMigrationsResult
 	for rows.Next() {
 		var r goosedb.ListMigrationsResult
-		r.IsApplied = true
-		if err := rows.Scan(&r.Version); err != nil {
+		if err := rows.Scan(&r.Version, &r.IsApplied); err != nil {
 			return nil, err
 		}
 		results = append(results, &r)
@@ -240,7 +241,8 @@ func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) 
 			dialect:  dialectStr,
 		}
 
-		provider, err := goose.NewProvider(dialect, sqlDB, entry.FS, goose.WithStore(store))
+		migrationFS := findMigrationFS(entry.FS, dialect)
+		provider, err := goose.NewProvider(goose.DialectCustom, sqlDB, migrationFS, goose.WithStore(store))
 		if err != nil {
 			return fmt.Errorf("migration %s: create provider: %w", entry.PluginID, err)
 		}
@@ -266,4 +268,55 @@ func gooseDialect() goose.Dialect {
 		return goose.DialectSQLite3
 	}
 	return goose.DialectPostgres
+}
+
+func findMigrationFS(rootFS fs.FS, dialect goose.Dialect) fs.FS {
+	dialectDir := "postgres"
+	if dialect == goose.DialectSQLite3 {
+		dialectDir = "sqlite"
+	}
+
+	// 1. Direct search for dialect folder (e.g., "sqlite", "migrations/sqlite", "logstore/migrations/sqlite")
+	for _, subDir := range []string{
+		dialectDir,
+		"migrations/" + dialectDir,
+		"logstore/migrations/" + dialectDir,
+	} {
+		if sub, err := fs.Sub(rootFS, subDir); err == nil {
+			if matches, err := fs.Glob(sub, "*.sql"); err == nil && len(matches) > 0 {
+				return sub
+			}
+		}
+	}
+
+	// 2. Recursive walk to find a directory named dialectDir with *.sql files
+	var foundDir string
+	_ = fs.WalkDir(rootFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() && filepath.Base(path) == dialectDir {
+			if sub, subErr := fs.Sub(rootFS, path); subErr == nil {
+				if matches, globErr := fs.Glob(sub, "*.sql"); globErr == nil && len(matches) > 0 {
+					foundDir = path
+					return fs.SkipAll
+				}
+			}
+		}
+		return nil
+	})
+
+	if foundDir != "" && foundDir != "." {
+		if sub, err := fs.Sub(rootFS, foundDir); err == nil {
+			return sub
+		}
+	}
+
+	// 3. Fallback to generic migrations / root if dialect specific is not present
+	for _, subDir := range []string{"migrations", "logstore/migrations"} {
+		if sub, err := fs.Sub(rootFS, subDir); err == nil {
+			if matches, err := fs.Glob(sub, "*.sql"); err == nil && len(matches) > 0 {
+				return sub
+			}
+		}
+	}
+
+	return rootFS
 }

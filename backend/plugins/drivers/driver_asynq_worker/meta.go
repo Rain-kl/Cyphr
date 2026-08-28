@@ -5,6 +5,8 @@ package driver_asynq_worker
 
 import (
 	"sync"
+
+	"Wavelet/core/extpoints"
 )
 
 // TaskParam 任务参数定义
@@ -61,30 +63,65 @@ func GetDispatchableTasks() []TaskMeta {
 	return metas
 }
 
-// GetTaskMeta 根据任务类型获取元数据
-func GetTaskMeta(taskType string) *TaskMeta {
-	dispatchableTasksMutex.RLock()
-	defer dispatchableTasksMutex.RUnlock()
-	for _, t := range dispatchableTasks {
-		if t.Type == taskType {
-			copied := t
-			return &copied
+var (
+	activeTaskRegMutex sync.RWMutex
+	activeTaskReg      extpoints.TaskExtension
+)
+
+// SetActiveTaskExtension sets the active task extension registry for task resolution.
+func SetActiveTaskExtension(reg extpoints.TaskExtension) {
+	activeTaskRegMutex.Lock()
+	defer activeTaskRegMutex.Unlock()
+	activeTaskReg = reg
+}
+
+func getFromActiveTaskExtension(taskType string) *TaskMeta {
+	activeTaskRegMutex.RLock()
+	defer activeTaskRegMutex.RUnlock()
+	if activeTaskReg == nil {
+		return nil
+	}
+	if td, ok := activeTaskReg.Get(taskType); ok {
+		return &TaskMeta{
+			Type:      td.Pattern,
+			Name:      td.Pattern,
+			AsynqTask: td.Pattern,
+			Queue:     "default",
+			Retryable: td.Retry > 0,
+			MaxRetry:  td.Retry,
 		}
 	}
 	return nil
 }
 
-// GetTaskMetaByAsynqTask 根据 Asynq 任务名称获取元数据
-func GetTaskMetaByAsynqTask(asynqTask string) *TaskMeta {
+// GetTaskMeta 根据任务类型获取元数据
+func GetTaskMeta(taskType string) *TaskMeta {
 	dispatchableTasksMutex.RLock()
-	defer dispatchableTasksMutex.RUnlock()
 	for _, t := range dispatchableTasks {
-		if t.AsynqTask == asynqTask {
+		if t.Type == taskType {
 			copied := t
+			dispatchableTasksMutex.RUnlock()
 			return &copied
 		}
 	}
-	return nil
+	dispatchableTasksMutex.RUnlock()
+
+	return getFromActiveTaskExtension(taskType)
+}
+
+// GetTaskMetaByAsynqTask 根据 Asynq 任务名称获取元数据
+func GetTaskMetaByAsynqTask(asynqTask string) *TaskMeta {
+	dispatchableTasksMutex.RLock()
+	for _, t := range dispatchableTasks {
+		if t.AsynqTask == asynqTask {
+			copied := t
+			dispatchableTasksMutex.RUnlock()
+			return &copied
+		}
+	}
+	dispatchableTasksMutex.RUnlock()
+
+	return getFromActiveTaskExtension(asynqTask)
 }
 
 // GetRegisteredAsynqTasks 返回所有已注册的 Asynq 任务名称，以便动态注册路由

@@ -21,7 +21,7 @@ import (
 	"Wavelet/plugins/domain/upload/task"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*/*.sql
 var uploadMigrations embed.FS
 
 // Plugin implements core.Plugin to provide file upload and media serving domain services.

@@ -17,7 +17,7 @@ import (
 	"Wavelet/plugins/domain/risk_control/logstore"
 )
 
-//go:embed logstore/migrations/*.sql
+//go:embed logstore/migrations/*/*.sql
 var riskControlMigrations embed.FS
 
 // Option configures the risk_control plugin.

@@ -81,14 +81,16 @@ func (p *Plugin) Name() string {
 // Apply mounts the multi-layer cache service into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	redisClient := p.redisClient
-	if redisClient == nil && Redis == nil {
-		var err error
-		redisClient, err = InitRedis()
-		if err != nil {
-			return err
+	if redisClient == nil {
+		if Redis == nil {
+			var err error
+			redisClient, err = InitRedis()
+			if err != nil {
+				return err
+			}
+		} else {
+			redisClient = Redis
 		}
-	} else if redisClient == nil {
-		redisClient = Redis
 	}
 
 	ramCache, err := ram.New[string, ramEntry](ram.Options{
@@ -111,6 +113,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		ctx.OnDispose(func() error {
 			svc.stopPubSubListener()
 			if p.redisClient == nil {
+				Redis = nil
 				if closeErr := redisClient.Close(); closeErr != nil && !errors.Is(closeErr, redis.ErrClosed) {
 					return closeErr
 				}
