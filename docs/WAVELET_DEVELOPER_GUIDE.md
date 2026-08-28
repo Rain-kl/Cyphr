@@ -313,6 +313,16 @@ SELECT * FROM w_schema_versions ORDER BY plugin_id, version_id;
 ---
 
 ### 场景 12：如何发布和订阅领域事件 (EventBus)？
+Wavelet 完整实现了 Cordis 架构的 **4 种类型化事件分发语义**，支持同步管道、并发聚合与异步广播：
+
+| 分发方法 | 分发语义 | 返回值/错误处理 | 适用场景 |
+| :--- | :--- | :--- | :--- |
+| `ctx.Events().Emit(ctx, topic, payload)` | **异步广播 (Broadcast)** | 不阻塞主流程，静默恢复 handler panic | 状态变更广播、审计日志记录、跨插件解耦通知 |
+| `ctx.Events().Waterfall(ctx, topic, initial)` | **流式管道 (Waterfall)** | 依次将前一个 handler 返回值传给下一个，遇错立即短路退出 | 参数过滤拦截链、内容审查、数据清洗与加工 |
+| `ctx.Events().Parallel(ctx, topic, payload)` | **并发聚合 (Parallel)** | 并发启动 goroutine 执行所有 handler，用 `errors.Join` 聚合所有错误 | 并发外部系统推送、多渠道并行通知校验 |
+| `ctx.Events().Serial(ctx, topic, payload)` | **串行执行 (Serial)** | 按注册顺序依次同步执行，遇到首个非 nil 错误立即短路中断 | 敏感操作前置拦截（如权限/风控准入校验） |
+
+#### 1. 异步广播 (`Emit`) 与订阅 (`On`)
 ```go
 // 1. 定义强类型事件结构
 type OrderPaidEvent struct {
@@ -321,14 +331,43 @@ type OrderPaidEvent struct {
     PayAmount int64  `json:"pay_amount"`
 }
 
-// 2. 插件 A 发布事件
-ctx.Events().Emit("order:paid", OrderPaidEvent{OrderID: "ord_1", UserID: "u_1", PayAmount: 9900})
+// 2. 插件 A 发布事件（广播）
+ctx.Events().Emit(ctx, "order:paid", OrderPaidEvent{OrderID: "ord_1", UserID: "u_1", PayAmount: 9900})
 
 // 3. 插件 B 订阅事件
 ctx.Events().On("order:paid", func(c context.Context, e OrderPaidEvent) error {
     log.Printf("收到支付成功事件，开始为用户 %s 发放权益", e.UserID)
     return nil
 })
+```
+
+#### 2. 流式管道变换 (`Waterfall`)
+Handler 支持返回 `(T, error)` 或 `T`，后续 Handler 接收上一 Handler 的返回值：
+```go
+// 插件注册拦截处理
+ctx.Events().On("content:filter", func(c context.Context, text string) (string, error) {
+    return strings.ReplaceAll(text, "敏感词", "***"), nil
+})
+
+// 调用方通过 Waterfall 获得流式处理后的结果
+cleaned, err := ctx.Events().Waterfall(ctx, "content:filter", "原始文本包含敏感词")
+// cleaned == "原始文本包含***"
+```
+
+#### 3. 串行准入拦截 (`Serial`)
+```go
+// 风控插件注册校验
+ctx.Events().On("order:pre_create", func(c context.Context, req CreateOrderRequest) error {
+    if isBlacklisted(req.UserID) {
+        return errors.New("用户处于风控黑名单，禁止下单")
+    }
+    return nil
+})
+
+// 订单插件执行准入链，遇到首个错误立即中断并返回
+if err := ctx.Events().Serial(ctx, "order:pre_create", req); err != nil {
+    return err // 拦截创建
+}
 ```
 
 ---
@@ -574,18 +613,21 @@ Wavelet/
 
 | 扩展点方法 | 返回类型 | 功能说明 | 适用场景 |
 | :--- | :--- | :--- | :--- |
-| `ctx.Router()` | `RouterExtension` | 声明 HTTP 路由、前缀分组与挂载中间件 | 暴露 API 接口、Web 控制台 |
-| `ctx.Task()` | `TaskExtension` | 注册 Asynq 异步任务消费处理器 | 耗时后台任务、异步消息发送 |
-| `ctx.Schedule()` | `ScheduleExtension`| 注册 Cron 定时调度任务 | 定时报表统计、周期性清理 |
-| `ctx.Migrations()` | `MigrationExtension`| 注册插件专属的 Goose SQL 迁移嵌入系统 | 自建数据表、版本升级 |
-| `ctx.Events()` | `EventBus` | 强类型领域事件的发布与订阅 (Emit / On) | 跨插件完全解耦通知与状态同步 |
-| `ctx.Settings()` | `SettingExtension` | 声明动态可配置项（支持热更新） | 业务参数配置、管理台可调节参数 |
-| `ctx.DB()` | `*gorm.DB` | 获取全局受事务与 Trace 保护的 GORM 数据源 | 数据持久化 CRUD |
-| `ctx.Cache()` | `CacheService` | 三层穿透缓存（RAM L1 + Redis L2 + PubSub 广播）| 高频读数据性能加速 |
+| `ctx.Router()` | `RouterExtension` | 声明 HTTP 路由、前缀分组与挂载中间件，支持 `Unregister` / `UnregisterByID` | 暴露 API 接口、Web 控制台 |
+| `ctx.Task()` | `TaskExtension` | 注册 Asynq 异步任务消费处理器，支持 `Unregister` | 耗时后台任务、异步消息发送 |
+| `ctx.Schedule()` | `ScheduleExtension`| 注册 Cron 定时调度任务，支持 `Unregister` | 定时报表统计、周期性清理 |
+| `ctx.Migrations()` | `MigrationExtension`| 注册插件专属的 Goose SQL 迁移嵌入系统，支持 `Unregister` | 自建数据表、版本升级 |
+| `ctx.Events()` | `EventBus` | 强类型领域事件总线（支持 `Emit`, `Waterfall`, `Parallel`, `Serial`） | 跨插件完全解耦通知与状态同步 |
+| `ctx.Settings()` | `SettingExtension` | 声明动态可配置项（支持热更新），支持 `Unregister` | 业务参数配置、管理台可调节参数 |
+| `ctx.DB()` | `contracts.DBService` | 获取受事务与 Trace 保护的数据库连接与 GORM 实例 | 数据持久化 CRUD |
+| `ctx.Cache()` | `contracts.CacheService` | 三层穿透缓存（RAM L1 + Redis L2 + PubSub 广播）| 高频读数据性能加速 |
 | `ctx.DistLock()` | `DistLockService` | 基于 Redis 的工业级分布式锁 | 防并发超卖、防重复执行 |
 | `ctx.Logger()` | `Logger` | 携带链路 TraceID 的结构化日志记录器 | 业务日志打印与审计 |
-| `ctx.Storage()` | `StorageService` | 统一对象存储读写引擎 | 文件摄取、图片持久化 |
-| `core.Provide[T]`| `void` | 向全局 IoC 容器注册本插件提供的强类型服务 | 暴露自身能力给其他插件消费 |
+| `ctx.Storage()` | `contracts.StorageService` | 统一对象存储读写引擎 | 文件摄取、图片持久化 |
+| `ctx.Fork()` | `*Context` | 创建继承父级容器并隔离局部副作用的子上下文 | 局部 Fiber、请求域隔离 |
+| `core.Provide[T]`| `void` | 向全局 IoC 容器注册强类型服务（自动挂载 `OnDispose` 逆操作） | 暴露自身能力给其他插件消费 |
 | `core.Inject[T]` | `(T, error)` | 从全局 IoC 容器中按类型获取服务实例 | 消费其他插件暴露的服务 |
+| `core.When[T]` | `void` | 响应式监听服务注入（当服务一旦就绪立即触发回调） | 解决插件装载时序竞争与延迟初始化 |
+| `core.Has[T]` | `bool` | 判断指定服务类型当前是否已在容器中注册 | 探测环境能力与条件装载 |
 | `core.Using[T]` | `error` | 响应式声明依赖，当服务就绪时执行回调 | 声明前置依赖关系 |
 

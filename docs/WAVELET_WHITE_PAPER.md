@@ -34,12 +34,19 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
    ctx.Provide(Auth)      ctx.Using([DB, Cache])    ctx.Route / ctx.Task
 ```
 
-### 2.1 微内核原则 (Micro-Kernel Principle)
+### 2.1 时空可组合性与微内核原则 (Spatiotemporal Composability & Micro-Kernel)
+Wavelet 贯彻了 Cordis 核心范式，通过形式化保证解决组件系统的两大正交难题：
+
+| 维度 | 含义 | Wavelet Cordis 工程实现 |
+| :--- | :--- | :--- |
+| **时间可组合性** | 组件卸载后，对共享环境的修改必须能完全、按序撤销 | **可逆副作用 (Revertible Effects)**：扩展点（Router/Task/Schedule/Setting/Migration）与 `core.Provide` 服务注册均内建逆操作记账，卸载时按 LIFO 回收 |
+| **空间可组合性** | 组件声明的边界与依赖必须严格隔离与响应式通知 | **响应式余效应 (Reactive Coeffects) 与作用域上下文**：`core.Inject`/`core.When` 声明依赖并支持时序响应；`ctx.Fork()` 创建隔离作用域 |
+
 内核（`core/`）不持有任何具体业务逻辑，不硬编码 Gin、GORM、Asynq 等具体引擎。内核仅提供：
 - 树状上下文（`Context`）与作用域隔离（`Fork`）
-- 泛型依赖注入与服务定位器（`IoC Container`）
-- 强类型领域事件总线（`EventBus`）
-- 生命周期编排器（`Lifecycle Manager`）与标准扩展点契约
+- 泛型依赖注入与服务定位器（`core.Provide`, `core.Inject`, `core.When`, `core.Has`, `core.Using`）
+- 4 种类型化分发语义的领域事件总线（`Emit` 异步广播, `Waterfall` 流式管道, `Parallel` 并发聚合, `Serial` 串行短路）
+- 生命周期编排器（`Lifecycle Manager`）与可逆扩展点契约（`extpoints`）
 
 ### 2.2 扁平自包含插件 (Flat & Self-Contained Plugins)
 告别过度设计的样板代码，每个插件作为一个自给自足的高内聚闭包，就近组织路由、Handler、模型与专属数据迁移，实现**随插随用、按需组合、随拔随走**。
@@ -60,8 +67,8 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
                                          ▼
 +-----------------------------------------------------------------------------------+
 |                       Wavelet Core (微内核上下文总线)                              |
-|   - Context (服务树与扩展点总线)          - Lifecycle Manager (生命周期编排)     |
-|   - Service Hub (泛型 IoC 容器)           - EventBus (强类型领域事件总线)        |
+|   - Context (服务树与可逆扩展点总线)       - Lifecycle Manager (生命周期编排)     |
+|   - Service Hub (泛型 IoC 容器)           - EventBus (4 种分发语义事件总线)      |
 +-----------------------------------------------------------------------------------+
          │                                       │
          ▼ 注册与驱动                            ▼ 挂载能力
@@ -93,7 +100,7 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
 4. **`plugins/` 单所有者原则与数据迁移独立性 (100% Pass)**:
    - 每个业务插件自包含专有 `migrations/00001_initial.sql`，通过 `go:embed` 注册。
    - 所有插件共享 `w_schema_versions` 表，以 `plugin_id` 列区分版本，彻底消除单体大迁移目录合并冲突，杜绝 GORM AutoMigrate。
-   - `pkg/migrator/` 全局迁移目录已物理删除，26 个全局 SQL 文件全部分配至对应插件。
+   - `domain/admin` 对用户和认证源的全部操作 100% 委托给 `contracts.UserService` 与 `contracts.AuthService`，严禁旁路越权读写。
 5. **并发与生命周期析构安全 (100% Pass)**:
    - 全局遵循 LIFO (后进先出) Disposer 逆序优雅注销机制。在开启 `-race` 竞争检测下，所有事件并发广播、多协程注入与读写均 0 数据竞争。
 
@@ -103,13 +110,14 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
 
 | 测试模块 / 核心功能 | 测试方法与输入条件 | 预期结果 (Expected) | 实际测试输出与指标 | 判定 |
 | :--- | :--- | :--- | :--- | :--- |
-| **(1) Context 泛型服务注入** | `TestContextProvideAndInject`<br>通过 `core.Provide[T]` 注册服务，并发调用 `core.Inject[T]` 与 `core.Using[T]` | 强类型精准匹配，服务就绪后回调自动触发，类型安全且无反射类型错误 | **PASS**<br>毫秒级响应，0 数据竞争 | ✅ 通过 |
-| **(2) 强类型 EventBus 广播** | `TestEventBusPublishSubscribe`<br>并发注册泛型 Handler 与指针结构体 Handler，高并发广播 `Emit(ctx, topic, payload)` | 事件精准投递至对应订阅者，自动解包类型；Panic 自动 Recover 并收集为 errors.Join | **PASS**<br>1000+ 并发广播 0 丢失，无 Race 报错 | ✅ 通过 |
-| **(3) HTTP Driver 动态路由级联** | `TestRouterExtension`<br>插件注册多级路由前缀（`/api/v1/oauth`, `/api/v1/admin`, `/api/v1/upload`）与中间件链 | 路由树自动合并，中间件按洋葱模型正确拦截执行 | **PASS**<br>状态码 200/401 按预期拦截响应 | ✅ 通过 |
-| **(4) Asynq Worker 并发消费** | `TestAsynqWorkerDriverLifecycle`<br>注册 `message_gateway:push_notification` 与 `upload:cleanup_expired` 任务，启动 Worker 驱动并投递异步任务 | Worker 成功拉起消费池，执行 TaskHandler 并反馈结果；Stop(ctx) 优雅等待任务完成 | **PASS**<br>任务平滑执行，优雅停机 0 悬挂协程 | ✅ 通过 |
-| **(5) Asynq Cron 定时调度** | `TestAsynqCronDriverLifecycle`<br>注册 `0 3 * * *` 定时规则，启动 Scheduler 驱动 | 定时器正确解析 Spec，准时调度投递 Payload | **PASS**<br>调度器生命周期启停无异常 | ✅ 通过 |
-| **(6) 自包含 Goose SQL 迁移** | `TestAppMigrationEngineExecution`<br>收集各插件 `embed.FS`，由 MigrationEngine 按插件依赖顺序联合执行 | 自动创建版本记录表，按版本号依序执行迁移脚本，无跨插件冲突 | **PASS**<br>SQL 语法兼容 PostgreSQL 与 SQLite | ✅ 通过 |
-| **(7) App 运行切面与平滑停机** | `TestAppProfileDispatch`<br>分别以 `api` / `worker` / `schedule` / `all` Profile 启动 App | 仅拉起当前 Profile 所需的 Driver 驱动，其余保持休眠；捕获 SIGINT 逆序注销 | **PASS**<br>切面过滤 100% 精准，停机耗时 < 50ms | ✅ 通过 |
+| **(1) Context 泛型服务注入** | `TestContextProvideAndInject`<br>通过 `core.Provide[T]` 注册服务，并发调用 `core.Inject[T]`、`core.When[T]` 与 `core.Using[T]` | 强类型精准匹配，服务就绪后回调自动触发，卸载时自动注销清理 | **PASS**<br>毫秒级响应，0 数据竞争 | ✅ 通过 |
+| **(2) 4 种类型化 EventBus 语义** | `TestEventBusWaterfall`, `TestEventBusParallel`, `TestEventBusSerial`<br>高并发执行异步广播、流式管道转换与串行准入拦截 | 事件精准投递；管道正确传递返回值与短路；Panic 自动 Recover 并聚合错误 | **PASS**<br>1000+ 并发广播 0 丢失，无 Race 报错 | ✅ 通过 |
+| **(3) 可逆扩展点注销与生命周期** | `TestExtensionPointsUnregister`<br>动态注册路由、任务、调度、配置、迁移后调用 `Unregister` / `UnregisterByID` | 注册项从全局与局部作用域完整移除，副作用完全回收 | **PASS**<br>注销状态与长度验证 100% 匹配 | ✅ 通过 |
+| **(4) HTTP Driver 动态路由级联** | `TestRouterExtension`<br>插件注册多级路由前缀（`/api/v1/oauth`, `/api/v1/admin`, `/api/v1/upload`）与中间件链 | 路由树自动合并，中间件按洋葱模型正确拦截执行 | **PASS**<br>状态码 200/401 按预期拦截响应 | ✅ 通过 |
+| **(5) Asynq Worker 并发消费** | `TestAsynqWorkerDriverLifecycle`<br>注册 `message_gateway:push_notification` 与 `upload:cleanup_expired` 任务，启动 Worker 驱动并投递异步任务 | Worker 成功拉起消费池，执行 TaskHandler 并反馈结果；Stop(ctx) 优雅等待任务完成 | **PASS**<br>任务平滑执行，优雅停机 0 悬挂协程 | ✅ 通过 |
+| **(6) Asynq Cron 定时调度** | `TestAsynqCronDriverLifecycle`<br>注册 `0 3 * * *` 定时规则，启动 Scheduler 驱动 | 定时器正确解析 Spec，准时调度投递 Payload | **PASS**<br>调度器生命周期启停无异常 | ✅ 通过 |
+| **(7) 自包含 Goose SQL 迁移** | `TestAppMigrationEngineExecution`<br>收集各插件 `embed.FS`，由 MigrationEngine 按插件依赖顺序联合执行 | 自动创建版本记录表，按版本号依序执行迁移脚本，无跨插件冲突 | **PASS**<br>SQL 语法兼容 PostgreSQL 与 SQLite | ✅ 通过 |
+| **(8) App 运行切面与平滑停机** | `TestAppProfileDispatch`<br>分别以 `api` / `worker` / `schedule` / `all` Profile 启动 App | 仅拉起当前 Profile 所需的 Driver 驱动，其余保持休眠；捕获 SIGINT 逆序注销 | **PASS**<br>切面过滤 100% 精准，停机耗时 < 50ms | ✅ 通过 |
 
 ---
 
