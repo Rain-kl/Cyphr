@@ -222,6 +222,33 @@ func TestContextUsingMultiple(t *testing.T) {
 	assert.True(t, called3)
 }
 
+// UsingN must keep every dependency failure reachable through the error chain,
+// not just report that something went wrong.
+func TestContextUsingMultipleErrorChain(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+
+	err := core.Using2(ctx, func(s SampleService, l LogService) {
+		t.Fatal("callback must not run when dependencies are missing")
+	})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, core.ErrServiceNotReady)
+	assert.ErrorIs(t, err, core.ErrServiceNotFound)
+
+	// Only LogService is missing now, so exactly one joined cause must be present.
+	core.Provide[SampleService](ctx, &sampleServiceImpl{})
+	err = core.Using2(ctx, func(s SampleService, l LogService) {
+		t.Fatal("callback must not run when a dependency is missing")
+	})
+	assert.ErrorIs(t, err, core.ErrServiceNotReady)
+	assert.ErrorIs(t, err, core.ErrServiceNotFound)
+
+	err = core.Using3(ctx, func(s SampleService, l LogService, c ConfigService) {
+		t.Fatal("callback must not run when a dependency is missing")
+	})
+	assert.ErrorIs(t, err, core.ErrServiceNotReady)
+	assert.ErrorIs(t, err, core.ErrServiceNotFound)
+}
+
 func TestContextHierarchyAndFork(t *testing.T) {
 	parent := core.NewContext(nil) // nil base context test
 	core.Provide[SampleService](parent, &sampleServiceImpl{prefix: "Parent:"})

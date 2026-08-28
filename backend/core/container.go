@@ -5,6 +5,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -179,8 +180,8 @@ func Using[T1 any](ctx *Context, fn func(s1 T1)) error {
 func Using2[T1, T2 any](ctx *Context, fn func(s1 T1, s2 T2)) error {
 	s1, err1 := Inject[T1](ctx)
 	s2, err2 := Inject[T2](ctx)
-	if err1 != nil || err2 != nil {
-		return fmt.Errorf("%w: (dep1: %v, dep2: %v)", ErrServiceNotReady, err1, err2)
+	if err := errors.Join(err1, err2); err != nil {
+		return fmt.Errorf("%w: %w", ErrServiceNotReady, err)
 	}
 	fn(s1, s2)
 	return nil
@@ -191,8 +192,8 @@ func Using3[T1, T2, T3 any](ctx *Context, fn func(s1 T1, s2 T2, s3 T3)) error {
 	s1, err1 := Inject[T1](ctx)
 	s2, err2 := Inject[T2](ctx)
 	s3, err3 := Inject[T3](ctx)
-	if err1 != nil || err2 != nil || err3 != nil {
-		return fmt.Errorf("%w: (dep1: %v, dep2: %v, dep3: %v)", ErrServiceNotReady, err1, err2, err3)
+	if err := errors.Join(err1, err2, err3); err != nil {
+		return fmt.Errorf("%w: %w", ErrServiceNotReady, err)
 	}
 	fn(s1, s2, s3)
 	return nil
