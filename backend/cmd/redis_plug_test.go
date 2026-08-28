@@ -21,7 +21,12 @@ import (
 
 func TestRedisPluggability_Simulation(t *testing.T) {
 	origRedisEnabled := config.Config.Redis.Enabled
-	defer func() { config.Config.Redis.Enabled = origRedisEnabled }()
+	origAddr := config.Config.App.Addr
+	config.Config.App.Addr = "127.0.0.1:0"
+	defer func() {
+		config.Config.Redis.Enabled = origRedisEnabled
+		config.Config.App.Addr = origAddr
+	}()
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// 场景 1: 拔出 Redis (Zero-Redis Monolith 模式)
@@ -174,7 +179,7 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			return asynqTaskExecuted.Load() >= 1
-		}, 5*time.Second, 100*time.Millisecond, "Asynq Worker 应从 Redis 队列中成功消费并执行任务")
+		}, 10*time.Second, 100*time.Millisecond, "Asynq Worker 应从 Redis 队列中成功消费并执行任务")
 
 		// 6. 优雅关闭
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)

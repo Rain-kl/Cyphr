@@ -65,3 +65,4 @@ s3_cache
 /.superpowers/
 /backend/plugins/domain/upload/filesrv/uploads/
 /backend/plugins/domain/upload/task/uploads/
+/backend/data/

@@ -162,12 +162,12 @@ func (c *Context) ForkWithContext(base context.Context) *Context {
 		cancel:     cancel,
 		parent:     c,
 		container:  NewContainer(c.container),
-		events:     c.Events(),
-		router:     c.Router(),
-		migrations: c.Migrations(),
-		tasks:      c.Tasks(),
-		schedules:  c.Schedules(),
-		settings:   c.Settings(),
+		events:     c.events,
+		router:     c.router,
+		migrations: c.migrations,
+		tasks:      c.tasks,
+		schedules:  c.schedules,
+		settings:   c.settings,
 		values:     make(map[any]any),
 	}
 
@@ -354,20 +354,22 @@ func (c *Context) RegisterDriver(d Driver) error {
 
 // Drivers returns a copy of all drivers registered on this Context.
 func (c *Context) Drivers() []Driver {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	root := c.Root()
+	root.mu.RLock()
+	defer root.mu.RUnlock()
 
-	result := make([]Driver, len(c.drivers))
-	copy(result, c.drivers)
+	result := make([]Driver, len(root.drivers))
+	copy(result, root.drivers)
 	return result
 }
 
 // Driver looks up a registered driver by its driver type.
 func (c *Context) Driver(driverType DriverType) (Driver, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	root := c.Root()
+	root.mu.RLock()
+	defer root.mu.RUnlock()
 
-	for _, d := range c.drivers {
+	for _, d := range root.drivers {
 		if d.Type() == driverType {
 			return d, true
 		}

@@ -113,12 +113,16 @@ type sharedStore struct {
 func (s *sharedStore) Tablename() string { return "w_schema_versions" }
 
 func (s *sharedStore) CreateVersionTable(ctx context.Context, db goosedb.DBTxConn) error {
-	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS w_schema_versions (
+	timeType := "TIMESTAMPTZ"
+	if s.dialect == "sqlite3" || s.dialect == "sqlite" {
+		timeType = "DATETIME"
+	}
+	_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS w_schema_versions (
 		plugin_id   VARCHAR(64)  NOT NULL,
 		version_id  BIGINT       NOT NULL,
-		applied_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		applied_at  %s  NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (plugin_id, version_id)
-	)`)
+	)`, timeType))
 	return err
 }
 

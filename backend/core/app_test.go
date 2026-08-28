@@ -406,10 +406,10 @@ func TestAppRunContextCancellation(t *testing.T) {
 		errCh <- app.Run(ctx)
 	}()
 
-	// Wait briefly then cancel
-	time.Sleep(50 * time.Millisecond)
-	assert.True(t, app.IsRunning())
-	assert.True(t, d.isStarted())
+	// Wait for app and driver to become ready
+	assert.Eventually(t, func() bool {
+		return app.IsRunning() && d.isStarted()
+	}, 2*time.Second, 10*time.Millisecond)
 
 	cancel()
 

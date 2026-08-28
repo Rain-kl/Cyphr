@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 )
 
 const (
@@ -90,7 +90,6 @@ type Plugin struct {
 // New creates a new Asynq Worker driver plugin.
 func New(opts ...Option) *Plugin {
 	p := &Plugin{
-		redisOpt:        RedisOpt,
 		concurrency:     defaultConcurrency,
 		shutdownTimeout: defaultShutdownTimeout,
 		queues:          map[string]int{"default": 1},
@@ -139,6 +138,8 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	ctx.OnDispose(func() error {
 		SetActiveTaskExtension(nil)
+		SetRedisClient(nil)
+		ResetAsynqClient()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)
 		defer cancel()
 		return p.Stop(shutdownCtx)
@@ -173,29 +174,21 @@ func (p *Plugin) Start(_ context.Context) error {
 		}
 	}
 
-	for _, taskName := range GetRegisteredAsynqTasks() {
-		mux.HandleFunc(taskName, ProcessTask)
+	opt := p.redisOpt
+	if opt == nil {
+		opt = NewRedisConnOpt()
+	}
+	RedisOpt = opt
+
+	if getRedisClient() == nil {
+		if mk, ok := opt.(interface{ MakeRedisClient() interface{} }); ok {
+			if client, ok := mk.MakeRedisClient().(redis.UniversalClient); ok {
+				SetRedisClient(client)
+			}
+		}
 	}
 
 	if p.server == nil {
-		opt := p.redisOpt
-		if opt == nil {
-			if RedisOpt != nil {
-				opt = RedisOpt
-			} else {
-				redisCfg := config.Config.Redis
-				addr := "127.0.0.1:6379"
-				if len(redisCfg.Addrs) > 0 && redisCfg.Addrs[0] != "" {
-					addr = redisCfg.Addrs[0]
-				}
-				opt = asynq.RedisClientOpt{
-					Addr:     addr,
-					Username: redisCfg.Username,
-					Password: redisCfg.Password,
-					DB:       redisCfg.DB,
-				}
-			}
-		}
 		p.server = asynq.NewServer(
 			opt,
 			asynq.Config{
@@ -276,15 +269,17 @@ func toAsynqHandler(h any) (asynq.Handler, error) {
 		return asynq.HandlerFunc(fn), nil
 	case func(context.Context, []byte) error:
 		return asynq.HandlerFunc(func(c context.Context, t *asynq.Task) error {
-			return fn(c, t.Payload())
+			c, payload, _ := extractTaskTraceContext(c, t.Payload())
+			return fn(c, payload)
 		}), nil
 	case func(context.Context) error:
 		return asynq.HandlerFunc(func(c context.Context, _ *asynq.Task) error {
 			return fn(c)
 		}), nil
 	case func([]byte) error:
-		return asynq.HandlerFunc(func(_ context.Context, t *asynq.Task) error {
-			return fn(t.Payload())
+		return asynq.HandlerFunc(func(c context.Context, t *asynq.Task) error {
+			_, payload, _ := extractTaskTraceContext(c, t.Payload())
+			return fn(payload)
 		}), nil
 	case func() error:
 		return asynq.HandlerFunc(func(_ context.Context, _ *asynq.Task) error {

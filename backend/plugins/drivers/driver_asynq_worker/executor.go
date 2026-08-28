@@ -154,7 +154,7 @@ func DispatchTask(ctx context.Context, taskType string, payload []byte, triggere
 
 	// 入队 Asynq
 	taskInfo := asynq.NewTask(meta.AsynqTask, injectTaskTraceContext(ctx, payload))
-	if _, err := AsynqClient.Enqueue(
+	if _, err := GetAsynqClient().Enqueue(
 		taskInfo,
 		asynq.TaskID(taskID),
 		asynq.MaxRetry(meta.MaxRetry),
@@ -220,7 +220,7 @@ func RetryTask(ctx context.Context, id uint64) (string, error) {
 
 	// 入队 Asynq
 	taskInfo := asynq.NewTask(execution.TaskType, injectTaskTraceContext(ctx, []byte(execution.Payload)))
-	if _, err := AsynqClient.Enqueue(
+	if _, err := GetAsynqClient().Enqueue(
 		taskInfo,
 		asynq.TaskID(newTaskID),
 		asynq.MaxRetry(execution.MaxRetry),

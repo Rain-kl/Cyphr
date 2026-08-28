@@ -4,6 +4,8 @@
 package driver_asynq_worker
 
 import (
+	"sync"
+
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
@@ -54,9 +56,37 @@ var RedisOpt asynq.RedisConnOpt
 // AsynqClient asynq 客户端，用于任务入队
 var AsynqClient *asynq.Client
 
-func init() {
-	RedisOpt = NewRedisConnOpt()
-	AsynqClient = asynq.NewClient(RedisOpt)
+var asynqClientMu sync.RWMutex
+
+// GetAsynqClient returns the active Asynq client, dynamically creating or refreshing it if needed.
+func GetAsynqClient() *asynq.Client {
+	asynqClientMu.RLock()
+	if AsynqClient != nil {
+		asynqClientMu.RUnlock()
+		return AsynqClient
+	}
+	asynqClientMu.RUnlock()
+
+	asynqClientMu.Lock()
+	defer asynqClientMu.Unlock()
+	if AsynqClient != nil {
+		return AsynqClient
+	}
+
+	opt := NewRedisConnOpt()
+	RedisOpt = opt
+	AsynqClient = asynq.NewClient(opt)
+	return AsynqClient
+}
+
+// ResetAsynqClient resets the Asynq client so it will be re-created with current config.
+func ResetAsynqClient() {
+	asynqClientMu.Lock()
+	defer asynqClientMu.Unlock()
+	if AsynqClient != nil {
+		_ = AsynqClient.Close()
+		AsynqClient = nil
+	}
 }
 
 // NewRedisConnOpt 根据配置返回对应的 asynq Redis 连接选项
