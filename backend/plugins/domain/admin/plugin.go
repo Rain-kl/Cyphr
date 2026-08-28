@@ -50,18 +50,65 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+var (
+	globalUserSvc contracts.UserService
+	globalAuthSvc contracts.AuthService
+	globalCoreCtx *core.Context
+)
+
+func getUserService(_ context.Context) contracts.UserService {
+	if globalUserSvc != nil {
+		return globalUserSvc
+	}
+	if globalCoreCtx != nil {
+		if svc, err := core.Inject[contracts.UserService](globalCoreCtx); err == nil {
+			globalUserSvc = svc
+			return svc
+		}
+	}
+	return nil
+}
+
+func getAuthService(_ context.Context) contracts.AuthService {
+	if globalAuthSvc != nil {
+		return globalAuthSvc
+	}
+	if globalCoreCtx != nil {
+		if svc, err := core.Inject[contracts.AuthService](globalCoreCtx); err == nil {
+			globalAuthSvc = svc
+			return svc
+		}
+	}
+	return nil
+}
+
 // Apply registers admin routes, tasks, schedules, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
-	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	globalCoreCtx = ctx
+
+	// 0. Resolve auth and user services reactively via IoC
 	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
 	var adminMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
 	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
+		globalAuthSvc = authSvc
 		if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
 			loginMW = mw
 		}
 		if mw, ok := authSvc.RequireAdminMiddleware().(gin.HandlerFunc); ok {
 			adminMW = mw
 		}
+	} else {
+		core.When[contracts.AuthService](ctx, func(svc contracts.AuthService) {
+			globalAuthSvc = svc
+		})
+	}
+
+	if userSvc, err := core.Inject[contracts.UserService](ctx); err == nil && userSvc != nil {
+		globalUserSvc = userSvc
+	} else {
+		core.When[contracts.UserService](ctx, func(svc contracts.UserService) {
+			globalUserSvc = svc
+		})
 	}
 
 	// 0a. Register migrations

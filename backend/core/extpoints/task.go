@@ -57,6 +57,7 @@ type TaskExtension interface {
 	Register(pattern string, handler any, opts ...TaskOption)
 	Tasks() []TaskDefinition
 	Get(pattern string) (TaskDefinition, bool)
+	Unregister(pattern string) bool
 }
 
 // TaskRegistry collects and manages task registrations.
@@ -102,6 +103,25 @@ func (t *TaskRegistry) Register(pattern string, handler any, opts ...TaskOption)
 	}
 
 	t.lookup[pattern] = td
+}
+
+// Unregister removes a registered task definition by its pattern.
+func (t *TaskRegistry) Unregister(pattern string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if _, exists := t.lookup[pattern]; !exists {
+		return false
+	}
+
+	delete(t.lookup, pattern)
+	for i, item := range t.tasks {
+		if item.Pattern == pattern {
+			t.tasks = append(t.tasks[:i], t.tasks[i+1:]...)
+			break
+		}
+	}
+	return true
 }
 
 // Tasks returns a copy of all registered TaskDefinitions.

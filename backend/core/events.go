@@ -21,13 +21,16 @@ type eventListener struct {
 	id         uint64
 	fnVal      reflect.Value
 	numIn      int
+	numOut     int
 	hasCtx     bool
 	hasPayload bool
 	argType    reflect.Type
 	returnsErr bool
+	returnsVal bool
 }
 
-// EventBus is a thread-safe, strongly-typed in-process domain event bus.
+// EventBus is a thread-safe, strongly-typed in-process domain event bus supporting
+// Emit, Waterfall, Parallel, and Serial dispatch semantics.
 type EventBus struct {
 	mu       sync.RWMutex
 	nextID   atomic.Uint64
@@ -44,6 +47,10 @@ func NewEventBus() *EventBus {
 // On registers an event handler for the given topic.
 //
 // Supported handler signatures:
+//   - func(ctx context.Context, event T) (T, error)
+//   - func(ctx context.Context, event T) T
+//   - func(event T) (T, error)
+//   - func(event T) T
 //   - func(ctx context.Context, event T) error
 //   - func(ctx context.Context, event T)
 //   - func(event T) error
@@ -71,17 +78,29 @@ func (b *EventBus) On(topic string, handler any) Disposer {
 		panic(fmt.Sprintf("core/events: handler has %d parameters, maximum 2 supported (ctx, event)", numIn))
 	}
 
+	const maxHandlerReturnValues = 2
 	numOut := fnType.NumOut()
-	if numOut > 1 {
-		panic(fmt.Sprintf("core/events: handler has %d return values, maximum 1 supported (error)", numOut))
+	if numOut > maxHandlerReturnValues {
+		panic(fmt.Sprintf("core/events: handler has %d return values, maximum 2 supported (value, error)", numOut))
 	}
 
 	returnsErr := false
-	if numOut == 1 {
-		outType := fnType.Out(0)
-		if !outType.Implements(errInterfaceType) {
-			panic(fmt.Sprintf("core/events: handler return type must be error, got %v", outType))
+	returnsVal := false
+
+	switch numOut {
+	case 1:
+		out0 := fnType.Out(0)
+		if out0.Implements(errInterfaceType) {
+			returnsErr = true
+		} else {
+			returnsVal = true
 		}
+	case 2:
+		out1 := fnType.Out(1)
+		if !out1.Implements(errInterfaceType) {
+			panic(fmt.Sprintf("core/events: second return value must be error, got %v", out1))
+		}
+		returnsVal = true
 		returnsErr = true
 	}
 
@@ -89,7 +108,9 @@ func (b *EventBus) On(topic string, handler any) Disposer {
 		id:         b.nextID.Add(1),
 		fnVal:      fnVal,
 		numIn:      numIn,
+		numOut:     numOut,
 		returnsErr: returnsErr,
+		returnsVal: returnsVal,
 	}
 
 	switch numIn {
@@ -162,16 +183,10 @@ func (b *EventBus) Emit(ctx context.Context, topic string, payload any) error {
 		ctx = context.Background()
 	}
 
-	b.mu.RLock()
-	rawListeners := b.handlers[topic]
-	if len(rawListeners) == 0 {
-		b.mu.RUnlock()
+	listeners := b.getListeners(topic)
+	if len(listeners) == 0 {
 		return nil
 	}
-
-	listeners := make([]eventListener, len(rawListeners))
-	copy(listeners, rawListeners)
-	b.mu.RUnlock()
 
 	var payloadVal reflect.Value
 	if payload != nil {
@@ -190,8 +205,11 @@ func (b *EventBus) Emit(ctx context.Context, topic string, payload any) error {
 			}()
 
 			results := l.fnVal.Call(args)
-			if l.returnsErr && len(results) > 0 && !results[0].IsNil() {
-				resErr = results[0].Interface().(error)
+			if l.returnsErr {
+				errIdx := l.numOut - 1
+				if len(results) > errIdx && !results[errIdx].IsNil() {
+					resErr = results[errIdx].Interface().(error)
+				}
 			}
 			return resErr
 		}()
@@ -202,6 +220,181 @@ func (b *EventBus) Emit(ctx context.Context, topic string, payload any) error {
 	}
 
 	return errors.Join(errs...)
+}
+
+// Waterfall runs handlers sequentially as a transformation pipeline.
+// The returned value of each handler becomes the payload input for the next handler.
+// If any handler returns an error or panics, execution aborts immediately.
+//
+//nolint:contextcheck
+func (b *EventBus) Waterfall(ctx context.Context, topic string, initialPayload any) (any, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	listeners := b.getListeners(topic)
+	if len(listeners) == 0 {
+		return initialPayload, nil
+	}
+
+	currentPayload := initialPayload
+
+	for _, l := range listeners {
+		var payloadVal reflect.Value
+		if currentPayload != nil {
+			payloadVal = reflect.ValueOf(currentPayload)
+		}
+
+		args := b.buildArgs(ctx, l, payloadVal)
+
+		var stepVal any
+		var stepErr error
+
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					stepErr = fmt.Errorf("core/events: panic in waterfall handler for topic %q: %v", topic, r)
+				}
+			}()
+
+			results := l.fnVal.Call(args)
+			if l.returnsErr {
+				errIdx := l.numOut - 1
+				if len(results) > errIdx && !results[errIdx].IsNil() {
+					stepErr = results[errIdx].Interface().(error)
+				}
+			}
+			if stepErr == nil && l.returnsVal && len(results) > 0 {
+				stepVal = results[0].Interface()
+			}
+		}()
+
+		if stepErr != nil {
+			return nil, stepErr
+		}
+
+		if l.returnsVal {
+			currentPayload = stepVal
+		}
+	}
+
+	return currentPayload, nil
+}
+
+// Parallel executes all subscribers of the topic concurrently in separate goroutines.
+// It waits for all handlers to complete and collects any errors via errors.Join.
+//
+//nolint:contextcheck
+func (b *EventBus) Parallel(ctx context.Context, topic string, payload any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	listeners := b.getListeners(topic)
+	if len(listeners) == 0 {
+		return nil
+	}
+
+	var payloadVal reflect.Value
+	if payload != nil {
+		payloadVal = reflect.ValueOf(payload)
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(listeners))
+
+	for _, l := range listeners {
+		wg.Add(1)
+		go func(listener eventListener) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					errCh <- fmt.Errorf("core/events: panic in parallel handler for topic %q: %v", topic, r)
+				}
+			}()
+
+			args := b.buildArgs(ctx, listener, payloadVal)
+			results := listener.fnVal.Call(args)
+			if listener.returnsErr {
+				errIdx := listener.numOut - 1
+				if len(results) > errIdx && !results[errIdx].IsNil() {
+					errCh <- results[errIdx].Interface().(error)
+				}
+			}
+		}(l)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errs []error
+	for err := range errCh {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+// Serial executes subscribers strictly in sequence.
+// If any subscriber returns an error or panics, execution stops immediately and returns that error.
+//
+//nolint:contextcheck
+func (b *EventBus) Serial(ctx context.Context, topic string, payload any) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	listeners := b.getListeners(topic)
+	if len(listeners) == 0 {
+		return nil
+	}
+
+	var payloadVal reflect.Value
+	if payload != nil {
+		payloadVal = reflect.ValueOf(payload)
+	}
+
+	for _, l := range listeners {
+		args := b.buildArgs(ctx, l, payloadVal)
+
+		var stepErr error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					stepErr = fmt.Errorf("core/events: panic in serial handler for topic %q: %v", topic, r)
+				}
+			}()
+
+			results := l.fnVal.Call(args)
+			if l.returnsErr {
+				errIdx := l.numOut - 1
+				if len(results) > errIdx && !results[errIdx].IsNil() {
+					stepErr = results[errIdx].Interface().(error)
+				}
+			}
+		}()
+
+		if stepErr != nil {
+			return stepErr
+		}
+	}
+
+	return nil
+}
+
+func (b *EventBus) getListeners(topic string) []eventListener {
+	b.mu.RLock()
+	raw := b.handlers[topic]
+	if len(raw) == 0 {
+		b.mu.RUnlock()
+		return nil
+	}
+	listeners := make([]eventListener, len(raw))
+	copy(listeners, raw)
+	b.mu.RUnlock()
+	return listeners
 }
 
 func (b *EventBus) buildArgs(ctx context.Context, l eventListener, payloadVal reflect.Value) []reflect.Value {

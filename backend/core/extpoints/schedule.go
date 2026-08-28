@@ -32,6 +32,7 @@ type ScheduleExtension interface {
 	RegisterCron(spec string, taskType string, payload any, opts ...ScheduleOption)
 	Schedules() []ScheduleDefinition
 	Get(taskType string) (ScheduleDefinition, bool)
+	Unregister(taskType string) bool
 }
 
 // ScheduleRegistry collects and manages schedule registrations.
@@ -83,6 +84,25 @@ func (s *ScheduleRegistry) Register(spec string, taskType string, payload any, o
 // RegisterCron is an alias for Register.
 func (s *ScheduleRegistry) RegisterCron(spec string, taskType string, payload any, opts ...ScheduleOption) {
 	s.Register(spec, taskType, payload, opts...)
+}
+
+// Unregister removes a registered schedule definition by its task type.
+func (s *ScheduleRegistry) Unregister(taskType string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.lookup[taskType]; !exists {
+		return false
+	}
+
+	delete(s.lookup, taskType)
+	for i, item := range s.schedules {
+		if item.TaskType == taskType {
+			s.schedules = append(s.schedules[:i], s.schedules[i+1:]...)
+			break
+		}
+	}
+	return true
 }
 
 // Schedules returns a copy of all registered ScheduleDefinitions.

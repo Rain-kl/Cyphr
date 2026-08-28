@@ -22,6 +22,7 @@ type SettingExtension interface {
 	Register(schema SettingSchema)
 	Schemas() []SettingSchema
 	Get(key string) (SettingSchema, bool)
+	Unregister(key string) bool
 }
 
 // SettingRegistry collects and manages setting configuration schemas.
@@ -60,6 +61,25 @@ func (s *SettingRegistry) Register(schema SettingSchema) {
 	}
 
 	s.lookup[schema.Key] = schema
+}
+
+// Unregister removes a registered SettingSchema by its key.
+func (s *SettingRegistry) Unregister(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.lookup[key]; !exists {
+		return false
+	}
+
+	delete(s.lookup, key)
+	for i, item := range s.schemas {
+		if item.Key == key {
+			s.schemas = append(s.schemas[:i], s.schemas[i+1:]...)
+			break
+		}
+	}
+	return true
 }
 
 // Schemas returns a copy of all registered SettingSchemas.

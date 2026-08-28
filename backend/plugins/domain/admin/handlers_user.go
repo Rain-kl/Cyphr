@@ -4,26 +4,19 @@
 package admin
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/auth"
-	db "Wavelet/plugins/infra/database"
 )
-
-const minPasswordLength = 8
 
 // listUsersRequest 用户列表查询请求
 type listUsersRequest struct {
@@ -136,7 +129,19 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
-	total, dtos, err := listUsers(c.Request.Context(), req)
+	userSvc := getUserService(c.Request.Context())
+	if userSvc == nil {
+		response.AbortInternal(c, "用户服务未就绪")
+		return
+	}
+
+	total, dtos, err := userSvc.AdminListUsers(c.Request.Context(), contracts.AdminListUsersFilter{
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		UserID:   req.UserID,
+		Username: req.Username,
+		Email:    req.Email,
+	})
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "List admin users failed: %v", err)
 		response.AbortInternal(c, "获取用户列表失败")
@@ -174,7 +179,13 @@ func GetUser(c *gin.Context) {
 		return
 	}
 
-	targetUser, err := getUserDetail(c.Request.Context(), id)
+	userSvc := getUserService(c.Request.Context())
+	if userSvc == nil {
+		response.AbortInternal(c, "用户服务未就绪")
+		return
+	}
+
+	targetUser, err := userSvc.AdminGetUser(c.Request.Context(), id)
 	if abortUserLogicError(c, err, userNotFound, nil, nil) {
 		return
 	}
@@ -215,7 +226,13 @@ func UpdateUserStatus(c *gin.Context) {
 		return
 	}
 
-	if err := updateUserStatus(c.Request.Context(), id, req.IsActive); err != nil {
+	userSvc := getUserService(c.Request.Context())
+	if userSvc == nil {
+		response.AbortInternal(c, "用户服务未就绪")
+		return
+	}
+
+	if err := userSvc.AdminUpdateUserStatus(c.Request.Context(), id, req.IsActive); err != nil {
 		if abortUserLogicError(c, err, userNotFound, []string{cannotDisable}, nil) {
 			return
 		}
@@ -251,7 +268,14 @@ func DeleteUser(c *gin.Context) {
 		response.AbortUnauthorized(c, AdminRequired)
 		return
 	}
-	if err := deleteUser(c.Request.Context(), currUser.ID, id); err != nil {
+
+	userSvc := getUserService(c.Request.Context())
+	if userSvc == nil {
+		response.AbortInternal(c, "用户服务未就绪")
+		return
+	}
+
+	if err := userSvc.AdminDeleteUser(c.Request.Context(), currUser.ID, id); err != nil {
 		if abortUserLogicError(c, err, userNotFound, []string{cannotDelete, cannotDeleteSelf}, nil) {
 			return
 		}
@@ -293,7 +317,20 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	newUser, err := createUser(c.Request.Context(), req)
+	userSvc := getUserService(c.Request.Context())
+	if userSvc == nil {
+		response.AbortInternal(c, "用户服务未就绪")
+		return
+	}
+
+	newUser, err := userSvc.AdminCreateUser(c.Request.Context(), contracts.AdminCreateUserRequest{
+		Username: req.Username,
+		Password: req.Password,
+		Nickname: req.Nickname,
+		Email:    req.Email,
+		IsActive: req.IsActive,
+		IsAdmin:  req.IsAdmin,
+	})
 	if abortUserLogicError(c, err, "", nil, []string{usernameRequired, emailRequired, passwordTooShort, usernameExists, emailExists}) {
 		return
 	}
@@ -342,7 +379,14 @@ func UpdateUser(c *gin.Context) {
 		response.AbortUnauthorized(c, AdminRequired)
 		return
 	}
-	err := updateUser(c.Request.Context(), currUser.ID, updateUserParam{
+
+	userSvc := getUserService(c.Request.Context())
+	if userSvc == nil {
+		response.AbortInternal(c, "用户服务未就绪")
+		return
+	}
+
+	err := userSvc.AdminUpdateUser(c.Request.Context(), currUser.ID, contracts.AdminUpdateUserRequest{
 		ID:       id,
 		Nickname: req.Nickname,
 		Email:    req.Email,
@@ -359,256 +403,4 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response.OKNil())
-}
-
-func listUsers(ctx context.Context, req listUsersRequest) (int64, []*contracts.UserDTO, error) {
-	query := db.DB(ctx).Table("w_users")
-	if req.UserID != nil {
-		query = query.Where("id = ?", *req.UserID)
-	}
-	if req.Username != "" {
-		query = query.Where("username LIKE ? ESCAPE '\\'", util.EscapeLike(req.Username)+"%")
-	}
-	if req.Email != "" {
-		query = query.Where("email LIKE ? ESCAPE '\\'", util.EscapeLike(req.Email)+"%")
-	}
-
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return 0, nil, err
-	}
-
-	var users []*contracts.UserDTO
-	offset := (req.Page - 1) * req.PageSize
-	if err := query.
-		Select("id, username, nickname, email, avatar_url, is_active, is_admin, last_login_at, created_at, updated_at").
-		Order("id ASC").
-		Offset(offset).
-		Limit(req.PageSize).
-		Find(&users).Error; err != nil {
-		return 0, nil, err
-	}
-	return total, users, nil
-}
-
-func getUserDetail(ctx context.Context, id uint64) (*contracts.UserDTO, error) {
-	var user contracts.UserDTO
-	if err := db.DB(ctx).Table("w_users").
-		Select("id, username, nickname, email, avatar_url, is_active, is_admin, bio, phone, gender, website, location, last_login_at, created_at, updated_at").
-		Where("id = ?", id).
-		First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-func updateUserStatus(ctx context.Context, id uint64, active bool) error {
-	var flags struct {
-		ID      uint64
-		IsAdmin bool
-	}
-	if err := db.DB(ctx).Table("w_users").Select("id, is_admin").Where("id = ?", id).First(&flags).Error; err != nil {
-		return err
-	}
-	if !active && flags.IsAdmin {
-		return errors.New(cannotDisable)
-	}
-
-	var tokenHashes []string
-	if !active {
-		_ = db.DB(ctx).Table("w_access_tokens").Where("user_id = ?", id).Pluck("token_hash", &tokenHashes).Error
-	}
-
-	err := db.DB(ctx).Table("w_users").Where("id = ?", id).Update("is_active", active).Error
-	if err == nil {
-		auth.InvalidateCachedUser(ctx, id)
-		if !active {
-			for _, hash := range tokenHashes {
-				auth.InvalidateCachedToken(ctx, hash)
-			}
-		}
-	}
-	return err
-}
-
-func deleteUser(ctx context.Context, currentUserID, targetID uint64) error {
-	if currentUserID == targetID {
-		return errors.New(cannotDeleteSelf)
-	}
-	var flags struct {
-		ID      uint64
-		IsAdmin bool
-	}
-	if err := db.DB(ctx).Table("w_users").Select("id, is_admin").Where("id = ?", targetID).First(&flags).Error; err != nil {
-		return err
-	}
-	if flags.IsAdmin {
-		return errors.New(cannotDelete)
-	}
-
-	var tokenHashes []string
-	_ = db.DB(ctx).Table("w_access_tokens").Where("user_id = ?", targetID).Pluck("token_hash", &tokenHashes).Error
-
-	err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Table("w_access_tokens").Where("user_id = ?", targetID).Delete(map[string]any{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Table("w_external_accounts").Where("user_id = ?", targetID).Delete(map[string]any{}).Error; err != nil {
-			return err
-		}
-		return tx.Table("w_users").Where("id = ?", targetID).Delete(map[string]any{}).Error
-	})
-	if err == nil {
-		auth.InvalidateCachedUser(ctx, targetID)
-		for _, hash := range tokenHashes {
-			auth.InvalidateCachedToken(ctx, hash)
-		}
-	}
-	return err
-}
-
-func createUser(ctx context.Context, req createUserRequest) (*contracts.UserDTO, error) {
-	req.Username = strings.TrimSpace(req.Username)
-	req.Nickname = strings.TrimSpace(req.Nickname)
-	req.Password = strings.TrimSpace(req.Password)
-	req.Email = strings.TrimSpace(req.Email)
-
-	if req.Username == "" {
-		return nil, errors.New(usernameRequired)
-	}
-	if req.Email == "" {
-		return nil, errors.New(emailRequired)
-	}
-	if len(req.Password) < minPasswordLength {
-		return nil, errors.New(passwordTooShort)
-	}
-
-	var count int64
-	if err := db.DB(ctx).Table("w_users").Where("username = ?", req.Username).Count(&count).Error; err != nil {
-		return nil, err
-	}
-	if count > 0 {
-		return nil, errors.New(usernameExists)
-	}
-
-	var emailCount int64
-	if err := db.DB(ctx).Table("w_users").Where("email = ?", req.Email).Count(&emailCount).Error; err != nil {
-		return nil, err
-	}
-	if emailCount > 0 {
-		return nil, errors.New(emailExists)
-	}
-
-	hash, err := util.HashPassword(req.Password)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Nickname == "" {
-		req.Nickname = req.Username
-	}
-
-	now := time.Now()
-	newUser := contracts.UserDTO{
-		ID:        idgen.NextUint64ID(),
-		Username:  req.Username,
-		Nickname:  req.Nickname,
-		Email:     req.Email,
-		IsActive:  req.IsActive,
-		IsAdmin:   req.IsAdmin,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-
-	row := map[string]any{
-		"id":         newUser.ID,
-		"username":   newUser.Username,
-		"password":   hash,
-		"nickname":   newUser.Nickname,
-		"email":      newUser.Email,
-		"is_active":  newUser.IsActive,
-		"is_admin":   newUser.IsAdmin,
-		"created_at": now,
-		"updated_at": now,
-	}
-	if err := db.DB(ctx).Table("w_users").Create(row).Error; err != nil {
-		return nil, err
-	}
-	return &newUser, nil
-}
-
-type updateUserParam struct {
-	ID       uint64
-	Nickname string
-	Email    string
-	IsAdmin  bool
-	Password string
-}
-
-func updateUser(ctx context.Context, currentUserID uint64, param updateUserParam) error {
-	param.Nickname = strings.TrimSpace(param.Nickname)
-	param.Email = strings.TrimSpace(param.Email)
-	param.Password = strings.TrimSpace(param.Password)
-
-	if param.Email == "" {
-		return errors.New(emailRequired)
-	}
-
-	var targetUser contracts.UserDTO
-	if err := db.DB(ctx).Table("w_users").Where("id = ?", param.ID).First(&targetUser).Error; err != nil {
-		return err
-	}
-
-	if currentUserID == param.ID && !param.IsAdmin && targetUser.IsAdmin {
-		return errors.New(cannotRevokeSelfAdmin)
-	}
-
-	if targetUser.Email != param.Email {
-		var count int64
-		if err := db.DB(ctx).Table("w_users").Where("email = ? AND id != ?", param.Email, param.ID).Count(&count).Error; err != nil {
-			return err
-		}
-		if count > 0 {
-			return errors.New(emailExists)
-		}
-	}
-
-	if param.Password != "" && len(param.Password) < minPasswordLength {
-		return errors.New(passwordTooShort)
-	}
-
-	needRevokeTokens := (param.Password != "") || (targetUser.IsAdmin && !param.IsAdmin)
-	var tokenHashes []string
-	if needRevokeTokens {
-		_ = db.DB(ctx).Table("w_access_tokens").Where("user_id = ?", param.ID).Pluck("token_hash", &tokenHashes).Error
-	}
-
-	if param.Nickname == "" {
-		param.Nickname = targetUser.Username
-	}
-
-	updates := map[string]any{
-		"nickname":   param.Nickname,
-		"email":      param.Email,
-		"is_admin":   param.IsAdmin,
-		"updated_at": time.Now(),
-	}
-	if param.Password != "" {
-		hash, err := util.HashPassword(param.Password)
-		if err != nil {
-			return err
-		}
-		updates["password"] = hash
-	}
-
-	err := db.DB(ctx).Table("w_users").Where("id = ?", param.ID).Updates(updates).Error
-	if err == nil {
-		auth.InvalidateCachedUser(ctx, param.ID)
-		if needRevokeTokens {
-			for _, hash := range tokenHashes {
-				auth.InvalidateCachedToken(ctx, hash)
-			}
-		}
-	}
-	return err
 }

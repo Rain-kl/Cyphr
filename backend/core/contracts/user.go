@@ -29,6 +29,34 @@ type UpdateUserProfileRequest struct {
 	Location  *string `json:"location,omitempty"`
 }
 
+// AdminListUsersFilter contains query parameters for filtering users in admin panel.
+type AdminListUsersFilter struct {
+	Page     int
+	PageSize int
+	UserID   *uint64
+	Username string
+	Email    string
+}
+
+// AdminCreateUserRequest contains fields for admin to create a user.
+type AdminCreateUserRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	IsActive bool   `json:"is_active"`
+	IsAdmin  bool   `json:"is_admin"`
+}
+
+// AdminUpdateUserRequest contains fields for admin to update a user.
+type AdminUpdateUserRequest struct {
+	ID       uint64 `json:"id,string"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	IsAdmin  bool   `json:"is_admin"`
+	Password string `json:"password,omitempty"`
+}
+
 // UserService defines the contract for user account management and profile queries.
 type UserService interface {
 	// GetUserByID retrieves a user by ID.
@@ -81,4 +109,22 @@ type UserService interface {
 
 	// UniqueUsername generates a unique username candidate based on base.
 	UniqueUsername(ctx context.Context, base string) (string, error)
+
+	// AdminListUsers returns a filtered paginated list of users for admin management.
+	AdminListUsers(ctx context.Context, filter AdminListUsersFilter) (int64, []*UserDTO, error)
+
+	// AdminGetUser retrieves complete user details by ID for admin management.
+	AdminGetUser(ctx context.Context, id uint64) (*UserDTO, error)
+
+	// AdminCreateUser creates a user with admin specified options.
+	AdminCreateUser(ctx context.Context, req AdminCreateUserRequest) (*UserDTO, error)
+
+	// AdminUpdateUser updates user details, email, nickname, admin role, and optional password.
+	AdminUpdateUser(ctx context.Context, currentUserID uint64, req AdminUpdateUserRequest) error
+
+	// AdminUpdateUserStatus updates a user's active status (with admin protection).
+	AdminUpdateUserStatus(ctx context.Context, id uint64, active bool) error
+
+	// AdminDeleteUser deletes a user (with self and admin protection, cascading tokens and accounts).
+	AdminDeleteUser(ctx context.Context, currentUserID, targetID uint64) error
 }

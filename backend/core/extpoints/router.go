@@ -10,6 +10,7 @@ import (
 
 // RouteDefinition holds the metadata and handler list for a single HTTP route.
 type RouteDefinition struct {
+	ID          uint64
 	Method      string
 	Path        string
 	Handlers    []any
@@ -31,11 +32,14 @@ type RouterExtension interface {
 	Any(path string, handlers ...any) []RouteDefinition
 	Routes() []RouteDefinition
 	Middlewares() []any
+	Unregister(method, path string) bool
+	UnregisterByID(id uint64) bool
 }
 
 // RouterRegistry implements RouterExtension as the root route and middleware collector.
 type RouterRegistry struct {
 	mu          sync.RWMutex
+	nextID      uint64
 	routes      []RouteDefinition
 	middlewares []any
 }
@@ -75,7 +79,9 @@ func (r *RouterRegistry) Handle(method, path string, handlers ...any) RouteDefin
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	r.nextID++
 	rd := RouteDefinition{
+		ID:          r.nextID,
 		Method:      strings.ToUpper(method),
 		Path:        cleanPath(path),
 		Handlers:    handlers,
@@ -83,6 +89,37 @@ func (r *RouterRegistry) Handle(method, path string, handlers ...any) RouteDefin
 	}
 	r.routes = append(r.routes, rd)
 	return rd
+}
+
+// Unregister removes a route matching method and path from the registry.
+func (r *RouterRegistry) Unregister(method, path string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	targetMethod := strings.ToUpper(method)
+	targetPath := cleanPath(path)
+
+	for i, rd := range r.routes {
+		if rd.Method == targetMethod && rd.Path == targetPath {
+			r.routes = append(r.routes[:i], r.routes[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// UnregisterByID removes a route by its unique ID.
+func (r *RouterRegistry) UnregisterByID(id uint64) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i, rd := range r.routes {
+		if rd.ID == id {
+			r.routes = append(r.routes[:i], r.routes[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
 // GET registers a GET route.
@@ -176,7 +213,9 @@ func (g *RouterGroup) Handle(method, path string, handlers ...any) RouteDefiniti
 	allMiddlewares = append(allMiddlewares, g.registry.middlewares...)
 	allMiddlewares = append(allMiddlewares, g.middlewares...)
 
+	g.registry.nextID++
 	rd := RouteDefinition{
+		ID:          g.registry.nextID,
 		Method:      strings.ToUpper(method),
 		Path:        fullPath,
 		Handlers:    handlers,
@@ -184,6 +223,17 @@ func (g *RouterGroup) Handle(method, path string, handlers ...any) RouteDefiniti
 	}
 	g.registry.routes = append(g.registry.routes, rd)
 	return rd
+}
+
+// Unregister removes a route under this group prefix matching method and path.
+func (g *RouterGroup) Unregister(method, path string) bool {
+	fullPath := joinPaths(g.prefix, path)
+	return g.registry.Unregister(method, fullPath)
+}
+
+// UnregisterByID removes a route by its unique ID.
+func (g *RouterGroup) UnregisterByID(id uint64) bool {
+	return g.registry.UnregisterByID(id)
 }
 
 // GET registers a GET route in this group.

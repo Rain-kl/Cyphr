@@ -40,6 +40,12 @@ func isNil(i any) bool {
 	}
 }
 
+func (c *Container) remove(targetType reflect.Type) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.services, targetType)
+}
+
 // Provide registers a typed service implementation into the Context's IoC container.
 func Provide[T any](ctx *Context, service T) {
 	if ctx == nil {
@@ -50,7 +56,13 @@ func Provide[T any](ctx *Context, service T) {
 	}
 
 	targetType := reflect.TypeFor[T]()
-	ctx.Container().provide(targetType, service)
+	targetContainer := ctx.Container()
+	targetContainer.provide(targetType, service)
+
+	ctx.OnDispose(func() error {
+		targetContainer.remove(targetType)
+		return nil
+	})
 }
 
 func (c *Container) provide(targetType reflect.Type, service any) {

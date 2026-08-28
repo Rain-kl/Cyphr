@@ -26,6 +26,13 @@ const (
 
 	// EventTopicUserDeleted fires when a user account is deleted.
 	EventTopicUserDeleted = "user:deleted"
+
+	// EventTopicUserStatusChanged fires when a user account active status changes.
+	EventTopicUserStatusChanged = "user:status_changed"
+
+	// EventTopicTokenRevoked fires when an access token is revoked.
+	// #nosec G101
+	EventTopicTokenRevoked = "auth:token_revoked"
 )
 
 // --- Admin & System Events ---
@@ -106,4 +113,22 @@ type NotificationSentEvent struct {
 	Title     string `json:"title"`
 	Success   bool   `json:"success"`
 	ErrorInfo string `json:"error_info,omitempty"`
+}
+
+// UserStatusChangedEvent fires when a user status is enabled/disabled.
+type UserStatusChangedEvent struct {
+	UserID   uint64 `json:"user_id,string"`
+	IsActive bool   `json:"is_active"`
+}
+
+// TokenRevokedEvent fires when an access token is revoked.
+type TokenRevokedEvent struct {
+	UserID    uint64 `json:"user_id,string"`
+	TokenHash string `json:"token_hash"`
+}
+
+// UserDeletedEvent fires when a user account is deleted.
+type UserDeletedEvent struct {
+	CurrentUserID uint64 `json:"current_user_id,string"`
+	TargetUserID  uint64 `json:"target_user_id,string"`
 }

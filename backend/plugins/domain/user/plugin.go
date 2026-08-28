@@ -81,7 +81,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 2. Initialize and provide UserService
 	if p.userSvc == nil {
-		p.userSvc = newUserService()
+		p.userSvc = newUserService(ctx.Events())
 	}
 	core.Provide[contracts.UserService](ctx, p.userSvc)
 

@@ -21,6 +21,7 @@ type MigrationExtension interface {
 	Register(pluginID string, fsys fs.FS, dir ...string)
 	Entries() []MigrationEntry
 	Get(pluginID string) (MigrationEntry, bool)
+	Unregister(pluginID string) bool
 }
 
 // MigrationRegistry collects and stores migration entries from plugins.
@@ -67,6 +68,25 @@ func (m *MigrationRegistry) Register(pluginID string, fsys fs.FS, dir ...string)
 	}
 
 	m.lookup[pluginID] = entry
+}
+
+// Unregister removes a registered migration entry by plugin ID.
+func (m *MigrationRegistry) Unregister(pluginID string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if _, exists := m.lookup[pluginID]; !exists {
+		return false
+	}
+
+	delete(m.lookup, pluginID)
+	for i, e := range m.entries {
+		if e.PluginID == pluginID {
+			m.entries = append(m.entries[:i], m.entries[i+1:]...)
+			break
+		}
+	}
+	return true
 }
 
 // Entries returns a copy of all registered migration entries in registration order.

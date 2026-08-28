@@ -46,6 +46,33 @@ type OAuthUserInfoDTO struct {
 	AvatarURL         string `json:"avatar_url"`
 }
 
+// AuthSourceDTO represents an OAuth / OIDC authentication source.
+type AuthSourceDTO struct {
+	ID                 uint64    `json:"id,string"`
+	Name               string    `json:"name"`
+	Type               string    `json:"type"`
+	DisplayName        string    `json:"display_name"`
+	ClientID           string    `json:"client_id"`
+	ClientSecret       string    `json:"client_secret,omitempty"`
+	OpenIDDiscoveryURL string    `json:"openid_discovery_url"`
+	Scopes             string    `json:"scopes"`
+	IconURL            string    `json:"icon_url"`
+	IsActive           bool      `json:"is_active"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// AuthSourceViewDTO is a sanitized view of an AuthSource for admin display.
+type AuthSourceViewDTO struct {
+	ID                     uint64 `json:"id,string"`
+	Name                   string `json:"name"`
+	Type                   string `json:"type"`
+	DisplayName            string `json:"display_name"`
+	IsActive               bool   `json:"is_active"`
+	IconURL                string `json:"icon_url"`
+	ClientSecretConfigured bool   `json:"client_secret_configured"`
+}
+
 // OAuthProvider defines the pluggable OAuth provider contract.
 type OAuthProvider interface {
 	Name() string
@@ -78,6 +105,27 @@ type AuthService interface {
 
 	// RevokeUserSessions revokes all active sessions and cached tokens for a user.
 	RevokeUserSessions(ctx context.Context, userID uint64) error
+
+	// InvalidateCachedUser invalidates cached user profile data.
+	InvalidateCachedUser(ctx context.Context, userID uint64)
+
+	// InvalidateCachedToken invalidates cached access token data.
+	InvalidateCachedToken(ctx context.Context, tokenHash string)
+
+	// ListAuthSources lists all configured authentication sources.
+	ListAuthSources(ctx context.Context) ([]AuthSourceViewDTO, error)
+
+	// CreateAuthSource creates a new authentication source.
+	CreateAuthSource(ctx context.Context, source AuthSourceDTO) (*AuthSourceDTO, error)
+
+	// UpdateAuthSource updates an authentication source.
+	UpdateAuthSource(ctx context.Context, id uint64, source AuthSourceDTO) (*AuthSourceDTO, error)
+
+	// DeleteAuthSource removes an authentication source.
+	DeleteAuthSource(ctx context.Context, id uint64) error
+
+	// ToggleAuthSource toggles the active state of an authentication source.
+	ToggleAuthSource(ctx context.Context, id uint64) (*AuthSourceDTO, error)
 
 	// DisallowTokenAuthMiddleware returns a middleware that rejects requests authenticated via access token.
 	DisallowTokenAuthMiddleware() any

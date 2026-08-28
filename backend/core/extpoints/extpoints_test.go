@@ -278,3 +278,44 @@ func TestContextExtensionPointsIntegration(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, eventReceived)
 }
+
+func TestExtensionPointsUnregister(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+
+	// 1. Router unregister
+	rd := ctx.Router().GET("/temp", "temp_handler")
+	assert.Greater(t, rd.ID, uint64(0))
+	assert.Len(t, ctx.Router().Routes(), 1)
+	assert.True(t, ctx.Router().Unregister("GET", "/temp"))
+	assert.Len(t, ctx.Router().Routes(), 0)
+
+	rd2 := ctx.Router().POST("/temp2", "temp2_handler")
+	assert.Len(t, ctx.Router().Routes(), 1)
+	assert.True(t, ctx.Router().UnregisterByID(rd2.ID))
+	assert.Len(t, ctx.Router().Routes(), 0)
+
+	// 2. Task unregister
+	ctx.Task().Register("temp:task", "handler")
+	assert.Len(t, ctx.Task().Tasks(), 1)
+	assert.True(t, ctx.Task().Unregister("temp:task"))
+	assert.Len(t, ctx.Task().Tasks(), 0)
+
+	// 3. Schedule unregister
+	ctx.Schedule().RegisterCron("@hourly", "temp:cron", nil)
+	assert.Len(t, ctx.Schedule().Schedules(), 1)
+	assert.True(t, ctx.Schedule().Unregister("temp:cron"))
+	assert.Len(t, ctx.Schedule().Schedules(), 0)
+
+	// 4. Setting unregister
+	ctx.Settings().Register(extpoints.SettingSchema{Key: "temp.key", Default: 1})
+	assert.Len(t, ctx.Settings().Schemas(), 1)
+	assert.True(t, ctx.Settings().Unregister("temp.key"))
+	assert.Len(t, ctx.Settings().Schemas(), 0)
+
+	// 5. Migration unregister
+	fsys := fstest.MapFS{"001.sql": &fstest.MapFile{Data: []byte("-- migration")}}
+	ctx.Migrations().Register("temp_plugin", fsys)
+	assert.Len(t, ctx.Migrations().Entries(), 1)
+	assert.True(t, ctx.Migrations().Unregister("temp_plugin"))
+	assert.Len(t, ctx.Migrations().Entries(), 0)
+}

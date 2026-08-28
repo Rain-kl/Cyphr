@@ -12,11 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	mail "Wavelet/pkg/mail"
 	"Wavelet/pkg/response"
-	"Wavelet/plugins/domain/cap"
-	cachepkg "Wavelet/plugins/infra/cache"
 	db "Wavelet/plugins/infra/database"
 	"Wavelet/plugins/infra/storage/objectstore"
 	"github.com/gin-gonic/gin"
@@ -341,8 +340,8 @@ func invalidateSystemConfigCaches(ctx context.Context, key string) {
 	if err := InvalidateSystemConfigCache(ctx, key); err != nil {
 		logger.WarnF(ctx, "清理系统配置缓存失败: %v", err)
 	}
-	if cap.IsRuntimeConfigKey(key) {
-		cap.InvalidateRuntimeSettings()
+	if globalCoreCtx != nil {
+		_ = globalCoreCtx.Events().Emit(ctx, contracts.EventTopicConfigChanged, contracts.ConfigChangedEvent{Key: key})
 	}
 }
 
@@ -350,16 +349,8 @@ func invalidateCachesAfterConfigUpdate(ctx context.Context, key string) {
 	invalidateSystemConfigCaches(ctx, key)
 
 	if key == ConfigKeyStorageConfig {
-		if cachepkg.Redis != nil {
-			_ = cachepkg.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
-		}
 		objectstore.ResetCache()
 		objectstore.PublishCacheInvalidation(ctx)
-	}
-	if key == ConfigKeyFileAccessWhitelist {
-		if cachepkg.Redis != nil {
-			_ = cachepkg.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
-		}
 	}
 
 	if err := InvalidateVisibleSystemConfigsCache(ctx); err != nil {

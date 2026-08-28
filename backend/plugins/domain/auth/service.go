@@ -110,6 +110,132 @@ func (s *authServiceImpl) DisallowTokenAuthMiddleware() any {
 	return DisallowTokenAuth()
 }
 
+func (s *authServiceImpl) InvalidateCachedUser(ctx context.Context, userID uint64) {
+	InvalidateCachedUser(ctx, userID)
+}
+
+func (s *authServiceImpl) InvalidateCachedToken(ctx context.Context, tokenHash string) {
+	InvalidateCachedToken(ctx, tokenHash)
+}
+
+func (s *authServiceImpl) ListAuthSources(ctx context.Context) ([]contracts.AuthSourceViewDTO, error) {
+	var sources []AuthSource
+	if err := db.DB(ctx).Order("id ASC").Find(&sources).Error; err != nil {
+		return nil, err
+	}
+
+	views := make([]contracts.AuthSourceViewDTO, len(sources))
+	for i := range sources {
+		views[i] = contracts.AuthSourceViewDTO{
+			ID:                     sources[i].ID,
+			Name:                   sources[i].Name,
+			Type:                   sources[i].Type,
+			DisplayName:            sources[i].DisplayName,
+			IsActive:               sources[i].IsActive,
+			IconURL:                sources[i].IconURL,
+			ClientSecretConfigured: sources[i].ClientSecret != "",
+		}
+	}
+	return views, nil
+}
+
+func (s *authServiceImpl) CreateAuthSource(ctx context.Context, source contracts.AuthSourceDTO) (*contracts.AuthSourceDTO, error) {
+	model := AuthSource{
+		ID:                 source.ID,
+		Name:               source.Name,
+		Type:               source.Type,
+		DisplayName:        source.DisplayName,
+		ClientID:           source.ClientID,
+		ClientSecret:       source.ClientSecret,
+		OpenIDDiscoveryURL: source.OpenIDDiscoveryURL,
+		Scopes:             source.Scopes,
+		IconURL:            source.IconURL,
+		IsActive:           source.IsActive,
+	}
+
+	if err := model.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := db.DB(ctx).Create(&model).Error; err != nil {
+		return nil, err
+	}
+
+	model.Sanitize()
+	return toAuthSourceDTO(&model), nil
+}
+
+func (s *authServiceImpl) UpdateAuthSource(ctx context.Context, id uint64, source contracts.AuthSourceDTO) (*contracts.AuthSourceDTO, error) {
+	var existing AuthSource
+	if err := db.DB(ctx).First(&existing, id).Error; err != nil {
+		return nil, err
+	}
+
+	existing.DisplayName = source.DisplayName
+	existing.ClientID = source.ClientID
+	if source.ClientSecret != "" {
+		existing.ClientSecret = source.ClientSecret
+	}
+	existing.OpenIDDiscoveryURL = source.OpenIDDiscoveryURL
+	existing.Scopes = source.Scopes
+	existing.IconURL = source.IconURL
+
+	if err := existing.Validate(); err != nil {
+		return nil, err
+	}
+
+	if err := db.DB(ctx).Save(&existing).Error; err != nil {
+		return nil, err
+	}
+
+	existing.Sanitize()
+	return toAuthSourceDTO(&existing), nil
+}
+
+func (s *authServiceImpl) DeleteAuthSource(ctx context.Context, id uint64) error {
+	var existing AuthSource
+	if err := db.DB(ctx).First(&existing, id).Error; err != nil {
+		return err
+	}
+
+	return db.DB(ctx).Delete(&existing).Error
+}
+
+func (s *authServiceImpl) ToggleAuthSource(ctx context.Context, id uint64) (*contracts.AuthSourceDTO, error) {
+	var existing AuthSource
+	if err := db.DB(ctx).First(&existing, id).Error; err != nil {
+		return nil, err
+	}
+
+	existing.IsActive = !existing.IsActive
+	if err := db.DB(ctx).Save(&existing).Error; err != nil {
+		return nil, err
+	}
+
+	existing.Sanitize()
+	return toAuthSourceDTO(&existing), nil
+}
+
+func toAuthSourceDTO(s *AuthSource) *contracts.AuthSourceDTO {
+	if s == nil {
+		return nil
+	}
+	return &contracts.AuthSourceDTO{
+		ID:                 s.ID,
+		Name:               s.Name,
+		Type:               s.Type,
+		DisplayName:        s.DisplayName,
+		ClientID:           s.ClientID,
+		ClientSecret:       s.ClientSecret,
+		OpenIDDiscoveryURL: s.OpenIDDiscoveryURL,
+		Scopes:             s.Scopes,
+		IconURL:            s.IconURL,
+		IsActive:           s.IsActive,
+		CreatedAt:          s.CreatedAt,
+		UpdatedAt:          s.UpdatedAt,
+	}
+}
+
 type authRegistryImpl struct {
 	mu        sync.RWMutex
 	providers map[string]contracts.OAuthProvider

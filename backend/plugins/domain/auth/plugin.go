@@ -5,6 +5,7 @@
 package auth
 
 import (
+	"context"
 	"embed"
 
 	"Wavelet/core"
@@ -108,6 +109,17 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		Description: "Max login failure attempts before temporary IP lock",
 		Type:        "integer",
 		Category:    "security",
+	})
+
+	// 5. Register Event Listeners for domain events
+	ctx.Events().On(contracts.EventTopicUserStatusChanged, func(c context.Context, e contracts.UserStatusChangedEvent) error {
+		InvalidateCachedUser(c, e.UserID)
+		return nil
+	})
+
+	ctx.Events().On(contracts.EventTopicUserDeleted, func(c context.Context, e contracts.UserDeletedEvent) error {
+		InvalidateCachedUser(c, e.TargetUserID)
+		return nil
 	})
 
 	return nil

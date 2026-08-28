@@ -247,13 +247,13 @@ func TestEventBusInvalidHandlerPanics(t *testing.T) {
 	})
 
 	assert.Panics(t, func() {
-		// More than 1 return value
-		bus.On("test:invalid", func() (int, error) { return 0, nil })
+		// More than 2 return values
+		bus.On("test:invalid", func() (int, string, error) { return 0, "", nil })
 	})
 
 	assert.Panics(t, func() {
-		// Return value is not error
-		bus.On("test:invalid", func() int { return 0 })
+		// 2 return values, but second is not error
+		bus.On("test:invalid", func() (int, string) { return 0, "" })
 	})
 }
 
@@ -315,4 +315,82 @@ func TestEventBusConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 	assert.Greater(t, receivedCount.Load(), int64(0))
+}
+
+func TestEventBusWaterfall(t *testing.T) {
+	bus := core.NewEventBus()
+
+	// Handler 1: appends "-first"
+	bus.On("pipeline:transform", func(ctx context.Context, s string) string {
+		return s + "-first"
+	})
+
+	// Handler 2: appends "-second" with error return
+	bus.On("pipeline:transform", func(s string) (string, error) {
+		return s + "-second", nil
+	})
+
+	res, err := bus.Waterfall(context.Background(), "pipeline:transform", "init")
+	assert.NoError(t, err)
+	assert.Equal(t, "init-first-second", res)
+
+	// Test short-circuit on error
+	expectedErr := errors.New("waterfall step failed")
+	bus.On("pipeline:error", func(s string) (string, error) {
+		return s, expectedErr
+	})
+	bus.On("pipeline:error", func(s string) string {
+		return s + "-should-not-run"
+	})
+
+	res, err = bus.Waterfall(context.Background(), "pipeline:error", "start")
+	assert.ErrorIs(t, err, expectedErr)
+	assert.Nil(t, res)
+}
+
+func TestEventBusParallel(t *testing.T) {
+	bus := core.NewEventBus()
+
+	var counter atomic.Int64
+	err1 := errors.New("parallel err 1")
+
+	bus.On("test:parallel", func(ctx context.Context, val int) error {
+		counter.Add(int64(val))
+		return nil
+	})
+
+	bus.On("test:parallel", func(val int) error {
+		counter.Add(int64(val))
+		return err1
+	})
+
+	err := bus.Parallel(context.Background(), "test:parallel", 10)
+	assert.ErrorIs(t, err, err1)
+	assert.Equal(t, int64(20), counter.Load())
+}
+
+func TestEventBusSerial(t *testing.T) {
+	bus := core.NewEventBus()
+
+	var executed []int
+	errStop := errors.New("serial stop")
+
+	bus.On("test:serial", func() error {
+		executed = append(executed, 1)
+		return nil
+	})
+
+	bus.On("test:serial", func() error {
+		executed = append(executed, 2)
+		return errStop
+	})
+
+	bus.On("test:serial", func() error {
+		executed = append(executed, 3)
+		return nil
+	})
+
+	err := bus.Serial(context.Background(), "test:serial", nil)
+	assert.ErrorIs(t, err, errStop)
+	assert.Equal(t, []int{1, 2}, executed)
 }
