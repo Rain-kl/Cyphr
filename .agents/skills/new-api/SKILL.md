@@ -16,14 +16,38 @@ description: "Wavelet 项目专用：当新增或修改业务 API、Handler、�
 
 ### 插件目录推荐结构 (`backend/plugins/domain/<name>/` 或下游 `custom_plugins/<name>/`)
 
+#### 模式 1：扁平自包含分层（适用于简单业务逻辑 / 推荐默认）
 ```text
 backend/plugins/domain/order/
 ├── plugin.go        # 插件入口：实现 core.Plugin，通过 ctx.Router() 挂载路由
 ├── handlers.go      # HTTP 控制器：参数校验、上下文提取、调用 Service、信封响应
 ├── service.go       # 业务服务层：纯 Go 逻辑，仅依赖 context.Context
-├── models.go        # GORM 数据实体定义（自带表前缀）
+├── repository.go    # 数据库访问层：GORM 查询、SQL 防注入与转义
+├── models.go        # GORM 数据实体定义（自带表前缀）与 DTO
 ├── errs.go          # 模块内错误常量定义（camelCase 字符串）
 └── migrations/      # 专属嵌入式 Goose SQL 迁移脚本
+    └── 20260827000001_create_orders_table.sql
+```
+
+#### 模式 2：严格子包分层架构（适用于复杂业务逻辑 / 多聚合根 / 大代码量）
+```text
+backend/plugins/domain/order/
+├── plugin.go           # 插件根入口：实现 core.Plugin，装配各子包并向 Cordis 注册
+├── controller/         # package controller：HTTP 控制器与路由声明
+│   ├── http.go
+│   └── router.go
+├── service/            # package service：业务逻辑层（用例编排、事件发布）
+│   ├── service.go
+│   └── service_impl.go
+├── repository/         # package repository：数据持久化访问层 (DAL)
+│   ├── repository.go
+│   └── repository_impl.go
+├── model/              # package model：纯数据实体与 DTO（无外部依赖）
+│   ├── entity.go
+│   └── dto.go
+├── errs/               # package errs：错误常量与错误码
+│   └── errs.go
+└── migrations/         # 专属嵌入式 Goose SQL 迁移脚本
     └── 20260827000001_create_orders_table.sql
 ```
 

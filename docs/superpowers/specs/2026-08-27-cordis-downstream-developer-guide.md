@@ -563,7 +563,10 @@ Wavelet/
    - **职责**：仅定义公开的 Go Interface 和公共 DTO。
    - **严禁**：严禁包含任何具体实现逻辑或 SQL 操作。
 3. **`plugins/`**：
-   - **职责**：所有业务逻辑和驱动实现的归宿。每个插件扁平自包含。
+   - **职责**：所有业务逻辑和驱动实现的归宿。遵循标准分层架构（Layered Architecture / MVC 变体）。
+   - **分层模式选型**：
+     - **模式 1（扁平自包含分层，简单业务推荐）**：单 package 内部通过文件划分职责（`plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。适用于代码量 < 3000 行、单聚合根的插件。
+     - **模式 2（严格子包物理分层，复杂业务推荐）**：多 package 目录级物理隔离（`plugin.go`, `controller/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`）。编译器级约束 `controller -> service -> repository -> model` 单向依赖。适用于代码量 ≥ 3000 行、多聚合根的大型复杂插件。
    - **严禁**：插件之间严禁跨包 import 内部私有代码，跨插件调用一律走 `contracts` 接口或 `EventBus`。
 
 ---

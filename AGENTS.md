@@ -99,9 +99,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
   - 跨插件通信的统一公开 Go Interface（如 `AuthService`、`UserService`、`CacheService`、`DBService`、`StorageService`）与公共 DTO。
   - **严禁**包含任何具体业务实现或 SQL 操作。
 - **自包含插件 (`backend/plugins/`)**：
-  - 所有业务功能与驱动实现均以扁平自包含插件形式存在（`backend/plugins/drivers/`、`backend/plugins/infra/`、`backend/plugins/domain/` 或下游 `backend/downstream/`）。
+  - 所有业务功能与驱动实现均以插件形式存在（`backend/plugins/drivers/`、`backend/plugins/infra/`、`backend/plugins/domain/` 或下游 `backend/downstream/`）。
   - 每个插件实现 `core.Plugin`（`Name() string` 与 `Apply(ctx *core.Context) error`）。
-  - 插件内部就近组织 Handler、Service、Model 与 Migration。
+  - **分层模式选型**：
+    - **模式 1（扁平自包含分层，简单业务默认）**：单 package 结构（`plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。
+    - **模式 2（严格子包物理分层，复杂业务使用）**：多 package 物理隔离（`plugin.go`, `controller/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`），严格约束 `controller -> service -> repository -> model` 单向依赖。
 - **插件通信与依赖隔离**：
   - **严禁跨包 import internal/私有实现**：插件之间严禁直接 import 对方具体实现包代码。
   - **单向服务契约调用**：调用方仅面向 `backend/core/contracts` 编程，在 `Apply` 中通过 `core.Provide[contracts.XxxService](ctx, svc)` 注册服务，通过 `core.Inject[contracts.XxxService](ctx)` 或 `ctx.Using(func(svc contracts.XxxService) { ... })` 声明式解析。
