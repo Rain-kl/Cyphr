@@ -214,20 +214,26 @@ type CreatePushChannelRequest struct {
 	Enabled     bool   `json:"enabled"`
 }
 
+func parsePushChannelID(c *gin.Context) (uint64, bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, "invalid channel id")
+		return 0, false
+	}
+	return id, true
+}
+
+func handlePushChannelNotFoundError(c *gin.Context, err error, fallback func(c *gin.Context, msg string)) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.AbortNotFound(c, "channel not found")
+		return
+	}
+	fallback(c, err.Error())
+}
+
 // CreatePushChannel creates a push channel.
 func CreatePushChannel(c *gin.Context) {
-	var req CreatePushChannelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-
-	channel, err := createPushChannel(c.Request.Context(), req)
-	if err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(channel))
+	handleJSONRequest(c, createPushChannel)
 }
 
 // UpdatePushChannelRequest is the update channel request payload.
@@ -242,44 +248,20 @@ type UpdatePushChannelRequest struct {
 
 // UpdatePushChannel updates a push channel.
 func UpdatePushChannel(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid channel id")
-		return
-	}
-
-	var req UpdatePushChannelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-
-	channel, err := updatePushChannel(c.Request.Context(), id, req)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "channel not found")
-			return
-		}
-		response.AbortInternal(c, err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(channel))
+	handleEntityUpdate(c, parsePushChannelID, updatePushChannel, func(c *gin.Context, err error) {
+		handlePushChannelNotFoundError(c, err, response.AbortInternal)
+	})
 }
 
 // DeletePushChannel deletes a push channel.
 func DeletePushChannel(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid channel id")
+	id, ok := parsePushChannelID(c)
+	if !ok {
 		return
 	}
 
 	if err := deletePushChannel(c.Request.Context(), id); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "channel not found")
-			return
-		}
-		response.AbortInternal(c, err.Error())
+		handlePushChannelNotFoundError(c, err, response.AbortInternal)
 		return
 	}
 	c.JSON(http.StatusOK, response.OKNil())

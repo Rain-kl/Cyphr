@@ -88,21 +88,9 @@ func (s *ScheduleRegistry) RegisterCron(spec, taskType string, payload any, opts
 
 // Unregister removes a registered schedule definition by its task type.
 func (s *ScheduleRegistry) Unregister(taskType string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.lookup[taskType]; !exists {
-		return false
-	}
-
-	delete(s.lookup, taskType)
-	for i, item := range s.schedules {
-		if item.TaskType == taskType {
-			s.schedules = append(s.schedules[:i], s.schedules[i+1:]...)
-			break
-		}
-	}
-	return true
+	return unregisterEntry(&s.mu, s.lookup, &s.schedules, taskType, func(item ScheduleDefinition) bool {
+		return item.TaskType == taskType
+	})
 }
 
 // Schedules returns a copy of all registered ScheduleDefinitions.

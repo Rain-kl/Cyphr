@@ -65,21 +65,9 @@ func (s *SettingRegistry) Register(schema SettingSchema) {
 
 // Unregister removes a registered SettingSchema by its key.
 func (s *SettingRegistry) Unregister(key string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.lookup[key]; !exists {
-		return false
-	}
-
-	delete(s.lookup, key)
-	for i, item := range s.schemas {
-		if item.Key == key {
-			s.schemas = append(s.schemas[:i], s.schemas[i+1:]...)
-			break
-		}
-	}
-	return true
+	return unregisterEntry(&s.mu, s.lookup, &s.schemas, key, func(item SettingSchema) bool {
+		return item.Key == key
+	})
 }
 
 // Schemas returns a copy of all registered SettingSchemas.

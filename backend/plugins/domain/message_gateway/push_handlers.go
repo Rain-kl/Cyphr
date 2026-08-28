@@ -56,36 +56,37 @@ func ListBuiltInPushEvents(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(GetBuiltInEvents()))
 }
 
+func parsePushEventID(c *gin.Context) (uint64, bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, "invalid event id")
+		return 0, false
+	}
+	return id, true
+}
+
+func handlePushEventNotFoundError(c *gin.Context, err error, fallback func(c *gin.Context, msg string)) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		response.AbortNotFound(c, "notification event not found")
+		return
+	}
+	fallback(c, err.Error())
+}
+
 // CreatePushEvent creates a new push event configuration.
 func CreatePushEvent(c *gin.Context) {
-	var req CreatePushEventRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-
-	event, err := createPushEvent(c.Request.Context(), req)
-	if err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(event))
+	handleJSONRequest(c, createPushEvent)
 }
 
 // DeletePushEvent deletes a push event configuration by ID.
 func DeletePushEvent(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid event id")
+	id, ok := parsePushEventID(c)
+	if !ok {
 		return
 	}
 
 	if err := deletePushEvent(c.Request.Context(), id); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "notification event not found")
-			return
-		}
-		response.AbortInternal(c, err.Error())
+		handlePushEventNotFoundError(c, err, response.AbortInternal)
 		return
 	}
 	c.JSON(http.StatusOK, response.OKNil())
@@ -93,9 +94,8 @@ func DeletePushEvent(c *gin.Context) {
 
 // UpdatePushEvent updates an existing push event.
 func UpdatePushEvent(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid event id")
+	id, ok := parsePushEventID(c)
+	if !ok {
 		return
 	}
 
@@ -106,11 +106,7 @@ func UpdatePushEvent(c *gin.Context) {
 	}
 
 	if err := updatePushEvent(c.Request.Context(), id, req); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "notification event not found")
-			return
-		}
-		response.AbortBadRequest(c, err.Error())
+		handlePushEventNotFoundError(c, err, response.AbortBadRequest)
 		return
 	}
 	c.JSON(http.StatusOK, response.OKNil())
@@ -118,19 +114,14 @@ func UpdatePushEvent(c *gin.Context) {
 
 // TogglePushEvent toggles the enabled state of a push event.
 func TogglePushEvent(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid event id")
+	id, ok := parsePushEventID(c)
+	if !ok {
 		return
 	}
 
 	enabled, err := togglePushEvent(c.Request.Context(), id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "notification event not found")
-			return
-		}
-		response.AbortBadRequest(c, err.Error())
+		handlePushEventNotFoundError(c, err, response.AbortBadRequest)
 		return
 	}
 	c.JSON(http.StatusOK, response.OK(enabled))

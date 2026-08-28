@@ -5,6 +5,7 @@
 package disk
 
 import (
+	"Wavelet/pkg/util"
 	"container/list"
 	"encoding/binary"
 	"errors"
@@ -100,7 +101,9 @@ var (
 func Default() *Cache {
 	defaultCacheOnce.Do(func() {
 		defaultCache = New("uploads/diskcache")
-		go defaultCache.StartCleanupWorker(defaultCleanupInterval)
+		util.Go(func() {
+			defaultCache.StartCleanupWorker(defaultCleanupInterval)
+		})
 	})
 	return defaultCache
 }

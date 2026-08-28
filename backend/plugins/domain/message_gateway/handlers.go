@@ -5,8 +5,8 @@ package message_gateway
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 	"errors"
 	"net/http"
 	"strconv"
@@ -15,7 +15,7 @@ import (
 )
 
 func currentUser(c *gin.Context) (*contracts.UserDTO, bool) {
-	return util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	return ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 }
 
 // ListChannels lists enabled channels a user can bind.

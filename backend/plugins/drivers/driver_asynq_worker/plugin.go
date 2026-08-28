@@ -366,27 +366,8 @@ func (s *taskServiceImpl) ListExecutions(ctx context.Context, taskType, status s
 		return nil, 0, err
 	}
 	res := make([]contracts.TaskExecutionDTO, 0, len(rows))
-	for _, r := range rows {
-		res = append(res, contracts.TaskExecutionDTO{
-			ID:           r.ID,
-			TaskID:       r.TaskID,
-			TaskType:     r.TaskType,
-			TaskName:     r.TaskName,
-			Status:       string(r.Status),
-			Retryable:    r.Retryable,
-			MaxRetry:     r.MaxRetry,
-			RetryCount:   r.RetryCount,
-			Log:          r.Log,
-			ErrorMessage: r.ErrorMessage,
-			Result:       r.Result,
-			StartedAt:    r.StartedAt,
-			FinishedAt:   r.FinishedAt,
-			Duration:     r.Duration,
-			Payload:      r.Payload,
-			TriggeredBy:  r.TriggeredBy,
-			CreatedAt:    r.CreatedAt,
-			UpdatedAt:    r.UpdatedAt,
-		})
+	for i := range rows {
+		res = append(res, toTaskExecutionDTO(&rows[i]))
 	}
 	return res, total, nil
 }
@@ -416,7 +397,12 @@ func (s *taskServiceImpl) GetExecution(ctx context.Context, id uint64) (*contrac
 	if err != nil {
 		return nil, err
 	}
-	return &contracts.TaskExecutionDTO{
+	dto := toTaskExecutionDTO(exec)
+	return &dto, nil
+}
+
+func toTaskExecutionDTO(exec *TaskExecution) contracts.TaskExecutionDTO {
+	return contracts.TaskExecutionDTO{
 		ID:           exec.ID,
 		TaskID:       exec.TaskID,
 		TaskType:     exec.TaskType,
@@ -435,5 +421,5 @@ func (s *taskServiceImpl) GetExecution(ctx context.Context, id uint64) (*contrac
 		TriggeredBy:  exec.TriggeredBy,
 		CreatedAt:    exec.CreatedAt,
 		UpdatedAt:    exec.UpdatedAt,
-	}, nil
+	}
 }

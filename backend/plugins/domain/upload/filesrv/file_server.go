@@ -23,8 +23,7 @@ import (
 	"sync"
 
 	pkgcache "Wavelet/pkg/cache/disk"
-
-	pkgutil "Wavelet/pkg/util"
+	"Wavelet/pkg/ginutil"
 
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 
@@ -301,7 +300,7 @@ func getOriginalFileBytes(ctx context.Context, upload *models.Upload) ([]byte, e
 func checkPrivateFileOwner(c *gin.Context, ownerID uint64) error {
 	var currUserID uint64
 	var isAdmin bool
-	if u, ok := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); ok && u != nil {
+	if u, ok := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); ok && u != nil {
 		currUserID = u.ID
 		isAdmin = u.IsAdmin
 	} else if authSvc := shared.GetAuthService(c); authSvc != nil {
@@ -329,14 +328,19 @@ func CheckFileAccessPermission(c *gin.Context, upload *models.Upload) error {
 		return checkPrivateFileOwner(c, upload.UserID)
 	}
 
-	if !cache.IsFilePublic(c.Request.Context(), upload.Type) {
-		if _, ok := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); !ok {
-			if authSvc := shared.GetAuthService(c); authSvc != nil {
-				if _, err := authSvc.GetCurrentUser(c); err != nil {
-					return err
-				}
-			}
-		}
+	if cache.IsFilePublic(c.Request.Context(), upload.Type) {
+		return nil
 	}
-	return nil
+
+	if _, ok := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); ok {
+		return nil
+	}
+
+	authSvc := shared.GetAuthService(c)
+	if authSvc == nil {
+		return nil
+	}
+
+	_, err := authSvc.GetCurrentUser(c)
+	return err
 }

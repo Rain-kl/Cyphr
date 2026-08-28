@@ -106,12 +106,12 @@ else
     log_pass "backend/pkg/ 零插件依赖"
 fi
 
-# 3.2 pkg/util/ 严禁导入 ORM / Session 框架
-UTIL_FRAMEWORK_IMPORTS=$(rg -n '"gorm.io/gorm"|"github.com/gorilla/sessions"' \
+# 3.2 pkg/util/ 严禁导入 Gin / ORM / Session 框架
+UTIL_FRAMEWORK_IMPORTS=$(rg -n '"gorm.io/gorm"|"github.com/gorilla/sessions"|"github.com/gin-gonic/gin"' \
     "${BACKEND_DIR}/pkg/util/" --glob '*.go' -g '!*_test.go' || true)
 
 if [ -n "${UTIL_FRAMEWORK_IMPORTS}" ]; then
-    log_fail "backend/pkg/util/ 必须保持纯粹，禁止导入 gorm、sessions 等数据库/会话框架包:"
+    log_fail "backend/pkg/util/ 必须保持纯粹，禁止导入 gin、gorm、sessions 等 Web/数据库/会话框架包:"
     echo "${UTIL_FRAMEWORK_IMPORTS}" >&2
 else
     log_pass "backend/pkg/util/ 保持纯净无状态"

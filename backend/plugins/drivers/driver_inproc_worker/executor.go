@@ -101,7 +101,7 @@ func (q *InprocQueue) Start(ctx context.Context) {
 		q.wg.Add(1)
 		util.Go(func() {
 			defer q.wg.Done()
-			q.workerLoop()
+			q.workerLoop(ctx)
 		})
 	}
 }
@@ -128,21 +128,23 @@ func (q *InprocQueue) Stop(ctx context.Context) error {
 	}
 }
 
-func (q *InprocQueue) workerLoop() {
+func (q *InprocQueue) workerLoop(ctx context.Context) {
 	for {
 		select {
 		case <-q.stopCh:
+			return
+		case <-ctx.Done():
 			return
 		case msg, ok := <-q.queue:
 			if !ok {
 				return
 			}
-			q.executeTask(msg)
+			q.executeTask(ctx, msg)
 		}
 	}
 }
 
-func (q *InprocQueue) executeTask(msg TaskMessage) {
+func (q *InprocQueue) executeTask(ctx context.Context, msg TaskMessage) {
 	if q.taskReg == nil {
 		return
 	}
@@ -157,7 +159,7 @@ func (q *InprocQueue) executeTask(msg TaskMessage) {
 		timeout = 5 * time.Minute
 	}
 
-	taskCtx, cancel := context.WithTimeout(q.baseCtx, timeout)
+	taskCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	err := invokeHandler(taskCtx, td.Handler, msg.Payload)
@@ -165,7 +167,13 @@ func (q *InprocQueue) executeTask(msg TaskMessage) {
 		msg.RetryLeft--
 		// Retry with backoff
 		util.Go(func() {
-			time.Sleep(defaultRetryBackoff)
+			select {
+			case <-time.After(defaultRetryBackoff):
+			case <-q.stopCh:
+				return
+			case <-ctx.Done():
+				return
+			}
 			if q.running.Load() {
 				select {
 				case q.queue <- msg:

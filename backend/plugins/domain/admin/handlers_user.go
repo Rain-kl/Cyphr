@@ -5,9 +5,9 @@ package admin
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 	"errors"
 	"net/http"
 	"strconv"
@@ -262,7 +262,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	currUser, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	if currUser == nil {
 		response.AbortUnauthorized(c, AdminRequired)
 		return
@@ -373,7 +373,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	currUser, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	if currUser == nil {
 		response.AbortUnauthorized(c, AdminRequired)
 		return

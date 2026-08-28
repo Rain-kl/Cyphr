@@ -111,21 +111,7 @@ func ReloadScheduler() error {
 	// 4. 遍历并注册任务
 	taskSvc := getTaskService()
 	for _, s := range schedules {
-		taskName := s.TaskType
-		maxRetry := 3
-		queue := "default"
-
-		if taskSvc != nil {
-			if meta, ok := taskSvc.GetTaskMeta(s.TaskType); ok {
-				taskName = meta.Name
-				if meta.MaxRetry > 0 {
-					maxRetry = meta.MaxRetry
-				}
-				if meta.Queue != "" {
-					queue = meta.Queue
-				}
-			}
-		}
+		taskName, maxRetry, queue := resolveTaskScheduleMeta(taskSvc, s.TaskType)
 
 		// 构造 Asynq 载荷
 		t := asynq.NewTask(taskName, []byte(s.Payload))
@@ -159,4 +145,25 @@ func waitForStop(done, signals <-chan struct{}) bool {
 	case <-signals:
 		return true
 	}
+}
+
+func resolveTaskScheduleMeta(taskSvc contracts.TaskService, taskType string) (name string, maxRetry int, queue string) {
+	name = taskType
+	maxRetry = 3
+	queue = "default"
+	if taskSvc == nil {
+		return
+	}
+	meta, ok := taskSvc.GetTaskMeta(taskType)
+	if !ok {
+		return
+	}
+	name = meta.Name
+	if meta.MaxRetry > 0 {
+		maxRetry = meta.MaxRetry
+	}
+	if meta.Queue != "" {
+		queue = meta.Queue
+	}
+	return
 }

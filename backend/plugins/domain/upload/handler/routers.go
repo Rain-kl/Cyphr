@@ -29,10 +29,10 @@ import (
 	"strconv"
 	"strings"
 
+	"Wavelet/pkg/ginutil"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	pkgutil "Wavelet/pkg/util"
 
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
@@ -64,7 +64,7 @@ func UploadFile(c *gin.Context) {
 
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, shared.MaxUploadSize)
 
-	currUser, _ := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	currUser, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 
 	header, err := c.FormFile("file")

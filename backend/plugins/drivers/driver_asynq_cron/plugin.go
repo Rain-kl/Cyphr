@@ -139,34 +139,7 @@ func (p *Plugin) Start(_ context.Context) error {
 	}
 
 	if p.scheduler == nil {
-		opts := p.schedulerOpts
-		if opts == nil {
-			opts = &asynq.SchedulerOpts{
-				Location: p.location,
-			}
-		} else if opts.Location == nil && p.location != nil {
-			opts.Location = p.location
-		}
-
-		opt := p.redisOpt
-		if opt == nil {
-			if RedisOpt != nil {
-				opt = RedisOpt
-			} else {
-				redisCfg := config.Config.Redis
-				addr := "127.0.0.1:6379"
-				if len(redisCfg.Addrs) > 0 && redisCfg.Addrs[0] != "" {
-					addr = redisCfg.Addrs[0]
-				}
-				opt = asynq.RedisClientOpt{
-					Addr:     addr,
-					Username: redisCfg.Username,
-					Password: redisCfg.Password,
-					DB:       redisCfg.DB,
-				}
-			}
-		}
-		p.scheduler = asynq.NewScheduler(opt, opts)
+		p.scheduler = p.initScheduler()
 	}
 
 	if p.coreCtx != nil && p.coreCtx.Schedules() != nil {
@@ -267,4 +240,38 @@ func buildAsynqOptions(opts map[string]any) []asynq.Option {
 	}
 
 	return res
+}
+
+func (p *Plugin) initScheduler() *asynq.Scheduler {
+	opts := p.schedulerOpts
+	if opts == nil {
+		opts = &asynq.SchedulerOpts{
+			Location: p.location,
+		}
+	} else if opts.Location == nil && p.location != nil {
+		opts.Location = p.location
+	}
+
+	opt := p.resolveRedisOpt()
+	return asynq.NewScheduler(opt, opts)
+}
+
+func (p *Plugin) resolveRedisOpt() asynq.RedisConnOpt {
+	if p.redisOpt != nil {
+		return p.redisOpt
+	}
+	if RedisOpt != nil {
+		return RedisOpt
+	}
+	redisCfg := config.Config.Redis
+	addr := "127.0.0.1:6379"
+	if len(redisCfg.Addrs) > 0 && redisCfg.Addrs[0] != "" {
+		addr = redisCfg.Addrs[0]
+	}
+	return asynq.RedisClientOpt{
+		Addr:     addr,
+		Username: redisCfg.Username,
+		Password: redisCfg.Password,
+		DB:       redisCfg.DB,
+	}
 }

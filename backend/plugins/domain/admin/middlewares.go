@@ -5,10 +5,10 @@ package admin
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/trace"
-	"Wavelet/pkg/util"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,15 +19,15 @@ func LoginAdminRequired() gin.HandlerFunc {
 		ctx, span := trace.Start(c.Request.Context(), "LoginAdminRequired")
 		defer span.End()
 
-		user, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+		user, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 		if user == nil {
 			response.AbortNotFound(c, AdminRequired)
 			return
 		}
 
 		// 如果是通过 Access Token 鉴权，需要检查令牌本身是否具有管理员权限
-		if tokenAuth, _ := util.GetFromContext[bool](c, contracts.AuthTokenAuthKey); tokenAuth {
-			tokenAdmin, _ := util.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
+		if tokenAuth, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAuthKey); tokenAuth {
+			tokenAdmin, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
 			if !tokenAdmin {
 				response.AbortNotFound(c, TokenAdminRequired)
 				return

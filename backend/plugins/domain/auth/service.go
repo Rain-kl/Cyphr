@@ -5,7 +5,7 @@ package auth
 
 import (
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/util"
+	"Wavelet/pkg/ginutil"
 	"context"
 	"errors"
 	"sync"
@@ -29,7 +29,7 @@ func (s *authServiceImpl) RequireAdminMiddleware() any {
 
 func (s *authServiceImpl) GetCurrentUser(ctx context.Context) (*contracts.UserDTO, error) {
 	if ginCtx, ok := ctx.(*gin.Context); ok {
-		if u, ok := util.GetFromContext[*contracts.UserDTO](ginCtx, contracts.AuthUserObjKey); ok && u != nil {
+		if u, ok := ginutil.GetFromContext[*contracts.UserDTO](ginCtx, contracts.AuthUserObjKey); ok && u != nil {
 			return u, nil
 		}
 	}

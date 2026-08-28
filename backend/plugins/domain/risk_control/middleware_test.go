@@ -7,8 +7,8 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/batchwriter"
 	"Wavelet/pkg/config"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/testhelper"
-	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/risk_control"
 	"Wavelet/plugins/domain/risk_control/logstore"
 	"context"
@@ -99,7 +99,7 @@ func TestRiskControlMiddleware(t *testing.T) {
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
 			user := &contracts.UserDTO{ID: 12345}
-			util.SetToContext[*contracts.UserDTO](c, contracts.AuthUserObjKey, user)
+			ginutil.SetToContext[*contracts.UserDTO](c, contracts.AuthUserObjKey, user)
 			c.Next()
 		})
 		r.Use(risk_control.RiskControlMiddleware())

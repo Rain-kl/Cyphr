@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -78,7 +79,7 @@ func (s *inprocScheduler) registerJob(ctx context.Context, def extpoints.Schedul
 	spec := def.Spec
 	taskType := def.TaskType
 
-	fields := len(cronFields(spec))
+	fields := len(strings.Fields(spec))
 	cronSpec := spec
 	if fields == standardCronFields {
 		cronSpec = "0 " + spec
@@ -140,23 +141,4 @@ func invokeHandler(ctx context.Context, handler any, payload []byte) error {
 	default:
 		return fmt.Errorf("unsupported handler type: %T", handler)
 	}
-}
-
-func cronFields(s string) []string {
-	var fields []string
-	var current []rune
-	for _, r := range s {
-		if r == ' ' || r == '\t' {
-			if len(current) > 0 {
-				fields = append(fields, string(current))
-				current = nil
-			}
-		} else {
-			current = append(current, r)
-		}
-	}
-	if len(current) > 0 {
-		fields = append(fields, string(current))
-	}
-	return fields
 }

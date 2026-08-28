@@ -5,8 +5,8 @@ package handler
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/ingest"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/repository"
@@ -168,7 +168,7 @@ type listMyFilesResponse struct {
 // @Failure 401 {object} response.Any "未登录"
 // @Router /api/v1/upload/my [get]
 func ListMyFiles(c *gin.Context) {
-	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	currUser, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 
 	var req listMyFilesRequest
@@ -215,7 +215,7 @@ func ListMyFiles(c *gin.Context) {
 // @Failure 404 {object} response.Any "文件不存在"
 // @Router /api/v1/upload/{id} [delete]
 func DeleteMyFile(c *gin.Context) {
-	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	currUser, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
 		response.AbortConflict(c, shared.ErrStorageReadOnly)
@@ -262,7 +262,7 @@ type updateMyFileRequest struct {
 // @Failure 404 {object} response.Any "文件不存在"
 // @Router /api/v1/upload/{id} [put]
 func UpdateMyFile(c *gin.Context) {
-	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	currUser, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
 		response.AbortConflict(c, shared.ErrStorageReadOnly)

@@ -40,6 +40,23 @@ func ListAdminChannels(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(rows))
 }
 
+func parseAdminChannelID(c *gin.Context) (uint64, bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, "invalid channel id")
+		return 0, false
+	}
+	return id, true
+}
+
+func handleAdminChannelError(c *gin.Context, err error, fallback func(c *gin.Context, msg string)) {
+	if err.Error() == errChannelNotFound {
+		response.AbortNotFound(c, err.Error())
+		return
+	}
+	fallback(c, err.Error())
+}
+
 // CreateAdminChannel creates a messaging channel.
 // @Summary Create message gateway channel
 // @Description Creates a Telegram or QQ channel with encrypted credentials
@@ -52,17 +69,7 @@ func ListAdminChannels(c *gin.Context) {
 // @Failure 400 {object} response.Any
 // @Router /api/v1/admin/message-gateway/channels [post]
 func CreateAdminChannel(c *gin.Context) {
-	var req CreateChannelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	dto, err := createChannel(c.Request.Context(), req)
-	if err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(dto))
+	handleJSONRequest(c, createChannel)
 }
 
 // UpdateAdminChannel patches a messaging channel. Empty secrets keep the previous values.
@@ -79,26 +86,9 @@ func CreateAdminChannel(c *gin.Context) {
 // @Failure 404 {object} response.Any
 // @Router /api/v1/admin/message-gateway/channels/{id} [patch]
 func UpdateAdminChannel(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid channel id")
-		return
-	}
-	var req UpdateChannelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	dto, err := updateChannel(c.Request.Context(), id, req)
-	if err != nil {
-		if err.Error() == errChannelNotFound {
-			response.AbortNotFound(c, err.Error())
-			return
-		}
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(dto))
+	handleEntityUpdate(c, parseAdminChannelID, updateChannel, func(c *gin.Context, err error) {
+		handleAdminChannelError(c, err, response.AbortBadRequest)
+	})
 }
 
 // DeleteAdminChannel removes a channel and its bindings/pairing codes.
@@ -112,17 +102,12 @@ func UpdateAdminChannel(c *gin.Context) {
 // @Failure 404 {object} response.Any
 // @Router /api/v1/admin/message-gateway/channels/{id} [delete]
 func DeleteAdminChannel(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid channel id")
+	id, ok := parseAdminChannelID(c)
+	if !ok {
 		return
 	}
 	if err := deleteChannel(c.Request.Context(), id); err != nil {
-		if err.Error() == errChannelNotFound {
-			response.AbortNotFound(c, err.Error())
-			return
-		}
-		response.AbortInternal(c, err.Error())
+		handleAdminChannelError(c, err, response.AbortInternal)
 		return
 	}
 	c.JSON(http.StatusOK, response.OKNil())
@@ -140,17 +125,12 @@ func DeleteAdminChannel(c *gin.Context) {
 // @Failure 404 {object} response.Any
 // @Router /api/v1/admin/message-gateway/channels/{id}/test [post]
 func TestAdminChannel(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, "invalid channel id")
+	id, ok := parseAdminChannelID(c)
+	if !ok {
 		return
 	}
 	if err := probeChannel(c.Request.Context(), id); err != nil {
-		if err.Error() == errChannelNotFound {
-			response.AbortNotFound(c, err.Error())
-			return
-		}
-		response.AbortBadRequest(c, err.Error())
+		handleAdminChannelError(c, err, response.AbortBadRequest)
 		return
 	}
 	c.JSON(http.StatusOK, response.OKNil())

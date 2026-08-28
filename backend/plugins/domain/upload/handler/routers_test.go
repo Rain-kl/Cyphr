@@ -5,8 +5,8 @@ package handler
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
 	"archive/zip"
@@ -42,7 +42,7 @@ func setupTestRouter(authUser *contracts.UserDTO) *gin.Engine {
 
 	authMiddleware := func(c *gin.Context) {
 		if authUser != nil {
-			util.SetToContext[*contracts.UserDTO](c, contracts.AuthUserObjKey, authUser)
+			ginutil.SetToContext[*contracts.UserDTO](c, contracts.AuthUserObjKey, authUser)
 		}
 		c.Next()
 	}

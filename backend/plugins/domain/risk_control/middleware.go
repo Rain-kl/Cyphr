@@ -7,9 +7,9 @@ package risk_control
 import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/risk_control/logstore"
 	"encoding/json"
 	"net/http"
@@ -42,7 +42,7 @@ func RiskControlMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		// 3. 后置身份检查：仅记录通过认证的请求
-		userObj, exists := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+		userObj, exists := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 		if !exists || userObj == nil {
 			return
 		}

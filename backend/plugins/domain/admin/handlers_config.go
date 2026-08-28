@@ -438,29 +438,36 @@ func maskSensitiveConfig(key, value string) string {
 	case ConfigKeySMTPPassword:
 		return maskedConfigValue
 	case ConfigKeyStorageConfig:
-		var cfg contracts.StorageConfigDTO
-		if err := json.Unmarshal([]byte(value), &cfg); err == nil {
-			if cfg.S3.SecretAccessKey != "" {
-				cfg.S3.SecretAccessKey = maskedConfigValue
-			}
-			if cfg.R2.SecretAccessKey != "" {
-				cfg.R2.SecretAccessKey = maskedConfigValue
-			}
-			if cfg.MinIO.SecretAccessKey != "" {
-				cfg.MinIO.SecretAccessKey = maskedConfigValue
-			}
-			if cfg.OSS.SecretAccessKey != "" {
-				cfg.OSS.SecretAccessKey = maskedConfigValue
-			}
-			if cfg.WebDAV.Password != "" {
-				cfg.WebDAV.Password = maskedConfigValue
-			}
-			if val, err := json.Marshal(cfg); err == nil {
-				return string(val)
-			}
-		}
+		return maskStorageConfig(value)
 	}
 	return value
+}
+
+func maskStorageConfig(value string) string {
+	var cfg contracts.StorageConfigDTO
+	if err := json.Unmarshal([]byte(value), &cfg); err != nil {
+		return value
+	}
+	if cfg.S3.SecretAccessKey != "" {
+		cfg.S3.SecretAccessKey = maskedConfigValue
+	}
+	if cfg.R2.SecretAccessKey != "" {
+		cfg.R2.SecretAccessKey = maskedConfigValue
+	}
+	if cfg.MinIO.SecretAccessKey != "" {
+		cfg.MinIO.SecretAccessKey = maskedConfigValue
+	}
+	if cfg.OSS.SecretAccessKey != "" {
+		cfg.OSS.SecretAccessKey = maskedConfigValue
+	}
+	if cfg.WebDAV.Password != "" {
+		cfg.WebDAV.Password = maskedConfigValue
+	}
+	val, err := json.Marshal(cfg)
+	if err != nil {
+		return value
+	}
+	return string(val)
 }
 
 // validateAndMergeStorageConfig parses, merges unmasked secrets, validates parameter values,

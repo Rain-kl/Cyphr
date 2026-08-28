@@ -19,27 +19,26 @@ type MigrationEntry struct {
 // MigrationExtension defines the interface for registering and querying plugin migrations.
 type MigrationExtension interface {
 	Register(pluginID string, fsys fs.FS, dir ...string)
+	Unregister(pluginID string) bool
 	Entries() []MigrationEntry
 	Get(pluginID string) (MigrationEntry, bool)
-	Unregister(pluginID string) bool
 }
 
-// MigrationRegistry collects and stores migration entries from plugins.
+// MigrationRegistry implements MigrationExtension.
 type MigrationRegistry struct {
 	mu      sync.RWMutex
 	entries []MigrationEntry
 	lookup  map[string]MigrationEntry
 }
 
-// NewMigrationRegistry creates a new migration registry.
+// NewMigrationRegistry creates a new MigrationRegistry.
 func NewMigrationRegistry() *MigrationRegistry {
 	return &MigrationRegistry{
 		lookup: make(map[string]MigrationEntry),
 	}
 }
 
-// Register adds a migration entry for a plugin.
-// If dir is not specified, it defaults to "migrations".
+// Register registers an embedded migration filesystem for a plugin.
 func (m *MigrationRegistry) Register(pluginID string, fsys fs.FS, dir ...string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -72,21 +71,9 @@ func (m *MigrationRegistry) Register(pluginID string, fsys fs.FS, dir ...string)
 
 // Unregister removes a registered migration entry by plugin ID.
 func (m *MigrationRegistry) Unregister(pluginID string) bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if _, exists := m.lookup[pluginID]; !exists {
-		return false
-	}
-
-	delete(m.lookup, pluginID)
-	for i, e := range m.entries {
-		if e.PluginID == pluginID {
-			m.entries = append(m.entries[:i], m.entries[i+1:]...)
-			break
-		}
-	}
-	return true
+	return unregisterEntry(&m.mu, m.lookup, &m.entries, pluginID, func(e MigrationEntry) bool {
+		return e.PluginID == pluginID
+	})
 }
 
 // Entries returns a copy of all registered migration entries in registration order.

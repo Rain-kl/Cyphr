@@ -1,7 +1,8 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package util
+// Package ginutil provides helper utilities for Gin web framework contexts.
+package ginutil
 
 import "github.com/gin-gonic/gin"
 

@@ -217,25 +217,31 @@ func DeletePushChannelRecord(ctx context.Context, channel *PushChannel) error {
 	return nil
 }
 
-// GetActivePushChannelByName 根据名称获取启用的消息通道 (优先从 Redis 缓存获取)。
-func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel, error) {
-	cacheKey := "push:channel:active:" + name
-	var channel PushChannel
+func getCachedOrQuery[T any](ctx context.Context, cacheKey string, ttl time.Duration, query func(db *gorm.DB, dest *T) error) (*T, error) {
+	var val T
 	if cache := getCache(ctx); cache != nil {
-		if err := cache.Get(ctx, cacheKey, &channel); err == nil {
-			return &channel, nil
+		if err := cache.Get(ctx, cacheKey, &val); err == nil {
+			return &val, nil
 		}
 	}
 
-	if err := getDB(ctx).Where("name = ? AND enabled = ?", name, true).First(&channel).Error; err != nil {
+	db := getDB(ctx)
+	if err := query(db, &val); err != nil {
 		return nil, err
 	}
 
 	if cache := getCache(ctx); cache != nil {
-		_ = cache.Set(ctx, cacheKey, channel, activePushChannelCacheTTL)
+		_ = cache.Set(ctx, cacheKey, val, ttl)
 	}
 
-	return &channel, nil
+	return &val, nil
+}
+
+// GetActivePushChannelByName 根据名称获取启用的消息通道 (优先从 Redis 缓存获取)。
+func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel, error) {
+	return getCachedOrQuery(ctx, "push:channel:active:"+name, activePushChannelCacheTTL, func(db *gorm.DB, dest *PushChannel) error {
+		return db.Where("name = ? AND enabled = ?", name, true).First(dest).Error
+	})
 }
 
 // DeleteActivePushChannelCache 清理启用消息通道的缓存。
@@ -329,23 +335,9 @@ func ListActivePushEventsByTaskTypeRecord(ctx context.Context, taskType string) 
 
 // GetActivePushEventByKey 获取启用的通知事件 (优先从 Redis 缓存获取)。
 func GetActivePushEventByKey(ctx context.Context, key string) (*PushEvent, error) {
-	cacheKey := "push:event:active:" + key
-	var event PushEvent
-	if cache := getCache(ctx); cache != nil {
-		if err := cache.Get(ctx, cacheKey, &event); err == nil {
-			return &event, nil
-		}
-	}
-
-	if err := getDB(ctx).Where("event_key = ? AND enabled = ?", key, true).First(&event).Error; err != nil {
-		return nil, err
-	}
-
-	if cache := getCache(ctx); cache != nil {
-		_ = cache.Set(ctx, cacheKey, event, activePushEventCacheTTL)
-	}
-
-	return &event, nil
+	return getCachedOrQuery(ctx, "push:event:active:"+key, activePushEventCacheTTL, func(db *gorm.DB, dest *PushEvent) error {
+		return db.Where("event_key = ? AND enabled = ?", key, true).First(dest).Error
+	})
 }
 
 // DeleteActivePushEventCache 清理启用通知事件的缓存。

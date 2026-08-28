@@ -5,6 +5,7 @@ package auth
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
@@ -438,7 +439,7 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSou
 
 // UserInfo 获取当前登录用户信息
 func UserInfo(c *gin.Context) {
-	user, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
+	user, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	session := sessions.Default(c)
 	needChange := session.Get("need_change_password") == true
 

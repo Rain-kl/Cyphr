@@ -5,9 +5,9 @@ package auth
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/trace"
-	"Wavelet/pkg/util"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -25,43 +25,45 @@ func hashToken(token string) string {
 func getUserByToken(ctx context.Context, tokenStr string) (*contracts.UserDTO, *CachedToken, error) {
 	tokenHash := hashToken(tokenStr)
 	tokenRecord, err := GetCachedToken(ctx, tokenHash)
-	if err == nil {
-		user, err := GetCachedUser(ctx, tokenRecord.UserID)
-		if err == nil && user != nil && user.IsActive {
-			return user, tokenRecord, nil
+	if err != nil || tokenRecord == nil {
+		var tokenRow struct {
+			ID      uint64
+			UserID  uint64
+			IsAdmin bool
 		}
+		if err := getDB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
+			return nil, nil, err
+		}
+		tokenRecord = &CachedToken{
+			ID:      tokenRow.ID,
+			UserID:  tokenRow.UserID,
+			IsAdmin: tokenRow.IsAdmin,
+		}
+		SetCachedToken(ctx, tokenHash, tokenRecord)
 	}
 
-	var tokenRow struct {
-		ID      uint64
-		UserID  uint64
-		IsAdmin bool
+	user, err := GetCachedUser(ctx, tokenRecord.UserID)
+	if err != nil || user == nil || !user.IsActive {
+		var userRow contracts.UserDTO
+		if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRecord.UserID, true).First(&userRow).Error; err != nil {
+			return nil, nil, err
+		}
+		user = &userRow
+		SetCachedUser(ctx, tokenRecord.UserID, user)
 	}
-	if err := getDB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
-		return nil, nil, err
-	}
-	tokenRecord = &CachedToken{
-		ID:      tokenRow.ID,
-		UserID:  tokenRow.UserID,
-		IsAdmin: tokenRow.IsAdmin,
-	}
-	SetCachedToken(ctx, tokenHash, tokenRecord)
 
-	var userRow contracts.UserDTO
-	if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRow.UserID, true).First(&userRow).Error; err != nil {
-		return nil, nil, err
-	}
-	SetCachedUser(ctx, userRow.ID, &userRow)
-	return &userRow, tokenRecord, nil
+	return user, tokenRecord, nil
 }
 
-// GetUserFromRequest 校验 Access Token 或 Session 并返回用户对象，如果未登录或用户失效则返回 error
+// GetUserFromRequest 从请求中获取当前用户（优先 Access Token，其次 Session）
 func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 	ctx := c.Request.Context()
+	var tokenStr string
 
-	// Check token in headers
-	tokenStr := c.GetHeader("X-Access-Token")
-	if tokenStr == "" {
+	tokenFromQuery := c.Query("token")
+	if tokenFromQuery != "" {
+		tokenStr = tokenFromQuery
+	} else {
 		authHeader := c.GetHeader("Authorization")
 		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
 			tokenStr = authHeader[7:]
@@ -74,8 +76,8 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 			if user.Username == SystemUsername {
 				return nil, errors.New("system user is not allowed to login")
 			}
-			util.SetToContext(c, contracts.AuthTokenAuthKey, true)
-			util.SetToContext(c, contracts.AuthTokenAdminKey, tokenRecord.IsAdmin)
+			ginutil.SetToContext(c, contracts.AuthTokenAuthKey, true)
+			ginutil.SetToContext(c, contracts.AuthTokenAdminKey, tokenRecord.IsAdmin)
 			return user, nil
 		}
 	}
@@ -96,8 +98,8 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 		SetCachedUser(ctx, userID, user)
 	}
 
-	util.SetToContext(c, contracts.AuthTokenAuthKey, false)
-	util.SetToContext(c, contracts.AuthTokenAdminKey, false)
+	ginutil.SetToContext(c, contracts.AuthTokenAuthKey, false)
+	ginutil.SetToContext(c, contracts.AuthTokenAdminKey, false)
 
 	if user.Username == "system" {
 		return nil, errors.New("system user is not allowed to login")
@@ -119,7 +121,7 @@ func LoginRequired() gin.HandlerFunc {
 		}
 
 		LogForAudit(c.Request.Context(), user, c)
-		util.SetToContext(c, contracts.AuthUserObjKey, user)
+		ginutil.SetToContext(c, contracts.AuthUserObjKey, user)
 		c.Next()
 	}
 }
@@ -136,8 +138,8 @@ func AdminRequired() gin.HandlerFunc {
 			return
 		}
 
-		isTokenAuth, _ := util.GetFromContext[bool](c, contracts.AuthTokenAuthKey)
-		isTokenAdmin, _ := util.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
+		isTokenAuth, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAuthKey)
+		isTokenAdmin, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
 
 		// 如果是通过 Token 鉴权，要求该 Token 具备管理员权限或者用户本身为管理员
 		if isTokenAuth && !isTokenAdmin && !user.IsAdmin {
@@ -152,7 +154,7 @@ func AdminRequired() gin.HandlerFunc {
 		}
 
 		LogForAudit(c.Request.Context(), user, c)
-		util.SetToContext(c, contracts.AuthUserObjKey, user)
+		ginutil.SetToContext(c, contracts.AuthUserObjKey, user)
 		c.Next()
 	}
 }
@@ -165,7 +167,7 @@ func LoginAdminRequired() gin.HandlerFunc {
 // DisallowTokenAuth 拒绝使用 Access Token 进行身份验证的请求访问该端点
 func DisallowTokenAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if tokenAuth, _ := util.GetFromContext[bool](c, contracts.AuthTokenAuthKey); tokenAuth {
+		if tokenAuth, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAuthKey); tokenAuth {
 			response.AbortForbidden(c, ErrTokenAuthNotAllowed)
 			return
 		}
