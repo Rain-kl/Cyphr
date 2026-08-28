@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"Wavelet/core"
+	"Wavelet/pkg/config"
 )
 
 func TestNewWaveletAppProfiles(t *testing.T) {
@@ -26,22 +27,29 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 			require.NotNil(t, app)
 			assert.Equal(t, prof, app.Profile())
 
-			// Verify 4 infra plugins + 8 domain plugins + 3 driver plugins registered
+			// 3 infra + (1 cache + 2 worker/cron) + 8 domain + 1 http driver = 15 plugins
 			plugins := app.Plugins()
 			assert.Len(t, plugins, 15)
 
-			// Verify each standard infra plugin is registered
+			// Verify standard infra plugins
 			_, ok := app.Plugin("database")
 			assert.True(t, ok, "database plugin missing")
-
-			_, ok = app.Plugin("cache")
-			assert.True(t, ok, "cache plugin missing")
 
 			_, ok = app.Plugin("logger")
 			assert.True(t, ok, "logger plugin missing")
 
 			_, ok = app.Plugin("storage")
 			assert.True(t, ok, "storage plugin missing")
+
+			// In zero-Redis mode (default in test)
+			_, ok = app.Plugin("cache_memory")
+			assert.True(t, ok, "cache_memory plugin missing")
+
+			_, ok = app.Plugin("driver_inproc_worker")
+			assert.True(t, ok, "inproc worker driver missing")
+
+			_, ok = app.Plugin("driver_inproc_cron")
+			assert.True(t, ok, "inproc scheduler driver missing")
 
 			// Verify domain plugins
 			_, ok = app.Plugin("auth")
@@ -71,12 +79,24 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 			// Verify driver plugins
 			_, ok = app.Plugin("driver_http")
 			assert.True(t, ok, "http driver missing")
-
-			_, ok = app.Plugin("driver_asynq_worker")
-			assert.True(t, ok, "worker driver missing")
-
-			_, ok = app.Plugin("driver_asynq_cron")
-			assert.True(t, ok, "scheduler driver missing")
 		})
 	}
+}
+
+func TestNewWaveletAppWithRedisEnabled(t *testing.T) {
+	orig := config.Config.Redis.Enabled
+	config.Config.Redis.Enabled = true
+	defer func() { config.Config.Redis.Enabled = orig }()
+
+	app := newWaveletApp(core.ProfileAll)
+	require.NotNil(t, app)
+
+	_, ok := app.Plugin("cache")
+	assert.True(t, ok, "cache plugin missing in Redis mode")
+
+	_, ok = app.Plugin("driver_asynq_worker")
+	assert.True(t, ok, "asynq worker driver missing in Redis mode")
+
+	_, ok = app.Plugin("driver_asynq_cron")
+	assert.True(t, ok, "asynq scheduler driver missing in Redis mode")
 }

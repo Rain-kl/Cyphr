@@ -27,7 +27,10 @@ import (
 	"Wavelet/plugins/drivers/driver_asynq_cron"
 	"Wavelet/plugins/drivers/driver_asynq_worker"
 	"Wavelet/plugins/drivers/driver_http"
+	"Wavelet/plugins/drivers/driver_inproc_cron"
+	"Wavelet/plugins/drivers/driver_inproc_worker"
 	"Wavelet/plugins/infra/cache"
+	"Wavelet/plugins/infra/cache_memory"
 	infradb "Wavelet/plugins/infra/database"
 	"Wavelet/plugins/infra/logger"
 	"Wavelet/plugins/infra/storage"
@@ -45,12 +48,26 @@ func newWaveletApp(profile core.Profile) *core.App {
 	// 1. Register standard infrastructure plugins
 	app.Use(
 		infradb.New(),
-		cache.New(),
 		logger.New(),
 		storage.New(),
 	)
 
-	// 2. Register all 8 domain business plugins
+	// 2. Register Cache and Async/Cron Drivers based on Redis configuration
+	if config.Config.Redis.Enabled {
+		app.Use(
+			cache.New(),
+			driver_asynq_worker.New(),
+			driver_asynq_cron.New(),
+		)
+	} else {
+		app.Use(
+			cache_memory.New(),
+			driver_inproc_worker.New(),
+			driver_inproc_cron.New(),
+		)
+	}
+
+	// 3. Register all 8 domain business plugins
 	app.Use(
 		auth.New(),
 		user.New(),
@@ -62,14 +79,12 @@ func newWaveletApp(profile core.Profile) *core.App {
 		system.New(),
 	)
 
-	// 3. Bind Goose migration engine
+	// 4. Bind Goose migration engine
 	app.SetMigrationEngine(&gooseEngine{})
 
-	// 4. Mount runtime drivers for each aspect
+	// 5. Mount HTTP runtime driver
 	app.Use(
 		driver_http.New(driver_http.WithAddr(config.Config.App.Addr)),
-		driver_asynq_worker.New(),
-		driver_asynq_cron.New(),
 	)
 
 	return app
