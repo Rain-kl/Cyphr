@@ -5,10 +5,14 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -38,6 +42,14 @@ func initSQLite() (*gorm.DB, error) {
 	sqlitePath := config.Config.Database.SQLitePath
 	if sqlitePath == "" {
 		sqlitePath = "./data/wavelet.db"
+	}
+
+	if sqlitePath != ":memory:" && !strings.HasPrefix(sqlitePath, "file:") {
+		if dir := filepath.Dir(sqlitePath); dir != "" && dir != "." {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return nil, fmt.Errorf("create sqlite directory %q failed: %w", dir, err)
+			}
+		}
 	}
 
 	targetDB, err := gorm.Open(sqlite.Open(sqlitePath), &gorm.Config{
