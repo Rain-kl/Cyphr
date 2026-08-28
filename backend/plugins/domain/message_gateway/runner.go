@@ -7,7 +7,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"Wavelet/pkg/logger"
 )
 
 // Runner manages lifecycle for long-lived channel adapters (WebSocket, long-polling, etc.).

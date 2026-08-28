@@ -17,14 +17,14 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
-	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
-	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/models"
+	uploadstats "Wavelet/plugins/domain/upload/stats"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
+	cache "Wavelet/plugins/infra/cache"
+	database "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 const (

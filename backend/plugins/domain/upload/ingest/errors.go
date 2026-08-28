@@ -6,7 +6,7 @@ package ingest
 import (
 	"errors"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 // ErrForbidden indicates the caller is not allowed to mutate the upload record.

@@ -4,11 +4,11 @@
 package admin
 
 import (
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/trace"
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/trace"
+	"Wavelet/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 

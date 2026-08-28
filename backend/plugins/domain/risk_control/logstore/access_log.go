@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/util"
+	db "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 

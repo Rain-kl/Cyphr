@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/cache/ram"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/models"
+	cachepkg "Wavelet/plugins/infra/cache"
+	database "Wavelet/plugins/infra/database"
 )
 
 const (

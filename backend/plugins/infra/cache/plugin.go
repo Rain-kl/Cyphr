@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/cache/ram"
+	"Wavelet/pkg/util"
 	"github.com/redis/go-redis/v9"
 )
 

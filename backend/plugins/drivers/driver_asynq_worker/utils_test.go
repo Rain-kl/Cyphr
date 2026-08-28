@@ -6,7 +6,7 @@ package driver_asynq_worker
 import (
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
+	"Wavelet/pkg/config"
 	"github.com/redis/go-redis/v9/maintnotifications"
 )
 

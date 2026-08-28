@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -10,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/pkg/util"
 )
 
 // AccessToken 个人访问令牌实体

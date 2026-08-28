@@ -6,7 +6,7 @@ package util
 import (
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 // IsImageExtension reports whether ext is a common image format.

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Rain-kl/Wavelet/core"
+	"Wavelet/core"
 )
 
 // Sample services for testing

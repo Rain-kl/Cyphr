@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 // MigrationAccessState captures cached migration maintenance state.

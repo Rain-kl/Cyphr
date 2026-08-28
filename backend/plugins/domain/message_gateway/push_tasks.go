@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/plugins/domain/message_gateway/push"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 const (

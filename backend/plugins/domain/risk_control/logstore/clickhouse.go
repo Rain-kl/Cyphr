@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	db "Wavelet/plugins/infra/database"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 type clickhouseUserAccessLogStore struct {

@@ -8,8 +8,8 @@ package custom_example
 import (
 	"net/http"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"github.com/gin-gonic/gin"
 )
 

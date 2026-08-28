@@ -9,14 +9,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/ingest"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/repository"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
 
 type listFilesRequest struct {

@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
+	"Wavelet/core/contracts"
 )
 
 var authSourceNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`)

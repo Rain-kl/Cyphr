@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,10 +8,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/trace"
+	"Wavelet/pkg/buildinfo"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/trace"
 	"github.com/spf13/cobra"
 )
 

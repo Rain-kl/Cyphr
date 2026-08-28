@@ -12,9 +12,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"Wavelet/pkg/cache/ram"
+	"Wavelet/pkg/util"
+	cachepkg "Wavelet/plugins/infra/cache"
 )
 
 const (

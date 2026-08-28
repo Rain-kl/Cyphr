@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -13,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
+	"Wavelet/core/contracts"
 
-	"github.com/Rain-kl/Wavelet/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
+	cachepkg "Wavelet/plugins/infra/cache"
+	db "Wavelet/plugins/infra/database"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"

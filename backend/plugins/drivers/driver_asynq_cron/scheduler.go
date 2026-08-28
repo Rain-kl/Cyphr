@@ -13,8 +13,8 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 var (

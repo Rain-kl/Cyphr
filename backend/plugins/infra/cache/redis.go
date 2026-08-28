@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
+	"Wavelet/pkg/config"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"

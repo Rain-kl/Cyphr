@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/plugins/domain/cap/pow"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"Wavelet/pkg/config"
+	"Wavelet/plugins/domain/cap/pow"
+	db "Wavelet/plugins/infra/cache"
 )
 
 const (

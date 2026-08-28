@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"time"
 
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	database "Wavelet/plugins/infra/database"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/response"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )

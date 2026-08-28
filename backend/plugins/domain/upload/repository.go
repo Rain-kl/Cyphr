@@ -9,9 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/util"
+	database "Wavelet/plugins/infra/database"
 )
 
 // UploadListFilter filters paginated upload queries.

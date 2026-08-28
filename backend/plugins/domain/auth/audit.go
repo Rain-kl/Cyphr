@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -8,8 +7,8 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 

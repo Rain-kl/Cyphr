@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	db "Wavelet/plugins/infra/database"
 )
 
 const hoursInDay = 24

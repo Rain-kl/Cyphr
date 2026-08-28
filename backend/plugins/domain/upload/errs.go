@@ -1,11 +1,10 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
 // Package upload 提供文件上传与下载功能
 package upload
 
-import "github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+import "Wavelet/plugins/domain/upload/shared"
 
 // 文件管理常量
 const (

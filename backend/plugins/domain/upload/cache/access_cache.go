@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
+	cachepkg "Wavelet/plugins/infra/cache"
+	database "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 const fileAccessInvalidationChannel = "upload:file_access_invalidation"

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/testhelper"
+	"Wavelet/plugins/domain/upload/models"
+	database "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 

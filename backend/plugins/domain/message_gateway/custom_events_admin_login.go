@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
+	"Wavelet/core/contracts"
 )
 
 // AdminLogin is the metadata definition for the admin login event.

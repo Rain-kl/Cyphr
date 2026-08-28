@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/idgen"
+	"Wavelet/pkg/idgen"
 	"gorm.io/gorm"
 )
 

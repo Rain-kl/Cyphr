@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/database"
 )
 
 type Item struct {

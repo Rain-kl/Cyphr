@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -14,10 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_cron"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/drivers/driver_asynq_cron"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // ListTaskTypes 获取支持的任务类型列表

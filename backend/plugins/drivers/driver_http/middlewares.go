@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	otel_trace "Wavelet/pkg/trace"
+	database "Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"

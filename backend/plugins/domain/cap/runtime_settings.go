@@ -14,9 +14,9 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/util"
+	cachepkg "Wavelet/plugins/infra/cache"
+	database "Wavelet/plugins/infra/database"
 )
 
 const (

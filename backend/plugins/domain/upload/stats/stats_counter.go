@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/upload/models"
+	database "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

@@ -7,7 +7,7 @@ package stats
 import (
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
+	"Wavelet/plugins/domain/upload/util"
 )
 
 const (

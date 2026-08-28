@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"Wavelet/pkg/logger"
 )
 
 const (

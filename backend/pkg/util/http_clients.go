@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/httppool"
+	"Wavelet/pkg/httppool"
 )
 
 // IsLocalhost 检查 URL 是否为 localhost

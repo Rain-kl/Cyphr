@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"Wavelet/pkg/testhelper"
 	"github.com/gin-gonic/gin"
 )
 

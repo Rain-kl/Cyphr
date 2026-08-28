@@ -13,10 +13,10 @@ import (
 	"os"
 	"strings"
 
-	userdomain "github.com/Rain-kl/Wavelet/plugins/domain/user"
-	"github.com/Rain-kl/Wavelet/plugins/infra/database"
+	userdomain "Wavelet/plugins/domain/user"
+	"Wavelet/plugins/infra/database"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/domain/auth"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
 )

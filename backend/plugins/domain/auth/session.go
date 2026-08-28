@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
+	db "Wavelet/plugins/infra/database"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

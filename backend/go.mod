@@ -1,4 +1,4 @@
-module github.com/Rain-kl/Wavelet
+module Wavelet
 
 go 1.25.7
 

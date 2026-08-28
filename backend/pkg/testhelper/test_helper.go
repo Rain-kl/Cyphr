@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -10,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	cachepkg "Wavelet/plugins/infra/cache"
+	db "Wavelet/plugins/infra/database"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"

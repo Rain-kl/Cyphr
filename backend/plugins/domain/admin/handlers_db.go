@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -19,9 +18,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/response"
+	db "Wavelet/plugins/infra/database"
 )
 
 const (

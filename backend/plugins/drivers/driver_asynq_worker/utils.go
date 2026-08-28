@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
+	"Wavelet/pkg/config"
 )
 
 type redisClientConnOpt struct {

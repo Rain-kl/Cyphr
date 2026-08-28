@@ -11,8 +11,8 @@ import (
 
 // plugins/domain 不得直接 import 已废弃的 internal。
 var forbiddenImports = []string{
-	"github.com/Rain-kl/Wavelet/internal",
-	"github.com/Rain-kl/Wavelet/internal",
+	"Wavelet/internal",
+	"Wavelet/internal",
 }
 
 func TestAppsMustNotImportPersistenceDirectly(t *testing.T) {
@@ -27,7 +27,7 @@ func TestAppsMustNotImportPersistenceDirectly(t *testing.T) {
 			continue
 		}
 		pkg := fields[0]
-		if !strings.HasPrefix(pkg, "github.com/Rain-kl/Wavelet/plugins/domain") {
+		if !strings.HasPrefix(pkg, "Wavelet/plugins/domain") {
 			continue
 		}
 		for _, imp := range fields[1:] {

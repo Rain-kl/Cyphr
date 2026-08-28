@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +6,7 @@ package auth
 import (
 	"context"
 
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	db "Wavelet/plugins/infra/database"
 )
 
 // GetAuthSourceByID 根据 ID 获取认证源

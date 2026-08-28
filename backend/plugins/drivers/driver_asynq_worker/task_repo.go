@@ -12,9 +12,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/Rain-kl/Wavelet/pkg/idgen"
-	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/idgen"
+	cachepkg "Wavelet/plugins/infra/cache"
+	db "Wavelet/plugins/infra/database"
 )
 
 const (

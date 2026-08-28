@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -16,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/trace"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
-	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/trace"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/domain/risk_control"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"

@@ -6,7 +6,7 @@ package cap
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/pkg/response"
+	"Wavelet/pkg/response"
 )
 
 // VerifyMiddleware returns a Gin middleware that checks and consumes the X-Cap-Token header.

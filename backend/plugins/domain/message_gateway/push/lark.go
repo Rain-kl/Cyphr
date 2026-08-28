@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/httppool"
+	"Wavelet/pkg/httppool"
 )
 
 func init() {

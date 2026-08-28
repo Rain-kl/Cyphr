@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/repository"
 	"gorm.io/gorm"
 )
 

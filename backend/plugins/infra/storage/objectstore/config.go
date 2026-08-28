@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	database "Wavelet/plugins/infra/database"
 
 	"gorm.io/gorm"
 )

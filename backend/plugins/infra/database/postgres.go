@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -12,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
+	"Wavelet/pkg/config"
 	"github.com/glebarez/sqlite"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/driver/postgres"

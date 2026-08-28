@@ -6,9 +6,9 @@ package storage
 import (
 	"context"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 // ReadOnly checks if the storage system is in read-only maintenance mode.

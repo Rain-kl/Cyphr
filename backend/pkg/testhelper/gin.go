@@ -4,7 +4,7 @@
 package testhelper
 
 import (
-	"github.com/Rain-kl/Wavelet/pkg/response"
+	"Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 

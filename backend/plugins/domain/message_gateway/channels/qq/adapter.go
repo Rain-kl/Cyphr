@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/message_gateway"
 	"github.com/tencent-connect/botgo"
 	"github.com/tencent-connect/botgo/dto"
 	"github.com/tencent-connect/botgo/event"

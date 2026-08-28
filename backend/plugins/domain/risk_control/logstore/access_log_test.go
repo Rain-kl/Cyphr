@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	db "Wavelet/plugins/infra/database"
 )
 
 func setupChGormDB(t *testing.T) *gorm.DB {

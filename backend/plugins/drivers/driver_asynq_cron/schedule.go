@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	db "Wavelet/plugins/infra/database"
 )
 
 // Schedule 定时任务配置表

@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/infra/storage/diskcache"
 )
 
 type updateCacheConfigRequest struct {

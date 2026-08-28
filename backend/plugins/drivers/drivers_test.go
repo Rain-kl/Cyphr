@@ -20,11 +20,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_cron"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_http"
+	"Wavelet/core"
+	"Wavelet/core/extpoints"
+	"Wavelet/plugins/drivers/driver_asynq_cron"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/plugins/drivers/driver_http"
 )
 
 func init() {

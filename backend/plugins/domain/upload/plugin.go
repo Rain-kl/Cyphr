@@ -8,12 +8,12 @@ import (
 	"context"
 	"embed"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/handler"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/task"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
+	"Wavelet/plugins/domain/upload/filesrv"
+	"Wavelet/plugins/domain/upload/handler"
+	"Wavelet/plugins/domain/upload/task"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )

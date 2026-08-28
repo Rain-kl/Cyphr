@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -16,10 +15,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/domain/risk_control/logstore"
 )
 
 var startTime = time.Now()

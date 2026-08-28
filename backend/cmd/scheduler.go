@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +6,7 @@ package cmd
 import (
 	"log"
 
-	"github.com/Rain-kl/Wavelet/core"
+	"Wavelet/core"
 	"github.com/spf13/cobra"
 )
 

@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -19,10 +18,10 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/Rain-kl/Wavelet/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/logger"
+	otel_trace "Wavelet/pkg/trace"
+	"Wavelet/pkg/util"
 )
 
 var (

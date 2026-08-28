@@ -6,11 +6,11 @@ package ingest
 import (
 	"context"
 
-	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
-	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	uploadcache "Wavelet/plugins/domain/upload/cache"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/repository"
+	uploadstats "Wavelet/plugins/domain/upload/stats"
+	database "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 

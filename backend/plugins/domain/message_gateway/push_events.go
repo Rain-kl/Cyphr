@@ -9,11 +9,11 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"Wavelet/pkg/logger"
 
-	pkgpush "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
+	pkgpush "Wavelet/plugins/domain/message_gateway/push"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 

@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/idgen"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
+	database "Wavelet/plugins/infra/database"
 
-	pkgu "github.com/Rain-kl/Wavelet/pkg/util"
+	pkgu "Wavelet/pkg/util"
 )
 
 func toUserDTO(u *User) *contracts.UserDTO {

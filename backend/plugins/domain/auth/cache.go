@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/cache/ram"
+	"Wavelet/pkg/util"
+	db "Wavelet/plugins/infra/cache"
 )
 
 const (

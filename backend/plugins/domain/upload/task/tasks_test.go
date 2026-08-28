@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -17,15 +16,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/pkg/testhelper"
-	msg "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/pkg/testhelper"
+	msg "Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/upload/filesrv"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
+	database "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/storage/diskcache"
+	"Wavelet/plugins/infra/storage/objectstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

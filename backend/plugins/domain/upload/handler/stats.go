@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 type trendItem struct {

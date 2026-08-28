@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/message_gateway"
 	tele "gopkg.in/telebot.v4"
 )
 

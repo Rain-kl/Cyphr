@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
-	"github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 

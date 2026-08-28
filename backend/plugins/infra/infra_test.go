@@ -19,13 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	"github.com/Rain-kl/Wavelet/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/plugins/infra/logger"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/cache"
+	"Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/logger"
+	"Wavelet/plugins/infra/storage"
+	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 type TestUser struct {

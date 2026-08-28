@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 )
 
 // Plugin implements core.Plugin to provide contracts.LoggerService.

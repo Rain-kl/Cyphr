@@ -8,9 +8,9 @@ import (
 	"context"
 	"embed"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/core/extpoints"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )

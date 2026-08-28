@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -10,11 +9,11 @@ import (
 	"encoding/hex"
 	"errors"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/trace"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/trace"
+	"Wavelet/pkg/util"
+	db "Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 

@@ -7,10 +7,10 @@ package system
 import (
 	"net/http"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/core"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/response"
+	database "Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 

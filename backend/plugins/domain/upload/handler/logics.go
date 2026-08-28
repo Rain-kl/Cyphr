@@ -10,9 +10,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
+	"Wavelet/plugins/domain/upload/ingest"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/repository"
 )
 
 func listUploadFiles(ctx context.Context, filter repository.UploadListFilter) (int64, []models.Upload, error) {

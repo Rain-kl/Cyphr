@@ -7,9 +7,9 @@ package auth
 import (
 	"embed"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/core/extpoints"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
 )
 
 //go:embed migrations/*.sql

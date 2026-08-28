@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/auth"
+	db "Wavelet/plugins/infra/database"
 )
 
 type testUser struct {

@@ -12,16 +12,16 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	logstore "github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
-	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
-	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
-	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/pkg/logger"
+	logstore "Wavelet/plugins/domain/risk_control/logstore"
+	uploadcache "Wavelet/plugins/domain/upload/cache"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstats "Wavelet/plugins/domain/upload/stats"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
+	database "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 const (

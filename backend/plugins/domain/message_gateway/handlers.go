@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 

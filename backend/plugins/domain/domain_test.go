@@ -16,17 +16,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/plugins/domain/admin"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
-	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
-	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
-	"github.com/Rain-kl/Wavelet/plugins/domain/user"
-	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/plugins/infra/logger"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/admin"
+	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/risk_control"
+	"Wavelet/plugins/domain/user"
+	"Wavelet/plugins/infra/cache"
+	db "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/logger"
+	"Wavelet/plugins/infra/storage"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {

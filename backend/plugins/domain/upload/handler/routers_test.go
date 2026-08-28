@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -19,14 +18,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/testhelper"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstats "Wavelet/plugins/domain/upload/stats"
+	"Wavelet/plugins/infra/storage/objectstore"
 	"github.com/gin-gonic/gin"
 )
 

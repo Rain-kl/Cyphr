@@ -7,7 +7,7 @@ package ingest
 import (
 	"io"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/models"
 )
 
 // Policy controls how ingest handles hash collisions and record creation.

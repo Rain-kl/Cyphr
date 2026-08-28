@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	cache "Wavelet/plugins/infra/cache"
+	database "Wavelet/plugins/infra/database"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
+	"Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 

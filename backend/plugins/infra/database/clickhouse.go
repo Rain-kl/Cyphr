@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -14,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"Wavelet/pkg/config"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/Rain-kl/Wavelet/pkg/config"
 	"go.opentelemetry.io/otel/attribute"
 	clickhouseDriver "gorm.io/driver/clickhouse"
 	"gorm.io/gorm"

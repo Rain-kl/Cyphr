@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -22,16 +21,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	pkgutil "github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	pkgutil "Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/filesrv"
+	"Wavelet/plugins/domain/upload/ingest"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
+	"Wavelet/plugins/domain/upload/util"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

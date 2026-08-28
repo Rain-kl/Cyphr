@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -9,8 +8,8 @@ import (
 
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/pkg/util"
-	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"Wavelet/pkg/util"
+	database "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 

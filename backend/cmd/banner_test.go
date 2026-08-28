@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
-	"github.com/Rain-kl/Wavelet/pkg/config"
+	"Wavelet/pkg/buildinfo"
+	"Wavelet/pkg/config"
 )
 
 func TestFormatStartupBanner(t *testing.T) {

@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -16,7 +15,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/domain/upload/shared"
 	"github.com/deepteams/webp"
 	_ "golang.org/x/image/webp" // Register WebP decoder for image.Decode
 )

@@ -1,4 +1,3 @@
-// Copyright 2025 linux.do
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,18 +14,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/pkg/response"
-	pkgutil "github.com/Rain-kl/Wavelet/pkg/util"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
-	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
-	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	pkgutil "Wavelet/pkg/util"
+	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/domain/upload/cache"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
+	"Wavelet/plugins/domain/upload/util"
+	"Wavelet/plugins/infra/storage/diskcache"
 
-	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"Wavelet/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"

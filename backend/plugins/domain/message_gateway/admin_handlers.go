@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/pkg/response"
+	"Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 

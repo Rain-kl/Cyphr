@@ -5,7 +5,7 @@
 package upload
 
 import (
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/models"
 )
 
 // UploadStatus 上传状态类型别名

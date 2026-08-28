@@ -12,8 +12,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
-	"github.com/Rain-kl/Wavelet/pkg/config"
+	"Wavelet/pkg/buildinfo"
+	"Wavelet/pkg/config"
 )
 
 //nolint:unused // startup banner formatting utilities
