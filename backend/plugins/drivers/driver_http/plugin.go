@@ -15,8 +15,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (

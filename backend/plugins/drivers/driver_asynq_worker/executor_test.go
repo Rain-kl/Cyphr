@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 )
 
 // mockHandler 用于测试的模拟任务处理器

@@ -4,14 +4,14 @@
 package upload
 
 import (
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/cache"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/filesrv"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/handler"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/ingest"
-	uploadstats "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/stats"
-	uploadtask "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/task"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/util"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/handler"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
+	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
+	uploadtask "github.com/Rain-kl/Wavelet/plugins/domain/upload/task"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // HTTP handlers

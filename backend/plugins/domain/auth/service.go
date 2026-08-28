@@ -8,9 +8,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/util"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
 

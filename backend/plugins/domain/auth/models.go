@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 )
 
 var authSourceNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`)

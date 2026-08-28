@@ -9,12 +9,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
-	"github.com/Rain-kl/Wavelet/backend/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/risk_control/logstore"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 	"github.com/gin-gonic/gin"
 )
 

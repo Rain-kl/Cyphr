@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
 )
 
 const installedBinaryMode = 0o755

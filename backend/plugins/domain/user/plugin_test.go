@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/user"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/plugins/domain/user"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {

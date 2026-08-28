@@ -16,11 +16,11 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/cache/ram"
-	"github.com/Rain-kl/Wavelet/backend/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
-	cachepkg "github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/util"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (

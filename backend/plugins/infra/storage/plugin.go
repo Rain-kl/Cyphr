@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/ingest"
-	uploadmodels "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
+	uploadmodels "github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 // Option configures the storage plugin.

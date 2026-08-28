@@ -11,7 +11,7 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 func init() {

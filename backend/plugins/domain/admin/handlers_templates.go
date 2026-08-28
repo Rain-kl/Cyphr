@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 )
 
 // CreateTemplateRequest 创建模板请求

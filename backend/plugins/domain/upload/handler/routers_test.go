@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
-	uploadstats "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/stats"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/gin-gonic/gin"
 )
 

@@ -12,12 +12,12 @@ import (
 // plugins/domain 不得直接 import 已废弃的 internal。
 var forbiddenImports = []string{
 	"github.com/Rain-kl/Wavelet/internal",
-	"github.com/Rain-kl/Wavelet/backend/internal",
+	"github.com/Rain-kl/Wavelet/internal",
 }
 
 func TestAppsMustNotImportPersistenceDirectly(t *testing.T) {
-	t.Chdir("../../../../..")
-	out, err := exec.Command("go", "list", "-test", "-f", `{{.ImportPath}} {{join .Imports " "}}`, "./backend/plugins/domain/...").Output()
+	t.Chdir("../../../..")
+	out, err := exec.Command("go", "list", "-test", "-f", `{{.ImportPath}} {{join .Imports " "}}`, "./plugins/domain/...").Output()
 	if err != nil {
 		t.Fatalf("go list: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestAppsMustNotImportPersistenceDirectly(t *testing.T) {
 			continue
 		}
 		pkg := fields[0]
-		if !strings.HasPrefix(pkg, "github.com/Rain-kl/Wavelet/backend/plugins/domain") {
+		if !strings.HasPrefix(pkg, "github.com/Rain-kl/Wavelet/plugins/domain") {
 			continue
 		}
 		for _, imp := range fields[1:] {

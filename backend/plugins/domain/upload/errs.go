@@ -5,7 +5,7 @@
 // Package upload 提供文件上传与下载功能
 package upload
 
-import "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
+import "github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 
 // 文件管理常量
 const (

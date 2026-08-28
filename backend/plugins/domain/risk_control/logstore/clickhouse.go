@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 type clickhouseUserAccessLogStore struct {

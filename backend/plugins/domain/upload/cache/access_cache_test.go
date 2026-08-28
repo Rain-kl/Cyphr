@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
-	uploadstorage "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/storage"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
 )
 
 func TestLoadMigrationAccessStateCachesResult(t *testing.T) {

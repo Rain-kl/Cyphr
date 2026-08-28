@@ -19,10 +19,10 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	otel_trace "github.com/Rain-kl/Wavelet/backend/pkg/trace"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 var (

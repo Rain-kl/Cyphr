@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Rain-kl/Wavelet/backend/core/extpoints"
+	"github.com/Rain-kl/Wavelet/core/extpoints"
 )
 
 // Standard sentinel errors returned by core operations.

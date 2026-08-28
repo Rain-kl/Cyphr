@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	cache "github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 )

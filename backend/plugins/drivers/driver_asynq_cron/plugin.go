@@ -14,8 +14,8 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 //go:embed migrations/*.sql

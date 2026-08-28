@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"

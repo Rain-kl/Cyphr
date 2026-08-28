@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/message_gateway"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
 )
 
 func TestUpsertPairingCode_ReusesUnexpired(t *testing.T) {

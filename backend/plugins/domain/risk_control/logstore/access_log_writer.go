@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 // BatchInsert writes access logs to ClickHouse using the native batch API.

@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 func TestIngestPolicyCreateIncrementsStats(t *testing.T) {

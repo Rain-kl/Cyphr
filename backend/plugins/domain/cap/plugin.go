@@ -5,8 +5,8 @@
 package cap
 
 import (
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/core/extpoints"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/extpoints"
 )
 
 // Plugin implements core.Plugin to provide CAPTCHA generation, validation, and route protection.

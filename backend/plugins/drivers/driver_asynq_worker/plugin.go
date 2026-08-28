@@ -14,7 +14,7 @@ import (
 
 	"github.com/hibiken/asynq"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
+	"github.com/Rain-kl/Wavelet/core"
 )
 
 const (

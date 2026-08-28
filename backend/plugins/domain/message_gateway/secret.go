@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 // CredentialKey is AES-256 hex derived from the session secret.

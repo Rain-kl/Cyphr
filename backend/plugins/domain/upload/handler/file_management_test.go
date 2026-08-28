@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
 
 func TestGetDistinctUploadTypes(t *testing.T) {

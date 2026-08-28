@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 type mockStorageBackend struct {

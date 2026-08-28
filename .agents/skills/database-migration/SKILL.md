@@ -33,7 +33,7 @@ package order
 
 import (
 	"embed"
-	"github.com/Rain-kl/Wavelet/backend/core"
+	"github.com/Rain-kl/Wavelet/core"
 )
 
 //go:embed migrations/*.sql

@@ -39,7 +39,7 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/internal/apps/admin/push"
-	"github.com/Rain-kl/Wavelet/backend/pkg/listener"
+	"github.com/Rain-kl/Wavelet/pkg/listener"
 )
 
 var NewUserRegistered = push.EventMetadata{
@@ -84,7 +84,7 @@ func Register() {
 在业务逻辑完成处（如 `internal/apps/user/routers.go`）仅 import `internal/listener` 并发射事件：
 
 ```go
-import "github.com/Rain-kl/Wavelet/backend/pkg/listener"
+import "github.com/Rain-kl/Wavelet/pkg/listener"
 
 func Register(c *gin.Context) {
 	// ... 注册成功逻辑 ...

@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"

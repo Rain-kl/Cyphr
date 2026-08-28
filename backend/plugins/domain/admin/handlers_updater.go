@@ -24,10 +24,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/mod/semver"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/buildinfo"
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
+	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 const (

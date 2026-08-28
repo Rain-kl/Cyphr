@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // RegisterTaskListeners subscribes push notification handlers to task completion events.

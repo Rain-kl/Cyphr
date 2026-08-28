@@ -15,13 +15,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/pkg/idgen"
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/auth"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const minPasswordLength = 8

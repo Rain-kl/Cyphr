@@ -2,7 +2,7 @@
 
 VERSION ?= dev
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-MODULE := $(shell go list -m)
+MODULE := $(shell cd backend && go list -m)
 
 swagger:
 	scripts/swagger.sh
@@ -15,7 +15,7 @@ license-check:
 
 format:
 	@echo "==> Formatting backend Go source..."
-	gofmt -w $$(find . -type f -name '*.go' -not -path './.git/*' -not -path './frontend/*')
+	gofmt -w $$(find backend -type f -name '*.go' -not -path './.git/*')
 	@echo "==> Formatting frontend source..."
 	cd frontend && pnpm format
 
@@ -27,11 +27,11 @@ build-embedded:
 		pnpm build:embed
 	rm -rf backend/plugins/drivers/driver_http/dist
 	cp -R frontend/out backend/plugins/drivers/driver_http/dist
-	go build \
+	cd backend && go build \
 		-tags embed_frontend \
-		-ldflags "-s -w -X '$(MODULE)/backend/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/backend/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
-		-o bin/wavelet \
-		backend/main.go
+		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
+		-o ../bin/wavelet \
+		main.go
 
 code-check:
 	@echo "==> Architecture guards..."
@@ -54,7 +54,7 @@ code-check:
 	@echo "  → plugins/domain/ must not import other plugins/domain/..."
 	@for d in backend/plugins/domain/*/; do \
 		name=$$(basename $$d); \
-		imports=$$(rg -n '"github.com/Rain-kl/Wavelet/backend/plugins/domain/' backend/plugins/domain/"$$name" -g '*.go' 2>/dev/null | rg -v "backend/plugins/domain/$$name/" | rg -v '_test.go' || true); \
+		imports=$$(rg -n '"$(MODULE)/plugins/domain/' backend/plugins/domain/"$$name" -g '*.go' 2>/dev/null | rg -v "backend/plugins/domain/$$name/" | rg -v '_test.go' || true); \
 		if [ -n "$$imports" ]; then \
 			echo "error: backend/plugins/domain/$$name must not import other domain plugins" >&2; \
 			echo "$$imports" >&2; \
@@ -62,15 +62,15 @@ code-check:
 			fi; \
 	done
 	@echo "  → Architecture guards PASS"
-	golangci-lint run ./backend/...
+	cd backend && golangci-lint run
 	cd frontend && pnpm tsc --noEmit --jsx preserve && npx eslint . --max-warnings 0
 
 build-backend:
 	@echo "==> Building backend version=$(VERSION) build_date=$(BUILD_DATE)..."
-	go build \
-		-ldflags "-s -w -X '$(MODULE)/backend/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/backend/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
-		-o bin/wavelet \
-		backend/main.go
+	cd backend && go build \
+		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
+		-o ../bin/wavelet \
+		main.go
 
 build-frontend:
 	@echo "==> Building frontend version=$(VERSION) build_date=$(BUILD_DATE)..."
@@ -84,7 +84,7 @@ build-test:
 	@PIDS=""; \
 	STATUS=0; \
 	( cd frontend && pnpm build:embed 2>&1 | sed 's/^/[frontend] /' ) & PIDS="$$PIDS $$!"; \
-	( go test ./... && go build -o /dev/null ./... 2>&1 | sed 's/^/[backend]  /' ) & PIDS="$$PIDS $$!"; \
+	( cd backend && go test ./... && go build -o /dev/null ./... 2>&1 | sed 's/^/[backend]  /' ) & PIDS="$$PIDS $$!"; \
 	for PID in $$PIDS; do \
 		wait $$PID || STATUS=1; \
 	done; \

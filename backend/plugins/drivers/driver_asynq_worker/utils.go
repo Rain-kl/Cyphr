@@ -9,7 +9,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 )
 
 type redisClientConnOpt struct {

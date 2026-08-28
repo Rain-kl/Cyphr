@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/filesrv"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (

@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	uploadstats "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/stats"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 const (

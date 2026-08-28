@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
 // AccessToken 个人访问令牌实体

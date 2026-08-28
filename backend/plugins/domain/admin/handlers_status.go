@@ -16,10 +16,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/risk_control/logstore"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 )
 
 var startTime = time.Now()

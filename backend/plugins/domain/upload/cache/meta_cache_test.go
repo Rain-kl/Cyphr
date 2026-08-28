@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	cachepkg "github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 	"gorm.io/gorm"
 )
 

@@ -4,7 +4,7 @@
 // Package main 是 Wavelet 平台的程序入口
 package main
 
-import "github.com/Rain-kl/Wavelet/backend/cmd"
+import "github.com/Rain-kl/Wavelet/cmd"
 
 // @title Wavelet API
 // @version 1.0.0

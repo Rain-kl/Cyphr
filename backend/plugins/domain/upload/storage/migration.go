@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 // StorageMigrationTask is the Asynq task name for storage migration.

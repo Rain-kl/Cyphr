@@ -39,8 +39,8 @@ backend/plugins/domain/order/
 package order
 
 import (
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 )
 
 type Plugin struct {

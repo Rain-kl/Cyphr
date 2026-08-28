@@ -14,8 +14,8 @@ import (
 	"github.com/redis/go-redis/v9/maintnotifications"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 func setupSystemConfigTest(t *testing.T) (*gorm.DB, func()) {

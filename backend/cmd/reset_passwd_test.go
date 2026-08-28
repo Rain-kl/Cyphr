@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	userdomain "github.com/Rain-kl/Wavelet/backend/plugins/domain/user"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	userdomain "github.com/Rain-kl/Wavelet/plugins/domain/user"
 )
 
 func TestResetPasswdCmd_WithUserAndPassword(t *testing.T) {

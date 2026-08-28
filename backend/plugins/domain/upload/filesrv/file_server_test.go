@@ -23,15 +23,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/cache"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
-	uploadutil "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/util"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/diskcache"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	uploadutil "github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 func init() {

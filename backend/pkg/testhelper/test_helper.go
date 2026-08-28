@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	cachepkg "github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	cachepkg "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"

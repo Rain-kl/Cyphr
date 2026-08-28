@@ -16,10 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	cache "github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 )

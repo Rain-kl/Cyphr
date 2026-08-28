@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/glebarez/sqlite"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/driver/postgres"

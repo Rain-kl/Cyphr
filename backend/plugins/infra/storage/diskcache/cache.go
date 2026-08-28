@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	pkgcache "github.com/Rain-kl/Wavelet/backend/pkg/cache/disk"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	pkgcache "github.com/Rain-kl/Wavelet/pkg/cache/disk"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 // Status represents the runtime cache statistics.

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/bwmarrin/snowflake"
 )
 

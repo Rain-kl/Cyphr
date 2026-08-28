@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/core/contracts"
-	pkgpush "github.com/Rain-kl/Wavelet/backend/plugins/domain/message_gateway/push"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	pkgpush "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 

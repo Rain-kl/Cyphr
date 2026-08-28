@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	cache "github.com/Rain-kl/Wavelet/backend/plugins/infra/cache"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	cache "github.com/Rain-kl/Wavelet/plugins/infra/cache"
 )
 
 func TestDiskCacheReloadConfig(t *testing.T) {

@@ -8,7 +8,7 @@ package cmd
 import (
 	"log"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
+	"github.com/Rain-kl/Wavelet/core"
 	"github.com/spf13/cobra"
 )
 

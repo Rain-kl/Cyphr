@@ -12,16 +12,16 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	logstore "github.com/Rain-kl/Wavelet/backend/plugins/domain/risk_control/logstore"
-	uploadcache "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/cache"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
-	uploadstats "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/stats"
-	uploadstorage "github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/storage"
-	"github.com/Rain-kl/Wavelet/backend/plugins/drivers/driver_asynq_worker"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
-	"github.com/Rain-kl/Wavelet/backend/plugins/infra/storage/objectstore"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	logstore "github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
+	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
+	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
+	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 const (

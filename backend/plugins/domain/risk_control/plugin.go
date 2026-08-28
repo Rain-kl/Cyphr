@@ -8,8 +8,8 @@ import (
 	"context"
 	"embed"
 
-	"github.com/Rain-kl/Wavelet/backend/core"
-	"github.com/Rain-kl/Wavelet/backend/core/extpoints"
+	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/extpoints"
 	"github.com/gin-gonic/gin"
 )
 

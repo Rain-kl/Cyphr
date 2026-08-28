@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/httppool"
+	"github.com/Rain-kl/Wavelet/pkg/httppool"
 )
 
 func getHTTPObject(ctx context.Context, baseURL, key string) (*Object, error) {

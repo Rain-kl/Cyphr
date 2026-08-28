@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/message_gateway"
+	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
 )
 
 func TestHandleEvent_DropsNonC2C(t *testing.T) {

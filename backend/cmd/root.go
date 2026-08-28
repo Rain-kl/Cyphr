@@ -9,10 +9,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/buildinfo"
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
-	"github.com/Rain-kl/Wavelet/backend/pkg/logger"
-	"github.com/Rain-kl/Wavelet/backend/pkg/trace"
+	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/trace"
 	"github.com/spf13/cobra"
 )
 

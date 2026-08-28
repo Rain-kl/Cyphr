@@ -9,9 +9,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/util"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 

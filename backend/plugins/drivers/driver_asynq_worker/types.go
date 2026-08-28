@@ -10,7 +10,7 @@ import (
 
 	"gorm.io/gorm"
 
-	db "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 // TaskExecutionStatus 任务执行状态

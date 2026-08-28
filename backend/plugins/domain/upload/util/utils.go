@@ -16,7 +16,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	"github.com/deepteams/webp"
 	_ "golang.org/x/image/webp" // Register WebP decoder for image.Decode
 )

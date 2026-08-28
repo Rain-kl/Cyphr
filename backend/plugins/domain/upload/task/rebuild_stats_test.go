@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/backend/plugins/domain/upload/models"
-	database "github.com/Rain-kl/Wavelet/backend/plugins/infra/database"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 )
 
 func TestRebuildUploadStatsHandler_Execute(t *testing.T) {

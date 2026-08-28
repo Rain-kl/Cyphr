@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/core/extpoints"
+	"github.com/Rain-kl/Wavelet/core/extpoints"
 )
 
 // Context is the central micro-kernel service bus and runtime lifecycle container.

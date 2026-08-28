@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/httppool"
+	"github.com/Rain-kl/Wavelet/pkg/httppool"
 )
 
 func init() {

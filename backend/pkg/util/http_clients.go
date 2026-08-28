@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/httppool"
+	"github.com/Rain-kl/Wavelet/pkg/httppool"
 )
 
 // IsLocalhost 检查 URL 是否为 localhost

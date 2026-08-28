@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strconv"
 
-	pkgpush "github.com/Rain-kl/Wavelet/backend/plugins/domain/message_gateway/push"
+	pkgpush "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway/push"
 
-	"github.com/Rain-kl/Wavelet/backend/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

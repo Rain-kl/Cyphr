@@ -16,7 +16,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/Rain-kl/Wavelet/backend/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 	"go.opentelemetry.io/otel/attribute"
 	clickhouseDriver "gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
