@@ -77,6 +77,8 @@ type App struct {
 	profile         Profile
 	plugins         []Plugin
 	pluginMap       map[string]Plugin
+	fibers          []*Fiber
+	fiberMap        map[string]*Fiber
 	applied         bool
 	running         bool
 	startedDrivers  []Driver
@@ -90,6 +92,7 @@ func NewApp(opts ...AppOption) *App {
 		ctx:             NewContext(context.Background()),
 		profile:         ProfileAll,
 		pluginMap:       make(map[string]Plugin),
+		fiberMap:        make(map[string]*Fiber),
 		shutdownTimeout: defaultShutdownTimeout,
 	}
 
@@ -149,8 +152,14 @@ func (a *App) Use(plugins ...Plugin) *App {
 					break
 				}
 			}
+			if existingFiber, ok := a.fiberMap[name]; ok {
+				existingFiber.plugin = p
+			}
 		} else {
 			a.plugins = append(a.plugins, p)
+			f := NewFiber(a.ctx, p)
+			a.fibers = append(a.fibers, f)
+			a.fiberMap[name] = f
 		}
 		a.pluginMap[name] = p
 	}
@@ -177,6 +186,25 @@ func (a *App) Plugin(name string) (Plugin, bool) {
 	return p, ok
 }
 
+// Fibers returns a copy of all plugin Fibers.
+func (a *App) Fibers() []*Fiber {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	res := make([]*Fiber, len(a.fibers))
+	copy(res, a.fibers)
+	return res
+}
+
+// Fiber retrieves a Fiber by its unique plugin name.
+func (a *App) Fiber(name string) (*Fiber, bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	f, ok := a.fiberMap[name]
+	return f, ok
+}
+
 // SetMigrationEngine sets the migration engine for the application.
 func (a *App) SetMigrationEngine(engine MigrationEngine) *App {
 	a.mu.Lock()
@@ -190,7 +218,44 @@ func (a *App) SetMigrationRunner(runner MigrationRunner) *App {
 	return a.SetMigrationEngine(runner)
 }
 
-// ApplyPlugins applies all registered plugins on the application Context.
+// Reconcile evaluates all pending Fibers and reactively transitions them to ACTIVE
+// as their declared dependencies become satisfied.
+func (a *App) Reconcile() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.reconcileLocked()
+}
+
+func (a *App) reconcileLocked() error {
+	for {
+		progress := false
+		for _, f := range a.fibers {
+			if f.State() == FiberPending && f.DependenciesSatisfied(a.ctx) {
+				if err := f.Load(); err != nil {
+					return fmt.Errorf("core: load fiber %q failed: %w", f.Name(), err)
+				}
+				progress = true
+			}
+		}
+		if !progress {
+			break
+		}
+	}
+
+	var unsatisfied []string
+	for _, f := range a.fibers {
+		if f.State() == FiberPending {
+			unsatisfied = append(unsatisfied, fmt.Sprintf("%s (waiting for %v)", f.Name(), f.Dependencies()))
+		}
+	}
+	if len(unsatisfied) > 0 {
+		return fmt.Errorf("core: unsatisfied dependencies for plugins: %s", strings.Join(unsatisfied, ", "))
+	}
+
+	return nil
+}
+
+// ApplyPlugins applies all registered plugins on the application Context via reactive reconciliation.
 // It is idempotent and only applies plugins once per App instance.
 func (a *App) ApplyPlugins() error {
 	a.mu.Lock()
@@ -199,16 +264,9 @@ func (a *App) ApplyPlugins() error {
 		return nil
 	}
 	a.applied = true
-	plugins := make([]Plugin, len(a.plugins))
-	copy(plugins, a.plugins)
 	a.mu.Unlock()
 
-	for _, p := range plugins {
-		if err := p.Apply(a.ctx); err != nil {
-			return fmt.Errorf("core: apply plugin %q failed: %w", p.Name(), err)
-		}
-	}
-	return nil
+	return a.Reconcile()
 }
 
 // RunMigrations dispatches migration execution across all registered plugin migration entries.
@@ -363,7 +421,19 @@ func (a *App) Stop(ctx ...context.Context) error {
 		}
 	}
 
-	// 2. Dispose context
+	// 2. Unload fibers in reverse order
+	a.mu.RLock()
+	fibers := make([]*Fiber, len(a.fibers))
+	copy(fibers, a.fibers)
+	a.mu.RUnlock()
+
+	for i := len(fibers) - 1; i >= 0; i-- {
+		if err := fibers[i].Unload(); err != nil {
+			errs = append(errs, fmt.Errorf("core: unload fiber %s failed: %w", fibers[i].Name(), err))
+		}
+	}
+
+	// 3. Dispose root context
 	if a.ctx != nil && !a.ctx.IsDisposed() {
 		if err := a.ctx.Dispose(); err != nil {
 			errs = append(errs, fmt.Errorf("core: dispose context failed: %w", err))

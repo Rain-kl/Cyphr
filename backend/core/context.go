@@ -134,6 +134,15 @@ func (c *Context) Parent() *Context {
 	return c.parent
 }
 
+// Root returns the root Context in the hierarchy.
+func (c *Context) Root() *Context {
+	curr := c
+	for curr.parent != nil {
+		curr = curr.parent
+	}
+	return curr
+}
+
 // Fork creates a child Context with its own scoped IoC container and values,
 // linked to this Context for hierarchical fallback resolution and cascading teardown.
 func (c *Context) Fork() *Context {
@@ -337,15 +346,28 @@ func (c *Context) IsDisposed() bool {
 	return c.disposed
 }
 
-// RegisterDriver registers a runtime driver engine on this Context.
+// RegisterDriver registers a runtime driver engine on this Context hierarchy.
 func (c *Context) RegisterDriver(d Driver) error {
 	if d == nil {
 		return ErrNilService
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.drivers = append(c.drivers, d)
+	root := c.Root()
+	root.mu.Lock()
+	root.drivers = append(root.drivers, d)
+	root.mu.Unlock()
+
+	c.OnDispose(func() error {
+		root.mu.Lock()
+		defer root.mu.Unlock()
+		for i, drv := range root.drivers {
+			if drv == d {
+				root.drivers = append(root.drivers[:i], root.drivers[i+1:]...)
+				break
+			}
+		}
+		return nil
+	})
 	return nil
 }
 

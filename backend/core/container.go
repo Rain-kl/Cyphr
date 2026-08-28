@@ -46,10 +46,29 @@ func (c *Container) remove(targetType reflect.Type) {
 	delete(c.services, targetType)
 }
 
-// Provide registers a typed service implementation into the Context's IoC container.
+// Provide registers a typed service implementation into the Context hierarchy's root IoC container.
 func Provide[T any](ctx *Context, service T) {
 	if ctx == nil {
 		panic("core: nil context provided to Provide")
+	}
+	if isNil(service) {
+		panic("core: cannot provide nil service")
+	}
+
+	targetType := reflect.TypeFor[T]()
+	targetContainer := ctx.Root().Container()
+	targetContainer.provide(targetType, service)
+
+	ctx.OnDispose(func() error {
+		targetContainer.remove(targetType)
+		return nil
+	})
+}
+
+// ProvideScoped registers a typed service implementation strictly in the local Context container.
+func ProvideScoped[T any](ctx *Context, service T) {
+	if ctx == nil {
+		panic("core: nil context provided to ProvideScoped")
 	}
 	if isNil(service) {
 		panic("core: cannot provide nil service")

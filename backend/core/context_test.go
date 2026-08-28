@@ -238,14 +238,14 @@ func TestContextHierarchyAndFork(t *testing.T) {
 
 	// Child provides LogService
 	childLog := &logServiceImpl{}
-	core.Provide[LogService](child, childLog)
+	core.ProvideScoped[LogService](child, childLog)
 
 	// Child has LogService, parent does not
 	assert.True(t, core.Has[LogService](child))
 	assert.False(t, core.Has[LogService](parent))
 
-	// Child overrides SampleService
-	core.Provide[SampleService](child, &sampleServiceImpl{prefix: "Child:"})
+	// Child overrides SampleService locally
+	core.ProvideScoped[SampleService](child, &sampleServiceImpl{prefix: "Child:"})
 	childSvc, err := core.Inject[SampleService](child)
 	require.NoError(t, err)
 	assert.Equal(t, "Child: Ryan", childSvc.Greet("Ryan"))

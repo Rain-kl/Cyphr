@@ -6,6 +6,7 @@ package core
 import (
 	"context"
 	"errors"
+	"reflect"
 
 	"Wavelet/core/extpoints"
 )
@@ -46,6 +47,12 @@ type Plugin interface {
 	Name() string
 	// Apply is the core mounting entrypoint: provides services, registers routes, tasks, and event listeners.
 	Apply(ctx *Context) error
+}
+
+// DependentPlugin is an optional extension interface for plugins that declare required service dependencies.
+type DependentPlugin interface {
+	Plugin
+	Inject() []reflect.Type
 }
 
 // PluginWithManifest is an optional extension interface for plugins that declare metadata.
