@@ -491,12 +491,45 @@ func TestContextExtensionPointsAccessors(t *testing.T) {
 
 	child := ctx.Fork()
 	assert.Equal(t, ctx.Events(), child.Events())
-	assert.Equal(t, ctx.Router(), child.Router())
 	assert.Equal(t, ctx.Migrations(), child.Migrations())
-	assert.Equal(t, ctx.Tasks(), child.Tasks())
-	assert.Equal(t, ctx.Task(), child.Task())
-	assert.Equal(t, ctx.Schedules(), child.Schedules())
-	assert.Equal(t, ctx.Schedule(), child.Schedule())
-	assert.Equal(t, ctx.Settings(), child.Settings())
-	assert.Equal(t, ctx.Setting(), child.Setting())
+	assert.NotNil(t, child.Router())
+	assert.NotNil(t, child.Tasks())
+	assert.NotNil(t, child.Task())
+	assert.NotNil(t, child.Schedules())
+	assert.NotNil(t, child.Schedule())
+	assert.NotNil(t, child.Settings())
+	assert.NotNil(t, child.Setting())
 }
+
+func TestContext_ScopedExtpoints_RevertibleEffects(t *testing.T) {
+	root := core.NewContext(context.Background())
+	child := root.Fork()
+
+	// Register route, task, schedule, setting, event on child
+	child.Router().GET("/test-route", func() {})
+	assert.Equal(t, 1, len(root.Router().Routes()))
+
+	child.Tasks().Register("test:task", func() {})
+	assert.Equal(t, 1, len(root.Tasks().Tasks()))
+
+	child.Schedules().RegisterCron("@hourly", "test:cron", nil)
+	assert.Equal(t, 1, len(root.Schedules().Schedules()))
+
+	child.Settings().Register(core.SettingSchema{Key: "test.key", Default: "val"})
+	assert.Equal(t, 1, len(root.Settings().Schemas()))
+
+	child.On("test:event", func() {})
+	assert.Equal(t, 1, root.Events().Listeners("test:event"))
+
+	// Dispose child
+	err := child.Dispose()
+	assert.NoError(t, err)
+
+	// All child effects should be cleanly revoked in LIFO order
+	assert.Equal(t, 0, len(root.Router().Routes()))
+	assert.Equal(t, 0, len(root.Tasks().Tasks()))
+	assert.Equal(t, 0, len(root.Schedules().Schedules()))
+	assert.Equal(t, 0, len(root.Settings().Schemas()))
+	assert.Equal(t, 0, root.Events().Listeners("test:event"))
+}
+

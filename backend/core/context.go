@@ -175,9 +175,22 @@ func (c *Context) Events() *EventBus {
 	return c.events
 }
 
-// Router returns the RouterExtension registry.
+// On registers an event listener on the EventBus and automatically attaches its Disposer
+// to this Context's teardown stack for automatic revocation when disposed.
+func (c *Context) On(topic string, handler any) Disposer {
+	disposer := c.events.On(topic, handler)
+	c.OnDispose(disposer)
+	return disposer
+}
+
+// Effect registers a reversible side-effect cleanup callback on this Context.
+func (c *Context) Effect(fn any) {
+	c.OnDispose(fn)
+}
+
+// Router returns the scoped RouterExtension registry with automatic disposer tracking.
 func (c *Context) Router() extpoints.RouterExtension {
-	return c.router
+	return newScopedRouterExtension(c, c.router)
 }
 
 // Migrations returns the MigrationExtension registry.
@@ -185,34 +198,34 @@ func (c *Context) Migrations() extpoints.MigrationExtension {
 	return c.migrations
 }
 
-// Tasks returns the TaskExtension registry.
+// Tasks returns the scoped TaskExtension registry with automatic disposer tracking.
 func (c *Context) Tasks() extpoints.TaskExtension {
-	return c.tasks
+	return newScopedTaskExtension(c, c.tasks)
 }
 
 // Task is an alias for Tasks().
 func (c *Context) Task() extpoints.TaskExtension {
-	return c.tasks
+	return c.Tasks()
 }
 
-// Schedules returns the ScheduleExtension registry.
+// Schedules returns the scoped ScheduleExtension registry with automatic disposer tracking.
 func (c *Context) Schedules() extpoints.ScheduleExtension {
-	return c.schedules
+	return newScopedScheduleExtension(c, c.schedules)
 }
 
 // Schedule is an alias for Schedules().
 func (c *Context) Schedule() extpoints.ScheduleExtension {
-	return c.schedules
+	return c.Schedules()
 }
 
-// Settings returns the SettingExtension registry.
+// Settings returns the scoped SettingExtension registry with automatic disposer tracking.
 func (c *Context) Settings() extpoints.SettingExtension {
-	return c.settings
+	return newScopedSettingExtension(c, c.settings)
 }
 
 // Setting is an alias for Settings().
 func (c *Context) Setting() extpoints.SettingExtension {
-	return c.settings
+	return c.Settings()
 }
 
 // DB returns the contracts.DBService registered in the IoC container, or nil if not registered.
