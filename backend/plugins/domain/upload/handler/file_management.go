@@ -11,6 +11,7 @@ import (
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/repository"
 	"Wavelet/plugins/domain/upload/shared"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -233,7 +234,7 @@ func DeleteMyFile(c *gin.Context) {
 			response.AbortNotFound(c, shared.ErrFileRecordNotFound)
 			return
 		}
-		if err == ingest.ErrForbidden {
+		if errors.Is(err, ingest.ErrForbidden) {
 			response.AbortForbidden(c, shared.ErrOperationForbidden)
 			return
 		}
@@ -287,7 +288,7 @@ func UpdateMyFile(c *gin.Context) {
 			response.AbortNotFound(c, shared.ErrFileRecordNotFound)
 			return
 		}
-		if err == ingest.ErrForbidden {
+		if errors.Is(err, ingest.ErrForbidden) {
 			response.AbortForbidden(c, shared.ErrOperationForbidden)
 			return
 		}

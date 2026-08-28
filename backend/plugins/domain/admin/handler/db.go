@@ -10,6 +10,7 @@ import (
 	"Wavelet/plugins/domain/admin/errs"
 	"Wavelet/plugins/domain/admin/model"
 	"Wavelet/plugins/domain/admin/service"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -109,7 +110,7 @@ func ExecuteSQL(c *gin.Context) {
 
 	resp, err := service.ExecuteCustomSQL(c.Request.Context(), trimmedSQL)
 	if err != nil {
-		if err == errs.ErrDatabaseUninitialized {
+		if errors.Is(err, errs.ErrDatabaseUninitialized) {
 			response.AbortInternal(c, err.Error())
 			return
 		}
