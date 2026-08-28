@@ -13,8 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -128,11 +126,14 @@ func (m *MockStorageService) Put(_ context.Context, key string, body io.Reader, 
 		return contracts.StoragePutResult{}, err
 	}
 	m.objects[key] = data
-	if strings.HasPrefix(key, "uploads/") {
-		_ = os.MkdirAll(filepath.Dir(key), 0o755)
-		_ = os.WriteFile(key, data, 0o644)
-	}
 	return contracts.StoragePutResult{Key: key, Bucket: "test-bucket"}, nil
+}
+
+// PutRaw seeds an object directly into the in-memory store (test helper, no I/O).
+func (m *MockStorageService) PutRaw(key string, data []byte) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.objects[key] = data
 }
 
 // Get retrieves an object from mock storage.
@@ -145,15 +146,6 @@ func (m *MockStorageService) Get(_ context.Context, key string) (*contracts.Stor
 			Key:           key,
 			Body:          io.NopCloser(bytes.NewReader(data)),
 			ContentLength: int64(len(data)),
-			ContentType:   "application/octet-stream",
-		}, nil
-	}
-	if f, err := os.Open(key); err == nil {
-		info, _ := f.Stat()
-		return &contracts.StorageObject{
-			Key:           key,
-			Body:          f,
-			ContentLength: info.Size(),
 			ContentType:   "application/octet-stream",
 		}, nil
 	}

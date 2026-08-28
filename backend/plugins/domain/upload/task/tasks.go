@@ -19,8 +19,8 @@ import (
 
 // 上传域任务的通用元数据常量（TaskMetaDTO Category/Queue 复用）
 const (
-	taskCategoryUpload    = "upload"
-	taskQueueDefault      = "default"
+	taskCategoryUpload = "upload"
+	taskQueueDefault   = "default"
 )
 
 const (

@@ -7,38 +7,35 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/domain/upload/storage"
+
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
 
 func TestMigrationHandlerExecute(t *testing.T) {
 	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	sourceRoot := t.TempDir()
-	sourcePath := filepath.Join(sourceRoot, "uploads", "test.txt")
-	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q) returned error: %v", sourcePath, err)
-	}
-	const content = "storage migration"
-	if err := os.WriteFile(sourcePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q) returned error: %v", sourcePath, err)
+	ctx := context.Background()
+	storageSvc, ok := shared.GetStorage(ctx).(*shared.MockStorageService)
+	if !ok {
+		t.Fatalf("shared.GetStorage(%T) returned %T, want *shared.MockStorageService", ctx, storageSvc)
 	}
 
-	ctx := context.Background()
+	const sourcePath = "uploads/test.txt"
+	const content = "storage migration"
+	storageSvc.PutRaw(sourcePath, []byte(content))
+
 	active := contracts.StorageConfigDTO{
 		Driver: contracts.StorageDriverLocal,
-		Local:  contracts.LocalStorageConfigDTO{Root: sourceRoot},
+		Local:  contracts.LocalStorageConfigDTO{Root: "unit"},
 	}
-	if err := uploadstorage.SaveActiveConfig(ctx, active); err != nil {
+	if err := storage.SaveActiveConfig(ctx, active); err != nil {
 		t.Fatalf("SaveActiveConfig() returned error: %v", err)
 	}
 	target := contracts.StorageConfigDTO{
@@ -85,7 +82,7 @@ func TestMigrationHandlerExecute(t *testing.T) {
 	if err := dbConn.First(&migrated, upload.ID).Error; err != nil {
 		t.Fatalf("First(upload) returned error: %v", err)
 	}
-	current, err := uploadstorage.LoadStorageConfig(ctx)
+	current, err := storage.LoadStorageConfig(ctx)
 	if err != nil {
 		t.Fatalf("LoadStorageConfig() returned error: %v", err)
 	}
@@ -98,30 +95,28 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	sourceRoot := t.TempDir()
-	sourcePath := filepath.Join(sourceRoot, "uploads", "test-hash.txt")
-	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
-		t.Fatalf("MkdirAll(%q) returned error: %v", sourcePath, err)
+	ctx := context.Background()
+	storageSvc, ok := shared.GetStorage(ctx).(*shared.MockStorageService)
+	if !ok {
+		t.Fatalf("shared.GetStorage(%T) returned %T, want *shared.MockStorageService", ctx, storageSvc)
 	}
+
+	const sourcePath = "uploads/test-hash.txt"
 	const content = "storage migration integrity check content"
-	if err := os.WriteFile(sourcePath, []byte(content), 0o644); err != nil {
-		t.Fatalf("WriteFile(%q) returned error: %v", sourcePath, err)
-	}
+	storageSvc.PutRaw(sourcePath, []byte(content))
 
 	// Calculate correct SHA-256 hash
 	h := sha256.New()
 	h.Write([]byte(content))
 	correctHash := hex.EncodeToString(h.Sum(nil))
 
-	ctx := context.Background()
 	active := contracts.StorageConfigDTO{
 		Driver: contracts.StorageDriverLocal,
-		Local:  contracts.LocalStorageConfigDTO{Root: sourceRoot},
+		Local:  contracts.LocalStorageConfigDTO{Root: "unit"},
 	}
-	if err := uploadstorage.SaveActiveConfig(ctx, active); err != nil {
+	if err := storage.SaveActiveConfig(ctx, active); err != nil {
 		t.Fatalf("SaveActiveConfig() returned error: %v", err)
 	}
-
 	target := contracts.StorageConfigDTO{
 		Driver: contracts.StorageDriverS3,
 		S3: contracts.ObjectStorageConfigDTO{
@@ -200,7 +195,7 @@ func TestMigrationHandlerExecuteWithLock(t *testing.T) {
 	active := contracts.StorageConfigDTO{
 		Driver: contracts.StorageDriverLocal,
 	}
-	if err := uploadstorage.SaveActiveConfig(ctx, active); err != nil {
+	if err := storage.SaveActiveConfig(ctx, active); err != nil {
 		t.Fatalf("SaveActiveConfig() returned error: %v", err)
 	}
 

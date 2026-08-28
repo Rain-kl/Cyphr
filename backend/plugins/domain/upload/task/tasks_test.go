@@ -7,14 +7,13 @@ import (
 	"Wavelet/plugins/domain/upload/filesrv"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
+
 	"bytes"
 	"context"
 	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -160,11 +159,19 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	testDir := t.TempDir()
-	firstPath := filepath.Join(testDir, "first.png")
-	secondPath := filepath.Join(testDir, "second.jpg")
-	writeTaskTestPNG(t, firstPath, color.RGBA{R: 255, A: 255})
-	writeTaskTestPNG(t, secondPath, color.RGBA{G: 255, A: 255})
+	ctx := context.Background()
+
+	firstPath := "uploads/first.png"
+	secondPath := "uploads/second.jpg"
+	firstData := writeTaskTestPNG(t, color.RGBA{R: 255, A: 255})
+	secondData := writeTaskTestPNG(t, color.RGBA{G: 255, A: 255})
+
+	storageSvc, ok := shared.GetStorage(ctx).(*shared.MockStorageService)
+	if !ok {
+		t.Fatalf("shared.GetStorage(%T) returned %T, want *shared.MockStorageService", ctx, storageSvc)
+	}
+	storageSvc.PutRaw(firstPath, firstData)
+	storageSvc.PutRaw(secondPath, secondData)
 
 	records := []models.Upload{
 		{
@@ -172,8 +179,11 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			UserID:    1001,
 			FileName:  "first.png",
 			FilePath:  firstPath,
+			FileSize:  int64(len(firstData)),
 			MimeType:  "image/png",
 			Extension: "png",
+			Hash:      "hash1",
+			Type:      "attachment",
 			Status:    models.UploadStatusUsed,
 		},
 		{
@@ -181,17 +191,23 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			UserID:    1001,
 			FileName:  "second.jpg",
 			FilePath:  secondPath,
+			FileSize:  int64(len(secondData)),
 			MimeType:  "application/octet-stream",
 			Extension: "jpg",
+			Hash:      "hash2",
+			Type:      "attachment",
 			Status:    models.UploadStatusPending,
 		},
 		{
 			ID:        4103,
 			UserID:    1001,
 			FileName:  "notes.txt",
-			FilePath:  filepath.Join(testDir, "notes.txt"),
+			FilePath:  "uploads/notes.txt",
+			FileSize:  123,
 			MimeType:  "text/plain",
 			Extension: "txt",
+			Hash:      "hash3",
+			Type:      "attachment",
 			Status:    models.UploadStatusUsed,
 		},
 		{
@@ -199,15 +215,16 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			UserID:    1001,
 			FileName:  "deleted.png",
 			FilePath:  firstPath,
+			FileSize:  int64(len(firstData)),
 			MimeType:  "image/png",
 			Extension: "png",
+			Hash:      "hash4",
+			Type:      "attachment",
 			Status:    models.UploadStatusDeleted,
 		},
 	}
+
 	for i := range records {
-		if info, err := os.Stat(records[i].FilePath); err == nil {
-			records[i].FileSize = info.Size()
-		}
 		if err := dbConn.Create(&records[i]).Error; err != nil {
 			t.Fatalf("failed to create upload %d: %v", records[i].ID, err)
 		}
@@ -216,7 +233,7 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 	handler := &WarmImageCacheHandler{}
 	payload := []byte(`{"quality":"low"}`)
 
-	result, err := handler.Execute(context.Background(), payload)
+	result, err := handler.Execute(ctx, payload)
 	if err != nil {
 		t.Fatalf("Execute(%s) returned error: %v", payload, err)
 	}
@@ -242,16 +259,17 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 		}
 	}
 
-	secondResult, err := handler.Execute(context.Background(), payload)
+	secondResult, err := handler.Execute(ctx, payload)
 	if err != nil {
 		t.Fatalf("second Execute(%s) returned error: %v", payload, err)
 	}
 	if secondResult.Message != "图片缓存预热完成，共处理 2 张，生成 0 张，命中 2 张，失败 0 张" {
 		t.Errorf("second Execute() message = %q, want cache-hit summary", secondResult.Message)
 	}
+
 }
 
-func writeTaskTestPNG(t *testing.T, path string, fill color.RGBA) {
+func writeTaskTestPNG(t *testing.T, fill color.RGBA) []byte {
 	t.Helper()
 
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
@@ -265,7 +283,6 @@ func writeTaskTestPNG(t *testing.T, path string, fill color.RGBA) {
 	if err := png.Encode(&buf, img); err != nil {
 		t.Fatalf("png.Encode() returned error: %v", err)
 	}
-	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
-		t.Fatalf("os.WriteFile(%q) returned error: %v", path, err)
-	}
+
+	return buf.Bytes()
 }

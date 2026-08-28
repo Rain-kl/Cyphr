@@ -26,6 +26,8 @@ import (
 
 var db *gorm.DB
 
+const sqliteDirMode = 0o750
+
 // InitDB 初始化主数据库实例（支持 PostgreSQL / SQLite）
 func InitDB() (*gorm.DB, error) {
 	if !config.Config.Database.Enabled {
@@ -43,7 +45,7 @@ func initSQLite() (*gorm.DB, error) {
 
 	if sqlitePath != ":memory:" && !strings.HasPrefix(sqlitePath, "file:") {
 		if dir := filepath.Dir(sqlitePath); dir != "" && dir != "." {
-			if err := os.MkdirAll(dir, 0o755); err != nil {
+			if err := os.MkdirAll(dir, sqliteDirMode); err != nil {
 				return nil, fmt.Errorf("create sqlite directory %q failed: %w", dir, err)
 			}
 		}

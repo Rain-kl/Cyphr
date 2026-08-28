@@ -349,7 +349,6 @@ func TestUploadFile(t *testing.T) {
 func TestDownloadFile(t *testing.T) {
 	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
-	defer func() { _ = os.RemoveAll("uploads") }()
 
 	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
@@ -366,15 +365,10 @@ func TestDownloadFile(t *testing.T) {
 		Status:    models.UploadStatusUsed,
 	}
 
-	// Create local file
-	err := os.MkdirAll("uploads", 0o755)
-	if err != nil {
-		t.Fatalf("failed to create directory: %v", err)
-	}
-	err = os.WriteFile(localUpload.FilePath, []byte("hello download"), 0o644)
-	if err != nil {
-		t.Fatalf("failed to write file: %v", err)
-	}
+	// Seed file content into the in-memory mock storage service.
+	storageSvc := shared.NewMockStorageService()
+	storageSvc.PutRaw(localUpload.FilePath, []byte("hello download"))
+	shared.SetStorageService(storageSvc)
 
 	dbConn.Create(&localUpload)
 
@@ -557,20 +551,15 @@ func TestListFiles(t *testing.T) {
 func TestBatchDownloadFiles(t *testing.T) {
 	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
-	defer func() { _ = os.RemoveAll("uploads") }()
 
 	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
-	// Create and write files locally
-	err := os.MkdirAll("uploads", 0o755)
-	if err != nil {
-		t.Fatalf("failed to create local dir: %v", err)
-	}
-
-	_ = os.WriteFile("uploads/f1.txt", []byte("file1 content"), 0o644)
-	_ = os.WriteFile("uploads/f2.txt", []byte("file2 content"), 0o644)
-	_ = os.WriteFile("uploads/f3.txt", []byte("duplicate name file content"), 0o644)
+	storageSvc := shared.NewMockStorageService()
+	storageSvc.PutRaw("uploads/f1.txt", []byte("file1 content"))
+	storageSvc.PutRaw("uploads/f2.txt", []byte("file2 content"))
+	storageSvc.PutRaw("uploads/f3.txt", []byte("duplicate name file content"))
+	shared.SetStorageService(storageSvc)
 
 	// Seed upload records. Note f2 and f3 have the same FileName "file_a.txt" to trigger name collision resolution.
 	uploads := []models.Upload{
