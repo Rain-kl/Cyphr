@@ -8,6 +8,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"net/http"
 	"reflect"
@@ -57,13 +58,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 2. Public config
 	ctx.Router().GET("/api/v1/config/public", func(c *gin.Context) {
-		type configItem struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
-		}
-		var configs []configItem
-		if dbSvc, err := core.Inject[contracts.DBService](ctx); err == nil && dbSvc != nil {
-			_ = dbSvc.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
+		configs, err := listPublicSystemConfigs(c.Request.Context(), ctx)
+		if err != nil {
+			logger.ErrorF(c.Request.Context(), "[System] query public system configs failed: %v", err)
 		}
 		c.JSON(http.StatusOK, response.OK(gin.H{
 			"configs": configs,

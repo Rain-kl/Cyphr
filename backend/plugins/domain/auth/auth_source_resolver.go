@@ -16,8 +16,8 @@ import (
 )
 
 func isOIDCLoginEnabled(ctx context.Context) bool {
-	var val string
-	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "oidc_login_enabled").Pluck("value", &val).Error; err != nil || val == "" {
+	val, err := GetSystemConfigValue(ctx, "oidc_login_enabled")
+	if err != nil || val == "" {
 		return true
 	}
 	b, err := strconv.ParseBool(val)
@@ -75,8 +75,8 @@ func activeLoginSources(ctx context.Context) []AuthSourceView {
 }
 
 func getFrontendLoginRedirectURL(ctx context.Context) (string, error) {
-	var val string
-	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || strings.TrimSpace(val) == "" {
+	val, err := GetSystemConfigValue(ctx, "server_address")
+	if err != nil || strings.TrimSpace(val) == "" {
 		return "", errors.New(errServerAddressMissing)
 	}
 	return strings.TrimRight(val, "/") + "/login", nil

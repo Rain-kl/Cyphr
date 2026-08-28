@@ -6,24 +6,10 @@ package cap
 import (
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
-	"Wavelet/plugins/domain/cap/pow"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
-
-// ChallengeResponse is a local type alias for the pow.ChallengeResponse struct
-type ChallengeResponse = pow.ChallengeResponse
-
-type challengeRequest struct {
-	Scope string `json:"scope" form:"scope"`
-}
-
-type redeemRequest struct {
-	Token     string `json:"token" binding:"required"`
-	Solutions []int  `json:"solutions" binding:"required"`
-	Scope     string `json:"scope" form:"scope"`
-}
 
 // Challenge 生成 PoW 人机验证难题
 // @Summary 生成人机验证难题
@@ -45,13 +31,13 @@ func Challenge(c *gin.Context) {
 
 	mgr := GetDefaultManager()
 	if mgr == nil {
-		response.AbortInternal(c, "captcha is not configured")
+		response.AbortInternal(c, errCapNotConfigured)
 		return
 	}
 	resp, err := mgr.Generate(c.Request.Context(), req.Scope)
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "Generate cap challenge failed: %v", err)
-		response.AbortInternal(c, "生成验证难题失败，请稍后再试")
+		response.AbortInternal(c, errChallengeGenerateFailed)
 		return
 	}
 
@@ -72,7 +58,7 @@ func Challenge(c *gin.Context) {
 func Redeem(c *gin.Context) {
 	var req redeemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, "无效的参数")
+		response.AbortBadRequest(c, errInvalidRequestParams)
 		return
 	}
 
@@ -82,13 +68,13 @@ func Redeem(c *gin.Context) {
 
 	mgr := GetDefaultManager()
 	if mgr == nil {
-		response.AbortInternal(c, "captcha is not configured")
+		response.AbortInternal(c, errCapNotConfigured)
 		return
 	}
 	resp, err := mgr.Redeem(c.Request.Context(), req.Token, req.Solutions, req.Scope)
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "Redeem cap solutions failed: %v", err)
-		response.AbortInternal(c, "校验验证解答失败，请稍后再试")
+		response.AbortInternal(c, errSolutionVerifyFailed)
 		return
 	}
 

@@ -25,11 +25,11 @@ import (
 	pkgcache "Wavelet/pkg/cache/disk"
 	"Wavelet/pkg/ginutil"
 
+	"Wavelet/plugins/domain/upload/repository"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/singleflight"
-	"gorm.io/gorm"
 )
 
 var (
@@ -76,15 +76,15 @@ const (
 func ServeFileByID(c *gin.Context) {
 	upload, err := GetUploadRecordByID(c)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "文件记录未找到")
+		if repository.IsRecordNotFound(err) {
+			response.AbortNotFound(c, shared.ErrFileRecordNotFound)
 			return
 		}
 		if _, ok := err.(*strconv.NumError); ok {
-			response.AbortBadRequest(c, "无效的上传ID")
+			response.AbortBadRequest(c, shared.ErrInvalidUploadID)
 			return
 		}
-		response.AbortInternal(c, "服务器内部错误")
+		response.AbortInternal(c, shared.ErrInternalServerError)
 		return
 	}
 
@@ -277,7 +277,7 @@ func ImageCompressionCacheKey(upload *models.Upload, quality string) string {
 func serveOriginal(c *gin.Context, upload *models.Upload) {
 	obj, err := uploadstorage.OpenStoredObject(c.Request.Context(), upload)
 	if err != nil {
-		response.AbortNotFound(c, "文件未找到")
+		response.AbortNotFound(c, shared.ErrFileNotFound)
 		return
 	}
 	defer func() { _ = obj.Body.Close() }()

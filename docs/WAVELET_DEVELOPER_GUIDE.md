@@ -610,8 +610,8 @@ Wavelet/
 3. **`plugins/`**：
    - **职责**：所有业务逻辑和驱动实现的归宿。遵循标准分层架构（Layered Architecture / MVC 变体）。
    - **分层模式选型**：
-     - **模式 1（扁平自包含分层，简单业务推荐）**：单 package 内部通过文件划分职责（`plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。适用于代码量 < 3000 行、单聚合根的插件。
-     - **模式 2（严格子包物理分层，复杂业务推荐）**：多 package 目录级物理隔离（`plugin.go`, `controller/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`）。编译器级约束 `controller -> service -> repository -> model` 单向依赖。适用于代码量 ≥ 3000 行、多聚合根的大型复杂插件。
+     - **模式 1（极简单文件分层，极简微型插件专用）**：单 package 内部仅各保留 1 个对应文件（`plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。仅适用于单一实体、极小代码量 (<500行) 的微型插件。
+     - **模式 2（标准独立子包分层架构，官方推荐标准）**：按职责严格物理分包（`plugin.go`, `handler/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`）。**子包内文件以纯业务实体命名（如 `user.go`、`config.go`），严禁在根包平铺 `handlers_*`、`service_*`、`repository_*` 等前缀文件**。编译器级强约束 `handler -> service -> repository -> model` 单向依赖。
    - **严禁**：插件之间严禁跨包 import 内部私有代码，跨插件调用一律走 `contracts` 接口或 `EventBus`。
 
 ---
@@ -657,35 +657,38 @@ Wavelet/
                                 │
         ┌───────────────────────┴───────────────────────┐
         ▼                                               ▼
-【模式 1：扁平自包含分层】                       【模式 2：严格子包分层】
-适合：简单/单一聚合/轻量插件 (<3000行)          适合：复杂业务/多聚合/高协同插件 (≥3000行)
-结构：单 Package，文件级职责划分                结构：多 Package，目录物理隔离与单向依赖
+【模式 1：极简单文件分层】                       【模式 2：标准独立子包分层】
+适合：极简微型/Demo插件 (<500行)               适合：标准/中大型业务插件 (推荐标准)
+结构：单 Package，每层仅对应 1 个同名文件       结构：严格分包 handler/, service/, repository/, model/
+禁令：严禁根目录平铺 handlers_* 等前缀文件       规范：子包内以业务实体命名 (如 user.go, order.go)
 ```
 
-| 维度 | 模式 1：扁平自包含分层 (Flat Self-Contained) | 模式 2：严格子包物理分层 (Strict Sub-packages) |
+| 维度 | 模式 1：极简单文件分层 (Single-File Flat) | 模式 2：标准独立子包分层 (Standard Sub-packages) |
 | :--- | :--- | :--- |
-| **适用场景** | 简单业务、单一聚合根、中小型插件（推荐默认） | 复杂业务、多聚合根、状态流转复杂的大型插件 |
-| **代码量规模** | 通常 < 3000 行（如 `upload`, `cap`, `system`） | 通常 ≥ 3000 行（如大型 `auth`, `order/billing`, `admin`） |
-| **Go 包形态** | 单一 Go Package，按文件名语义拆分各层 | 多个 Go Package 物理子目录隔离，编译级约束依赖 |
-| **核心优势** | 彻底杜绝 Go 循环导入；开发摩擦极小；直观扁平 | 强约束调用方向（Controller → Service → Repo → Model） |
+| **适用场景** | 极简微型插件、单一实体（仅用于小型工具/示例） | 标准业务插件、包含多实体/多接口（**官方推荐标准**） |
+| **代码量规模** | 通常 < 500 行 | 通常 ≥ 500 行（如 `upload`, `auth`, `admin`, `order`） |
+| **Go 包形态** | 单一 Go Package，各层级仅各 1 个同名文件 | 按职责严格物理子目录分包，编译级强约束单向依赖 |
+| **命名禁令** | **严禁在根目录平铺 `handlers_*`、`service_*` 文件** | **子包内文件直接以业务命名（如 `user.go`），禁止带 `handler_*` 前缀** |
 
 ---
 
-## 2. 模式 1：扁平自包含分层规范与完整代码模板
+## 2. 模式 1：极简单文件分层规范与完整代码模板
 
 ### 2.1 目录结构
 ```text
-backend/plugins/domain/order/
-├── plugin.go           # [Cordis 接入层] 实现 core.Plugin，负责 Apply 组装、依赖注入与扩展点注册
-├── handlers.go         # [Controller 层] HTTP 控制器：参数校验、上下文提取、信封响应 (response.OK/Abort)
-├── service.go          # [Service 层] 核心业务用例、事务编排、事件触发 (ctx.Events().Emit)，仅接收 context.Context
-├── repository.go       # [Repository 层] 数据持久化层：GORM / DB 操作、SQL 防注入与 EscapeLike 转义
-├── models.go           # [Model 层] GORM 表映射实体 (带插件前缀)、入参/出参 DTO、请求响应结构体
-├── errs.go             # [Error 层] 模块内专用错误常量 (camelCase 字符串)
+backend/plugins/domain/<plugin_name>/
+├── plugin.go           # [Cordis 接入层] 实现 core.Plugin，负责 Apply 组装与扩展点注册
+├── handlers.go         # [Handler 层] 单一文件：Gin API Handler
+├── service.go          # [Service 层] 单一文件：核心业务用例
+├── repository.go       # [Repository 层] 单一文件：GORM / DB 操作
+├── models.go           # [Model 层] 单一文件：实体与 DTO
+├── errs.go             # [Error 层] 单一文件：错误常量
 ├── plugin_test.go      # 插件级单元与集成测试
-└── migrations/         # [Migration 层] 专属 Goose SQL 嵌入文件 (//go:embed)
-    └── 20260828000001_init_order.sql
+└── migrations/         # Goose SQL 嵌入文件 (//go:embed)
+    └── 20260828000001_init_<plugin_name>.sql
 ```
+
+> ⚠️ **严禁规则**：当单一文件膨胀或需要拆分多个业务实体时，**严禁在根目录创建 `handlers_user.go`, `handlers_admin.go`, `service_user.go` 等前缀文件**，必须立即重构并迁移为 **模式 2（标准独立子包分层架构）**！
 
 ### 2.2 核心代码模板 (模式 1)
 
@@ -928,29 +931,36 @@ const (
 
 ---
 
-## 3. 模式 2：严格子包物理分层规范与完整代码模板
+## 3. 模式 2：标准独立子包物理分层规范与完整代码模板 (推荐标准)
 
-用于大型复杂插件，各层使用独立的 Go package 物理隔离。
+用于标准与中大型业务插件，各层使用独立的 Go package 物理隔离。
 
-### 3.1 目录结构
+### 3.1 目录结构与文件命名规约
 ```text
 backend/plugins/domain/order/
 ├── plugin.go              # [插件根入口] 实现 core.Plugin，装配各子包并向 Cordis 注册
-├── controller/            # package controller：HTTP API Handler
-│   ├── http.go            # 参数校验、上下文提取、调用 service、信封响应与 Swagger 注解
-│   └── router.go          # 路由组挂载
-├── service/               # package service：核心业务逻辑
+│
+├── handler/               # package handler：HTTP API 接入层（或 controller/）
+│   ├── router.go          # 路由组挂载与中间件绑定
+│   └── order.go           # 订单相关 Handler（以业务直接命名，禁止 handlers_order.go）
+│
+├── service/               # package service：核心业务逻辑层
 │   ├── service.go         # 业务用例接口定义 (Service Interface)
-│   └── service_impl.go    # 业务接口实现 (ServiceImpl)
+│   └── order.go           # 订单业务用例实现（以业务直接命名，禁止 service_order.go）
+│
 ├── repository/            # package repository：数据访问持久化层 (DAL)
-│   ├── repository.go      # 仓储接口定义 (Repository Interface)
-│   └── repository_impl.go # GORM 数据持久化实现与安全转义
-├── model/                 # package model：纯领域实体与传输对象（零外部框架依赖）
+│   ├── repository.go      # 仓储通用方法与工厂
+│   └── order.go           # 订单仓储持久化实现（以业务直接命名，禁止 repository_order.go）
+│
+├── model/                 # package model (或 models/)：纯领域实体与传输对象（零外部框架依赖）
 │   ├── entity.go          # 数据库映射实体 (TableName() 必须带 w_<plugin>_ 前缀)
-│   └── dto.go             # 请求与响应 DTO
-├── errs/                  # package errs：错误常量与错误码定义
+│   ├── dto.go             # 请求与响应 DTO
+│   └── events.go          # 领域事件结构体
+│
+├── errs/                  # package errs：错误常量与错误码定义 (或根目录 errs.go)
 │   └── errs.go
-└── migrations/            # Goose SQL 独立迁移嵌入文件
+│
+└── migrations/            # Goose SQL 独立迁移嵌入文件 (//go:embed)
     └── 20260828000001_init_order.sql
 ```
 
@@ -963,7 +973,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/plugins/domain/order/controller"
+	"github.com/Rain-kl/Wavelet/plugins/domain/order/handler"
 	"github.com/Rain-kl/Wavelet/plugins/domain/order/repository"
 	"github.com/Rain-kl/Wavelet/plugins/domain/order/service"
 )
@@ -985,10 +995,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	repo := repository.NewOrderRepository(ctx)
 	svc := service.NewOrderService(ctx, repo)
 
-	// 3. 构造控制器并挂载路由
-	ctrl := controller.NewOrderController(svc)
+	// 3. 构造 Handler 并挂载路由
+	h := handler.NewOrderHandler(svc)
 	authSvc, _ := core.Inject[contracts.AuthService](ctx)
-	controller.RegisterRoutes(ctx.Router(), ctrl, authSvc)
+	handler.RegisterRoutes(ctx.Router(), h, authSvc)
 
 	return nil
 }

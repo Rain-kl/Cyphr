@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
-
 	pkgu "Wavelet/pkg/util"
 )
 
@@ -73,16 +71,16 @@ func (s *userServiceImpl) GetUserByUsername(ctx context.Context, username string
 }
 
 func (s *userServiceImpl) GetUserByEmail(ctx context.Context, email string) (*contracts.UserDTO, error) {
-	var u User
-	if err := getDB(ctx).Where("email = ?", email).First(&u).Error; err != nil {
+	u, err := GetUserByEmail(ctx, email)
+	if err != nil {
 		return nil, err
 	}
-	return toUserDTO(&u), nil
+	return toUserDTO(u), nil
 }
 
 func (s *userServiceImpl) CreateUser(ctx context.Context, req contracts.CreateUserRequest) (*contracts.UserDTO, error) {
 	if req.Username == "" {
-		return nil, errors.New("user: username cannot be empty")
+		return nil, errors.New(errServiceUsernameEmpty)
 	}
 
 	user := User{
@@ -142,7 +140,7 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, id uint64, req cont
 	}
 	updates[columnUpdatedAt] = time.Now()
 
-	if err := getDB(ctx).Model(&User{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+	if err := updateUserColumns(ctx, id, updates); err != nil {
 		return nil, err
 	}
 
@@ -150,29 +148,28 @@ func (s *userServiceImpl) UpdateProfile(ctx context.Context, id uint64, req cont
 }
 
 func (s *userServiceImpl) UpdatePassword(ctx context.Context, id uint64, oldPassword, newPassword string) error {
-	var user User
-	if err := getDB(ctx).Where("id = ?", id).First(&user).Error; err != nil {
+	user, err := GetUserByID(ctx, id)
+	if err != nil {
 		return err
 	}
 
 	if !user.CheckPassword(oldPassword) {
-		return errors.New("user: incorrect old password")
+		return errors.New(errServiceOldPasswordIncorrect)
 	}
 
 	if err := user.SetEncryptedPassword(newPassword); err != nil {
 		return err
 	}
 
-	return getDB(ctx).Model(&User{}).Where("id = ?", id).
-		Updates(map[string]any{
-			"password":      user.Password,
-			columnUpdatedAt: time.Now(),
-		}).Error
+	return updateUserColumns(ctx, id, map[string]any{
+		"password":      user.Password,
+		columnUpdatedAt: time.Now(),
+	})
 }
 
 func (s *userServiceImpl) VerifyPassword(ctx context.Context, id uint64, password string) bool {
-	var user User
-	if err := getDB(ctx).Where("id = ?", id).First(&user).Error; err != nil {
+	user, err := GetUserByID(ctx, id)
+	if err != nil {
 		pkgu.DummyCheckPassword(password)
 		return false
 	}
@@ -180,11 +177,10 @@ func (s *userServiceImpl) VerifyPassword(ctx context.Context, id uint64, passwor
 }
 
 func (s *userServiceImpl) UpdateLastLogin(ctx context.Context, id uint64, _ string) error {
-	return getDB(ctx).Model(&User{}).Where("id = ?", id).
-		Updates(map[string]any{
-			"last_login_at": time.Now(),
-			columnUpdatedAt: time.Now(),
-		}).Error
+	return updateUserColumns(ctx, id, map[string]any{
+		"last_login_at": time.Now(),
+		columnUpdatedAt: time.Now(),
+	})
 }
 
 func (s *userServiceImpl) ListUsers(ctx context.Context, page, pageSize int, keyword string) ([]*contracts.UserDTO, int64, error) {
@@ -219,7 +215,7 @@ func (s *userServiceImpl) SetUserActive(ctx context.Context, id uint64, active b
 }
 
 func (s *userServiceImpl) SetUserAdmin(ctx context.Context, id uint64, admin bool) error {
-	return getDB(ctx).Model(&User{}).Where("id = ?", id).Update("is_admin", admin).Error
+	return setUserAdminFlag(ctx, id, admin)
 }
 
 func (s *userServiceImpl) VerifyAccessToken(ctx context.Context, tokenHash string) (*contracts.UserDTO, bool, error) {
@@ -241,15 +237,11 @@ func (s *userServiceImpl) DeleteUser(ctx context.Context, id uint64) error {
 }
 
 func (s *userServiceImpl) CountUsers(ctx context.Context) (int64, error) {
-	var count int64
-	err := getDB(ctx).Model(&User{}).Count(&count).Error
-	return count, err
+	return countAllUsers(ctx)
 }
 
 func (s *userServiceImpl) CountActiveUsers(ctx context.Context) (int64, error) {
-	var count int64
-	err := getDB(ctx).Model(&User{}).Where("is_active = ?", true).Count(&count).Error
-	return count, err
+	return countActiveUsers(ctx)
 }
 
 func (s *userServiceImpl) GetFirstAdminUser(ctx context.Context) (*contracts.UserDTO, error) {
@@ -287,55 +279,21 @@ func (s *userServiceImpl) UniqueUsername(ctx context.Context, base string) (stri
 		}
 	}
 
-	return "", errors.New("failed to generate unique username")
+	return "", errors.New(errUniqueUsernameFailed)
 }
 
 func (s *userServiceImpl) AdminListUsers(ctx context.Context, filter contracts.AdminListUsersFilter) (int64, []*contracts.UserDTO, error) {
-	query := getDB(ctx).Table("w_users")
-	if filter.UserID != nil {
-		query = query.Where("id = ?", *filter.UserID)
-	}
-	if filter.Username != "" {
-		query = query.Where("username LIKE ? ESCAPE '\\'", pkgu.EscapeLike(filter.Username)+"%")
-	}
-	if filter.Email != "" {
-		query = query.Where("email LIKE ? ESCAPE '\\'", pkgu.EscapeLike(filter.Email)+"%")
-	}
-
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return 0, nil, err
-	}
-
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
 	if filter.PageSize <= 0 {
 		filter.PageSize = 20
 	}
-
-	var users []*contracts.UserDTO
-	offset := (filter.Page - 1) * filter.PageSize
-	if err := query.
-		Select("id, username, nickname, email, avatar_url, is_active, is_admin, bio, phone, gender, website, location, last_login_at, created_at, updated_at").
-		Order("id ASC").
-		Offset(offset).
-		Limit(filter.PageSize).
-		Find(&users).Error; err != nil {
-		return 0, nil, err
-	}
-	return total, users, nil
+	return adminListUserRows(ctx, filter)
 }
 
 func (s *userServiceImpl) AdminGetUser(ctx context.Context, id uint64) (*contracts.UserDTO, error) {
-	var user contracts.UserDTO
-	if err := getDB(ctx).Table("w_users").
-		Select("id, username, nickname, email, avatar_url, is_active, is_admin, bio, phone, gender, website, location, last_login_at, created_at, updated_at").
-		Where("id = ?", id).
-		First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
+	return adminGetUserRow(ctx, id)
 }
 
 func (s *userServiceImpl) AdminCreateUser(ctx context.Context, req contracts.AdminCreateUserRequest) (*contracts.UserDTO, error) {
@@ -345,30 +303,30 @@ func (s *userServiceImpl) AdminCreateUser(ctx context.Context, req contracts.Adm
 	req.Email = strings.TrimSpace(req.Email)
 
 	if req.Username == "" {
-		return nil, errors.New("用户名不能为空")
+		return nil, errors.New(errUsernameEmpty)
 	}
 	if req.Email == "" {
-		return nil, errors.New("邮箱不能为空")
+		return nil, errors.New(errEmailEmpty)
 	}
 	const minPasswordLen = 8
 	if len(req.Password) < minPasswordLen {
-		return nil, errors.New("密码长度至少为 8 位")
+		return nil, errors.New(errServicePasswordTooShort)
 	}
 
-	var count int64
-	if err := getDB(ctx).Table("w_users").Where("username = ?", req.Username).Count(&count).Error; err != nil {
+	count, err := countUsersByUsername(ctx, req.Username)
+	if err != nil {
 		return nil, err
 	}
 	if count > 0 {
-		return nil, errors.New("用户名已被使用")
+		return nil, errors.New(errUsernameTaken)
 	}
 
-	var emailCount int64
-	if err := getDB(ctx).Table("w_users").Where("email = ?", req.Email).Count(&emailCount).Error; err != nil {
+	emailCount, err := countUsersByEmail(ctx, req.Email)
+	if err != nil {
 		return nil, err
 	}
 	if emailCount > 0 {
-		return nil, errors.New("邮箱已被使用")
+		return nil, errors.New(errEmailTaken)
 	}
 
 	hash, err := pkgu.HashPassword(req.Password)
@@ -403,7 +361,7 @@ func (s *userServiceImpl) AdminCreateUser(ctx context.Context, req contracts.Adm
 		"created_at":    now,
 		columnUpdatedAt: now,
 	}
-	if err := getDB(ctx).Table("w_users").Create(row).Error; err != nil {
+	if err := insertUserRow(ctx, row); err != nil {
 		return nil, err
 	}
 
@@ -423,31 +381,31 @@ func (s *userServiceImpl) AdminUpdateUser(ctx context.Context, currentUserID uin
 	req.Password = strings.TrimSpace(req.Password)
 
 	if req.Email == "" {
-		return errors.New("邮箱不能为空")
+		return errors.New(errEmailEmpty)
 	}
 
-	var targetUser contracts.UserDTO
-	if err := getDB(ctx).Table("w_users").Where("id = ?", req.ID).First(&targetUser).Error; err != nil {
+	targetUser, err := getUserRow(ctx, req.ID)
+	if err != nil {
 		return err
 	}
 
 	if currentUserID == req.ID && !req.IsAdmin && targetUser.IsAdmin {
-		return errors.New("不能取消自己的管理员权限")
+		return errors.New(errCannotRevokeSelf)
 	}
 
 	if targetUser.Email != req.Email {
-		var count int64
-		if err := getDB(ctx).Table("w_users").Where("email = ? AND id != ?", req.Email, req.ID).Count(&count).Error; err != nil {
+		count, err := countOtherUsersByEmail(ctx, req.Email, req.ID)
+		if err != nil {
 			return err
 		}
 		if count > 0 {
-			return errors.New("邮箱已被使用")
+			return errors.New(errEmailTaken)
 		}
 	}
 
 	const minPasswordLen = 8
 	if req.Password != "" && len(req.Password) < minPasswordLen {
-		return errors.New("密码长度至少为 8 位")
+		return errors.New(errServicePasswordTooShort)
 	}
 
 	if req.Nickname == "" {
@@ -468,26 +426,23 @@ func (s *userServiceImpl) AdminUpdateUser(ctx context.Context, currentUserID uin
 		updates["password"] = hash
 	}
 
-	err := getDB(ctx).Table("w_users").Where("id = ?", req.ID).Updates(updates).Error
+	err = updateUserColumns(ctx, req.ID, updates)
 	if err == nil && s.events != nil {
-		_ = s.events.Emit(ctx, contracts.EventTopicUserUpdated, &targetUser)
+		_ = s.events.Emit(ctx, contracts.EventTopicUserUpdated, targetUser)
 	}
 	return err
 }
 
 func (s *userServiceImpl) AdminUpdateUserStatus(ctx context.Context, id uint64, active bool) error {
-	var flags struct {
-		ID      uint64
-		IsAdmin bool
-	}
-	if err := getDB(ctx).Table("w_users").Select("id, is_admin").Where("id = ?", id).First(&flags).Error; err != nil {
+	flags, err := getUserAdminFlags(ctx, id)
+	if err != nil {
 		return err
 	}
 	if !active && flags.IsAdmin {
-		return errors.New("管理员账号无法被禁用")
+		return errors.New(errAdminCannotDisable)
 	}
 
-	err := getDB(ctx).Table("w_users").Where("id = ?", id).Update("is_active", active).Error
+	err = setUserActiveColumn(ctx, id, active)
 	if err == nil && s.events != nil {
 		_ = s.events.Emit(ctx, contracts.EventTopicUserStatusChanged, contracts.UserStatusChangedEvent{
 			UserID:   id,
@@ -499,33 +454,24 @@ func (s *userServiceImpl) AdminUpdateUserStatus(ctx context.Context, id uint64, 
 
 func (s *userServiceImpl) AdminDeleteUser(ctx context.Context, currentUserID, targetID uint64) error {
 	if currentUserID == targetID {
-		return errors.New("不能删除当前登录用户")
+		return errors.New(errCannotDeleteSelf)
 	}
-	var flags struct {
-		ID      uint64
-		IsAdmin bool
-	}
-	if err := getDB(ctx).Table("w_users").Select("id, is_admin").Where("id = ?", targetID).First(&flags).Error; err != nil {
+	flags, err := getUserAdminFlags(ctx, targetID)
+	if err != nil {
 		return err
 	}
 	if flags.IsAdmin {
-		return errors.New("管理员账号无法被删除")
+		return errors.New(errAdminCannotDelete)
 	}
 
-	err := getDB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Table("w_access_tokens").Where("user_id = ?", targetID).Delete(map[string]any{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Table("w_external_accounts").Where("user_id = ?", targetID).Delete(map[string]any{}).Error; err != nil {
-			return err
-		}
-		return tx.Table("w_users").Where("id = ?", targetID).Delete(map[string]any{}).Error
-	})
-	if err == nil && s.events != nil {
+	if err := deleteUserCascadeAdmin(ctx, targetID); err != nil {
+		return err
+	}
+	if s.events != nil {
 		_ = s.events.Emit(ctx, contracts.EventTopicUserDeleted, contracts.UserDeletedEvent{
 			CurrentUserID: currentUserID,
 			TargetUserID:  targetID,
 		})
 	}
-	return err
+	return nil
 }

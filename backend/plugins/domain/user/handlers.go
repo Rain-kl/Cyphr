@@ -5,6 +5,7 @@ package user
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"context"
 	"crypto/rand"
@@ -12,43 +13,10 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
-
-type loginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-type registerRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	Email    string `json:"email"`
-}
-
-type changePasswordRequest struct {
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required"`
-}
-
-type updateProfileRequest struct {
-	Nickname  string `json:"nickname"`
-	AvatarURL string `json:"avatar_url"`
-	Bio       string `json:"bio"`
-	Phone     string `json:"phone"`
-	Gender    string `json:"gender"`
-	Website   string `json:"website"`
-	Location  string `json:"location"`
-}
-
-type createAccessTokenRequest struct {
-	Name      string     `json:"name" binding:"required"`
-	ExpiresAt *time.Time `json:"expires_at"`
-	IsAdmin   bool       `json:"is_admin"`
-}
 
 func getUserIDFromSession(c *gin.Context) uint64 {
 	defer func() { _ = recover() }()
@@ -130,13 +98,12 @@ func Register(c *gin.Context) {
 		IsActive: true,
 	}
 	if err := newUser.SetEncryptedPassword(req.Password); err != nil {
-		response.AbortInternal(c, "密码加密失败")
+		response.AbortInternal(c, errPasswordEncryptFailed)
 		return
 	}
 
-	gormDB := getDB(c.Request.Context())
-	if err := gormDB.Create(newUser).Error; err != nil {
-		response.AbortBadRequest(c, "创建用户失败: "+err.Error())
+	if err := CreateUser(c.Request.Context(), newUser); err != nil {
+		response.AbortBadRequest(c, errCreateUserFailed+err.Error())
 		return
 	}
 
@@ -177,12 +144,13 @@ func ChangePassword(c *gin.Context) {
 	}
 
 	if err := user.SetEncryptedPassword(req.NewPassword); err != nil {
-		response.AbortInternal(c, "密码更新失败")
+		response.AbortInternal(c, errPasswordUpdateFailed)
 		return
 	}
 
-	gormDB := getDB(c.Request.Context())
-	_ = gormDB.Save(&user)
+	if err := UpdateUser(c.Request.Context(), user); err != nil {
+		logger.ErrorF(c.Request.Context(), "persist changed password failed: %v", err)
+	}
 	invalidateUserCache(c.Request.Context(), user.ID)
 
 	c.JSON(http.StatusOK, response.OKNil())
@@ -211,8 +179,9 @@ func UpdateProfile(c *gin.Context) {
 	user.Website = req.Website
 	user.Location = req.Location
 
-	gormDB := getDB(c.Request.Context())
-	_ = gormDB.Save(&user)
+	if err := UpdateUser(c.Request.Context(), user); err != nil {
+		logger.ErrorF(c.Request.Context(), "persist updated profile failed: %v", err)
+	}
 	invalidateUserCache(c.Request.Context(), user.ID)
 
 	c.JSON(http.StatusOK, response.OK(user))
@@ -221,9 +190,10 @@ func UpdateProfile(c *gin.Context) {
 // ListAccessTokens lists access tokens for the current user.
 func ListAccessTokens(c *gin.Context) {
 	userID := getUserIDFromSession(c)
-	var tokens []AccessToken
-	gormDB := getDB(c.Request.Context())
-	_ = gormDB.Where("user_id = ?", userID).Find(&tokens).Error
+	tokens, err := listAccessTokensByUser(c.Request.Context(), userID)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "list access tokens failed: %v", err)
+	}
 	c.JSON(http.StatusOK, response.OK(tokens))
 }
 
@@ -260,9 +230,8 @@ func CreateAccessToken(c *gin.Context) {
 		IsAdmin:     req.IsAdmin,
 	}
 
-	gormDB := getDB(c.Request.Context())
-	if err := gormDB.Create(&token).Error; err != nil {
-		response.AbortInternal(c, "创建令牌失败")
+	if err := createAccessTokenRow(c.Request.Context(), &token); err != nil {
+		response.AbortInternal(c, errCreateTokenFailed)
 		return
 	}
 
@@ -282,14 +251,15 @@ func DeleteAccessToken(c *gin.Context) {
 	}
 
 	userID := getUserIDFromSession(c)
-	var token AccessToken
-	gormDB := getDB(c.Request.Context())
-	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
+	token, err := getAccessTokenOfUser(c.Request.Context(), id, userID)
+	if err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
 		return
 	}
 
-	_ = gormDB.Delete(&token)
+	if err := deleteAccessTokenRow(c.Request.Context(), token); err != nil {
+		logger.ErrorF(c.Request.Context(), "delete access token failed: %v", err)
+	}
 	invalidateTokenCache(c.Request.Context(), token.TokenHash)
 	c.JSON(http.StatusOK, response.OKNil())
 }
@@ -304,9 +274,8 @@ func RotateAccessToken(c *gin.Context) {
 	}
 
 	userID := getUserIDFromSession(c)
-	var token AccessToken
-	gormDB := getDB(c.Request.Context())
-	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
+	token, err := getAccessTokenOfUser(c.Request.Context(), id, userID)
+	if err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
 		return
 	}
@@ -325,7 +294,9 @@ func RotateAccessToken(c *gin.Context) {
 	}
 	token.MaskedToken = masked
 
-	_ = gormDB.Save(&token)
+	if err := saveAccessTokenRow(c.Request.Context(), token); err != nil {
+		logger.ErrorF(c.Request.Context(), "rotate access token failed: %v", err)
+	}
 
 	c.JSON(http.StatusOK, response.OK(gin.H{
 		"token":     token,

@@ -32,7 +32,7 @@ func RiskControlMiddleware() gin.HandlerFunc {
 
 		// 1. 限流背压检测（检测本地缓冲队列是否已满）
 		if IsBufferFull() {
-			response.AbortTooManyRequests(c, "系统繁忙，请稍后再试")
+			response.AbortTooManyRequests(c, errSystemBusy)
 			return
 		}
 

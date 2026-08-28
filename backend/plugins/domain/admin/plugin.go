@@ -8,6 +8,9 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/plugins/domain/admin/handler"
+	"Wavelet/plugins/domain/admin/model"
+	"Wavelet/plugins/domain/admin/service"
 	"context"
 	"embed"
 	"reflect"
@@ -15,6 +18,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
+
+// SystemConfig aliases model.SystemConfig for external compatibility.
+type SystemConfig = model.SystemConfig
 
 //go:embed migrations/*/*.sql
 var adminMigrations embed.FS
@@ -65,64 +71,64 @@ func (p *Plugin) Manifest() core.Manifest {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	// 0. Bind Services reactively
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		SetDBService(db)
+		service.SetDBService(db)
 	} else {
 		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
-			SetDBService(db)
+			service.SetDBService(db)
 		})
 	}
 	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
-		SetCacheService(cache)
+		service.SetCacheService(cache)
 	} else {
 		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
-			SetCacheService(cache)
+			service.SetCacheService(cache)
 		})
 	}
 	if user, err := core.Inject[contracts.UserService](ctx); err == nil && user != nil {
-		SetUserService(user)
+		service.SetUserService(user)
 	} else {
 		core.When[contracts.UserService](ctx, func(user contracts.UserService) {
-			SetUserService(user)
+			service.SetUserService(user)
 		})
 	}
 	if auth, err := core.Inject[contracts.AuthService](ctx); err == nil && auth != nil {
-		SetAuthService(auth)
+		service.SetAuthService(auth)
 	} else {
 		core.When[contracts.AuthService](ctx, func(auth contracts.AuthService) {
-			SetAuthService(auth)
+			service.SetAuthService(auth)
 		})
 	}
 	if task, err := core.Inject[contracts.TaskService](ctx); err == nil && task != nil {
-		SetTaskService(task)
+		service.SetTaskService(task)
 	} else {
 		core.When[contracts.TaskService](ctx, func(task contracts.TaskService) {
-			SetTaskService(task)
+			service.SetTaskService(task)
 		})
 	}
 	if storage, err := core.Inject[contracts.StorageService](ctx); err == nil && storage != nil {
-		SetStorageService(storage)
+		service.SetStorageService(storage)
 	} else {
 		core.When[contracts.StorageService](ctx, func(storage contracts.StorageService) {
-			SetStorageService(storage)
+			service.SetStorageService(storage)
 		})
 	}
 	if rc, err := core.Inject[contracts.RiskControlService](ctx); err == nil && rc != nil {
-		SetRiskControlService(rc)
+		service.SetRiskControlService(rc)
 	} else {
 		core.When[contracts.RiskControlService](ctx, func(rc contracts.RiskControlService) {
-			SetRiskControlService(rc)
+			service.SetRiskControlService(rc)
 		})
 	}
-	SetEventEmitter(ctx.Events().Emit)
+	service.SetEventEmitter(ctx.Events().Emit)
 
 	ctx.OnDispose(func() error {
-		ResetServices()
+		service.ResetServices()
 		return nil
 	})
 
 	// 0a. Dynamic Auth Middlewares
 	var loginMW gin.HandlerFunc = func(c *gin.Context) {
-		if authSvc := GetAuthService(c.Request.Context()); authSvc != nil {
+		if authSvc := service.GetAuthService(c.Request.Context()); authSvc != nil {
 			if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
 				mw(c)
 				return
@@ -131,7 +137,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		c.Next()
 	}
 	var adminMW gin.HandlerFunc = func(c *gin.Context) {
-		if authSvc := GetAuthService(c.Request.Context()); authSvc != nil {
+		if authSvc := service.GetAuthService(c.Request.Context()); authSvc != nil {
 			if mw, ok := authSvc.RequireAdminMiddleware().(gin.HandlerFunc); ok {
 				mw(c)
 				return
@@ -145,117 +151,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 1. Register Admin HTTP Routes
 	adminRouter := ctx.Router().Group("/api/v1/admin", loginMW, adminMW)
-	{
-		// Status & Diagnostics
-		adminRouter.GET("/status", GetSystemStatus)
-		adminRouter.GET("/status/log-database", GetLogDatabaseStatus)
-		adminRouter.GET("/db-info", GetDatabaseInfo)
-		adminRouter.GET("/db-export", ExportDatabase)
-
-		// DB Management
-		dbGroup := adminRouter.Group("/db-manage")
-		{
-			dbGroup.GET("/overview", GetDBOverview)
-			dbGroup.GET("/tables", ListDBTables)
-			dbGroup.GET("/table-data", GetDBTableData)
-			dbGroup.POST("/query", ExecuteSQL)
-		}
-
-		// Cache Management
-		cacheGroup := adminRouter.Group("/cache")
-		{
-			cacheGroup.GET("/status", GetCacheStatus)
-			cacheGroup.POST("/config", UpdateCacheConfig)
-			cacheGroup.POST("/clear", ClearCache)
-		}
-
-		// Updater
-		updateGroup := adminRouter.Group("/update")
-		{
-			updateGroup.GET("", GetUpdateStatus)
-			updateGroup.POST("/apply", ApplyUpdate)
-		}
-
-		// Logs
-		logsGroup := adminRouter.Group("/logs")
-		{
-			logsGroup.GET("", GetLogs)
-			logsGroup.GET("/access", GetAccessLogs)
-			logsGroup.GET("/analytics", GetLogsAnalytics)
-			logsGroup.GET("/ws", HandleLogWebSocket)
-		}
-
-		// Users
-		usersGroup := adminRouter.Group("/users")
-		{
-			usersGroup.GET("", ListUsers)
-			usersGroup.POST("", CreateUser)
-			usersGroup.GET("/:id", GetUser)
-			usersGroup.PUT("/:id/status", UpdateUserStatus)
-			usersGroup.PUT("/:id", UpdateUser)
-			usersGroup.DELETE("/:id", DeleteUser)
-		}
-
-		// Auth Sources
-		authSourcesGroup := adminRouter.Group("/auth-sources")
-		{
-			authSourcesGroup.GET("", ListAuthSources)
-			authSourcesGroup.POST("", CreateAuthSource)
-			authSourcesGroup.PUT("/:id", UpdateAuthSource)
-			authSourcesGroup.PUT("/:id/toggle", ToggleAuthSource)
-			authSourcesGroup.DELETE("/:id", DeleteAuthSource)
-		}
-
-		// System Configs
-		configGroup := adminRouter.Group("/system-configs")
-		{
-			configGroup.GET("", ListSystemConfigs)
-			configGroup.POST("", CreateSystemConfig)
-			configGroup.POST("/smtp/test", TestSMTP)
-
-			keyGroup := configGroup.Group("/:key")
-			{
-				keyGroup.GET("", GetSystemConfig)
-				keyGroup.PUT("", UpdateSystemConfig)
-			}
-		}
-
-		// Templates
-		templateGroup := adminRouter.Group("/templates")
-		{
-			templateGroup.GET("", ListTemplates)
-			templateGroup.POST("", CreateTemplate)
-
-			keyGroup := templateGroup.Group("/:key")
-			{
-				keyGroup.GET("", GetTemplate)
-				keyGroup.PUT("", UpdateTemplate)
-				keyGroup.DELETE("", DeleteTemplate)
-			}
-		}
-
-		// Tasks
-		taskGroup := adminRouter.Group("/tasks")
-		{
-			taskGroup.GET("/types", ListTaskTypes)
-			taskGroup.POST("/dispatch", DispatchTask)
-
-			executions := taskGroup.Group("/executions")
-			{
-				executions.GET("", ListTaskExecutions)
-				executions.GET("/:id", GetTaskExecution)
-				executions.POST("/:id/retry", RetryTask)
-			}
-
-			schedules := taskGroup.Group("/schedules")
-			{
-				schedules.GET("", ListSchedules)
-				schedules.POST("", CreateSchedule)
-				schedules.PUT("/:id", UpdateSchedule)
-				schedules.DELETE("/:id", DeleteSchedule)
-			}
-		}
-	}
+	handler.RegisterRoutes(adminRouter)
 
 	// 2. Register Background Tasks
 	ctx.Task().Register("admin:system_cleanup", func(_ context.Context, _ *asynq.Task) error {

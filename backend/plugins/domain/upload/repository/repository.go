@@ -9,6 +9,7 @@ import (
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
 	"context"
+	"errors"
 	"strings"
 
 	"gorm.io/gorm"
@@ -136,4 +137,10 @@ func ListUploadStats(ctx context.Context) ([]models.UploadStat, error) {
 		return nil, err
 	}
 	return stats, nil
+}
+
+// IsRecordNotFound reports whether err is the persistence "record not found" sentinel.
+// Upper layers must use this helper instead of importing gorm directly.
+func IsRecordNotFound(err error) bool {
+	return errors.Is(err, gorm.ErrRecordNotFound)
 }

@@ -32,7 +32,6 @@ import (
 	"Wavelet/pkg/ginutil"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
@@ -170,8 +169,8 @@ func UploadFile(c *gin.Context) {
 func DownloadFile(c *gin.Context) {
 	upload, err := filesrv.GetUploadRecordByID(c)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.AbortNotFound(c, "文件记录未找到")
+		if isRecordNotFound(err) {
+			response.AbortNotFound(c, shared.ErrFileRecordNotFound)
 			return
 		}
 		if _, ok := err.(*strconv.NumError); ok {
@@ -306,7 +305,7 @@ func resolveUploadAccessMode(c *gin.Context, uploadType string) (int, string) {
 
 	accessMode, err := strconv.Atoi(accessModeStr)
 	if err != nil || (accessMode != 0 && accessMode != 1) {
-		return 0, "无效的 access_mode 参数"
+		return 0, shared.ErrInvalidAccessModeParam
 	}
 	return accessMode, ""
 }

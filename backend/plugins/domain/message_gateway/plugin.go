@@ -9,6 +9,10 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/message_gateway/handler"
+	"Wavelet/plugins/domain/message_gateway/model"
+	"Wavelet/plugins/domain/message_gateway/repository"
+	"Wavelet/plugins/domain/message_gateway/service"
 	"context"
 	"embed"
 	"reflect"
@@ -68,51 +72,45 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
-// PushNotificationEvent defines the payload for eventbus notification trigger.
-type PushNotificationEvent struct {
-	UserID   uint64         `json:"user_id"`
-	Channel  string         `json:"channel"`
-	Title    string         `json:"title"`
-	Content  string         `json:"content"`
-	Metadata map[string]any `json:"metadata,omitempty"`
-}
-
 // Apply registers message_gateway migrations, routes, tasks, schedules, events, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	// 0. Bind DBService, CacheService, TaskService, UserService
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		setDBService(db)
+		repository.SetDBService(db)
 	} else {
 		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
-			setDBService(db)
+			repository.SetDBService(db)
 		})
 	}
 	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
-		setCacheService(cache)
+		repository.SetCacheService(cache)
+		service.SetCacheService(cache)
 	} else {
 		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
-			setCacheService(cache)
+			repository.SetCacheService(cache)
+			service.SetCacheService(cache)
 		})
 	}
 	if taskSvc, err := core.Inject[contracts.TaskService](ctx); err == nil && taskSvc != nil {
-		setTaskService(taskSvc)
+		service.SetTaskService(taskSvc)
 	} else {
 		core.When[contracts.TaskService](ctx, func(taskSvc contracts.TaskService) {
-			setTaskService(taskSvc)
+			service.SetTaskService(taskSvc)
 		})
 	}
 	if uSvc, err := core.Inject[contracts.UserService](ctx); err == nil && uSvc != nil {
-		setUserService(uSvc)
+		service.SetUserService(uSvc)
 	} else {
 		core.When[contracts.UserService](ctx, func(uSvc contracts.UserService) {
-			setUserService(uSvc)
+			service.SetUserService(uSvc)
 		})
 	}
 	ctx.OnDispose(func() error {
-		setDBService(nil)
-		setCacheService(nil)
-		setTaskService(nil)
-		setUserService(nil)
+		repository.SetDBService(nil)
+		repository.SetCacheService(nil)
+		service.SetCacheService(nil)
+		service.SetTaskService(nil)
+		service.SetUserService(nil)
 		return nil
 	})
 
@@ -132,61 +130,23 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Migrations().Register("message_gateway", mgMigrations)
 
 	// 2. Register User HTTP Routes
-	mgGroup := ctx.Router().Group("/api/v1/message-gateway", loginMW)
-	{
-		mgGroup.GET("/channels", ListChannels)
-		mgGroup.GET("/bindings", ListBindings)
-		mgGroup.POST("/bindings", BindBinding)
-		mgGroup.DELETE("/bindings/:id", UnbindBinding)
-	}
+	handler.RegisterUserRoutes(ctx.Router().Group("/api/v1"), loginMW)
 
 	// 3. Register Admin Message Gateway HTTP Routes
-	adminMgGroup := ctx.Router().Group("/api/v1/admin/message-gateway", loginMW, adminMW)
-	{
-		adminMgGroup.GET("/channels/definitions", ListAdminChannelDefinitions)
-		adminMgGroup.GET("/channels", ListAdminChannels)
-		adminMgGroup.POST("/channels", CreateAdminChannel)
-		adminMgGroup.PATCH("/channels/:id", UpdateAdminChannel)
-		adminMgGroup.DELETE("/channels/:id", DeleteAdminChannel)
-		adminMgGroup.POST("/channels/:id/test", TestAdminChannel)
-	}
+	handler.RegisterAdminRoutes(ctx.Router().Group("/api/v1/admin"), loginMW, adminMW)
 
 	// 4. Register Admin Push HTTP Routes
-	adminPushGroup := ctx.Router().Group("/api/v1/admin/push", loginMW, adminMW)
-	{
-		events := adminPushGroup.Group("/events")
-		{
-			events.GET("", ListPushEvents)
-			events.GET("/builtin", ListBuiltInPushEvents)
-			events.POST("", CreatePushEvent)
-			events.PUT("/:id", UpdatePushEvent)
-			events.DELETE("/:id", DeletePushEvent)
-			events.POST("/:id/toggle", TogglePushEvent)
-		}
-
-		adminPushGroup.GET("/histories", ListPushHistories)
-		adminPushGroup.POST("/test", TestPush)
-
-		channels := adminPushGroup.Group("/channels")
-		{
-			channels.GET("/definitions", ListPushChannelDefinitions)
-			channels.GET("", ListPushChannels)
-			channels.POST("", CreatePushChannel)
-			channels.PUT("/:id", UpdatePushChannel)
-			channels.DELETE("/:id", DeletePushChannel)
-			channels.POST("/test", TestPushChannel)
-		}
-	}
+	handler.RegisterAdminPushRoutes(ctx.Router().Group("/api/v1/admin"), loginMW, adminMW)
 
 	const defaultTaskRetry = 3
-	pushHandler := &PushHandler{}
+	pushHandler := &service.PushHandler{}
 
 	// 5. Register background tasks
 	ctx.Task().Register("message_gateway:push_notification", func(c context.Context, payload []byte) error {
 		return pushHandler.Execute(c, payload)
 	}, extpoints.WithTaskRetry(defaultTaskRetry))
 
-	ctx.Task().Register(SendNotificationTask, func(c context.Context, payload []byte) error {
+	ctx.Task().Register(service.SendNotificationTask, func(c context.Context, payload []byte) error {
 		return pushHandler.Execute(c, payload)
 	}, extpoints.WithTaskRetry(defaultTaskRetry))
 
@@ -198,19 +158,19 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Schedule().RegisterCron("*/10 * * * *", "message_gateway:cleanup_pairing_codes", map[string]any{"action": "cleanup"})
 
 	// 7. Register EventBus listeners for decoupled push triggers
-	ctx.Events().On("notification:push", func(c context.Context, e PushNotificationEvent) error {
-		meta := EventMetadata{
+	ctx.Events().On("notification:push", func(c context.Context, e model.PushNotificationEvent) error {
+		meta := model.EventMetadata{
 			Key:  "eventbus:" + e.Channel,
 			Name: e.Title,
-			DefaultTemplate: NotificationMessage{
+			DefaultTemplate: model.NotificationMessage{
 				Title:   e.Title,
 				Content: e.Content,
-				Level:   defaultLevelInfo,
+				Level:   model.DefaultLevelInfo,
 				Ext:     e.Metadata,
 			},
 			Description: "EventBus triggered notification",
 		}
-		DefaultTrigger.Trigger(c, meta, map[string]any{
+		service.DefaultTrigger.Trigger(c, meta, map[string]any{
 			"user.id": e.UserID,
 			"title":   e.Title,
 			"content": e.Content,
@@ -220,14 +180,14 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 8. Register task completed event listener
 	ctx.Events().On(contracts.EventTopicTaskCompleted, func(c context.Context, e contracts.TaskCompletedEvent) error {
-		handleTaskCompleted(c, e)
+		service.HandleTaskCompleted(c, e)
 		return nil
 	})
 
 	// 9. Register built-in domain events
-	RegisterCustomEvents()
+	service.RegisterCustomEvents()
 
-	// 9. Register Settings Schemas
+	// 10. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "message_gateway.pairing_code_expiry_minutes",
 		Default:     15,
@@ -243,12 +203,12 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		Category:    "messaging",
 	})
 
-	// 10. Optional runner start & lifecycle
+	// 11. Optional runner start & lifecycle
 	if p.autoStartRunner {
 		runnerCtx, cancel := context.WithCancel(ctx.GoContext())
 		p.cancelRunner = cancel
 		util.Go(func() {
-			_ = Start(runnerCtx)
+			_ = service.Start(runnerCtx)
 		})
 	}
 
@@ -261,3 +221,117 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	return nil
 }
+
+// Re-exported constants.
+const (
+	CodeAlphabet = service.CodeAlphabet
+	CodeLength   = service.CodeLength
+)
+
+// MessageChannel is an alias for model.MessageChannel.
+type MessageChannel = model.MessageChannel
+
+// MessageBinding is an alias for model.MessageBinding.
+type MessageBinding = model.MessageBinding
+
+// MessagePairingCode is an alias for model.MessagePairingCode.
+type MessagePairingCode = model.MessagePairingCode
+
+// PushChannel is an alias for model.PushChannel.
+type PushChannel = model.PushChannel
+
+// PushEvent is an alias for model.PushEvent.
+type PushEvent = model.PushEvent
+
+// PushHistory is an alias for model.PushHistory.
+type PushHistory = model.PushHistory
+
+// PushNotificationEvent is an alias for model.PushNotificationEvent.
+type PushNotificationEvent = model.PushNotificationEvent
+
+// ChannelConfig is an alias for model.ChannelConfig.
+type ChannelConfig = model.ChannelConfig
+
+// Capability is an alias for model.Capability.
+type Capability = model.Capability
+
+// Recipient is an alias for model.Recipient.
+type Recipient = model.Recipient
+
+// Attachment is an alias for model.Attachment.
+type Attachment = model.Attachment
+
+// InboundMessage is an alias for model.InboundMessage.
+type InboundMessage = model.InboundMessage
+
+// OutboundMessage is an alias for model.OutboundMessage.
+type OutboundMessage = model.OutboundMessage
+
+// BindingDTO is an alias for model.BindingDTO.
+type BindingDTO = model.BindingDTO
+
+// PublicChannelDTO is an alias for model.PublicChannelDTO.
+type PublicChannelDTO = model.PublicChannelDTO
+
+// Definition is an alias for model.Definition.
+type Definition = model.Definition
+
+// ChannelDTO is an alias for model.ChannelDTO.
+type ChannelDTO = model.ChannelDTO
+
+// CreateChannelRequest is an alias for model.CreateChannelRequest.
+type CreateChannelRequest = model.CreateChannelRequest
+
+// UpdateChannelRequest is an alias for model.UpdateChannelRequest.
+type UpdateChannelRequest = model.UpdateChannelRequest
+
+// PushDefinition is an alias for model.PushDefinition.
+type PushDefinition = model.PushDefinition
+
+// PushField is an alias for model.PushField.
+type PushField = model.PushField
+
+// NotificationMessage is an alias for model.NotificationMessage.
+type NotificationMessage = model.NotificationMessage
+
+// EventMetadata is an alias for model.EventMetadata.
+type EventMetadata = model.EventMetadata
+
+// SendPayload is an alias for model.SendPayload.
+type SendPayload = model.SendPayload
+
+// Handler is an alias for service.Handler.
+type Handler = service.Handler
+
+// Factory is an alias for service.Factory.
+type Factory = service.Factory
+
+// Channel is an alias for service.Channel.
+type Channel = service.Channel
+
+// Runner is an alias for service.Runner.
+type Runner = service.Runner
+
+// EventTrigger is an alias for service.EventTrigger.
+type EventTrigger = service.EventTrigger
+
+// PushHandler is an alias for service.PushHandler.
+type PushHandler = service.PushHandler
+
+// Re-exported variables and functions.
+var (
+	SetDBServiceForTest = repository.SetDBServiceForTest
+	UpsertPairingCode   = repository.UpsertPairingCode
+	Register            = service.Register
+	Lookup              = service.Lookup
+	GenerateCode        = service.GenerateCode
+	NormalizeCode       = service.NormalizeCode
+	FormatCode          = service.FormatCode
+	Start               = service.Start
+	Stop                = service.Stop
+	GlobalRunner        = service.GlobalRunner
+	DefaultTrigger      = service.DefaultTrigger
+	SyncEvents          = service.SyncEvents
+	AdminLogin          = service.AdminLogin
+	HandleAdminLoggedIn = service.HandleAdminLoggedIn
+)

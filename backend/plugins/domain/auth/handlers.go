@@ -9,7 +9,6 @@ import (
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"fmt"
@@ -235,17 +234,17 @@ func Callback(c *gin.Context) {
 
 	token, ok := session.Get(SessionTokenKey).(string)
 	if !ok || token == "" {
-		response.AbortBadRequest(c, "invalid session context")
+		response.AbortBadRequest(c, errInvalidSessionContext)
 		return
 	}
 
 	if hashSessionToken(token) != payload.SessionHash {
-		response.AbortBadRequest(c, "session mismatch for oauth state")
+		response.AbortBadRequest(c, errSessionMismatchForOAuth)
 		return
 	}
 
 	if payload.Purpose == OAuthPurposeBind && currentUserID != payload.UserID {
-		response.AbortBadRequest(c, "user context mismatch for oauth binding")
+		response.AbortBadRequest(c, errUserContextMismatch)
 		return
 	}
 
@@ -298,8 +297,8 @@ func handleCallbackBind(ctx context.Context, c *gin.Context, source *AuthSource,
 		response.AbortUnauthorized(c, errUnAuthorized)
 		return
 	}
-	var user contracts.UserDTO
-	if err := getDB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err != nil {
+	user, err := GetUserByID(ctx, userID)
+	if err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
@@ -314,41 +313,43 @@ func handleCallbackBind(ctx context.Context, c *gin.Context, source *AuthSource,
 		return
 	}
 	user.LastLoginAt = time.Now()
-	_ = getDB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
-	c.JSON(http.StatusOK, response.OK(buildCallbackResult(&user, "bound")))
+	_ = TouchUserLastLogin(ctx, user.ID, user.LastLoginAt)
+	c.JSON(http.StatusOK, response.OK(buildCallbackResult(user, "bound")))
 }
 
 func handleCallbackLogin(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) {
-	var user contracts.UserDTO
+	var user *contracts.UserDTO
 
 	account, err := FindExternalAccount(ctx, source.ID, userInfo.Sub)
 	switch {
 	case err == nil:
-		if loadErr := getDB(ctx).Table("w_users").Where("id = ?", account.UserID).First(&user).Error; loadErr != nil {
+		loaded, loadErr := GetUserByID(ctx, account.UserID)
+		if loadErr != nil {
 			response.AbortInternal(c, loadErr.Error())
 			return
 		}
+		user = loaded
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		newUser, ok := handleCallbackRegister(ctx, c, source, userInfo)
 		if !ok {
 			return
 		}
-		user = newUser
+		user = &newUser
 	default:
 		response.AbortInternal(c, err.Error())
 		return
 	}
 
 	user.LastLoginAt = time.Now()
-	_ = getDB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
-	if err := SetLoginSession(ctx, c, &user); err != nil {
+	_ = TouchUserLastLogin(ctx, user.ID, user.LastLoginAt)
+	if err := SetLoginSession(ctx, c, user); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
 
-	SetCachedUser(ctx, user.ID, &user)
+	SetCachedUser(ctx, user.ID, user)
 
-	c.JSON(http.StatusOK, response.OK(buildCallbackResult(&user, "logged_in")))
+	c.JSON(http.StatusOK, response.OK(buildCallbackResult(user, "logged_in")))
 }
 
 func uniqueUsername(ctx context.Context, base string) (string, error) {
@@ -357,10 +358,8 @@ func uniqueUsername(ctx context.Context, base string) (string, error) {
 		base = "user"
 	}
 
-	var existingUsernames []string
-	if err := getDB(ctx).Table("w_users").
-		Where("username = ? OR username LIKE ? ESCAPE '\\'", base, util.EscapeLike(base)+"-%").
-		Pluck("username", &existingUsernames).Error; err != nil {
+	existingUsernames, err := ListSimilarUsernames(ctx, base)
+	if err != nil {
 		return "", err
 	}
 
@@ -385,8 +384,8 @@ func uniqueUsername(ctx context.Context, base string) (string, error) {
 
 func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) (contracts.UserDTO, bool) {
 	registrationEnabled := true
-	var val string
-	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "registration_enabled").Pluck("value", &val).Error; err == nil && val != "" {
+	val, cfgErr := GetSystemConfigValue(ctx, "registration_enabled")
+	if cfgErr == nil && val != "" {
 		if b, err := strconv.ParseBool(val); err == nil {
 			registrationEnabled = b
 		}
@@ -417,7 +416,7 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSou
 		UpdatedAt:   now,
 	}
 
-	if err := getDB(ctx).Table("w_users").Create(&user).Error; err != nil {
+	if err := InsertUser(ctx, &user); err != nil {
 		response.AbortInternal(c, err.Error())
 		return contracts.UserDTO{}, false
 	}

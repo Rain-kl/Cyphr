@@ -56,7 +56,7 @@ func (User) TableName() string {
 func (u *User) SetEncryptedPassword(password string) error {
 	trimmed := strings.TrimSpace(password)
 	if trimmed == "" {
-		return errors.New("password cannot be empty")
+		return errors.New(errPasswordEmpty)
 	}
 	hash, err := util.HashPassword(trimmed)
 	if err != nil {
@@ -73,4 +73,47 @@ func (u *User) CheckPassword(password string) bool {
 		return false
 	}
 	return util.CheckPasswordHash(u.Password, password)
+}
+
+// loginRequest 登录请求参数
+type loginRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+// registerRequest 注册请求参数
+type registerRequest struct {
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	Email    string `json:"email"`
+}
+
+// changePasswordRequest 修改密码请求参数
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// updateProfileRequest 资料更新请求参数
+type updateProfileRequest struct {
+	Nickname  string `json:"nickname"`
+	AvatarURL string `json:"avatar_url"`
+	Bio       string `json:"bio"`
+	Phone     string `json:"phone"`
+	Gender    string `json:"gender"`
+	Website   string `json:"website"`
+	Location  string `json:"location"`
+}
+
+// createAccessTokenRequest 创建访问令牌请求参数
+type createAccessTokenRequest struct {
+	Name      string     `json:"name" binding:"required"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	IsAdmin   bool       `json:"is_admin"`
+}
+
+// userAdminFlags 用户写操作前置校验所需的最小列投影
+type userAdminFlags struct {
+	ID      uint64
+	IsAdmin bool
 }

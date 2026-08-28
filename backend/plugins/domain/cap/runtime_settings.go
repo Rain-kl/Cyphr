@@ -4,44 +4,14 @@
 package cap
 
 import (
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 	"context"
 	"errors"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/singleflight"
-	"gorm.io/gorm"
 )
-
-var (
-	dbMu  sync.RWMutex
-	dbSvc contracts.DBService
-)
-
-func setDBService(s contracts.DBService) {
-	dbMu.Lock()
-	defer dbMu.Unlock()
-	dbSvc = s
-}
-
-func getDB(ctx context.Context) *gorm.DB {
-	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s, err := core.Inject[contracts.DBService](c); err == nil && s != nil {
-			return s.DB(ctx)
-		}
-	}
-	dbMu.RLock()
-	s := dbSvc
-	dbMu.RUnlock()
-	if s != nil {
-		return s.DB(ctx)
-	}
-	return nil
-}
 
 const (
 	defaultChallengeCount      = 1
@@ -163,26 +133,6 @@ func (s *runtimeSettingsStore) current(ctx context.Context) (RuntimeSettings, er
 		return RuntimeSettings{}, errors.New("cap runtime settings loader returned unexpected type")
 	}
 	return settings, nil
-}
-
-func loadRuntimeSettings(ctx context.Context) (RuntimeSettings, error) {
-	type configRecord struct {
-		Key   string `gorm:"column:key"`
-		Value string `gorm:"column:value"`
-	}
-	var records []configRecord
-	db := getDB(ctx)
-	if db == nil {
-		return parseRuntimeSettings(nil), nil
-	}
-	if err := db.Table("w_system_configs").Where("key IN ?", runtimeConfigKeys).Find(&records).Error; err != nil {
-		return RuntimeSettings{}, err
-	}
-	configs := make(map[string]string, len(records))
-	for _, r := range records {
-		configs[r.Key] = r.Value
-	}
-	return parseRuntimeSettings(configs), nil
 }
 
 func parseRuntimeSettings(configs map[string]string) RuntimeSettings {

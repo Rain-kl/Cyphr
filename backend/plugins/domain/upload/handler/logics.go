@@ -8,10 +8,7 @@ import (
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/repository"
 	"context"
-	"errors"
 	"sort"
-
-	"gorm.io/gorm"
 )
 
 func listUploadFiles(ctx context.Context, filter repository.UploadListFilter) (int64, []models.Upload, error) {
@@ -82,5 +79,5 @@ func loadUploadStats(ctx context.Context) ([]models.UploadStat, error) {
 }
 
 func isRecordNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound)
+	return repository.IsRecordNotFound(err)
 }

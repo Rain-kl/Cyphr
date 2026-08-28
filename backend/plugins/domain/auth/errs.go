@@ -36,3 +36,19 @@ const (
 	errBannedAccount      = "账号已被封禁"
 	errUnAuthorized       = "未登录"
 )
+
+// Service 层与鉴权中间件内部错误文案（保持与重构前逐字一致）
+const (
+	errUserNotInContext          = "auth: user not found in context"
+	errEmptyToken                = "auth: empty token"                   //nolint:gosec // false positive: this is an error message, not hardcoded credentials
+	errSystemUserTokenNotAllowed = "auth: system user token not allowed" //nolint:gosec // false positive: this is an error message, not hardcoded credentials
+	errUnauthorizedInternal      = "unauthorized"
+	errSystemUserLoginNotAllowed = "system user is not allowed to login"
+)
+
+// OAuth 回调会话校验错误文案（保持与重构前逐字一致）
+const (
+	errInvalidSessionContext   = "invalid session context"
+	errSessionMismatchForOAuth = "session mismatch for oauth state"
+	errUserContextMismatch     = "user context mismatch for oauth binding"
+)

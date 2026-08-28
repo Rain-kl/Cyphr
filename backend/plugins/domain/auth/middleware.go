@@ -22,33 +22,35 @@ func hashToken(token string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// currentUserIDFromRequestContext 是接入层向 Service 层暴露的登录态桥接。
+//
+// Session 读取必须依赖 *gin.Context，而 Service 层禁止 import gin，
+// 因此该类型断言收敛在本（接入层）文件中。ok 为 false 表示 ctx 不是 *gin.Context。
+func currentUserIDFromRequestContext(ctx context.Context) (uint64, bool) {
+	ginCtx, ok := ctx.(*gin.Context)
+	if !ok {
+		return 0, false
+	}
+	return GetUserIDFromContext(ginCtx), true
+}
+
 func getUserByToken(ctx context.Context, tokenStr string) (*contracts.UserDTO, *CachedToken, error) {
 	tokenHash := hashToken(tokenStr)
 	tokenRecord, err := GetCachedToken(ctx, tokenHash)
 	if err != nil || tokenRecord == nil {
-		var tokenRow struct {
-			ID      uint64
-			UserID  uint64
-			IsAdmin bool
-		}
-		if err := getDB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
+		tokenRecord, err = GetAccessTokenByHash(ctx, tokenHash)
+		if err != nil {
 			return nil, nil, err
-		}
-		tokenRecord = &CachedToken{
-			ID:      tokenRow.ID,
-			UserID:  tokenRow.UserID,
-			IsAdmin: tokenRow.IsAdmin,
 		}
 		SetCachedToken(ctx, tokenHash, tokenRecord)
 	}
 
 	user, err := GetCachedUser(ctx, tokenRecord.UserID)
 	if err != nil || user == nil || !user.IsActive {
-		var userRow contracts.UserDTO
-		if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRecord.UserID, true).First(&userRow).Error; err != nil {
+		user, err = GetActiveUserByID(ctx, tokenRecord.UserID)
+		if err != nil {
 			return nil, nil, err
 		}
-		user = &userRow
 		SetCachedUser(ctx, tokenRecord.UserID, user)
 	}
 
@@ -74,7 +76,7 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 	if tokenStr != "" {
 		if user, tokenRecord, err := getUserByToken(ctx, tokenStr); err == nil {
 			if user.Username == SystemUsername {
-				return nil, errors.New("system user is not allowed to login")
+				return nil, errors.New(errSystemUserLoginNotAllowed)
 			}
 			ginutil.SetToContext(c, contracts.AuthTokenAuthKey, true)
 			ginutil.SetToContext(c, contracts.AuthTokenAdminKey, tokenRecord.IsAdmin)
@@ -85,16 +87,15 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 	// 降级使用 Session 鉴权
 	userID := GetUserIDFromContext(c)
 	if userID <= 0 {
-		return nil, errors.New("unauthorized")
+		return nil, errors.New(errUnauthorizedInternal)
 	}
 
 	user, err := GetCachedUser(ctx, userID)
 	if err != nil || user == nil || !user.IsActive {
-		var dbUser contracts.UserDTO
-		if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", userID, true).First(&dbUser).Error; err != nil {
+		user, err = GetActiveUserByID(ctx, userID)
+		if err != nil {
 			return nil, err
 		}
-		user = &dbUser
 		SetCachedUser(ctx, userID, user)
 	}
 
@@ -102,7 +103,7 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 	ginutil.SetToContext(c, contracts.AuthTokenAdminKey, false)
 
 	if user.Username == "system" {
-		return nil, errors.New("system user is not allowed to login")
+		return nil, errors.New(errSystemUserLoginNotAllowed)
 	}
 
 	return user, nil

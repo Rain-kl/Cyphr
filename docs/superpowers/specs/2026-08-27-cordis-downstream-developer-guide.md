@@ -565,8 +565,8 @@ Wavelet/
 3. **`plugins/`**：
    - **职责**：所有业务逻辑和驱动实现的归宿。遵循标准分层架构（Layered Architecture / MVC 变体）。
    - **分层模式选型**：
-     - **模式 1（扁平自包含分层，简单业务推荐）**：单 package 内部通过文件划分职责（`plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。适用于代码量 < 3000 行、单聚合根的插件。
-     - **模式 2（严格子包物理分层，复杂业务推荐）**：多 package 目录级物理隔离（`plugin.go`, `controller/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`）。编译器级约束 `controller -> service -> repository -> model` 单向依赖。适用于代码量 ≥ 3000 行、多聚合根的大型复杂插件。
+     - **模式 1（极简单文件分层，微型插件专用）**：单 package 极简结构（仅单文件 `plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。适用于单一实体、极小代码量 (<500行) 的微型插件。
+     - **模式 2（标准独立子包分层架构，官方推荐标准）**：按职责严格物理分包（`plugin.go`, `handler/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`）。**子包内文件以纯业务实体命名（如 `user.go`、`config.go`），严禁在根包平铺 `handlers_*`、`service_*`、`repository_*` 等前缀文件**。编译器级强约束 `handler -> service -> repository -> model` 单向依赖。
    - **严禁**：插件之间严禁跨包 import 内部私有代码，跨插件调用一律走 `contracts` 接口或 `EventBus`。
 
 ---

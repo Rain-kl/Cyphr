@@ -116,8 +116,8 @@ func SetLoginSession(ctx context.Context, c *gin.Context, user *contracts.UserDT
 	maxAge := config.Config.App.SessionAge
 	isSessionCookie := false
 
-	var val string
-	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "login_session_ttl_hours").Pluck("value", &val).Error; err == nil && val != "" {
+	val, err := GetSystemConfigValue(ctx, "login_session_ttl_hours")
+	if err == nil && val != "" {
 		if ttlHours, err := strconv.Atoi(val); err == nil {
 			switch {
 			case ttlHours == -1:

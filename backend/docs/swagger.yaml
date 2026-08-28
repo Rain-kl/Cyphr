@@ -1,635 +1,5 @@
 basePath: /
 definitions:
-  admin.CreateScheduleRequest:
-    properties:
-      cron:
-        type: string
-      is_active:
-        type: boolean
-      name:
-        type: string
-      payload:
-        type: string
-      task_type:
-        type: string
-    required:
-    - cron
-    - is_active
-    - name
-    - task_type
-    type: object
-  admin.CreateSystemConfigRequest:
-    properties:
-      description:
-        maxLength: 255
-        type: string
-      key:
-        maxLength: 64
-        type: string
-      type:
-        enum:
-        - system
-        - business
-        type: string
-      value:
-        type: string
-      visibility:
-        enum:
-        - 0
-        - 1
-        type: integer
-    required:
-    - key
-    - type
-    - value
-    type: object
-  admin.CreateTemplateRequest:
-    properties:
-      content:
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      key:
-        maxLength: 80
-        type: string
-      name:
-        maxLength: 100
-        type: string
-      subject:
-        maxLength: 255
-        type: string
-      type:
-        maxLength: 20
-        type: string
-    required:
-    - content
-    - key
-    - name
-    - type
-    type: object
-  admin.DBOverviewResponse:
-    properties:
-      connections:
-        type: integer
-      name:
-        type: string
-      size:
-        type: string
-      table_count:
-        type: integer
-      type:
-        type: string
-      version:
-        type: string
-    type: object
-  admin.DatabaseInfoResponse:
-    properties:
-      name:
-        type: string
-      type:
-        type: string
-      version:
-        type: string
-    type: object
-  admin.DispatchTaskRequest:
-    properties:
-      end_time:
-        type: string
-      payload:
-        type: string
-      start_time:
-        type: string
-      task_type:
-        type: string
-      user_id:
-        type: integer
-    required:
-    - task_type
-    type: object
-  admin.ExecuteSQLRequest:
-    properties:
-      sql:
-        type: string
-    required:
-    - sql
-    type: object
-  admin.ExecuteSQLResponse:
-    properties:
-      affected_rows:
-        type: integer
-      columns:
-        items:
-          type: string
-        type: array
-      execution_time_ms:
-        type: integer
-      results:
-        items:
-          additionalProperties: true
-          type: object
-        type: array
-      type:
-        description: '"select" 或 "exec"'
-        type: string
-    type: object
-  admin.LogDatabaseStatus:
-    properties:
-      active_database:
-        type: string
-      available_targets:
-        items:
-          type: string
-        type: array
-      migration:
-        type: string
-      retention_days:
-        additionalProperties:
-          type: integer
-        type: object
-    type: object
-  admin.Schedule:
-    properties:
-      created_at:
-        type: string
-      cron:
-        type: string
-      id:
-        example: "0"
-        type: string
-      is_active:
-        type: boolean
-      name:
-        type: string
-      payload:
-        type: string
-      task_type:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  admin.SystemConfig:
-    properties:
-      created_at:
-        type: string
-      description:
-        type: string
-      key:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-      value:
-        type: string
-      visibility:
-        type: integer
-    type: object
-  admin.SystemStatusResponse:
-    properties:
-      alloc:
-        type: string
-      buck_hash_sys:
-        type: string
-      frees:
-        type: integer
-      gc_sys:
-        type: string
-      heap_alloc:
-        type: string
-      heap_idle:
-        type: string
-      heap_inuse:
-        type: string
-      heap_objects:
-        type: integer
-      heap_released:
-        type: string
-      heap_sys:
-        type: string
-      last_gc_time:
-        type: string
-      last_pause:
-        type: string
-      lookups:
-        type: integer
-      mallocs:
-        type: integer
-      mcache_inuse:
-        type: string
-      mcache_sys:
-        type: string
-      mspan_inuse:
-        type: string
-      mspan_sys:
-        type: string
-      next_gc:
-        type: string
-      num_gc:
-        type: integer
-      num_goroutine:
-        type: integer
-      other_sys:
-        type: string
-      pause_total_ns:
-        type: string
-      stack_inuse:
-        type: string
-      stack_sys:
-        type: string
-      sys:
-        type: string
-      total_alloc:
-        type: string
-      uptime:
-        type: string
-    type: object
-  admin.TaskExecution:
-    properties:
-      created_at:
-        type: string
-      duration:
-        type: integer
-      error_message:
-        type: string
-      finished_at:
-        type: string
-      id:
-        example: "0"
-        type: string
-      log:
-        type: string
-      max_retry:
-        type: integer
-      payload:
-        type: string
-      result:
-        type: string
-      retry_count:
-        type: integer
-      retryable:
-        type: boolean
-      started_at:
-        type: string
-      status:
-        $ref: '#/definitions/admin.TaskExecutionStatus'
-      task_id:
-        type: string
-      task_name:
-        type: string
-      task_type:
-        type: string
-      triggered_by:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  admin.TaskExecutionStatus:
-    enum:
-    - pending
-    - running
-    - succeeded
-    - failed
-    type: string
-    x-enum-varnames:
-    - TaskExecutionStatusPending
-    - TaskExecutionStatusRunning
-    - TaskExecutionStatusSucceeded
-    - TaskExecutionStatusFailed
-  admin.Template:
-    properties:
-      content:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: integer
-      is_system:
-        type: boolean
-      key:
-        type: string
-      name:
-        type: string
-      subject:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  admin.TestSMTPRequest:
-    properties:
-      smtp_host:
-        maxLength: 255
-        type: string
-      smtp_password:
-        maxLength: 255
-        type: string
-      smtp_port:
-        type: integer
-      smtp_username:
-        maxLength: 255
-        type: string
-      to:
-        type: string
-    required:
-    - smtp_host
-    - smtp_password
-    - smtp_port
-    - smtp_username
-    - to
-    type: object
-  admin.TestSMTPResponse:
-    properties:
-      error:
-        type: string
-      log:
-        type: string
-      success:
-        type: boolean
-    type: object
-  admin.UpdateScheduleRequest:
-    properties:
-      cron:
-        type: string
-      is_active:
-        type: boolean
-      name:
-        type: string
-      payload:
-        type: string
-      task_type:
-        type: string
-    required:
-    - cron
-    - is_active
-    - name
-    - task_type
-    type: object
-  admin.UpdateSystemConfigRequest:
-    properties:
-      description:
-        maxLength: 255
-        type: string
-      value:
-        type: string
-      visibility:
-        enum:
-        - 0
-        - 1
-        type: integer
-    required:
-    - value
-    type: object
-  admin.UpdateTemplateRequest:
-    properties:
-      content:
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      name:
-        maxLength: 100
-        type: string
-      subject:
-        maxLength: 255
-        type: string
-      type:
-        maxLength: 20
-        type: string
-    required:
-    - content
-    - name
-    - type
-    type: object
-  admin.UpdaterStatus:
-    properties:
-      asset_name:
-        type: string
-      build_time:
-        type: string
-      can_upgrade:
-        type: boolean
-      current_version:
-        type: string
-      latest_version:
-        type: string
-      platform:
-        type: string
-      prerelease:
-        type: boolean
-      published_at:
-        type: string
-      release_name:
-        type: string
-      release_notes:
-        type: string
-      release_url:
-        type: string
-      update_available:
-        type: boolean
-      upstream_repository:
-        type: string
-    type: object
-  admin.accessLogItem:
-    properties:
-      created_at:
-        type: string
-      headers:
-        type: string
-      id:
-        example: "0"
-        type: string
-      ip:
-        type: string
-      latency:
-        type: integer
-      method:
-        type: string
-      nickname:
-        type: string
-      path:
-        type: string
-      status:
-        type: integer
-      trace_id:
-        type: string
-      user_agent:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-      username:
-        type: string
-    type: object
-  admin.accessLogsResponse:
-    properties:
-      list:
-        items:
-          $ref: '#/definitions/admin.accessLogItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  admin.browserItem:
-    properties:
-      browser:
-        type: string
-      count:
-        type: integer
-    type: object
-  admin.createUserRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      is_active:
-        type: boolean
-      is_admin:
-        type: boolean
-      nickname:
-        maxLength: 64
-        type: string
-      password:
-        maxLength: 64
-        minLength: 8
-        type: string
-      username:
-        maxLength: 64
-        minLength: 3
-        type: string
-    required:
-    - email
-    - password
-    - username
-    type: object
-  admin.listUsersResponse:
-    properties:
-      total:
-        type: integer
-      users:
-        items:
-          $ref: '#/definitions/admin.userResponse'
-        type: array
-    type: object
-  admin.logsAnalyticsResponse:
-    properties:
-      browsers:
-        items:
-          $ref: '#/definitions/admin.browserItem'
-        type: array
-      top_users:
-        items:
-          $ref: '#/definitions/admin.topUserItem'
-        type: array
-      trend:
-        items:
-          $ref: '#/definitions/admin.trendItem'
-        type: array
-    type: object
-  admin.logsResponse:
-    properties:
-      has_more:
-        type: boolean
-      lines:
-        items:
-          $ref: '#/definitions/logger.LogEntry'
-        type: array
-      next_cursor:
-        description: 用于加载更早日志的 cursor
-        type: integer
-    type: object
-  admin.topUserItem:
-    properties:
-      count:
-        type: integer
-      nickname:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-      username:
-        type: string
-    type: object
-  admin.trendItem:
-    properties:
-      count:
-        type: integer
-      date:
-        type: string
-    type: object
-  admin.updateCacheConfigRequest:
-    properties:
-      lru_enabled:
-        type: boolean
-      max_size_mb:
-        minimum: 1
-        type: integer
-      ttl_minutes:
-        minimum: 0
-        type: integer
-    required:
-    - max_size_mb
-    - ttl_minutes
-    type: object
-  admin.updateUserRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      is_admin:
-        type: boolean
-      nickname:
-        maxLength: 64
-        type: string
-      password:
-        maxLength: 64
-        minLength: 8
-        type: string
-    required:
-    - email
-    type: object
-  admin.updateUserStatusRequest:
-    properties:
-      is_active:
-        type: boolean
-    type: object
-  admin.userResponse:
-    properties:
-      avatar_url:
-        type: string
-      bio:
-        type: string
-      created_at:
-        type: string
-      email:
-        type: string
-      gender:
-        type: string
-      id:
-        example: "0"
-        type: string
-      is_active:
-        type: boolean
-      is_admin:
-        type: boolean
-      last_login_at:
-        type: string
-      location:
-        type: string
-      nickname:
-        type: string
-      phone:
-        type: string
-      updated_at:
-        type: string
-      username:
-        type: string
-      website:
-        type: string
-    type: object
   cap.ChallengeResponse:
     properties:
       challenge:
@@ -820,14 +190,54 @@ definitions:
         description: 全局递增序号
         type: integer
     type: object
-  message_gateway.BindRequest:
+  model.AccessLogItem:
+    properties:
+      created_at:
+        type: string
+      headers:
+        type: string
+      id:
+        example: "0"
+        type: string
+      ip:
+        type: string
+      latency:
+        type: integer
+      method:
+        type: string
+      nickname:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      trace_id:
+        type: string
+      user_agent:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+      username:
+        type: string
+    type: object
+  model.AccessLogsResponse:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/model.AccessLogItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  model.BindRequest:
     properties:
       channel_id:
         type: string
       code:
         type: string
     type: object
-  message_gateway.BindingDTO:
+  model.BindingDTO:
     properties:
       channel_id:
         example: "0"
@@ -847,7 +257,14 @@ definitions:
         example: "0"
         type: string
     type: object
-  message_gateway.ChannelDTO:
+  model.BrowserItem:
+    properties:
+      browser:
+        type: string
+      count:
+        type: integer
+    type: object
+  model.ChannelDTO:
     properties:
       credentials:
         additionalProperties:
@@ -872,7 +289,7 @@ definitions:
       type:
         type: string
     type: object
-  message_gateway.CreateChannelRequest:
+  model.CreateChannelRequest:
     properties:
       credentials:
         additionalProperties:
@@ -889,16 +306,174 @@ definitions:
       type:
         type: string
     type: object
-  message_gateway.Definition:
+  model.CreateScheduleRequest:
+    properties:
+      cron:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      payload:
+        type: string
+      task_type:
+        type: string
+    required:
+    - cron
+    - is_active
+    - name
+    - task_type
+    type: object
+  model.CreateSystemConfigRequest:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      key:
+        maxLength: 64
+        type: string
+      type:
+        enum:
+        - system
+        - business
+        type: string
+      value:
+        type: string
+      visibility:
+        enum:
+        - 0
+        - 1
+        type: integer
+    required:
+    - key
+    - type
+    - value
+    type: object
+  model.CreateTemplateRequest:
+    properties:
+      content:
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      key:
+        maxLength: 80
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      subject:
+        maxLength: 255
+        type: string
+      type:
+        maxLength: 20
+        type: string
+    required:
+    - content
+    - key
+    - name
+    - type
+    type: object
+  model.CreateUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      nickname:
+        maxLength: 64
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      username:
+        maxLength: 64
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  model.DBOverviewResponse:
+    properties:
+      connections:
+        type: integer
+      name:
+        type: string
+      size:
+        type: string
+      table_count:
+        type: integer
+      type:
+        type: string
+      version:
+        type: string
+    type: object
+  model.DatabaseInfoResponse:
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+      version:
+        type: string
+    type: object
+  model.Definition:
     properties:
       fields:
         items:
-          $ref: '#/definitions/message_gateway.Field'
+          $ref: '#/definitions/model.Field'
         type: array
       type:
         type: string
     type: object
-  message_gateway.Field:
+  model.DispatchTaskRequest:
+    properties:
+      end_time:
+        type: string
+      payload:
+        type: string
+      start_time:
+        type: string
+      task_type:
+        type: string
+      user_id:
+        type: integer
+    required:
+    - task_type
+    type: object
+  model.ExecuteSQLRequest:
+    properties:
+      sql:
+        type: string
+    required:
+    - sql
+    type: object
+  model.ExecuteSQLResponse:
+    properties:
+      affected_rows:
+        type: integer
+      columns:
+        items:
+          type: string
+        type: array
+      execution_time_ms:
+        type: integer
+      results:
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+      type:
+        description: '"select" 或 "exec"'
+        type: string
+    type: object
+  model.Field:
     properties:
       key:
         type: string
@@ -907,7 +482,58 @@ definitions:
       type:
         type: string
     type: object
-  message_gateway.PublicChannelDTO:
+  model.ListUsersResponse:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/model.UserResponse'
+        type: array
+    type: object
+  model.LogDatabaseStatus:
+    properties:
+      active_database:
+        type: string
+      available_targets:
+        items:
+          type: string
+        type: array
+      migration:
+        type: string
+      retention_days:
+        additionalProperties:
+          type: integer
+        type: object
+    type: object
+  model.LogsAnalyticsResponse:
+    properties:
+      browsers:
+        items:
+          $ref: '#/definitions/model.BrowserItem'
+        type: array
+      top_users:
+        items:
+          $ref: '#/definitions/model.TopUserItem'
+        type: array
+      trend:
+        items:
+          $ref: '#/definitions/model.TrendItem'
+        type: array
+    type: object
+  model.LogsResponse:
+    properties:
+      has_more:
+        type: boolean
+      lines:
+        items:
+          $ref: '#/definitions/logger.LogEntry'
+        type: array
+      next_cursor:
+        description: 用于加载更早日志的 cursor
+        type: integer
+    type: object
+  model.PublicChannelDTO:
     properties:
       id:
         example: "0"
@@ -917,7 +543,242 @@ definitions:
       type:
         type: string
     type: object
-  message_gateway.UpdateChannelRequest:
+  model.Schedule:
+    properties:
+      created_at:
+        type: string
+      cron:
+        type: string
+      id:
+        example: "0"
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      payload:
+        type: string
+      task_type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.SystemConfig:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      key:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: string
+      visibility:
+        type: integer
+    type: object
+  model.SystemStatusResponse:
+    properties:
+      alloc:
+        type: string
+      buck_hash_sys:
+        type: string
+      frees:
+        type: integer
+      gc_sys:
+        type: string
+      heap_alloc:
+        type: string
+      heap_idle:
+        type: string
+      heap_inuse:
+        type: string
+      heap_objects:
+        type: integer
+      heap_released:
+        type: string
+      heap_sys:
+        type: string
+      last_gc_time:
+        type: string
+      last_pause:
+        type: string
+      lookups:
+        type: integer
+      mallocs:
+        type: integer
+      mcache_inuse:
+        type: string
+      mcache_sys:
+        type: string
+      mspan_inuse:
+        type: string
+      mspan_sys:
+        type: string
+      next_gc:
+        type: string
+      num_gc:
+        type: integer
+      num_goroutine:
+        type: integer
+      other_sys:
+        type: string
+      pause_total_ns:
+        type: string
+      stack_inuse:
+        type: string
+      stack_sys:
+        type: string
+      sys:
+        type: string
+      total_alloc:
+        type: string
+      uptime:
+        type: string
+    type: object
+  model.TaskExecution:
+    properties:
+      created_at:
+        type: string
+      duration:
+        type: integer
+      error_message:
+        type: string
+      finished_at:
+        type: string
+      id:
+        example: "0"
+        type: string
+      log:
+        type: string
+      max_retry:
+        type: integer
+      payload:
+        type: string
+      result:
+        type: string
+      retry_count:
+        type: integer
+      retryable:
+        type: boolean
+      started_at:
+        type: string
+      status:
+        $ref: '#/definitions/model.TaskExecutionStatus'
+      task_id:
+        type: string
+      task_name:
+        type: string
+      task_type:
+        type: string
+      triggered_by:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.TaskExecutionStatus:
+    enum:
+    - pending
+    - running
+    - succeeded
+    - failed
+    type: string
+    x-enum-varnames:
+    - TaskExecutionStatusPending
+    - TaskExecutionStatusRunning
+    - TaskExecutionStatusSucceeded
+    - TaskExecutionStatusFailed
+  model.Template:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_system:
+        type: boolean
+      key:
+        type: string
+      name:
+        type: string
+      subject:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.TestSMTPRequest:
+    properties:
+      smtp_host:
+        maxLength: 255
+        type: string
+      smtp_password:
+        maxLength: 255
+        type: string
+      smtp_port:
+        type: integer
+      smtp_username:
+        maxLength: 255
+        type: string
+      to:
+        type: string
+    required:
+    - smtp_host
+    - smtp_password
+    - smtp_port
+    - smtp_username
+    - to
+    type: object
+  model.TestSMTPResponse:
+    properties:
+      error:
+        type: string
+      log:
+        type: string
+      success:
+        type: boolean
+    type: object
+  model.TopUserItem:
+    properties:
+      count:
+        type: integer
+      nickname:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+      username:
+        type: string
+    type: object
+  model.TrendItem:
+    properties:
+      count:
+        type: integer
+      date:
+        type: string
+    type: object
+  model.UpdateCacheConfigRequest:
+    properties:
+      lru_enabled:
+        type: boolean
+      max_size_mb:
+        minimum: 1
+        type: integer
+      ttl_minutes:
+        minimum: 0
+        type: integer
+    required:
+    - max_size_mb
+    - ttl_minutes
+    type: object
+  model.UpdateChannelRequest:
     properties:
       credentials:
         additionalProperties:
@@ -930,6 +791,145 @@ definitions:
           type: string
         type: object
       name:
+        type: string
+    type: object
+  model.UpdateScheduleRequest:
+    properties:
+      cron:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      payload:
+        type: string
+      task_type:
+        type: string
+    required:
+    - cron
+    - is_active
+    - name
+    - task_type
+    type: object
+  model.UpdateSystemConfigRequest:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      value:
+        type: string
+      visibility:
+        enum:
+        - 0
+        - 1
+        type: integer
+    required:
+    - value
+    type: object
+  model.UpdateTemplateRequest:
+    properties:
+      content:
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      subject:
+        maxLength: 255
+        type: string
+      type:
+        maxLength: 20
+        type: string
+    required:
+    - content
+    - name
+    - type
+    type: object
+  model.UpdateUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      is_admin:
+        type: boolean
+      nickname:
+        maxLength: 64
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+    required:
+    - email
+    type: object
+  model.UpdateUserStatusRequest:
+    properties:
+      is_active:
+        type: boolean
+    type: object
+  model.UpdaterStatus:
+    properties:
+      asset_name:
+        type: string
+      build_time:
+        type: string
+      can_upgrade:
+        type: boolean
+      current_version:
+        type: string
+      latest_version:
+        type: string
+      platform:
+        type: string
+      prerelease:
+        type: boolean
+      published_at:
+        type: string
+      release_name:
+        type: string
+      release_notes:
+        type: string
+      release_url:
+        type: string
+      update_available:
+        type: boolean
+      upstream_repository:
+        type: string
+    type: object
+  model.UserResponse:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      id:
+        example: "0"
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      last_login_at:
+        type: string
+      location:
+        type: string
+      nickname:
+        type: string
+      phone:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+      website:
         type: string
     type: object
   models.Upload:
@@ -1145,7 +1145,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.updateCacheConfigRequest'
+          $ref: '#/definitions/model.UpdateCacheConfigRequest'
       produces:
       - application/json
       responses:
@@ -1246,7 +1246,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.DatabaseInfoResponse'
+                  $ref: '#/definitions/model.DatabaseInfoResponse'
               type: object
         "401":
           description: 未登录
@@ -1274,7 +1274,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.DBOverviewResponse'
+                  $ref: '#/definitions/model.DBOverviewResponse'
               type: object
         "401":
           description: 未登录
@@ -1304,7 +1304,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.ExecuteSQLRequest'
+          $ref: '#/definitions/model.ExecuteSQLRequest'
       produces:
       - application/json
       responses:
@@ -1315,7 +1315,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.ExecuteSQLResponse'
+                  $ref: '#/definitions/model.ExecuteSQLResponse'
               type: object
         "400":
           description: SQL 语句错误
@@ -1396,7 +1396,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.logsResponse'
+                  $ref: '#/definitions/model.LogsResponse'
               type: object
         "401":
           description: 未登录
@@ -1451,7 +1451,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.accessLogsResponse'
+                  $ref: '#/definitions/model.AccessLogsResponse'
               type: object
         "400":
           description: 参数错误
@@ -1487,7 +1487,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.logsAnalyticsResponse'
+                  $ref: '#/definitions/model.LogsAnalyticsResponse'
               type: object
         "401":
           description: 未登录
@@ -1527,7 +1527,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/message_gateway.ChannelDTO'
+                    $ref: '#/definitions/model.ChannelDTO'
                   type: array
               type: object
       security:
@@ -1545,7 +1545,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message_gateway.CreateChannelRequest'
+          $ref: '#/definitions/model.CreateChannelRequest'
       produces:
       - application/json
       responses:
@@ -1556,7 +1556,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/message_gateway.ChannelDTO'
+                  $ref: '#/definitions/model.ChannelDTO'
               type: object
         "400":
           description: Bad Request
@@ -1607,7 +1607,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message_gateway.UpdateChannelRequest'
+          $ref: '#/definitions/model.UpdateChannelRequest'
       produces:
       - application/json
       responses:
@@ -1618,7 +1618,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/message_gateway.ChannelDTO'
+                  $ref: '#/definitions/model.ChannelDTO'
               type: object
         "400":
           description: Bad Request
@@ -1676,7 +1676,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/message_gateway.Definition'
+                    $ref: '#/definitions/model.Definition'
                   type: array
               type: object
       security:
@@ -1697,7 +1697,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.SystemStatusResponse'
+                  $ref: '#/definitions/model.SystemStatusResponse'
               type: object
         "401":
           description: 未登录
@@ -1725,7 +1725,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.LogDatabaseStatus'
+                  $ref: '#/definitions/model.LogDatabaseStatus'
               type: object
         "401":
           description: 未登录
@@ -1763,7 +1763,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/admin.SystemConfig'
+                    $ref: '#/definitions/model.SystemConfig'
                   type: array
               type: object
         "401":
@@ -1793,7 +1793,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.CreateSystemConfigRequest'
+          $ref: '#/definitions/model.CreateSystemConfigRequest'
       produces:
       - application/json
       responses:
@@ -1846,7 +1846,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.SystemConfig'
+                  $ref: '#/definitions/model.SystemConfig'
               type: object
         "401":
           description: 未登录
@@ -1884,7 +1884,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.UpdateSystemConfigRequest'
+          $ref: '#/definitions/model.UpdateSystemConfigRequest'
       produces:
       - application/json
       responses:
@@ -1933,7 +1933,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.TestSMTPRequest'
+          $ref: '#/definitions/model.TestSMTPRequest'
       produces:
       - application/json
       responses:
@@ -1944,7 +1944,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.TestSMTPResponse'
+                  $ref: '#/definitions/model.TestSMTPResponse'
               type: object
         "400":
           description: 参数错误
@@ -1966,7 +1966,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.DispatchTaskRequest'
+          $ref: '#/definitions/model.DispatchTaskRequest'
       produces:
       - application/json
       responses:
@@ -2066,7 +2066,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.TaskExecution'
+                  $ref: '#/definitions/model.TaskExecution'
               type: object
         "400":
           description: 参数错误
@@ -2149,7 +2149,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/admin.Schedule'
+                    $ref: '#/definitions/model.Schedule'
                   type: array
               type: object
         "401":
@@ -2175,7 +2175,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.CreateScheduleRequest'
+          $ref: '#/definitions/model.CreateScheduleRequest'
       produces:
       - application/json
       responses:
@@ -2186,7 +2186,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.Schedule'
+                  $ref: '#/definitions/model.Schedule'
               type: object
         "400":
           description: Cron 表达式无效、异步任务类型不存在或参数错误
@@ -2266,7 +2266,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.UpdateScheduleRequest'
+          $ref: '#/definitions/model.UpdateScheduleRequest'
       produces:
       - application/json
       responses:
@@ -2277,7 +2277,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.Schedule'
+                  $ref: '#/definitions/model.Schedule'
               type: object
         "400":
           description: Cron 表达式无效、参数错误
@@ -2348,7 +2348,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/admin.Template'
+                    $ref: '#/definitions/model.Template'
                   type: array
               type: object
         "401":
@@ -2378,7 +2378,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.CreateTemplateRequest'
+          $ref: '#/definitions/model.CreateTemplateRequest'
       produces:
       - application/json
       responses:
@@ -2476,7 +2476,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.Template'
+                  $ref: '#/definitions/model.Template'
               type: object
         "401":
           description: 未登录
@@ -2514,7 +2514,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.UpdateTemplateRequest'
+          $ref: '#/definitions/model.UpdateTemplateRequest'
       produces:
       - application/json
       responses:
@@ -2525,7 +2525,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.Template'
+                  $ref: '#/definitions/model.Template'
               type: object
         "400":
           description: 参数错误
@@ -2565,7 +2565,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.UpdaterStatus'
+                  $ref: '#/definitions/model.UpdaterStatus'
               type: object
         "401":
           description: 未登录
@@ -2844,7 +2844,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.listUsersResponse'
+                  $ref: '#/definitions/model.ListUsersResponse'
               type: object
         "400":
           description: 参数错误
@@ -2877,7 +2877,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.createUserRequest'
+          $ref: '#/definitions/model.CreateUserRequest'
       produces:
       - application/json
       responses:
@@ -2888,7 +2888,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.userResponse'
+                  $ref: '#/definitions/model.UserResponse'
               type: object
         "400":
           description: 参数错误或用户名已存在
@@ -2975,7 +2975,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/admin.userResponse'
+                  $ref: '#/definitions/model.UserResponse'
               type: object
         "400":
           description: 参数错误
@@ -3017,7 +3017,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.updateUserRequest'
+          $ref: '#/definitions/model.UpdateUserRequest'
       produces:
       - application/json
       responses:
@@ -3071,7 +3071,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/admin.updateUserStatusRequest'
+          $ref: '#/definitions/model.UpdateUserStatusRequest'
       produces:
       - application/json
       responses:
@@ -3138,7 +3138,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/message_gateway.BindingDTO'
+                    $ref: '#/definitions/model.BindingDTO'
                   type: array
               type: object
         "401":
@@ -3161,7 +3161,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/message_gateway.BindRequest'
+          $ref: '#/definitions/model.BindRequest'
       produces:
       - application/json
       responses:
@@ -3172,7 +3172,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/message_gateway.BindingDTO'
+                  $ref: '#/definitions/model.BindingDTO'
               type: object
         "400":
           description: Bad Request
@@ -3230,7 +3230,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/message_gateway.PublicChannelDTO'
+                    $ref: '#/definitions/model.PublicChannelDTO'
                   type: array
               type: object
         "401":

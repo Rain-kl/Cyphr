@@ -162,6 +162,8 @@ func (p *Plugin) Start(ctx context.Context) error {
 		}
 	}
 
+	registerFrontend(p.engine, frontendAssets())
+
 	p.server = &http.Server{
 		Addr:              p.addr,
 		Handler:           p.engine,

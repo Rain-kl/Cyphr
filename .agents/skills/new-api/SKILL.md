@@ -16,37 +16,45 @@ description: "Wavelet 项目专用：当新增或修改业务 API、Handler、�
 
 ### 插件目录推荐结构 (`backend/plugins/domain/<name>/` 或下游 `custom_plugins/<name>/`)
 
-#### 模式 1：扁平自包含分层（适用于简单业务逻辑 / 推荐默认）
+#### 模式 1：极简单文件自包含（适用于极简微型插件 / 单一实体 / <500行）
 ```text
-backend/plugins/domain/order/
+backend/plugins/domain/demo/
 ├── plugin.go        # 插件入口：实现 core.Plugin，通过 ctx.Router() 挂载路由
-├── handlers.go      # HTTP 控制器：参数校验、上下文提取、调用 Service、信封响应
-├── service.go       # 业务服务层：纯 Go 逻辑，仅依赖 context.Context
-├── repository.go    # 数据库访问层：GORM 查询、SQL 防注入与转义
+├── handlers.go      # HTTP 控制器单文件：参数校验、上下文提取、调用 Service、信封响应
+├── service.go       # 业务服务层单文件：纯 Go 逻辑，仅依赖 context.Context
+├── repository.go    # 数据库访问层单文件：GORM 查询、SQL 防注入与转义
 ├── models.go        # GORM 数据实体定义（自带表前缀）与 DTO
 ├── errs.go          # 模块内错误常量定义（camelCase 字符串）
 └── migrations/      # 专属嵌入式 Goose SQL 迁移脚本
-    └── 20260827000001_create_orders_table.sql
+    └── 20260827000001_create_demo_table.sql
 ```
+> ⚠️ **严禁**：当需要拆分多个 Handler/Service 文件时，**严禁在根目录平铺 `handlers_*.go`、`service_*.go`、`repository_*.go` 等前缀文件**，必须立即采用模式 2（独立子包分层）。
 
-#### 模式 2：严格子包分层架构（适用于复杂业务逻辑 / 多聚合根 / 大代码量）
+#### 模式 2：标准独立子包分层架构（适用于标准/中大型业务插件 / 官方推荐标准）
 ```text
 backend/plugins/domain/order/
 ├── plugin.go           # 插件根入口：实现 core.Plugin，装配各子包并向 Cordis 注册
-├── controller/         # package controller：HTTP 控制器与路由声明
-│   ├── http.go
-│   └── router.go
+│
+├── handler/            # package handler：HTTP 控制器与路由声明（或 controller/）
+│   ├── router.go       # 路由组声明与中间件挂载
+│   └── order.go        # 订单 Handler（直接以业务命名，禁止 handlers_order.go）
+│
 ├── service/            # package service：业务逻辑层（用例编排、事件发布）
-│   ├── service.go
-│   └── service_impl.go
+│   ├── service.go      # Service 接口与组装
+│   └── order.go        # 订单业务用例实现（直接以业务命名，禁止 service_order.go）
+│
 ├── repository/         # package repository：数据持久化访问层 (DAL)
-│   ├── repository.go
-│   └── repository_impl.go
-├── model/              # package model：纯数据实体与 DTO（无外部依赖）
-│   ├── entity.go
-│   └── dto.go
-├── errs/               # package errs：错误常量与错误码
+│   ├── repository.go   # 仓储抽象与通用工厂
+│   └── order.go        # 订单仓储实现（直接以业务命名，禁止 repository_order.go）
+│
+├── model/              # package model (或 models/)：纯数据实体与 DTO（无外部依赖）
+│   ├── entity.go       # 数据库映射实体 (TableName() 带插件专属前缀)
+│   ├── dto.go          # 请求与响应 DTO
+│   └── events.go       # 领域事件定义
+│
+├── errs/               # package errs：错误常量与错误码 (或根目录 errs.go)
 │   └── errs.go
+│
 └── migrations/         # 专属嵌入式 Goose SQL 迁移脚本
     └── 20260827000001_create_orders_table.sql
 ```

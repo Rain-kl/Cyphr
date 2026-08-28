@@ -5,12 +5,9 @@ package auth
 
 import (
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/ginutil"
 	"context"
 	"errors"
 	"sync"
-
-	"github.com/gin-gonic/gin"
 )
 
 type authServiceImpl struct{}
@@ -27,58 +24,48 @@ func (s *authServiceImpl) RequireAdminMiddleware() any {
 	return AdminRequired()
 }
 
+// GetCurrentUser 从 context 中读取登录用户。
+//
+// 中间件通过 gin 的 c.Set(contracts.AuthUserObjKey, user) 写入登录态；
+// *gin.Context 自身实现了 context.Context，且其 Value(key) 对 string 类型 key
+// 等价于 c.Get(key)（未命中时再回落到 Request.Context().Value），
+// 因此这里无需感知 gin 即可读取同一份登录态。
 func (s *authServiceImpl) GetCurrentUser(ctx context.Context) (*contracts.UserDTO, error) {
-	if ginCtx, ok := ctx.(*gin.Context); ok {
-		if u, ok := ginutil.GetFromContext[*contracts.UserDTO](ginCtx, contracts.AuthUserObjKey); ok && u != nil {
-			return u, nil
-		}
-	}
-
 	if v := ctx.Value(contracts.AuthUserObjKey); v != nil {
 		if u, ok := v.(*contracts.UserDTO); ok && u != nil {
 			return u, nil
 		}
 	}
 
-	return nil, errors.New("auth: user not found in context")
+	return nil, errors.New(errUserNotInContext)
 }
 
 func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contracts.UserDTO, error) {
 	if token == "" {
-		return nil, errors.New("auth: empty token")
+		return nil, errors.New(errEmptyToken)
 	}
 
 	tokenHash := hashToken(token)
 	tokenRecord, err := GetCachedToken(ctx, tokenHash)
 	if err != nil {
-		var tokenRow struct {
-			ID      uint64
-			UserID  uint64
-			IsAdmin bool
-		}
-		if err := getDB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
+		tokenRecord, err = GetAccessTokenByHash(ctx, tokenHash)
+		if err != nil {
 			return nil, err
-		}
-		tokenRecord = &CachedToken{
-			ID:      tokenRow.ID,
-			UserID:  tokenRow.UserID,
-			IsAdmin: tokenRow.IsAdmin,
 		}
 		SetCachedToken(ctx, tokenHash, tokenRecord)
 	}
 
 	user, err := GetCachedUser(ctx, tokenRecord.UserID)
 	if err != nil || user == nil || !user.IsActive {
-		var dbUser contracts.UserDTO
-		if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRecord.UserID, true).First(&dbUser).Error; err != nil {
+		user, err = GetActiveUserByID(ctx, tokenRecord.UserID)
+		if err != nil {
 			return nil, err
 		}
-		user = &dbUser
 		SetCachedUser(ctx, tokenRecord.UserID, user)
 	}
 
 	if user.Username == SystemUsername {
-		return nil, errors.New("auth: system user token not allowed")
+		return nil, errors.New(errSystemUserTokenNotAllowed)
 	}
 
 	return user, nil
@@ -93,11 +80,16 @@ func (s *authServiceImpl) RevokeUserSessions(ctx context.Context, userID uint64)
 	return nil
 }
 
+// GetCurrentUserID 从请求登录态中读取用户 ID。
+//
+// Session 读取依赖 gin，属于接入层职责，因此这里通过接入层桥接函数
+// currentUserIDFromRequestContext（见 middleware.go）取值，Service 层本身不感知 gin。
 func (s *authServiceImpl) GetCurrentUserID(ctx context.Context) (uint64, error) {
-	if ginCtx, ok := ctx.(*gin.Context); ok {
-		return GetUserIDFromContext(ginCtx), nil
+	userID, ok := currentUserIDFromRequestContext(ctx)
+	if !ok {
+		return 0, errors.New(errUserNotInContext)
 	}
-	return 0, errors.New("auth: user not found in context")
+	return userID, nil
 }
 
 func (s *authServiceImpl) RevokeToken(ctx context.Context, tokenHash string) error {
@@ -118,8 +110,8 @@ func (s *authServiceImpl) InvalidateCachedToken(ctx context.Context, tokenHash s
 }
 
 func (s *authServiceImpl) ListAuthSources(ctx context.Context) ([]contracts.AuthSourceViewDTO, error) {
-	var sources []AuthSource
-	if err := getDB(ctx).Order("id ASC").Find(&sources).Error; err != nil {
+	sources, err := ListAllAuthSources(ctx)
+	if err != nil {
 		return nil, err
 	}
 
@@ -156,7 +148,7 @@ func (s *authServiceImpl) CreateAuthSource(ctx context.Context, source contracts
 		return nil, err
 	}
 
-	if err := getDB(ctx).Create(&model).Error; err != nil {
+	if err := CreateAuthSourceRecord(ctx, &model); err != nil {
 		return nil, err
 	}
 
@@ -165,8 +157,8 @@ func (s *authServiceImpl) CreateAuthSource(ctx context.Context, source contracts
 }
 
 func (s *authServiceImpl) UpdateAuthSource(ctx context.Context, id uint64, source contracts.AuthSourceDTO) (*contracts.AuthSourceDTO, error) {
-	var existing AuthSource
-	if err := getDB(ctx).First(&existing, id).Error; err != nil {
+	existing, err := GetAuthSourceByID(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 
@@ -183,36 +175,36 @@ func (s *authServiceImpl) UpdateAuthSource(ctx context.Context, id uint64, sourc
 		return nil, err
 	}
 
-	if err := getDB(ctx).Save(&existing).Error; err != nil {
+	if err := SaveAuthSourceRecord(ctx, existing); err != nil {
 		return nil, err
 	}
 
 	existing.Sanitize()
-	return toAuthSourceDTO(&existing), nil
+	return toAuthSourceDTO(existing), nil
 }
 
 func (s *authServiceImpl) DeleteAuthSource(ctx context.Context, id uint64) error {
-	var existing AuthSource
-	if err := getDB(ctx).First(&existing, id).Error; err != nil {
+	existing, err := GetAuthSourceByID(ctx, id)
+	if err != nil {
 		return err
 	}
 
-	return getDB(ctx).Delete(&existing).Error
+	return DeleteAuthSourceRecord(ctx, existing)
 }
 
 func (s *authServiceImpl) ToggleAuthSource(ctx context.Context, id uint64) (*contracts.AuthSourceDTO, error) {
-	var existing AuthSource
-	if err := getDB(ctx).First(&existing, id).Error; err != nil {
+	existing, err := GetAuthSourceByID(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 
 	existing.IsActive = !existing.IsActive
-	if err := getDB(ctx).Save(&existing).Error; err != nil {
+	if err := SaveAuthSourceRecord(ctx, existing); err != nil {
 		return nil, err
 	}
 
 	existing.Sanitize()
-	return toAuthSourceDTO(&existing), nil
+	return toAuthSourceDTO(existing), nil
 }
 
 func toAuthSourceDTO(s *AuthSource) *contracts.AuthSourceDTO {

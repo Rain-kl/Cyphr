@@ -7,7 +7,8 @@ package qq
 import (
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/message_gateway/model"
+	"Wavelet/plugins/domain/message_gateway/service"
 	"context"
 	"fmt"
 	"strings"
@@ -32,8 +33,8 @@ type qqEvent struct {
 
 // Adapter is an official QQ Bot C2C channel.
 type Adapter struct {
-	cfg          message_gateway.ChannelConfig
-	onInbound    message_gateway.Handler
+	cfg          model.ChannelConfig
+	onInbound    service.Handler
 	api          openapi.OpenAPI
 	tokenSrc     oauth2.TokenSource
 	cancel       context.CancelFunc
@@ -42,7 +43,7 @@ type Adapter struct {
 }
 
 // New constructs a QQ adapter.
-func New(cfg message_gateway.ChannelConfig, onInbound message_gateway.Handler) (message_gateway.Channel, error) {
+func New(cfg model.ChannelConfig, onInbound service.Handler) (service.Channel, error) {
 	if strings.TrimSpace(cfg.Credentials["app_id"]) == "" || strings.TrimSpace(cfg.Credentials["app_secret"]) == "" {
 		return nil, fmt.Errorf("qq: app_id and app_secret are required")
 	}
@@ -50,11 +51,11 @@ func New(cfg message_gateway.ChannelConfig, onInbound message_gateway.Handler) (
 }
 
 // Type returns qq.
-func (a *Adapter) Type() string { return message_gateway.ChannelTypeQQ }
+func (a *Adapter) Type() string { return model.ChannelTypeQQ }
 
 // Capabilities reports C2C text/media support.
-func (a *Adapter) Capabilities() message_gateway.Capability {
-	return message_gateway.Capability{Text: true, Image: true, File: true, Reply: true}
+func (a *Adapter) Capabilities() model.Capability {
+	return model.Capability{Text: true, Image: true, File: true, Reply: true}
 }
 
 // Connect starts the official WebSocket session (C2C intent).
@@ -127,7 +128,7 @@ func (a *Adapter) Disconnect(_ context.Context) error {
 }
 
 // Send posts a C2C text reply.
-func (a *Adapter) Send(ctx context.Context, to message_gateway.Recipient, msg message_gateway.OutboundMessage) error {
+func (a *Adapter) Send(ctx context.Context, to model.Recipient, msg model.OutboundMessage) error {
 	a.mu.Lock()
 	api := a.api
 	a.mu.Unlock()
@@ -151,9 +152,9 @@ func (a *Adapter) handleEvent(ctx context.Context, ev qqEvent) {
 	if disconnected || a.onInbound == nil {
 		return
 	}
-	_ = a.onInbound(ctx, message_gateway.InboundMessage{
+	_ = a.onInbound(ctx, model.InboundMessage{
 		ChannelID:      a.cfg.ID,
-		ChannelType:    message_gateway.ChannelTypeQQ,
+		ChannelType:    model.ChannelTypeQQ,
 		PlatformUserID: ev.UserID,
 		ChatID:         ev.UserID,
 		MessageID:      ev.MessageID,

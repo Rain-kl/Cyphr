@@ -4,14 +4,14 @@
 package qq
 
 import (
-	"Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/message_gateway/model"
 	"context"
 	"testing"
 )
 
 func TestHandleEvent_DropsNonC2C(t *testing.T) {
 	var got int
-	a := &Adapter{onInbound: func(ctx context.Context, msg message_gateway.InboundMessage) error {
+	a := &Adapter{onInbound: func(ctx context.Context, msg model.InboundMessage) error {
 		got++
 		return nil
 	}}
@@ -22,8 +22,8 @@ func TestHandleEvent_DropsNonC2C(t *testing.T) {
 }
 
 func TestHandleEvent_C2CText(t *testing.T) {
-	var got message_gateway.InboundMessage
-	a := &Adapter{cfg: message_gateway.ChannelConfig{ID: 3}, onInbound: func(ctx context.Context, msg message_gateway.InboundMessage) error {
+	var got model.InboundMessage
+	a := &Adapter{cfg: model.ChannelConfig{ID: 3}, onInbound: func(ctx context.Context, msg model.InboundMessage) error {
 		got = msg
 		return nil
 	}}
@@ -34,7 +34,7 @@ func TestHandleEvent_C2CText(t *testing.T) {
 }
 
 func TestNew_RequiresCreds(t *testing.T) {
-	_, err := New(message_gateway.ChannelConfig{}, nil)
+	_, err := New(model.ChannelConfig{}, nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}

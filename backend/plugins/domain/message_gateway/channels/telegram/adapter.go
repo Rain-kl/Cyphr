@@ -6,7 +6,8 @@ package telegram
 
 import (
 	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/message_gateway/model"
+	"Wavelet/plugins/domain/message_gateway/service"
 	"context"
 	"fmt"
 	"os"
@@ -19,13 +20,13 @@ import (
 
 // Adapter is a Telegram private-chat channel.
 type Adapter struct {
-	cfg       message_gateway.ChannelConfig
-	onInbound message_gateway.Handler
+	cfg       model.ChannelConfig
+	onInbound service.Handler
 	bot       *tele.Bot
 }
 
-// New constructs a Telegram adapter. Call message_gateway.Register from the runner.
-func New(cfg message_gateway.ChannelConfig, onInbound message_gateway.Handler) (message_gateway.Channel, error) {
+// New constructs a Telegram adapter. Call service.Register from the runner.
+func New(cfg model.ChannelConfig, onInbound service.Handler) (service.Channel, error) {
 	if strings.TrimSpace(cfg.Credentials["bot_token"]) == "" {
 		return nil, fmt.Errorf("telegram: bot_token is required")
 	}
@@ -33,11 +34,11 @@ func New(cfg message_gateway.ChannelConfig, onInbound message_gateway.Handler) (
 }
 
 // Type returns telegram.
-func (a *Adapter) Type() string { return message_gateway.ChannelTypeTelegram }
+func (a *Adapter) Type() string { return model.ChannelTypeTelegram }
 
 // Capabilities reports private-chat media support.
-func (a *Adapter) Capabilities() message_gateway.Capability {
-	return message_gateway.Capability{Text: true, Image: true, File: true, Reply: true}
+func (a *Adapter) Capabilities() model.Capability {
+	return model.Capability{Text: true, Image: true, File: true, Reply: true}
 }
 
 // Connect starts long polling.
@@ -85,7 +86,7 @@ func (a *Adapter) Disconnect(_ context.Context) error {
 }
 
 // Send replies to a private chat.
-func (a *Adapter) Send(_ context.Context, to message_gateway.Recipient, msg message_gateway.OutboundMessage) error {
+func (a *Adapter) Send(_ context.Context, to model.Recipient, msg model.OutboundMessage) error {
 	if a.bot == nil {
 		return fmt.Errorf("telegram: not connected")
 	}
@@ -104,9 +105,9 @@ func (a *Adapter) handleTeleMessage(ctx context.Context, m *tele.Message) {
 	if a.onInbound == nil {
 		return
 	}
-	msg := message_gateway.InboundMessage{
+	msg := model.InboundMessage{
 		ChannelID:      a.cfg.ID,
-		ChannelType:    message_gateway.ChannelTypeTelegram,
+		ChannelType:    model.ChannelTypeTelegram,
 		PlatformUserID: strconv.FormatInt(m.Sender.ID, 10),
 		ChatID:         strconv.FormatInt(m.Chat.ID, 10),
 		MessageID:      strconv.Itoa(m.ID),
@@ -121,7 +122,7 @@ func (a *Adapter) handleTeleMessage(ctx context.Context, m *tele.Message) {
 	_ = a.onInbound(ctx, msg)
 }
 
-func (a *Adapter) downloadMedia(m *tele.Message) []message_gateway.Attachment {
+func (a *Adapter) downloadMedia(m *tele.Message) []model.Attachment {
 	var files []*tele.File
 	var names []string
 	if m.Photo != nil {
@@ -141,16 +142,16 @@ func (a *Adapter) downloadMedia(m *tele.Message) []message_gateway.Attachment {
 	}
 	dir, err := os.MkdirTemp("", "wg-tg-*")
 	if err != nil {
-		return []message_gateway.Attachment{{Error: err.Error()}}
+		return []model.Attachment{{Error: err.Error()}}
 	}
-	out := make([]message_gateway.Attachment, 0, len(files))
+	out := make([]model.Attachment, 0, len(files))
 	for i, f := range files {
 		path := filepath.Join(dir, names[i])
 		if err := a.bot.Download(f, path); err != nil {
-			out = append(out, message_gateway.Attachment{FileName: names[i], Error: err.Error()})
+			out = append(out, model.Attachment{FileName: names[i], Error: err.Error()})
 			continue
 		}
-		out = append(out, message_gateway.Attachment{Path: path, FileName: names[i]})
+		out = append(out, model.Attachment{Path: path, FileName: names[i]})
 	}
 	return out
 }
