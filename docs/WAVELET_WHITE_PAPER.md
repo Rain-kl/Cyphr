@@ -91,7 +91,9 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
 3. **`core/contracts/` 契约隔离防线 (100% Pass)**:
    - 所有跨插件交互严格基于纯 Interface 和 DTO 定义（如 `contracts.DBService`, `contracts.AuthService`, `contracts.UserService`, `contracts.StorageService`），消除了 package 级别的强耦合。
 4. **`plugins/` 单所有者原则与数据迁移独立性 (100% Pass)**:
-   - 每个业务插件自包含专有 `migrations/*.sql`，彻底消除单体大迁移目录合并冲突，杜绝 GORM AutoMigrate。
+   - 每个业务插件自包含专有 `migrations/00001_initial.sql`，通过 `go:embed` 注册。
+   - 所有插件共享 `w_schema_versions` 表，以 `plugin_id` 列区分版本，彻底消除单体大迁移目录合并冲突，杜绝 GORM AutoMigrate。
+   - `pkg/migrator/` 全局迁移目录已物理删除，26 个全局 SQL 文件全部分配至对应插件。
 5. **并发与生命周期析构安全 (100% Pass)**:
    - 全局遵循 LIFO (后进先出) Disposer 逆序优雅注销机制。在开启 `-race` 竞争检测下，所有事件并发广播、多协程注入与读写均 0 数据竞争。
 
@@ -136,12 +138,15 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
 
 | 数据表 | 唯一所有者插件 | 数据结构与仓储位置 | 跨插件交互方式 |
 | :--- | :--- | :--- | :--- |
-| `w_users`<br>`w_access_tokens` | `plugins/domain/user` | `models.go`<br>`repository.go` | `core/contracts.UserService`<br>`contracts.UserDTO` |
-| `w_auth_sources`<br>`w_external_accounts`<br>`w_passkeys`<br>`w_oauth_states` | `plugins/domain/auth` | `models.go`<br>`repository.go` | `core/contracts.AuthService`<br>`contracts.AuthRegistry` |
+| `w_users` | `plugins/domain/user` | `models.go`<br>`repository.go` | `core/contracts.UserService`<br>`contracts.UserDTO` |
+| `w_auth_sources`<br>`w_external_accounts`<br>`w_access_tokens` | `plugins/domain/auth` | `models.go`<br>`service.go` | `core/contracts.AuthService`<br>`contracts.AuthRegistry` |
 | `w_uploads`<br>`w_upload_stats` | `plugins/domain/upload` | `models/models.go`<br>`repository/repository.go` | `core/contracts.StorageService`<br>`upload.Ingest` 流水线 |
 | `w_system_configs`<br>`w_templates` | `plugins/domain/admin` | `models.go`<br>`repository.go` | `ctx.Settings()` / `contracts.ConfigService`<br>Redis Pub/Sub 广播 |
 | `w_message_channels`<br>`w_message_bindings`<br>`w_message_pairing_codes`<br>`w_push_events`<br>`w_push_channels`<br>`w_push_histories` | `plugins/domain/message_gateway` | `models.go`<br>`repository.go` | `EventBus` 强类型事件广播订阅 |
-| `w_task_executions`<br>`w_schedules` | `plugins/drivers/driver_asynq_*` | `types.go`<br>`schedule.go` | `ctx.Task()` 与 `ctx.Schedule()` 扩展点 |
+| `w_user_access_logs` | `plugins/domain/risk_control` | `logstore/` | `logstore` 门面<br>ClickHouse PG/SQLite 回落 |
+| `w_schedules` | `plugins/drivers/driver_asynq_cron` | `schedule.go` | `ctx.Schedule()` 扩展点 |
+| `w_task_executions` | `plugins/drivers/driver_asynq_worker` | `types.go`<br>`executor.go` | `ctx.Task()` 扩展点 |
+| `w_schema_versions` | **系统内部** | `cmd/app.go` sharedStore | 自动管理，不归属于任何插件 |
 
 ### 5.3 架构防线与单向依赖保障
 1. **测试脚手架绝对解耦**：底层通用的 `pkg/testhelper` 严禁反向引用任何上层业务插件。`testhelper` 维护轻量自包含的测试表脚手架，彻底杜绝包导入循环（Import Cycle）。

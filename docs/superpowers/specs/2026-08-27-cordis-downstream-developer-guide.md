@@ -222,21 +222,24 @@ func (Order) TableName() string {
 package order
 
 import (
-    "embed"
-    "github.com/Rain-kl/Wavelet/core"
+	"embed"
+	"github.com/Rain-kl/Wavelet/core"
 )
 
 //go:embed migrations/*.sql
 var orderMigrations embed.FS
 
 func (p *Plugin) Apply(ctx *core.Context) error {
-    // 注册本插件的专属迁移（系统启动时自动按版本号执行）
-    ctx.Migrations().Register("order", orderMigrations)
-    return nil
+	// 注册本插件的专属迁移（系统启动时自动按版本号执行）
+	ctx.Migrations().Register("order", orderMigrations)
+	return nil
 }
 ```
 
-#### SQL 迁移脚本规范 (`plugins/order/migrations/20260827000001_create_orders_table.sql`)：
+#### SQL 迁移脚本规范 (`plugins/order/migrations/00001_initial.sql`)：
+
+每个插件只需维护一个 `00001_initial.sql`，包含该插件的全部建表语句与种子数据。
+
 ```sql
 -- +goose Up
 -- +goose StatementBegin
@@ -246,16 +249,39 @@ CREATE TABLE IF NOT EXISTS w_orders (
     amount BIGINT NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMPTZ
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_w_orders_user_id ON w_orders(user_id);
+
+-- 种子数据（使用 ON CONFLICT DO NOTHING 保证幂等）
+INSERT INTO w_orders (id, user_id, amount, status, created_at, updated_at)
+VALUES ('init_001', 'system', 0, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
 DROP TABLE IF EXISTS w_orders;
 -- +goose StatementEnd
+```
+
+#### 版本管理机制
+
+所有插件共享一张 `w_schema_versions` 表，以 `plugin_id` 区分：
+
+```
+w_schema_versions (plugin_id, version_id, applied_at)
+```
+
+启动时，引擎遍历每个插件：
+1. 查询 `w_schema_versions WHERE plugin_id = 'order'` 获取当前最大版本号
+2. 扫描插件 `migrations/` 目录下的 `.sql` 文件
+3. 如果存在未应用的版本号 → 执行迁移
+4. 如果全部已应用 → 跳过
+
+```sql
+-- 查看全局迁移状态
+SELECT * FROM w_schema_versions ORDER BY plugin_id, version_id;
 ```
 
 ---

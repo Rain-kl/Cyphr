@@ -123,12 +123,29 @@ type RouterExtension interface {
 
 ### 4.2 数据迁移扩展 (`ctx.Migrations()`)
 每个插件通过 Go 内置 `embed.FS` 打包专属的 Goose SQL 文件，彻底消除单体大迁移目录的合并冲突：
+
 ```go
 type MigrationExtension interface {
     // Register 注册插件专属的 SQL 迁移文件系统
-    Register(pluginID string, fs embed.FS)
+    Register(pluginID string, fsys fs.FS, dir ...string)
 }
 ```
+
+**版本隔离机制**：所有插件共享一张 `w_schema_versions` 表，以 `plugin_id` 列区分。运行时引擎（`gooseEngine`）实现 `goosedb.Store` 接口，对该表执行 `plugin_id` 限定的 CRUD 操作，确保各插件的版本互不干扰。
+
+```sql
+w_schema_versions (
+    plugin_id   VARCHAR(64)  NOT NULL,
+    version_id  BIGINT       NOT NULL,
+    applied_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (plugin_id, version_id)
+)
+```
+
+**启动流程**：
+1. `ApplyPlugins()` 阶段：各插件调用 `ctx.Migrations().Register("order", embedFS)` 收集迁移
+2. `RunMigrations()` 阶段：引擎遍历所有 `entries`，为每个插件创建 `goose.NewProvider(dialect, sqlDB, entry.FS, goose.WithStore(store))`
+3. `provider.Up()` 查询 `w_schema_versions WHERE plugin_id = 'order'` 决定版本，执行增量迁移
 
 ### 4.3 异步任务与定时调度扩展 (`ctx.Task()` & `ctx.Schedule()`)
 ```go
@@ -211,8 +228,13 @@ CLI 命令仅作为**切面激活器 (Target Selector)**，业务插件无需感
 1. App Bootstrap: 加载所有已配置插件并构建 Context
      ↓
 2. Apply Phase: 执行所有 plugin.Apply(ctx)，收集路由、任务、调度与迁移
+   └─ 各插件调用 ctx.Migrations().Register("auth", authMigrations) 等
      ↓
-3. Migration Engine: 统一执行所有已激活插件的 Goose SQL 迁移
+3. Migration Engine: 遍历所有 entries，逐插件创建 Goose Provider 执行迁移
+   └─ 每个插件使用独立的 sharedStore(pluginID)，共享同一张 w_schema_versions 表
+   └─ provider.Up() 检查 w_schema_versions WHERE plugin_id = 'auth'
+   └─ 未执行过 → 执行 00001_initial.sql → INSERT 版本记录
+   └─ 已执行过 → 跳过
      ↓
 4. Profile Dispatch:
    - "api": 激活 DriverTypeHTTP 驱动 (Gin.ListenAndServe)
