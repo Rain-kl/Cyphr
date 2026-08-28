@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"Wavelet/pkg/idgen"
 	"gorm.io/gorm"
+
+	"Wavelet/pkg/idgen"
 )
 
 const (

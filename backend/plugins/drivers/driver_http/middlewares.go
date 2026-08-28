@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	otel_trace "Wavelet/pkg/trace"
-	database "Wavelet/plugins/infra/database"
-	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 )
 
 func loggerMiddleware() gin.HandlerFunc {
@@ -72,7 +72,11 @@ func loggerMiddleware() gin.HandlerFunc {
 
 func isOriginAllowed(ctx context.Context, origin string) bool {
 	var val string
-	if err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || val == "" {
+	db := getDB(ctx)
+	if db == nil {
+		return false
+	}
+	if err := db.Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || val == "" {
 		return false
 	}
 	allowedOrigins := strings.Split(val, ",")

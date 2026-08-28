@@ -6,8 +6,6 @@ package driver_asynq_cron
 import (
 	"context"
 	"time"
-
-	db "Wavelet/plugins/infra/database"
 )
 
 // Schedule 定时任务配置表
@@ -30,7 +28,11 @@ func (Schedule) TableName() string {
 // ListActiveSchedules 查询所有已启用的定时任务配置
 func ListActiveSchedules(ctx context.Context) ([]Schedule, error) {
 	var schedules []Schedule
-	if err := db.DB(ctx).Where("is_active = ?", true).Find(&schedules).Error; err != nil {
+	db := getDB(ctx)
+	if db == nil {
+		return nil, nil
+	}
+	if err := db.Where("is_active = ?", true).Find(&schedules).Error; err != nil {
 		return nil, err
 	}
 	return schedules, nil

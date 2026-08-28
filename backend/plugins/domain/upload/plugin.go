@@ -9,14 +9,16 @@ import (
 	"embed"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"Wavelet/plugins/domain/upload/filesrv"
 	"Wavelet/plugins/domain/upload/handler"
+	"Wavelet/plugins/domain/upload/shared"
 	"Wavelet/plugins/domain/upload/task"
-	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*.sql
@@ -56,7 +58,57 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers upload routes, tasks, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
-	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	// Bind DBService
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		shared.SetDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			shared.SetDBService(db)
+		})
+	}
+
+	// Bind CacheService
+	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+		shared.SetCacheService(cache)
+	} else {
+		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
+			shared.SetCacheService(cache)
+		})
+	}
+
+	// Bind StorageService
+	if storage, err := core.Inject[contracts.StorageService](ctx); err == nil && storage != nil {
+		shared.SetStorageService(storage)
+	} else {
+		core.When[contracts.StorageService](ctx, func(storage contracts.StorageService) {
+			shared.SetStorageService(storage)
+		})
+	}
+
+	// Bind TaskService
+	if taskSvc, err := core.Inject[contracts.TaskService](ctx); err == nil && taskSvc != nil {
+		shared.SetTaskService(taskSvc)
+	} else {
+		core.When[contracts.TaskService](ctx, func(taskSvc contracts.TaskService) {
+			shared.SetTaskService(taskSvc)
+		})
+	}
+
+	// Bind AuthService
+	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
+		shared.SetAuthService(authSvc)
+	} else {
+		core.When[contracts.AuthService](ctx, func(authSvc contracts.AuthService) {
+			shared.SetAuthService(authSvc)
+		})
+	}
+
+	ctx.OnDispose(func() error {
+		shared.ResetServices()
+		return nil
+	})
+
+	// 0. Resolve auth service for middleware
 	var authSvc contracts.AuthService
 	if err := core.Using[contracts.AuthService](ctx, func(svc contracts.AuthService) { authSvc = svc }); err != nil {
 		return err

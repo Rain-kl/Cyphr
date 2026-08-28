@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	cache "Wavelet/plugins/infra/cache"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+
+	cache "Wavelet/plugins/infra/cache"
 )
 
 func TestStorageCache(t *testing.T) {

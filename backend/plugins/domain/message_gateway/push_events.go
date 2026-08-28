@@ -13,8 +13,9 @@ import (
 
 	pkgpush "Wavelet/plugins/domain/message_gateway/push"
 
-	"Wavelet/pkg/util"
 	"gorm.io/gorm"
+
+	"Wavelet/pkg/util"
 )
 
 // NotificationMessage represents the structured notification message payload.

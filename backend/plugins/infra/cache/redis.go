@@ -11,11 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"Wavelet/pkg/config"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 	"go.opentelemetry.io/otel/attribute"
+
+	"Wavelet/pkg/config"
 )
 
 var (
@@ -23,17 +24,20 @@ var (
 	Redis redis.UniversalClient
 )
 
-func init() {
+// InitRedis 初始化全局/默认 Redis 客户端实例
+func InitRedis() (redis.UniversalClient, error) {
 	cfg := config.Config.Redis
 
 	if !cfg.Enabled {
 		log.Println("[Redis] is disabled, skipping Redis initialization")
-		return
+		return nil, nil
 	}
+
+	var client redis.UniversalClient
 
 	if cfg.ClusterMode {
 		// Cluster 模式
-		Redis = redis.NewClusterClient(&redis.ClusterOptions{
+		client = redis.NewClusterClient(&redis.ClusterOptions{
 			Addrs:                    cfg.Addrs,
 			Username:                 cfg.Username,
 			Password:                 cfg.Password,
@@ -67,34 +71,40 @@ func init() {
 			MaintNotificationsConfig: redisMaintNotificationsConfig(cfg.MaintNotifications),
 		}
 		if cfg.MasterName != "" {
-			client := redis.NewFailoverClient(options.Failover())
-			// FailoverOptions 暂不暴露该配置，在首次建连前写入客户端选项。
-			client.Options().MaintNotificationsConfig = redisMaintNotificationsConfig(cfg.MaintNotifications)
-			Redis = client
+			failoverClient := redis.NewFailoverClient(options.Failover())
+			failoverClient.Options().MaintNotificationsConfig = redisMaintNotificationsConfig(cfg.MaintNotifications)
+			client = failoverClient
 			log.Println("[Redis] initialized in Sentinel mode")
 		} else {
-			Redis = redis.NewUniversalClient(options)
+			client = redis.NewUniversalClient(options)
 			log.Println("[Redis] initialized in Standalone mode")
 		}
 	}
 
 	// OpenTelemetry 追踪（UniversalClient 兼容）
 	if err := redisotel.InstrumentTracing(
-		Redis,
+		client,
 		redisotel.WithAttributes(
 			attribute.String("db.instance", fmt.Sprintf("%v", cfg.DB)),
 			attribute.String("db.ip", strings.Join(cfg.Addrs, ",")),
 			attribute.String("db.system", "Redis"),
 		),
 	); err != nil {
-		log.Fatalf("[Redis] failed to init trace: %v\n", err)
+		return nil, fmt.Errorf("redis: init trace: %w", err)
 	}
 
 	// 测试连接
-	_, err := Redis.Ping(context.Background()).Result()
-	if err != nil {
-		log.Fatalf("[Redis] failed to connect to redis: %v\n", err)
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("redis: ping: %w", err)
 	}
+
+	Redis = client
+	return client, nil
+}
+
+// SetRedisClient 设置包级 Redis 客户端（主要用于测试）
+func SetRedisClient(client redis.UniversalClient) {
+	Redis = client
 }
 
 func redisMaintNotificationsConfig(enabled bool) *maintnotifications.Config {

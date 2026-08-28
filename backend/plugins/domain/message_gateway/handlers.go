@@ -8,10 +8,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/util"
-	"github.com/gin-gonic/gin"
 )
 
 func currentUser(c *gin.Context) (*contracts.UserDTO, bool) {

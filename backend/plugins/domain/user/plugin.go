@@ -9,11 +9,12 @@ import (
 	"embed"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
-	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*.sql
@@ -74,8 +75,16 @@ func (p *Plugin) Manifest() core.Manifest {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	// 0. Bind DBService from Context
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		setDBService(db)
+		SetDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			SetDBService(db)
+		})
 	}
+	ctx.OnDispose(func() error {
+		SetDBService(nil)
+		return nil
+	})
 
 	// 0.1 Resolve auth service for middleware (via IoC, not direct import)
 	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }

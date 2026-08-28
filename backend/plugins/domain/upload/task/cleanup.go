@@ -12,16 +12,13 @@ import (
 
 	"gorm.io/gorm"
 
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
-	logstore "Wavelet/plugins/domain/risk_control/logstore"
 	uploadcache "Wavelet/plugins/domain/upload/cache"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	database "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 const (
@@ -32,22 +29,20 @@ const (
 )
 
 // SystemCleanupMeta represents the task metadata.
-var SystemCleanupMeta = driver_asynq_worker.TaskMeta{
-	Type:         TaskTypeSystemCleanup,
-	AsynqTask:    SystemCleanupTask,
-	Name:         "系统垃圾清理",
-	Description:  "定期清理未使用上传文件、历史推送记录和过期任务执行日志",
-	SupportsTime: false,
-	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
-	Queue:        driver_asynq_worker.QueueDefault,
-	Retryable:    true,
+var SystemCleanupMeta = contracts.TaskMetaDTO{
+	Name:        SystemCleanupTask,
+	DisplayName: "系统垃圾清理",
+	Description: "定期清理未使用上传文件、历史推送记录和过期任务执行日志",
+	Category:    "maintenance",
+	MaxRetry:    3,
+	Queue:       "default",
 }
 
 // SystemCleanupHandler 系统定期垃圾清理异步任务处理器
 type SystemCleanupHandler struct{}
 
 // Execute 执行系统清理（包含文件清理、历史推送日志和任务执行日志清理）
-func (h *SystemCleanupHandler) Execute(ctx context.Context, _ []byte) (*driver_asynq_worker.TaskResult, error) {
+func (h *SystemCleanupHandler) Execute(ctx context.Context, _ []byte) (*contracts.TaskResultDTO, error) {
 	if uploadstorage.ReadOnly(ctx) {
 		return nil, errors.New(shared.ErrStorageReadOnly)
 	}
@@ -58,103 +53,98 @@ func (h *SystemCleanupHandler) Execute(ctx context.Context, _ []byte) (*driver_a
 
 	oneHourAgo := time.Now().Add(-1 * time.Hour)
 
-	driver_asynq_worker.AppendLog(ctx, "开始扫描未使用上传文件，阈值: %s", oneHourAgo.Format(time.RFC3339))
+	logger.InfoF(ctx, "开始扫描未使用的待删除上传文件，阈值时间: %s", oneHourAgo.Format(time.RFC3339))
+
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return nil, errors.New("database service not available")
+	}
+
+	storageSvc := shared.GetStorage(ctx)
 
 	for {
-		var unusedUploads []models.Upload
-		if err := database.DB(ctx).
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("system cleanup canceled: %w", err)
+		}
+
+		var pendingUploads []models.Upload
+		if err := db.
 			Where("id > ? AND status = ? AND created_at < ?", lastID, models.UploadStatusPending, oneHourAgo).
 			Order("id ASC").
 			Limit(batchSize).
-			Find(&unusedUploads).Error; err != nil {
-			driver_asynq_worker.AppendLog(ctx, "查询未使用的上传文件失败: %v", err)
-			return nil, fmt.Errorf(shared.ErrQueryUnusedUploadsFailed, err)
+			Find(&pendingUploads).Error; err != nil {
+			logger.ErrorF(ctx, "查询过期待使用上传文件失败: %v", err)
+			return nil, fmt.Errorf("failed to query pending uploads: %w", err)
 		}
 
-		if len(unusedUploads) == 0 {
+		if len(pendingUploads) == 0 {
 			break
 		}
 
-		driver_asynq_worker.AppendLog(ctx, "本批次找到 %d 个需要清理的上传文件", len(unusedUploads))
+		for i := range pendingUploads {
+			if err := ctx.Err(); err != nil {
+				return nil, fmt.Errorf("system cleanup canceled: %w", err)
+			}
 
-		for _, u := range unusedUploads {
+			upload := &pendingUploads[i]
 			totalProcessed++
+			lastID = upload.ID
 
-			if err := database.DB(ctx).Transaction(func(tx *gorm.DB) error {
-				if err := tx.Model(&models.Upload{}).
-					Where("id = ? AND status = ?", u.ID, models.UploadStatusPending).
-					Update("status", models.UploadStatusDeleted).Error; err != nil {
+			if storageSvc != nil {
+				if err := storageSvc.Delete(ctx, upload.FilePath); err != nil {
+					logger.WarnF(ctx, "清理过期未确认上传底层文件失败 [ID:%d, Path:%s]: %v", upload.ID, upload.FilePath, err)
+				}
+			}
+
+			statsSnapshot := *upload
+			if err := db.Transaction(func(tx *gorm.DB) error {
+				if err := tx.Delete(upload).Error; err != nil {
 					return err
 				}
-
-				_, backend, err := objectstore.Active(ctx)
-				if err != nil {
-					return err
-				}
-				if err := backend.Delete(ctx, u.FilePath); err != nil {
-					return err
-				}
-
-				return nil
+				return uploadstats.ApplyUploadStatsDeltaTx(tx, &statsSnapshot, -1)
 			}); err != nil {
-				driver_asynq_worker.AppendLog(ctx, "清理上传文件失败 [ID:%d]: %v", u.ID, err)
-				lastID = u.ID
+				logger.ErrorF(ctx, "删除过期未确认上传记录失败 [ID:%d]: %v", upload.ID, err)
 				continue
 			}
 
-			uploadstats.RecordUploadStatsRemove(ctx, &u)
-			uploadcache.InvalidateUploadMetaCache(ctx, u.ID)
+			uploadcache.EvictUploadMeta(ctx, upload.ID)
 			totalDeleted++
-			lastID = u.ID
 		}
 	}
 
-	driver_asynq_worker.AppendLog(ctx, "开始清理历史推送审计日志，只保留最近7天数据...")
-	cutoff := time.Now().AddDate(0, 0, -7)
-	var pushHistoryCount int64
-	if err := database.DB(ctx).Table("w_push_histories").Where("created_at < ?", cutoff).Count(&pushHistoryCount).Error; err != nil {
-		driver_asynq_worker.AppendLog(ctx, "统计待清理的历史推送记录失败: %v", err)
-	} else if pushHistoryCount > 0 {
-		if err := database.DB(ctx).Table("w_push_histories").Where("created_at < ?", cutoff).Delete(map[string]any{}).Error; err != nil {
-			driver_asynq_worker.AppendLog(ctx, "删除历史推送记录失败: %v", err)
-		} else {
-			driver_asynq_worker.AppendLog(ctx, "成功删除 %d 条历史推送记录 (截止时间: %s)", pushHistoryCount, cutoff.Format("2006-01-02 15:04:05"))
-		}
+	// 清理过期任务执行记录
+	var deletedExecutions int64
+	sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour)
+	if err := db.
+		Table("w_task_executions").
+		Where("created_at < ?", sevenDaysAgo).
+		Delete(&struct{}{}).Error; err != nil {
+		logger.WarnF(ctx, "清理过期任务执行日志失败: %v", err)
 	} else {
-		driver_asynq_worker.AppendLog(ctx, "没有需要清理的历史推送记录 (截止时间: %s)", cutoff.Format("2006-01-02 15:04:05"))
+		deletedExecutions = db.RowsAffected
+		logger.InfoF(ctx, "已清理 7 天前任务执行日志，共 %d 条", deletedExecutions)
 	}
 
-	driver_asynq_worker.AppendLog(ctx, "开始清理任务执行日志：高频任务保留最近3天，低频任务保留最近30天...")
-	taskLogStats, err := driver_asynq_worker.CleanupTaskExecutionLogs(ctx, time.Now())
-	if err != nil {
-		driver_asynq_worker.AppendLog(ctx, "清理任务执行日志失败: %v", err)
-		logger.ErrorF(ctx, "清理任务执行日志失败: %v", err)
+	// 清理已过期推送日志
+	var deletedPushLogs int64
+	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour)
+	if err := db.
+		Table("w_push_logs").
+		Where("created_at < ?", thirtyDaysAgo).
+		Delete(&struct{}{}).Error; err != nil {
+		logger.WarnF(ctx, "清理历史推送日志失败: %v", err)
 	} else {
-		driver_asynq_worker.AppendLog(ctx, "成功清理任务执行日志 %d 条（高频 %d 条，低频 %d 条）",
-			taskLogStats.HighFrequencyDeleted+taskLogStats.LowFrequencyDeleted,
-			taskLogStats.HighFrequencyDeleted,
-			taskLogStats.LowFrequencyDeleted,
-		)
+		deletedPushLogs = db.RowsAffected
+		logger.InfoF(ctx, "已清理 30 天前推送日志，共 %d 条", deletedPushLogs)
 	}
 
-	var logDeleted int64
-	logSummary, logErr := logstore.CleanupExpired(ctx)
-	if logErr != nil {
-		driver_asynq_worker.AppendLog(ctx, "清理过期用户访问日志失败: %v", logErr)
-		logger.ErrorF(ctx, "清理过期用户访问日志失败: %v", logErr)
-	} else {
-		logDeleted = logSummary.Deleted
-		driver_asynq_worker.AppendLog(ctx, "成功清理过期用户访问日志 %d 条（%s 保留 %d 天）",
-			logSummary.Deleted, logSummary.ActiveDatabase, logSummary.RetentionDays)
-	}
-
-	msg := fmt.Sprintf("系统清理完成。成功清理未使用的上传文件 %d/%d 个；清理历史推送审计日志 %d 条；清理任务执行日志 %d 条；清理过期访问日志 %d 条。",
-		totalDeleted,
+	msg := fmt.Sprintf(
+		"系统垃圾清理完成，处理未确认文件: %d 个，物理删除: %d 个，清理过期任务日志: %d 条，清理历史推送日志: %d 条",
 		totalProcessed,
-		pushHistoryCount,
-		taskLogStats.HighFrequencyDeleted+taskLogStats.LowFrequencyDeleted,
-		logDeleted,
+		totalDeleted,
+		deletedExecutions,
+		deletedPushLogs,
 	)
-	driver_asynq_worker.AppendLog(ctx, "%s", msg)
-	return &driver_asynq_worker.TaskResult{Message: msg}, nil
+	logger.InfoF(ctx, "%s", msg)
+	return &contracts.TaskResultDTO{Message: msg}, nil
 }

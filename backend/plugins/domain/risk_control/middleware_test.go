@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/batchwriter"
 	"Wavelet/pkg/config"
@@ -19,8 +22,6 @@ import (
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/risk_control"
 	"Wavelet/plugins/domain/risk_control/logstore"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 )
 
 func newTestAccessLogWriter(t *testing.T, cfg batchwriter.Config) (*batchwriter.Writer[*logstore.UserAccessLog], func() []*logstore.UserAccessLog) {

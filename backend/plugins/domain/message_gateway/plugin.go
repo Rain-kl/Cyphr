@@ -9,12 +9,12 @@ import (
 	"embed"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"Wavelet/pkg/util"
-	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*.sql
@@ -80,6 +80,35 @@ type PushNotificationEvent struct {
 
 // Apply registers message_gateway migrations, routes, tasks, schedules, events, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Bind DBService, CacheService, TaskService
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+		setCacheService(cache)
+	} else {
+		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
+			setCacheService(cache)
+		})
+	}
+	if taskSvc, err := core.Inject[contracts.TaskService](ctx); err == nil && taskSvc != nil {
+		setTaskService(taskSvc)
+	} else {
+		core.When[contracts.TaskService](ctx, func(taskSvc contracts.TaskService) {
+			setTaskService(taskSvc)
+		})
+	}
+	ctx.OnDispose(func() error {
+		setDBService(nil)
+		setCacheService(nil)
+		setTaskService(nil)
+		return nil
+	})
+
 	// 0. Resolve auth service for middleware (via IoC, not direct import)
 	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
 	var adminMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
@@ -145,18 +174,16 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	const defaultTaskRetry = 3
 	pushHandler := &PushHandler{}
 
-	// 5. Register Asynq background tasks
-	ctx.Task().Register("message_gateway:push_notification", func(c context.Context, t *asynq.Task) error {
-		_, err := pushHandler.Execute(c, t.Payload())
-		return err
+	// 5. Register background tasks
+	ctx.Task().Register("message_gateway:push_notification", func(c context.Context, payload []byte) error {
+		return pushHandler.Execute(c, payload)
 	}, extpoints.WithTaskRetry(defaultTaskRetry))
 
-	ctx.Task().Register(SendNotificationTask, func(c context.Context, t *asynq.Task) error {
-		_, err := pushHandler.Execute(c, t.Payload())
-		return err
+	ctx.Task().Register(SendNotificationTask, func(c context.Context, payload []byte) error {
+		return pushHandler.Execute(c, payload)
 	}, extpoints.WithTaskRetry(defaultTaskRetry))
 
-	ctx.Task().Register("message_gateway:dispatch_bot_msg", func(_ context.Context, _ *asynq.Task) error {
+	ctx.Task().Register("message_gateway:dispatch_bot_msg", func(_ context.Context, _ []byte) error {
 		return nil
 	})
 
@@ -184,9 +211,14 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
-	// 8. Register built-in domain events and task listeners
+	// 8. Register task completed event listener
+	ctx.Events().On(contracts.EventTopicTaskCompleted, func(c context.Context, e contracts.TaskCompletedEvent) error {
+		handleTaskCompleted(c, e)
+		return nil
+	})
+
+	// 9. Register built-in domain events
 	RegisterCustomEvents()
-	RegisterTaskListeners()
 
 	// 9. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"Wavelet/core/contracts"
-	db "Wavelet/plugins/infra/database"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -19,7 +18,7 @@ import (
 
 func isOIDCLoginEnabled(ctx context.Context) bool {
 	var val string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "oidc_login_enabled").Pluck("value", &val).Error; err != nil || val == "" {
+	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "oidc_login_enabled").Pluck("value", &val).Error; err != nil || val == "" {
 		return true
 	}
 	b, err := strconv.ParseBool(val)
@@ -78,7 +77,7 @@ func activeLoginSources(ctx context.Context) []AuthSourceView {
 
 func getFrontendLoginRedirectURL(ctx context.Context) (string, error) {
 	var val string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || strings.TrimSpace(val) == "" {
+	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || strings.TrimSpace(val) == "" {
 		return "", errors.New(errServerAddressMissing)
 	}
 	return strings.TrimRight(val, "/") + "/login", nil

@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-
-	db "Wavelet/plugins/infra/database"
 )
 
 func setupChGormDB(t *testing.T) *gorm.DB {
@@ -28,7 +26,7 @@ func setupChGormDB(t *testing.T) *gorm.DB {
 	})
 	require.NoError(t, err)
 	require.NoError(t, gormDB.AutoMigrate(&UserAccessLog{}))
-	db.SetChDBForTest(gormDB)
+	SetChDBForTest(gormDB)
 	return gormDB
 }
 
@@ -56,7 +54,7 @@ func TestParseBrowserName(t *testing.T) {
 
 func TestCountAccessLogs_EmptyUserIDs(t *testing.T) {
 	setupChGormDB(t)
-	t.Cleanup(func() { db.SetChDBForTest(nil) })
+	t.Cleanup(func() { SetChDBForTest(nil) })
 
 	count, err := CountAccessLogs(context.Background(), AccessLogFilter{UserIDs: []uint64{}})
 	require.NoError(t, err)
@@ -65,7 +63,7 @@ func TestCountAccessLogs_EmptyUserIDs(t *testing.T) {
 
 func TestListAccessLogs_EmptyUserIDs(t *testing.T) {
 	setupChGormDB(t)
-	t.Cleanup(func() { db.SetChDBForTest(nil) })
+	t.Cleanup(func() { SetChDBForTest(nil) })
 
 	logs, total, err := ListAccessLogs(context.Background(), AccessLogFilter{UserIDs: []uint64{}}, 1, 20)
 	require.NoError(t, err)
@@ -75,7 +73,7 @@ func TestListAccessLogs_EmptyUserIDs(t *testing.T) {
 
 func TestListAccessLogs_WithFilters(t *testing.T) {
 	gormDB := setupChGormDB(t)
-	t.Cleanup(func() { db.SetChDBForTest(nil) })
+	t.Cleanup(func() { SetChDBForTest(nil) })
 
 	now := time.Now().UTC().Truncate(time.Second)
 	logs := []UserAccessLog{
@@ -116,8 +114,8 @@ func TestBatchInsert_UsesModelBatchSQL(t *testing.T) {
 		batch:      mockBatch,
 		batchQuery: UserAccessLog{}.BatchInsertSQL(),
 	}
-	db.SetChConnForTest(mockConn)
-	t.Cleanup(func() { db.SetChConnForTest(nil) })
+	SetChConnForTest(mockConn)
+	t.Cleanup(func() { SetChConnForTest(nil) })
 
 	createdAt := time.Now().UTC()
 	err := BatchInsert(ctx, []UserAccessLog{

@@ -5,12 +5,13 @@
 package qq
 
 import (
-	"Wavelet/pkg/util"
 	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	"Wavelet/pkg/util"
 
 	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/message_gateway"

@@ -15,6 +15,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 )
 
 const (
@@ -82,6 +83,7 @@ type Plugin struct {
 	mux             *asynq.ServeMux
 	running         bool
 	coreCtx         *core.Context
+	taskSvc         contracts.TaskService
 }
 
 // New creates a new Asynq Worker driver plugin.
@@ -113,7 +115,24 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	p.coreCtx = ctx
 	p.mu.Unlock()
 
-	// Register migrations for w_task_executions table
+	// 0. Bind DBService
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+	ctx.OnDispose(func() error {
+		setDBService(nil)
+		return nil
+	})
+
+	// 1. Provide contracts.TaskService
+	p.taskSvc = &taskServiceImpl{}
+	core.Provide[contracts.TaskService](ctx, p.taskSvc)
+
+	// 2. Register migrations for w_task_executions table
 	ctx.Migrations().Register("driver_asynq_worker", workerMigrations)
 
 	ctx.OnDispose(func() error {
@@ -253,4 +272,153 @@ func toAsynqHandler(h any) (asynq.Handler, error) {
 	default:
 		return nil, fmt.Errorf("unsupported task handler type: %T", h)
 	}
+}
+
+type taskServiceImpl struct{}
+
+func (s *taskServiceImpl) Dispatch(ctx context.Context, taskType string, payload []byte, triggeredBy string) (string, error) {
+	return DispatchTask(ctx, taskType, payload, triggeredBy)
+}
+
+func (s *taskServiceImpl) ListTasks() []contracts.TaskMetaDTO {
+	all := GetDispatchableTasks()
+	res := make([]contracts.TaskMetaDTO, 0, len(all))
+	for _, m := range all {
+		params := make([]contracts.TaskParamDTO, 0, len(m.Params))
+		for _, param := range m.Params {
+			params = append(params, contracts.TaskParamDTO{
+				Name:        param.Name,
+				Type:        param.Type,
+				Description: param.Description,
+				Required:    param.Required,
+			})
+		}
+		res = append(res, contracts.TaskMetaDTO{
+			Name:        m.Type,
+			DisplayName: m.Name,
+			Description: m.Description,
+			Params:      params,
+			MaxRetry:    m.MaxRetry,
+			Queue:       m.Queue,
+		})
+	}
+	return res
+}
+
+func (s *taskServiceImpl) GetTaskMeta(taskType string) (contracts.TaskMetaDTO, bool) {
+	m := GetTaskMeta(taskType)
+	if m == nil {
+		return contracts.TaskMetaDTO{}, false
+	}
+	params := make([]contracts.TaskParamDTO, 0, len(m.Params))
+	for _, param := range m.Params {
+		params = append(params, contracts.TaskParamDTO{
+			Name:        param.Name,
+			Type:        param.Type,
+			Description: param.Description,
+			Required:    param.Required,
+		})
+	}
+	return contracts.TaskMetaDTO{
+		Name:        m.Type,
+		DisplayName: m.Name,
+		Description: m.Description,
+		Params:      params,
+		MaxRetry:    m.MaxRetry,
+		Queue:       m.Queue,
+	}, true
+}
+
+func (s *taskServiceImpl) ListExecutions(ctx context.Context, taskType string, status string, page, pageSize int) ([]contracts.TaskExecutionDTO, int64, error) {
+	db := getDB(ctx)
+	if db == nil {
+		return nil, 0, errors.New("db not initialized")
+	}
+	query := db.Model(&TaskExecution{})
+	if taskType != "" {
+		query = query.Where("task_type = ?", taskType)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []TaskExecution
+	offset := (page - 1) * pageSize
+	if err := query.Order("id DESC").Offset(offset).Limit(pageSize).Find(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	res := make([]contracts.TaskExecutionDTO, 0, len(rows))
+	for _, r := range rows {
+		res = append(res, contracts.TaskExecutionDTO{
+			ID:           r.ID,
+			TaskID:       r.TaskID,
+			TaskType:     r.TaskType,
+			TaskName:     r.TaskName,
+			Status:       string(r.Status),
+			Retryable:    r.Retryable,
+			MaxRetry:     r.MaxRetry,
+			RetryCount:   r.RetryCount,
+			Log:          r.Log,
+			ErrorMessage: r.ErrorMessage,
+			Result:       r.Result,
+			StartedAt:    r.StartedAt,
+			FinishedAt:   r.FinishedAt,
+			Duration:     r.Duration,
+			Payload:      r.Payload,
+			TriggeredBy:  r.TriggeredBy,
+			CreatedAt:    r.CreatedAt,
+			UpdatedAt:    r.UpdatedAt,
+		})
+	}
+	return res, total, nil
+}
+
+func (s *taskServiceImpl) Retry(ctx context.Context, id uint64) (string, error) {
+	return RetryTask(ctx, id)
+}
+
+func (s *taskServiceImpl) ValidatePayload(taskType string, payload []byte) ([]byte, error) {
+	meta := GetTaskMeta(taskType)
+	if meta == nil {
+		return payload, nil
+	}
+	return ValidateAndNormalizePayload(meta.AsynqTask, payload)
+}
+
+func (s *taskServiceImpl) ReloadScheduler() error {
+	return nil
+}
+
+func (s *taskServiceImpl) AppendLog(ctx context.Context, format string, args ...any) {
+	AppendLog(ctx, format, args...)
+}
+
+func (s *taskServiceImpl) GetExecution(ctx context.Context, id uint64) (*contracts.TaskExecutionDTO, error) {
+	exec, err := GetTaskExecutionByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &contracts.TaskExecutionDTO{
+		ID:           exec.ID,
+		TaskID:       exec.TaskID,
+		TaskType:     exec.TaskType,
+		TaskName:     exec.TaskName,
+		Status:       string(exec.Status),
+		Retryable:    exec.Retryable,
+		MaxRetry:     exec.MaxRetry,
+		RetryCount:   exec.RetryCount,
+		Log:          exec.Log,
+		ErrorMessage: exec.ErrorMessage,
+		Result:       exec.Result,
+		StartedAt:    exec.StartedAt,
+		FinishedAt:   exec.FinishedAt,
+		Duration:     exec.Duration,
+		Payload:      exec.Payload,
+		TriggeredBy:  exec.TriggeredBy,
+		CreatedAt:    exec.CreatedAt,
+		UpdatedAt:    exec.UpdatedAt,
+	}, nil
 }

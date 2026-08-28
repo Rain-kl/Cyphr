@@ -25,17 +25,17 @@ linters:
     - gocritic      # 各类代码问题
     - funlen        # 函数过长
 
-    - gosec        # 安全问题检查
+    - gosec         # 安全问题检查
     - bodyclose     # HTTP response body 没有正确关闭
     - noctx         # 没有传递 context.Context
     - contextcheck  # 其他检查
-    - sqlclosecheck   # SQL rows 没有正确关闭
-    - unconvert  # 不必要的类型转换
-    - nilerr  # 函数返回 nil 错误
+    - sqlclosecheck # SQL rows 没有正确关闭
+    - unconvert     # 不必要的类型转换
+    - nilerr        # 函数返回 nil 错误
 
   settings:
     dupl:
-      threshold: 120
+      threshold: 80
 
     cyclop:
       max-complexity: 20
@@ -53,3 +53,10 @@ linters:
         - argument
         - condition
         - return
+
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: true

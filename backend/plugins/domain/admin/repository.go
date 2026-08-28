@@ -12,15 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"Wavelet/pkg/cache/ram"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/util"
-	cachepkg "Wavelet/plugins/infra/cache"
-	db "Wavelet/plugins/infra/database"
 )
 
 const (
@@ -38,7 +35,7 @@ const (
 
 // PreheatSystemConfigs loads all system configs from database.
 func PreheatSystemConfigs(ctx context.Context) ([]SystemConfig, error) {
-	database := db.DB(ctx)
+	database := GetDB(ctx)
 	if database == nil {
 		return nil, errors.New(errDatabaseNotInitialized)
 	}
@@ -52,7 +49,7 @@ func PreheatSystemConfigs(ctx context.Context) ([]SystemConfig, error) {
 
 // PreheatSystemConfigByKey loads a single config key from database.
 func PreheatSystemConfigByKey(ctx context.Context, key string) (SystemConfig, error) {
-	database := db.DB(ctx)
+	database := GetDB(ctx)
 	if database == nil {
 		return SystemConfig{}, errors.New(errDatabaseNotInitialized)
 	}
@@ -75,7 +72,7 @@ func GetSystemConfigByGroup(ctx context.Context, configType string, key string) 
 		}
 	}
 
-	database := db.DB(ctx)
+	database := GetDB(ctx)
 	if database == nil {
 		return SystemConfig{}, errors.New(errDatabaseNotInitialized)
 	}
@@ -129,7 +126,7 @@ func ListSystemConfigsByKeys(ctx context.Context, keys []string) (map[string]Sys
 		return result, nil
 	}
 
-	database := db.DB(ctx)
+	database := GetDB(ctx)
 	if database == nil {
 		return nil, errors.New(errDatabaseNotInitialized)
 	}
@@ -178,7 +175,7 @@ func ListVisibleSystemConfigs(ctx context.Context) ([]SystemConfig, error) {
 		return list, nil
 	}
 
-	database := db.DB(ctx)
+	database := GetDB(ctx)
 	if database == nil {
 		return nil, errors.New(errDatabaseNotInitialized)
 	}
@@ -269,7 +266,7 @@ func GetMenuDisplayConfig(ctx context.Context) (map[string]bool, error) {
 
 // ListAdminSystemConfigs returns all configs, optionally filtered by type.
 func ListAdminSystemConfigs(ctx context.Context, configType string) ([]SystemConfig, error) {
-	query := db.DB(ctx).Order("created_at DESC")
+	query := GetDB(ctx).Order("created_at DESC")
 	if configType != "" {
 		query = query.Where("type = ?", configType)
 	}
@@ -283,7 +280,7 @@ func ListAdminSystemConfigs(ctx context.Context, configType string) ([]SystemCon
 // GetAdminSystemConfigByKey loads a config directly from DB.
 func GetAdminSystemConfigByKey(ctx context.Context, key string) (SystemConfig, error) {
 	var config SystemConfig
-	if err := db.DB(ctx).Where("key = ?", key).First(&config).Error; err != nil {
+	if err := GetDB(ctx).Where("key = ?", key).First(&config).Error; err != nil {
 		return SystemConfig{}, err
 	}
 	return config, nil
@@ -292,7 +289,7 @@ func GetAdminSystemConfigByKey(ctx context.Context, key string) (SystemConfig, e
 // SystemConfigExists reports whether a config key already exists.
 func SystemConfigExists(ctx context.Context, key string) (bool, error) {
 	var existing SystemConfig
-	err := db.DB(ctx).Where("key = ?", key).First(&existing).Error
+	err := GetDB(ctx).Where("key = ?", key).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
@@ -304,18 +301,18 @@ func SystemConfigExists(ctx context.Context, key string) (bool, error) {
 
 // CreateSystemConfigRecord persists a new system config row.
 func CreateSystemConfigRecord(ctx context.Context, config *SystemConfig) error {
-	return db.DB(ctx).Create(config).Error
+	return GetDB(ctx).Create(config).Error
 }
 
 // UpdateSystemConfigFields applies partial updates to a system config row.
 func UpdateSystemConfigFields(ctx context.Context, config *SystemConfig, updates map[string]any) error {
-	return db.DB(ctx).Model(config).Updates(updates).Error
+	return GetDB(ctx).Model(config).Updates(updates).Error
 }
 
 // SaveOrUpdateSystemConfig creates or updates a config row and invalidates cache.
 func SaveOrUpdateSystemConfig(ctx context.Context, key, value string) error {
 	var sc SystemConfig
-	err := db.DB(ctx).Where("key = ?", key).First(&sc).Error
+	err := GetDB(ctx).Where("key = ?", key).First(&sc).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
@@ -327,12 +324,12 @@ func SaveOrUpdateSystemConfig(ctx context.Context, key, value string) error {
 			Type:       configTypeSystem,
 			Visibility: ConfigVisibilityHidden,
 		}
-		if err := db.DB(ctx).Create(&sc).Error; err != nil {
+		if err := GetDB(ctx).Create(&sc).Error; err != nil {
 			return err
 		}
 	} else {
 		sc.Value = value
-		if err := db.DB(ctx).Save(&sc).Error; err != nil {
+		if err := GetDB(ctx).Save(&sc).Error; err != nil {
 			return err
 		}
 	}
@@ -342,7 +339,7 @@ func SaveOrUpdateSystemConfig(ctx context.Context, key, value string) error {
 // ListTemplatesRecord returns all templates ordered by system flag and creation time.
 func ListTemplatesRecord(ctx context.Context) ([]Template, error) {
 	var templates []Template
-	if err := db.DB(ctx).Order("is_system DESC, created_at DESC").Find(&templates).Error; err != nil {
+	if err := GetDB(ctx).Order("is_system DESC, created_at DESC").Find(&templates).Error; err != nil {
 		return nil, err
 	}
 	return templates, nil
@@ -351,7 +348,7 @@ func ListTemplatesRecord(ctx context.Context) ([]Template, error) {
 // GetTemplateByKey loads a template by its key.
 func GetTemplateByKey(ctx context.Context, key string) (Template, error) {
 	var tmpl Template
-	if err := db.DB(ctx).Where("key = ?", key).First(&tmpl).Error; err != nil {
+	if err := GetDB(ctx).Where("key = ?", key).First(&tmpl).Error; err != nil {
 		return Template{}, err
 	}
 	return tmpl, nil
@@ -360,7 +357,7 @@ func GetTemplateByKey(ctx context.Context, key string) (Template, error) {
 // TemplateExistsByKey reports whether a template key is already taken.
 func TemplateExistsByKey(ctx context.Context, key string) (bool, error) {
 	var existing Template
-	err := db.DB(ctx).Where("key = ?", key).First(&existing).Error
+	err := GetDB(ctx).Where("key = ?", key).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, nil
 	}
@@ -372,38 +369,38 @@ func TemplateExistsByKey(ctx context.Context, key string) (bool, error) {
 
 // CreateTemplateRecord persists a new template.
 func CreateTemplateRecord(ctx context.Context, tmpl *Template) error {
-	return db.DB(ctx).Create(tmpl).Error
+	return GetDB(ctx).Create(tmpl).Error
 }
 
 // SaveTemplateRecord updates an existing template.
 func SaveTemplateRecord(ctx context.Context, tmpl *Template) error {
-	return db.DB(ctx).Save(tmpl).Error
+	return GetDB(ctx).Save(tmpl).Error
 }
 
 // DeleteTemplateRecord removes a template record.
 func DeleteTemplateRecord(ctx context.Context, tmpl *Template) error {
-	return db.DB(ctx).Delete(tmpl).Error
+	return GetDB(ctx).Delete(tmpl).Error
 }
 
 // CreateScheduleRecord 创建定时任务
 func CreateScheduleRecord(ctx context.Context, schedule *Schedule) error {
-	return db.DB(ctx).Create(schedule).Error
+	return GetDB(ctx).Create(schedule).Error
 }
 
 // UpdateScheduleRecord 更新定时任务
 func UpdateScheduleRecord(ctx context.Context, schedule *Schedule) error {
-	return db.DB(ctx).Save(schedule).Error
+	return GetDB(ctx).Save(schedule).Error
 }
 
 // DeleteScheduleRecord 删除定时任务
 func DeleteScheduleRecord(ctx context.Context, id uint64) error {
-	return db.DB(ctx).Delete(&Schedule{}, id).Error
+	return GetDB(ctx).Delete(&Schedule{}, id).Error
 }
 
 // GetScheduleByID 根据 ID 获取定时任务
 func GetScheduleByID(ctx context.Context, id uint64) (*Schedule, error) {
 	var schedule Schedule
-	if err := db.DB(ctx).Where("id = ?", id).First(&schedule).Error; err != nil {
+	if err := GetDB(ctx).Where("id = ?", id).First(&schedule).Error; err != nil {
 		return nil, err
 	}
 	return &schedule, nil
@@ -412,7 +409,7 @@ func GetScheduleByID(ctx context.Context, id uint64) (*Schedule, error) {
 // ListSchedulesRecord 获取所有定时任务
 func ListSchedulesRecord(ctx context.Context) ([]Schedule, error) {
 	var schedules []Schedule
-	if err := db.DB(ctx).Order("id DESC").Find(&schedules).Error; err != nil {
+	if err := GetDB(ctx).Order("id DESC").Find(&schedules).Error; err != nil {
 		return nil, err
 	}
 	return schedules, nil
@@ -421,7 +418,7 @@ func ListSchedulesRecord(ctx context.Context) ([]Schedule, error) {
 // ListActiveSchedules 获取所有启用的定时任务
 func ListActiveSchedules(ctx context.Context) ([]Schedule, error) {
 	var schedules []Schedule
-	if err := db.DB(ctx).Where("is_active = ?", true).Find(&schedules).Error; err != nil {
+	if err := GetDB(ctx).Where("is_active = ?", true).Find(&schedules).Error; err != nil {
 		return nil, err
 	}
 	return schedules, nil
@@ -430,18 +427,18 @@ func ListActiveSchedules(ctx context.Context) ([]Schedule, error) {
 // CreateTaskExecutionRecord 创建任务执行记录
 func CreateTaskExecutionRecord(ctx context.Context, execution *TaskExecution) error {
 	execution.ID = idgen.NextUint64ID()
-	return db.DB(ctx).Create(execution).Error
+	return GetDB(ctx).Create(execution).Error
 }
 
 // UpdateTaskExecutionRecord 更新任务执行记录，忽略由 Redis 缓冲和归档流程管理的 log 字段。
 func UpdateTaskExecutionRecord(ctx context.Context, execution *TaskExecution) error {
-	return db.DB(ctx).Omit("log").Save(execution).Error
+	return GetDB(ctx).Omit("log").Save(execution).Error
 }
 
 // GetTaskExecutionByTaskID 根据 TaskID 获取执行记录
 func GetTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecution, error) {
 	var execution TaskExecution
-	if err := db.DB(ctx).Where("task_id = ?", taskID).First(&execution).Error; err != nil {
+	if err := GetDB(ctx).Where("task_id = ?", taskID).First(&execution).Error; err != nil {
 		return nil, err
 	}
 	if err := loadTaskExecutionLog(ctx, &execution); err != nil {
@@ -453,7 +450,7 @@ func GetTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecutio
 // GetTaskExecutionByID 根据 ID 获取执行记录
 func GetTaskExecutionByID(ctx context.Context, id uint64) (*TaskExecution, error) {
 	var execution TaskExecution
-	if err := db.DB(ctx).Where("id = ?", id).First(&execution).Error; err != nil {
+	if err := GetDB(ctx).Where("id = ?", id).First(&execution).Error; err != nil {
 		return nil, err
 	}
 	if err := loadTaskExecutionLog(ctx, &execution); err != nil {
@@ -465,7 +462,7 @@ func GetTaskExecutionByID(ctx context.Context, id uint64) (*TaskExecution, error
 // GetLatestTaskExecutionByTaskType returns the most recent execution for a task type.
 func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*TaskExecution, bool, error) {
 	var execution TaskExecution
-	err := db.DB(ctx).
+	err := GetDB(ctx).
 		Where("task_type = ?", taskType).
 		Order("id DESC").
 		First(&execution).Error
@@ -481,45 +478,40 @@ func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*Ta
 	return nil, false, err
 }
 
-// AppendTaskExecutionLog 将日志追加到 Redis 缓冲，任务完成后再持久化到数据库。
+// AppendTaskExecutionLog 将日志追加到缓冲，任务完成后再持久化到数据库。
 func AppendTaskExecutionLog(ctx context.Context, taskID string, logLine string) error {
-	if cachepkg.Redis == nil {
-		return errors.New("redis client is not initialized")
+	cacheSvc := GetCache(ctx)
+	if cacheSvc == nil {
+		return errors.New("cache service is not initialized")
 	}
 
 	now := time.Now().Format("15:04:05")
 	line := fmt.Sprintf("[%s] %s\n", now, logLine)
 	key := taskExecutionLogRedisKey(taskID)
 
-	_, err := cachepkg.Redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
-		pipe.RPush(ctx, key, line)
-		pipe.LTrim(ctx, key, -taskExecutionLogMaxLines, -1)
-		pipe.Expire(ctx, key, taskExecutionLogExpiration)
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("append task execution log to redis: %w", err)
-	}
-	return nil
+	var existing string
+	_ = cacheSvc.Get(ctx, key, &existing)
+	return cacheSvc.Set(ctx, key, existing+line, taskExecutionLogExpiration)
 }
 
-// FlushTaskExecutionLog 将 Redis 中的完整任务日志写入数据库，并在成功后清理缓存。
+// FlushTaskExecutionLog 将缓冲中的完整任务日志写入数据库，并在成功后清理缓存。
 func FlushTaskExecutionLog(ctx context.Context, taskID string) error {
-	if cachepkg.Redis == nil {
-		return errors.New("redis client is not initialized")
+	cacheSvc := GetCache(ctx)
+	if cacheSvc == nil {
+		return errors.New("cache service is not initialized")
 	}
 
 	key := taskExecutionLogRedisKey(taskID)
-	logLines, err := cachepkg.Redis.LRange(ctx, key, 0, -1).Result()
-	if err != nil {
-		return fmt.Errorf("get task execution log from redis: %w", err)
-	}
-	if len(logLines) == 0 {
+	var logText string
+	if err := cacheSvc.Get(ctx, key, &logText); err != nil || logText == "" {
 		return nil
 	}
-	logText := strings.Join(logLines, "")
 
-	result := db.DB(ctx).Model(&TaskExecution{}).
+	gormDB := GetDB(ctx)
+	if gormDB == nil {
+		return errors.New(errDatabaseNotInitialized)
+	}
+	result := gormDB.Model(&TaskExecution{}).
 		Where("task_id = ?", taskID).
 		Update("log", logText)
 	if result.Error != nil {
@@ -529,9 +521,7 @@ func FlushTaskExecutionLog(ctx context.Context, taskID string) error {
 		return fmt.Errorf("persist task execution log: task %q not found", taskID)
 	}
 
-	if err := cachepkg.Redis.Del(ctx, key).Err(); err != nil {
-		return fmt.Errorf("delete persisted task execution log from redis: %w", err)
-	}
+	_ = cacheSvc.Delete(ctx, key)
 	return nil
 }
 
@@ -544,7 +534,7 @@ func ListTaskExecutionRecords(ctx context.Context, req ListTaskExecutionsRequest
 		req.PageSize = 20
 	}
 
-	query := db.DB(ctx).Model(&TaskExecution{})
+	query := GetDB(ctx).Model(&TaskExecution{})
 
 	if req.Status != "" {
 		query = query.Where("status = ?", req.Status)
@@ -618,7 +608,7 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 	terminalStatuses := []TaskExecutionStatus{TaskExecutionStatusSucceeded, TaskExecutionStatusFailed}
 
 	var highFrequencyTaskTypes []string
-	if err := db.DB(ctx).
+	if err := GetDB(ctx).
 		Model(&TaskExecution{}).
 		Select("task_type").
 		Where("created_at >= ?", frequencyWindowStart).
@@ -630,7 +620,7 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 
 	var highFrequencyDeleted int64
 	if len(highFrequencyTaskTypes) > 0 {
-		highFrequencyResult := db.DB(ctx).
+		highFrequencyResult := GetDB(ctx).
 			Where("status IN ?", terminalStatuses).
 			Where("created_at < ?", highFrequencyCutoff).
 			Where("task_type IN ?", highFrequencyTaskTypes).
@@ -641,7 +631,7 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 		highFrequencyDeleted = highFrequencyResult.RowsAffected
 	}
 
-	lowFrequencyQuery := db.DB(ctx).
+	lowFrequencyQuery := GetDB(ctx).
 		Where("status IN ?", terminalStatuses).
 		Where("created_at < ?", lowFrequencyCutoff)
 	if len(highFrequencyTaskTypes) > 0 {
@@ -659,46 +649,32 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 }
 
 func taskExecutionLogRedisKey(taskID string) string {
-	return cachepkg.PrefixedKey(taskExecutionLogRedisKeyPrefix + taskID)
+	return taskExecutionLogRedisKeyPrefix + taskID
 }
 
 func loadTaskExecutionLog(ctx context.Context, execution *TaskExecution) error {
-	if cachepkg.Redis == nil {
+	cacheSvc := GetCache(ctx)
+	if cacheSvc == nil {
 		return nil
 	}
 
-	logLines, err := cachepkg.Redis.LRange(ctx, taskExecutionLogRedisKey(execution.TaskID), 0, -1).Result()
-	if err != nil {
-		return fmt.Errorf("get task execution log from redis: %w", err)
+	var logText string
+	if err := cacheSvc.Get(ctx, taskExecutionLogRedisKey(execution.TaskID), &logText); err == nil && logText != "" {
+		execution.Log = logText
 	}
-	if len(logLines) == 0 {
-		return nil
-	}
-
-	execution.Log = strings.Join(logLines, "")
 	return nil
 }
 
 func loadTaskExecutionLogs(ctx context.Context, executions []TaskExecution) error {
-	if cachepkg.Redis == nil || len(executions) == 0 {
+	cacheSvc := GetCache(ctx)
+	if cacheSvc == nil || len(executions) == 0 {
 		return nil
-	}
-
-	commands := make([]*redis.StringSliceCmd, len(executions))
-	_, err := cachepkg.Redis.Pipelined(ctx, func(pipe redis.Pipeliner) error {
-		for i := range executions {
-			commands[i] = pipe.LRange(ctx, taskExecutionLogRedisKey(executions[i].TaskID), 0, -1)
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("get task execution logs from redis: %w", err)
 	}
 
 	for i := range executions {
-		logLines := commands[i].Val()
-		if len(logLines) > 0 {
-			executions[i].Log = strings.Join(logLines, "")
+		var logText string
+		if err := cacheSvc.Get(ctx, taskExecutionLogRedisKey(executions[i].TaskID), &logText); err == nil && logText != "" {
+			executions[i].Log = logText
 		}
 	}
 	return nil

@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/risk_control/logstore"
-	"github.com/gin-gonic/gin"
 )
 
 // Middleware is an alias for RiskControlMiddleware.

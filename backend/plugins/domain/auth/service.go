@@ -8,10 +8,10 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/util"
-	db "Wavelet/plugins/infra/database"
-	"github.com/gin-gonic/gin"
 )
 
 type authServiceImpl struct{}
@@ -57,7 +57,7 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 			UserID  uint64
 			IsAdmin bool
 		}
-		if err := db.DB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
+		if err := getDB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
 			return nil, err
 		}
 		tokenRecord = &CachedToken{
@@ -71,7 +71,7 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 	user, err := GetCachedUser(ctx, tokenRecord.UserID)
 	if err != nil || user == nil || !user.IsActive {
 		var dbUser contracts.UserDTO
-		if err := db.DB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRecord.UserID, true).First(&dbUser).Error; err != nil {
+		if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRecord.UserID, true).First(&dbUser).Error; err != nil {
 			return nil, err
 		}
 		user = &dbUser
@@ -120,7 +120,7 @@ func (s *authServiceImpl) InvalidateCachedToken(ctx context.Context, tokenHash s
 
 func (s *authServiceImpl) ListAuthSources(ctx context.Context) ([]contracts.AuthSourceViewDTO, error) {
 	var sources []AuthSource
-	if err := db.DB(ctx).Order("id ASC").Find(&sources).Error; err != nil {
+	if err := getDB(ctx).Order("id ASC").Find(&sources).Error; err != nil {
 		return nil, err
 	}
 
@@ -157,7 +157,7 @@ func (s *authServiceImpl) CreateAuthSource(ctx context.Context, source contracts
 		return nil, err
 	}
 
-	if err := db.DB(ctx).Create(&model).Error; err != nil {
+	if err := getDB(ctx).Create(&model).Error; err != nil {
 		return nil, err
 	}
 
@@ -167,7 +167,7 @@ func (s *authServiceImpl) CreateAuthSource(ctx context.Context, source contracts
 
 func (s *authServiceImpl) UpdateAuthSource(ctx context.Context, id uint64, source contracts.AuthSourceDTO) (*contracts.AuthSourceDTO, error) {
 	var existing AuthSource
-	if err := db.DB(ctx).First(&existing, id).Error; err != nil {
+	if err := getDB(ctx).First(&existing, id).Error; err != nil {
 		return nil, err
 	}
 
@@ -184,7 +184,7 @@ func (s *authServiceImpl) UpdateAuthSource(ctx context.Context, id uint64, sourc
 		return nil, err
 	}
 
-	if err := db.DB(ctx).Save(&existing).Error; err != nil {
+	if err := getDB(ctx).Save(&existing).Error; err != nil {
 		return nil, err
 	}
 
@@ -194,21 +194,21 @@ func (s *authServiceImpl) UpdateAuthSource(ctx context.Context, id uint64, sourc
 
 func (s *authServiceImpl) DeleteAuthSource(ctx context.Context, id uint64) error {
 	var existing AuthSource
-	if err := db.DB(ctx).First(&existing, id).Error; err != nil {
+	if err := getDB(ctx).First(&existing, id).Error; err != nil {
 		return err
 	}
 
-	return db.DB(ctx).Delete(&existing).Error
+	return getDB(ctx).Delete(&existing).Error
 }
 
 func (s *authServiceImpl) ToggleAuthSource(ctx context.Context, id uint64) (*contracts.AuthSourceDTO, error) {
 	var existing AuthSource
-	if err := db.DB(ctx).First(&existing, id).Error; err != nil {
+	if err := getDB(ctx).First(&existing, id).Error; err != nil {
 		return nil, err
 	}
 
 	existing.IsActive = !existing.IsActive
-	if err := db.DB(ctx).Save(&existing).Error; err != nil {
+	if err := getDB(ctx).Save(&existing).Error; err != nil {
 		return nil, err
 	}
 

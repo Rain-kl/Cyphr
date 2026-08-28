@@ -15,9 +15,10 @@ import (
 	"io"
 	"strings"
 
-	"Wavelet/plugins/domain/upload/shared"
 	"github.com/deepteams/webp"
 	_ "golang.org/x/image/webp" // Register WebP decoder for image.Decode
+
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 // ValidateS3Key validates an S3 object key for safety.

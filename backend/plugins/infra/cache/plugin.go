@@ -11,11 +11,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/cache/ram"
 	"Wavelet/pkg/util"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -80,7 +81,13 @@ func (p *Plugin) Name() string {
 // Apply mounts the multi-layer cache service into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	redisClient := p.redisClient
-	if redisClient == nil {
+	if redisClient == nil && Redis == nil {
+		var err error
+		redisClient, err = InitRedis()
+		if err != nil {
+			return err
+		}
+	} else if redisClient == nil {
 		redisClient = Redis
 	}
 
@@ -103,6 +110,11 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		svc.startPubSubListener()
 		ctx.OnDispose(func() error {
 			svc.stopPubSubListener()
+			if p.redisClient == nil {
+				if closeErr := redisClient.Close(); closeErr != nil && !errors.Is(closeErr, redis.ErrClosed) {
+					return closeErr
+				}
+			}
 			return nil
 		})
 	}

@@ -13,10 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
 
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
-	"Wavelet/plugins/drivers/driver_asynq_cron"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // ListTaskTypes 获取支持的任务类型列表
@@ -25,12 +24,17 @@ import (
 // @Tags admin
 // @Produce json
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=[]driver_asynq_worker.TaskMeta} "任务类型列表"
+// @Success 200 {object} response.Any{data=[]contracts.TaskMetaDTO} "任务类型列表"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Router /api/v1/admin/tasks/types [get]
 func ListTaskTypes(c *gin.Context) {
-	c.JSON(http.StatusOK, response.OK(driver_asynq_worker.GetDispatchableTasks()))
+	taskSvc := GetTaskService()
+	if taskSvc == nil {
+		c.JSON(http.StatusOK, response.OK([]contracts.TaskMetaDTO{}))
+		return
+	}
+	c.JSON(http.StatusOK, response.OK(taskSvc.ListTasks()))
 }
 
 // DispatchTaskRequest 下发任务请求
@@ -63,8 +67,14 @@ func DispatchTask(c *gin.Context) {
 		return
 	}
 
-	meta := driver_asynq_worker.GetTaskMeta(req.TaskType)
-	if meta == nil {
+	taskSvc := GetTaskService()
+	if taskSvc == nil {
+		response.AbortInternal(c, "task service not available")
+		return
+	}
+
+	meta, ok := taskSvc.GetTaskMeta(req.TaskType)
+	if !ok {
 		response.AbortBadRequest(c, InvalidTaskType)
 		return
 	}
@@ -74,13 +84,13 @@ func DispatchTask(c *gin.Context) {
 		payloadBytes = []byte(req.Payload)
 	}
 
-	validated, err := driver_asynq_worker.ValidateAndNormalizePayload(meta.AsynqTask, payloadBytes)
+	validated, err := taskSvc.ValidatePayload(meta.Name, payloadBytes)
 	if err != nil {
 		response.AbortBadRequest(c, err.Error())
 		return
 	}
 
-	taskID, err := driver_asynq_worker.DispatchTask(c.Request.Context(), req.TaskType, validated, "manual")
+	taskID, err := taskSvc.Dispatch(c.Request.Context(), req.TaskType, validated, "manual")
 	if err != nil {
 		response.AbortInternal(c, fmt.Sprintf("%s: %v", TaskDispatchFailed, err))
 		return
@@ -111,8 +121,11 @@ func ListTaskExecutions(c *gin.Context) {
 	}
 
 	if req.TaskType != "" {
-		if meta := driver_asynq_worker.GetTaskMeta(req.TaskType); meta != nil {
-			req.TaskType = meta.AsynqTask
+		taskSvc := GetTaskService()
+		if taskSvc != nil {
+			if meta, ok := taskSvc.GetTaskMeta(req.TaskType); ok {
+				req.TaskType = meta.Name
+			}
 		}
 	}
 
@@ -180,7 +193,13 @@ func RetryTask(c *gin.Context) {
 		return
 	}
 
-	newTaskID, err := driver_asynq_worker.RetryTask(c.Request.Context(), id)
+	taskSvc := GetTaskService()
+	if taskSvc == nil {
+		response.AbortInternal(c, "task service not available")
+		return
+	}
+
+	newTaskID, err := taskSvc.Retry(c.Request.Context(), id)
 	if err != nil {
 		errMsg := err.Error()
 		switch {
@@ -252,9 +271,15 @@ func CreateSchedule(c *gin.Context) {
 		return
 	}
 
+	taskSvc := GetTaskService()
+	if taskSvc == nil {
+		response.AbortInternal(c, "task service not available")
+		return
+	}
+
 	// 校验关联的异步任务类型
-	meta := driver_asynq_worker.GetTaskMeta(req.TaskType)
-	if meta == nil {
+	meta, ok := taskSvc.GetTaskMeta(req.TaskType)
+	if !ok {
 		response.AbortBadRequest(c, InvalidTaskType)
 		return
 	}
@@ -264,7 +289,7 @@ func CreateSchedule(c *gin.Context) {
 	if strings.TrimSpace(req.Payload) != "" {
 		payloadBytes = []byte(req.Payload)
 	}
-	validated, err := driver_asynq_worker.ValidateAndNormalizePayload(meta.AsynqTask, payloadBytes)
+	validated, err := taskSvc.ValidatePayload(meta.Name, payloadBytes)
 	if err != nil {
 		response.AbortBadRequest(c, err.Error())
 		return
@@ -284,7 +309,7 @@ func CreateSchedule(c *gin.Context) {
 	}
 
 	// 触发调度服务重载
-	if err := driver_asynq_cron.ReloadScheduler(); err != nil {
+	if err := taskSvc.ReloadScheduler(); err != nil {
 		logger.ErrorF(c.Request.Context(), "[TaskAdmin] 重载调度器失败: %v", err)
 	}
 
@@ -341,9 +366,15 @@ func UpdateSchedule(c *gin.Context) {
 		return
 	}
 
+	taskSvc := GetTaskService()
+	if taskSvc == nil {
+		response.AbortInternal(c, "task service not available")
+		return
+	}
+
 	// 校验关联的异步任务类型
-	meta := driver_asynq_worker.GetTaskMeta(req.TaskType)
-	if meta == nil {
+	meta, ok := taskSvc.GetTaskMeta(req.TaskType)
+	if !ok {
 		response.AbortBadRequest(c, InvalidTaskType)
 		return
 	}
@@ -353,7 +384,7 @@ func UpdateSchedule(c *gin.Context) {
 	if strings.TrimSpace(req.Payload) != "" {
 		payloadBytes = []byte(req.Payload)
 	}
-	validated, err := driver_asynq_worker.ValidateAndNormalizePayload(meta.AsynqTask, payloadBytes)
+	validated, err := taskSvc.ValidatePayload(meta.Name, payloadBytes)
 	if err != nil {
 		response.AbortBadRequest(c, err.Error())
 		return
@@ -371,7 +402,7 @@ func UpdateSchedule(c *gin.Context) {
 	}
 
 	// 触发调度服务重载
-	if err := driver_asynq_cron.ReloadScheduler(); err != nil {
+	if err := taskSvc.ReloadScheduler(); err != nil {
 		logger.ErrorF(c.Request.Context(), "[TaskAdmin] 重载调度器失败: %v", err)
 	}
 
@@ -404,8 +435,11 @@ func DeleteSchedule(c *gin.Context) {
 	}
 
 	// 触发调度服务重载
-	if err := driver_asynq_cron.ReloadScheduler(); err != nil {
-		logger.ErrorF(c.Request.Context(), "[TaskAdmin] 重载调度器失败: %v", err)
+	taskSvc := GetTaskService()
+	if taskSvc != nil {
+		if err := taskSvc.ReloadScheduler(); err != nil {
+			logger.ErrorF(c.Request.Context(), "[TaskAdmin] 重载调度器失败: %v", err)
+		}
 	}
 
 	c.JSON(http.StatusOK, response.OKNil())

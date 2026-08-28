@@ -13,25 +13,36 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"Wavelet/core/contracts"
+	pkgcache "Wavelet/pkg/cache/disk"
+	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	pkgutil "Wavelet/pkg/util"
-	"Wavelet/plugins/domain/auth"
 	"Wavelet/plugins/domain/upload/cache"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 	"Wavelet/plugins/domain/upload/util"
-	"Wavelet/plugins/infra/storage/diskcache"
 
-	"Wavelet/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
-var compressedImageFlight singleflight.Group
+var (
+	compressedImageFlight singleflight.Group
+	globalDiskCache       *pkgcache.Cache
+	globalDiskCacheOnce   sync.Once
+)
+
+func getGlobalDiskCache() *pkgcache.Cache {
+	globalDiskCacheOnce.Do(func() {
+		globalDiskCache = pkgcache.New("uploads/diskcache")
+	})
+	return globalDiskCache
+}
 
 type compressedImageCacheResult struct {
 	bytes  []byte
@@ -193,13 +204,13 @@ func EnsureCompressedImageCache(
 	upload *models.Upload,
 	quality string,
 ) ([]byte, bool, error) {
-	cacheStore := diskcache.GetGlobalCache()
+	cacheStore := getGlobalDiskCache()
 	cacheKey := ImageCompressionCacheKey(upload, quality)
 	webpBytes, err := cacheStore.Get(cacheKey)
 	if err == nil {
 		return webpBytes, true, nil
 	}
-	if !errors.Is(err, diskcache.ErrCacheMiss) {
+	if !errors.Is(err, pkgcache.ErrCacheMiss) {
 		return nil, false, fmt.Errorf("read compressed image cache: %w", err)
 	}
 
@@ -220,13 +231,13 @@ func generateCompressedImageCache(
 	quality string,
 	cacheKey string,
 ) (compressedImageCacheResult, error) {
-	cacheStore := diskcache.GetGlobalCache()
+	cacheStore := getGlobalDiskCache()
 
 	webpBytes, err := cacheStore.Get(cacheKey)
 	if err == nil {
 		return compressedImageCacheResult{bytes: webpBytes, cached: true}, nil
 	}
-	if !errors.Is(err, diskcache.ErrCacheMiss) {
+	if !errors.Is(err, pkgcache.ErrCacheMiss) {
 		return compressedImageCacheResult{}, fmt.Errorf("read compressed image cache: %w", err)
 	}
 
@@ -240,7 +251,7 @@ func generateCompressedImageCache(
 		return compressedImageCacheResult{}, fmt.Errorf("compress image to WebP: %w", err)
 	}
 
-	if err := cacheStore.Set(cacheKey, webpBytes, diskcache.NoExpiration); err != nil {
+	if err := cacheStore.Set(cacheKey, webpBytes, pkgcache.NoExpiration); err != nil {
 		return compressedImageCacheResult{
 			bytes: webpBytes,
 			err:   fmt.Errorf("write compressed image cache: %w", err),
@@ -269,7 +280,11 @@ func serveOriginal(c *gin.Context, upload *models.Upload) {
 		return
 	}
 	defer func() { _ = obj.Body.Close() }()
-	c.DataFromReader(http.StatusOK, obj.ContentLength, obj.ContentType, obj.Body, nil)
+	contentType := obj.ContentType
+	if upload.MimeType != "" {
+		contentType = upload.MimeType
+	}
+	c.DataFromReader(http.StatusOK, obj.ContentLength, contentType, obj.Body, nil)
 }
 
 func getOriginalFileBytes(ctx context.Context, upload *models.Upload) ([]byte, error) {
@@ -287,13 +302,15 @@ func checkPrivateFileOwner(c *gin.Context, ownerID uint64) error {
 	if u, ok := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); ok && u != nil {
 		currUserID = u.ID
 		isAdmin = u.IsAdmin
-	} else {
-		u, err := auth.GetUserFromRequest(c)
+	} else if authSvc := shared.GetAuthService(c); authSvc != nil {
+		u, err := authSvc.GetCurrentUser(c)
 		if err != nil {
 			return err
 		}
 		currUserID = u.ID
 		isAdmin = u.IsAdmin
+	} else {
+		return errors.New("unauthorized")
 	}
 	if isAdmin {
 		return nil
@@ -312,8 +329,10 @@ func CheckFileAccessPermission(c *gin.Context, upload *models.Upload) error {
 
 	if !cache.IsFilePublic(c.Request.Context(), upload.Type) {
 		if _, ok := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); !ok {
-			if _, err := auth.GetUserFromRequest(c); err != nil {
-				return err
+			if authSvc := shared.GetAuthService(c); authSvc != nil {
+				if _, err := authSvc.GetCurrentUser(c); err != nil {
+					return err
+				}
 			}
 		}
 	}

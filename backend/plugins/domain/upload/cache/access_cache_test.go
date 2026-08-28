@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
 
 func TestLoadMigrationAccessStateCachesResult(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	ResetAccessCaches()
 
@@ -31,7 +30,7 @@ func TestLoadMigrationAccessStateCachesResult(t *testing.T) {
 }
 
 func TestIsFilePublicUsesCachedWhitelist(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	ResetAccessCaches()
 
@@ -48,7 +47,7 @@ func TestIsFilePublicUsesCachedWhitelist(t *testing.T) {
 }
 
 func TestResetAccessCachesRefreshesWhitelist(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	ResetAccessCaches()
 
@@ -71,7 +70,7 @@ func TestResetAccessCachesRefreshesWhitelist(t *testing.T) {
 }
 
 func TestAccessCacheTTLExpires(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	ResetAccessCaches()
 

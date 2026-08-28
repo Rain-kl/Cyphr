@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	pkgcache "Wavelet/pkg/cache/disk"
 	"Wavelet/pkg/response"
-	"Wavelet/plugins/infra/storage/diskcache"
 )
 
 type updateCacheConfigRequest struct {
@@ -26,13 +26,13 @@ type updateCacheConfigRequest struct {
 // @Tags admin
 // @Produce json
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=diskcache.Status} "获取成功"
+// @Success 200 {object} response.Any{data=disk.Status} "获取成功"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Failure 500 {object} response.Any "内部错误"
 // @Router /api/v1/admin/cache/status [get]
 func GetCacheStatus(c *gin.Context) {
-	status := diskcache.GetGlobalCache().Status()
+	status := pkgcache.Default().Status()
 	c.JSON(http.StatusOK, response.OK(status))
 }
 
@@ -74,7 +74,7 @@ func UpdateCacheConfig(c *gin.Context) {
 		return
 	}
 
-	diskcache.GetGlobalCache().ReloadConfig(ctx)
+	pkgcache.Default().UpdatePolicy(req.MaxSizeMB, req.TTLMinutes, req.LRUEnabled)
 
 	c.JSON(http.StatusOK, response.OKNil())
 }
@@ -91,7 +91,7 @@ func UpdateCacheConfig(c *gin.Context) {
 // @Failure 500 {object} response.Any "服务内部错误"
 // @Router /api/v1/admin/cache/clear [post]
 func ClearCache(c *gin.Context) {
-	if err := diskcache.GetGlobalCache().Clear(); err != nil {
+	if err := pkgcache.Default().Clear(); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}

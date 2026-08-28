@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"log"
 
-	"Wavelet/pkg/config"
 	"github.com/bwmarrin/snowflake"
+
+	"Wavelet/pkg/config"
 )
 
 // 2025-12-01 00:00:00 UTC 的毫秒时间戳

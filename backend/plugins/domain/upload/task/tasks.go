@@ -11,11 +11,11 @@ import (
 	"strings"
 	"sync"
 
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/upload/filesrv"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	database "Wavelet/plugins/infra/database"
 )
 
 const (
@@ -28,22 +28,18 @@ const (
 var warmImageCacheMu sync.Mutex
 
 // WarmImageCacheMeta represents the image cache warmup task metadata.
-var WarmImageCacheMeta = driver_asynq_worker.TaskMeta{
-	Type:         TaskTypeWarmImageCache,
-	AsynqTask:    WarmImageCacheTask,
-	Name:         "预热图片压缩缓存",
-	Description:  "串行将文件管理中的图片转换为指定质量的 WebP 并写入永久缓存",
-	SupportsTime: false,
-	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
-	Queue:        driver_asynq_worker.QueueDefault,
-	Retryable:    true,
-	Params: []driver_asynq_worker.TaskParam{
+var WarmImageCacheMeta = contracts.TaskMetaDTO{
+	Name:        WarmImageCacheTask,
+	DisplayName: "预热图片压缩缓存",
+	Description: "串行将文件管理中的图片转换为指定质量的 WebP 并写入永久缓存",
+	Category:    "upload",
+	MaxRetry:    3,
+	Queue:       "default",
+	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "quality",
-			Label:       "图片质量",
 			Type:        "string",
 			Required:    true,
-			Placeholder: "low / medium / high",
 			Description: "WebP 压缩质量，仅支持 low、medium、high",
 		},
 	},
@@ -79,10 +75,10 @@ func (h *WarmImageCacheHandler) ValidatePayload(payload []byte) ([]byte, error) 
 }
 
 // Execute serially converts all managed images to WebP cache entries.
-func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*driver_asynq_worker.TaskResult, error) {
+func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*contracts.TaskResultDTO, error) {
 	normalizedPayload, err := h.ValidatePayload(payload)
 	if err != nil {
-		driver_asynq_worker.AppendLog(ctx, "图片缓存预热参数无效: %v", err)
+		logger.WarnF(ctx, "图片缓存预热参数无效: %v", err)
 		return nil, err
 	}
 
@@ -91,7 +87,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 		return nil, fmt.Errorf(shared.ErrParseImageCacheWarmupPayload, err)
 	}
 
-	driver_asynq_worker.AppendLog(ctx, "等待获取图片缓存预热执行锁，质量: %s", req.Quality)
+	logger.InfoF(ctx, "等待获取图片缓存预热执行锁，质量: %s", req.Quality)
 	warmImageCacheMu.Lock()
 	defer warmImageCacheMu.Unlock()
 
@@ -105,7 +101,12 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 	var totalGenerated int
 	var totalFailed int
 
-	driver_asynq_worker.AppendLog(ctx, "开始串行预热图片压缩缓存，质量: %s，每批: %d", req.Quality, batchSize)
+	logger.InfoF(ctx, "开始串行预热图片压缩缓存，质量: %s，每批: %d", req.Quality, batchSize)
+
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return nil, errors.New("database service not available")
+	}
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -113,7 +114,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 		}
 
 		var uploads []models.Upload
-		if err := database.DB(ctx).
+		if err := db.
 			Where("id > ? AND status != ? AND (LOWER(mime_type) LIKE ? OR LOWER(extension) IN ?)",
 				lastID,
 				models.UploadStatusDeleted,
@@ -123,7 +124,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 			Order("id ASC").
 			Limit(batchSize).
 			Find(&uploads).Error; err != nil {
-			driver_asynq_worker.AppendLog(ctx, "查询图片上传记录失败: %v", err)
+			logger.ErrorF(ctx, "查询图片上传记录失败: %v", err)
 			return nil, fmt.Errorf(shared.ErrQueryImagesForCacheWarmup, err)
 		}
 
@@ -148,7 +149,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 				totalFailed++
 				batchFailed++
 				if totalFailed <= maxFailureLogs {
-					driver_asynq_worker.AppendLog(ctx, "图片处理失败 [ID:%d]: %v", upload.ID, err)
+					logger.WarnF(ctx, "图片处理失败 [ID:%d]: %v", upload.ID, err)
 				}
 				continue
 			}
@@ -161,7 +162,7 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 			batchGenerated++
 		}
 
-		driver_asynq_worker.AppendLog(
+		logger.InfoF(
 			ctx,
 			"批次完成，末尾 ID: %d，生成: %d，命中: %d，失败: %d",
 			lastID,
@@ -178,6 +179,6 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*d
 		totalCached,
 		totalFailed,
 	)
-	driver_asynq_worker.AppendLog(ctx, "%s", msg)
-	return &driver_asynq_worker.TaskResult{Message: msg}, nil
+	logger.InfoF(ctx, "%s", msg)
+	return &contracts.TaskResultDTO{Message: msg}, nil
 }

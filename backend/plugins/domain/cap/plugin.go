@@ -29,7 +29,6 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Inject() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeFor[contracts.DBService](),
-		reflect.TypeFor[contracts.CacheService](),
 	}
 }
 
@@ -45,6 +44,24 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers the cap routes and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Bind DBService from Context
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+	ctx.OnDispose(func() error {
+		setDBService(nil)
+		return nil
+	})
+
+	// Listen to system config changed events to invalidate cached settings
+	ctx.Events().On(contracts.EventTopicConfigChanged, func(_ any) {
+		InvalidateRuntimeSettings()
+	})
+
 	// Register HTTP Routes
 	capGroup := ctx.Router().Group("/api/v1/cap")
 	{

@@ -15,7 +15,7 @@ import (
 	"github.com/hibiken/asynq"
 
 	"Wavelet/core"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/core/contracts"
 )
 
 //go:embed migrations/*.sql
@@ -66,7 +66,7 @@ type Plugin struct {
 // New creates a new Asynq Cron Scheduler driver plugin.
 func New(opts ...Option) *Plugin {
 	p := &Plugin{
-		redisOpt: driver_asynq_worker.RedisOpt,
+		redisOpt: RedisOpt,
 		location: time.Local,
 	}
 
@@ -89,6 +89,30 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	p.mu.Lock()
 	p.coreCtx = ctx
 	p.mu.Unlock()
+
+	// Bind DBService
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+
+	// Bind TaskService
+	if taskSvc, err := core.Inject[contracts.TaskService](ctx); err == nil && taskSvc != nil {
+		setTaskService(taskSvc)
+	} else {
+		core.When[contracts.TaskService](ctx, func(taskSvc contracts.TaskService) {
+			setTaskService(taskSvc)
+		})
+	}
+
+	ctx.OnDispose(func() error {
+		setDBService(nil)
+		setTaskService(nil)
+		return nil
+	})
 
 	// Register migrations for w_schedules table
 	ctx.Migrations().Register("driver_asynq_cron", cronMigrations)

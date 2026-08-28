@@ -12,10 +12,11 @@ import (
 	"strconv"
 	"time"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
 )
 
 type loginRequest struct {

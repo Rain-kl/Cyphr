@@ -5,7 +5,6 @@ package cap
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strconv"
 	"sync"
@@ -13,11 +12,37 @@ import (
 	"time"
 
 	"golang.org/x/sync/singleflight"
+	"gorm.io/gorm"
 
-	"Wavelet/pkg/util"
-	cachepkg "Wavelet/plugins/infra/cache"
-	database "Wavelet/plugins/infra/database"
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 )
+
+var (
+	dbMu  sync.RWMutex
+	dbSvc contracts.DBService
+)
+
+func setDBService(s contracts.DBService) {
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	dbSvc = s
+}
+
+func getDB(ctx context.Context) *gorm.DB {
+	if c, ok := ctx.(*core.Context); ok && c != nil {
+		if s, err := core.Inject[contracts.DBService](c); err == nil && s != nil {
+			return s.DB(ctx)
+		}
+	}
+	dbMu.RLock()
+	s := dbSvc
+	dbMu.RUnlock()
+	if s != nil {
+		return s.DB(ctx)
+	}
+	return nil
+}
 
 const (
 	defaultChallengeCount      = 1
@@ -67,9 +92,8 @@ var runtimeConfigKeySet = func() map[string]struct{} {
 }()
 
 type runtimeSettingsStore struct {
-	snapshot     atomic.Pointer[RuntimeSettings]
-	loadGroup    singleflight.Group
-	listenerOnce sync.Once
+	snapshot  atomic.Pointer[RuntimeSettings]
+	loadGroup singleflight.Group
 }
 
 var settingsStore = &runtimeSettingsStore{}
@@ -148,7 +172,11 @@ func loadRuntimeSettings(ctx context.Context) (RuntimeSettings, error) {
 		Value string `gorm:"column:value"`
 	}
 	var records []configRecord
-	if err := database.DB(ctx).Table("w_system_configs").Where("key IN ?", runtimeConfigKeys).Find(&records).Error; err != nil {
+	db := getDB(ctx)
+	if db == nil {
+		return parseRuntimeSettings(nil), nil
+	}
+	if err := db.Table("w_system_configs").Where("key IN ?", runtimeConfigKeys).Find(&records).Error; err != nil {
 		return RuntimeSettings{}, err
 	}
 	configs := make(map[string]string, len(records))
@@ -165,6 +193,10 @@ func parseRuntimeSettings(configs map[string]string) RuntimeSettings {
 		ChallengeDifficulty: defaultChallengeDifficulty,
 		ChallengeTTL:        defaultChallengeTTL,
 		TokenTTL:            defaultTokenTTL,
+	}
+
+	if len(configs) == 0 {
+		return settings
 	}
 
 	if val, ok := configs[ConfigKeyCapLoginEnabled]; ok {
@@ -201,36 +233,4 @@ func parseRuntimeSettings(configs map[string]string) RuntimeSettings {
 	return settings
 }
 
-func (s *runtimeSettingsStore) ensureInvalidationListener() {
-	s.listenerOnce.Do(startRuntimeSettingsInvalidationListener)
-}
-
-// SystemConfigInvalidationChannel 系统配置失效广播通道
-const SystemConfigInvalidationChannel = "system_config:invalidation"
-
-func startRuntimeSettingsInvalidationListener() {
-	rdb := cachepkg.Redis
-	if rdb == nil {
-		return
-	}
-
-	util.Go(func() {
-		pubsub := rdb.Subscribe(context.Background(), SystemConfigInvalidationChannel)
-		defer func() {
-			_ = pubsub.Close()
-		}()
-
-		for msg := range pubsub.Channel() {
-			var payload struct {
-				Key string `json:"key"`
-			}
-			if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil {
-				InvalidateRuntimeSettings()
-				continue
-			}
-			if payload.Key == "" || payload.Key == "*" || IsRuntimeConfigKey(payload.Key) {
-				InvalidateRuntimeSettings()
-			}
-		}
-	})
-}
+func (s *runtimeSettingsStore) ensureInvalidationListener() {}

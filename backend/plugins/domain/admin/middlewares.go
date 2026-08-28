@@ -4,12 +4,13 @@
 package admin
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/trace"
 	"Wavelet/pkg/util"
-	"github.com/gin-gonic/gin"
 )
 
 // LoginAdminRequired 返回管理员权限校验中间件

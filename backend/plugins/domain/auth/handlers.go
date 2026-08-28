@@ -14,17 +14,16 @@ import (
 
 	"Wavelet/core/contracts"
 
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
-	cachepkg "Wavelet/plugins/infra/cache"
-	db "Wavelet/plugins/infra/database"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 )
 
 // GetLoginSources 获取可用登录源列表
@@ -78,9 +77,12 @@ func GetLoginURL(c *gin.Context) {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := cachepkg.Redis.Set(ctx, cachepkg.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
-		response.AbortInternal(c, err.Error())
-		return
+	stateKey := fmt.Sprintf(OAuthStateCacheKeyFormat, state)
+	if cache := getCache(ctx); cache != nil {
+		if err := cache.Set(ctx, stateKey, payloadValue, OAuthStateCacheKeyExpiration); err != nil {
+			response.AbortInternal(c, err.Error())
+			return
+		}
 	}
 
 	authorizeURL, err := buildAuthorizeURL(c.Request.Context(), source, state)
@@ -107,18 +109,19 @@ func buildAuthorizeURL(ctx context.Context, source *AuthSource, state string) (s
 }
 
 func reserveOAuthStateSlot(ctx context.Context, sessionHash string) error {
-	if cachepkg.Redis == nil || sessionHash == "" {
+	if sessionHash == "" {
 		return nil
 	}
-	key := cachepkg.PrefixedKey(fmt.Sprintf(oauthStateLimitKeyFormat, sessionHash))
-	n, err := cachepkg.Redis.Incr(ctx, key).Result()
-	if err != nil {
-		return err
+	cache := getCache(ctx)
+	if cache == nil {
+		return nil
 	}
-	if n == 1 {
-		_ = cachepkg.Redis.Expire(ctx, key, OAuthStateCacheKeyExpiration).Err()
-	}
-	if n > oauthStateLimitMax {
+	key := fmt.Sprintf(oauthStateLimitKeyFormat, sessionHash)
+	var count int
+	_ = cache.Get(ctx, key, &count)
+	count++
+	_ = cache.Set(ctx, key, count, OAuthStateCacheKeyExpiration)
+	if count > oauthStateLimitMax {
 		return errors.New(errOAuthStateRateLimited)
 	}
 	return nil
@@ -179,9 +182,12 @@ func Authorize(c *gin.Context) {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := cachepkg.Redis.Set(ctx, cachepkg.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, state)), payloadValue, OAuthStateCacheKeyExpiration).Err(); err != nil {
-		response.AbortInternal(c, err.Error())
-		return
+	stateKey := fmt.Sprintf(OAuthStateCacheKeyFormat, state)
+	if cache := getCache(ctx); cache != nil {
+		if err := cache.Set(ctx, stateKey, payloadValue, OAuthStateCacheKeyExpiration); err != nil {
+			response.AbortInternal(c, err.Error())
+			return
+		}
 	}
 
 	authorizeURL, err := buildAuthorizeURL(c.Request.Context(), source, state)
@@ -201,13 +207,18 @@ func Callback(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	stateKey := cachepkg.PrefixedKey(fmt.Sprintf(OAuthStateCacheKeyFormat, req.State))
-	payloadRaw, err := cachepkg.Redis.Get(ctx, stateKey).Result()
-	if err != nil {
+	stateKey := fmt.Sprintf(OAuthStateCacheKeyFormat, req.State)
+	var payloadRaw string
+	cache := getCache(ctx)
+	if cache == nil {
 		response.AbortBadRequest(c, errInvalidState)
 		return
 	}
-	_ = cachepkg.Redis.Del(ctx, stateKey)
+	if err := cache.Get(ctx, stateKey, &payloadRaw); err != nil {
+		response.AbortBadRequest(c, errInvalidState)
+		return
+	}
+	_ = cache.Delete(ctx, stateKey)
 
 	payload, err := decodeOAuthStatePayload(payloadRaw)
 	if err != nil {
@@ -289,7 +300,7 @@ func handleCallbackBind(ctx context.Context, c *gin.Context, source *AuthSource,
 		return
 	}
 	var user contracts.UserDTO
-	if err := db.DB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err != nil {
+	if err := getDB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
@@ -304,7 +315,7 @@ func handleCallbackBind(ctx context.Context, c *gin.Context, source *AuthSource,
 		return
 	}
 	user.LastLoginAt = time.Now()
-	_ = db.DB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
+	_ = getDB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
 	c.JSON(http.StatusOK, response.OK(buildCallbackResult(&user, "bound")))
 }
 
@@ -314,7 +325,7 @@ func handleCallbackLogin(ctx context.Context, c *gin.Context, source *AuthSource
 	account, err := FindExternalAccount(ctx, source.ID, userInfo.Sub)
 	switch {
 	case err == nil:
-		if loadErr := db.DB(ctx).Table("w_users").Where("id = ?", account.UserID).First(&user).Error; loadErr != nil {
+		if loadErr := getDB(ctx).Table("w_users").Where("id = ?", account.UserID).First(&user).Error; loadErr != nil {
 			response.AbortInternal(c, loadErr.Error())
 			return
 		}
@@ -330,7 +341,7 @@ func handleCallbackLogin(ctx context.Context, c *gin.Context, source *AuthSource
 	}
 
 	user.LastLoginAt = time.Now()
-	_ = db.DB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
+	_ = getDB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
 	if err := SetLoginSession(ctx, c, &user); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
@@ -348,7 +359,7 @@ func uniqueUsername(ctx context.Context, base string) (string, error) {
 	}
 
 	var existingUsernames []string
-	if err := db.DB(ctx).Table("w_users").
+	if err := getDB(ctx).Table("w_users").
 		Where("username = ? OR username LIKE ? ESCAPE '\\'", base, util.EscapeLike(base)+"-%").
 		Pluck("username", &existingUsernames).Error; err != nil {
 		return "", err
@@ -376,7 +387,7 @@ func uniqueUsername(ctx context.Context, base string) (string, error) {
 func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) (contracts.UserDTO, bool) {
 	registrationEnabled := true
 	var val string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "registration_enabled").Pluck("value", &val).Error; err == nil && val != "" {
+	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "registration_enabled").Pluck("value", &val).Error; err == nil && val != "" {
 		if b, err := strconv.ParseBool(val); err == nil {
 			registrationEnabled = b
 		}
@@ -407,7 +418,7 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSou
 		UpdatedAt:   now,
 	}
 
-	if err := db.DB(ctx).Table("w_users").Create(&user).Error; err != nil {
+	if err := getDB(ctx).Table("w_users").Create(&user).Error; err != nil {
 		response.AbortInternal(c, err.Error())
 		return contracts.UserDTO{}, false
 	}

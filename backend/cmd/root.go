@@ -8,11 +8,12 @@ import (
 	"log"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"Wavelet/pkg/buildinfo"
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/trace"
-	"github.com/spf13/cobra"
 )
 
 const traceShutdownTimeout = 10 * time.Second

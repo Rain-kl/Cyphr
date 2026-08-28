@@ -11,8 +11,9 @@ import (
 	"path"
 	"strings"
 
-	"Wavelet/pkg/httppool"
 	"github.com/studio-b12/gowebdav"
+
+	"Wavelet/pkg/httppool"
 )
 
 type contextTransport struct {

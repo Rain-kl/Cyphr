@@ -12,7 +12,6 @@ import (
 
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
-	db "Wavelet/plugins/infra/database"
 )
 
 const (
@@ -98,7 +97,7 @@ func buildStore(ctx context.Context, database string, skipFreeze bool) (*Store, 
 		ual.skipFreeze = skipFreeze
 		return &Store{UserAccessLogs: ual, Status: ual}, nil
 	case dbNamePostgres, dbNameSQLite:
-		gdb := db.DB(ctx)
+		gdb := getDB(ctx)
 		ual := newUserAccessLogGormStore(gdb)
 		ual.skipFreeze = skipFreeze
 		return &Store{UserAccessLogs: ual, Status: ual}, nil

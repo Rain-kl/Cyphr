@@ -10,6 +10,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/pressly/goose/v3"
+	goosedb "github.com/pressly/goose/v3/database"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
@@ -28,8 +31,6 @@ import (
 	infradb "Wavelet/plugins/infra/database"
 	"Wavelet/plugins/infra/logger"
 	"Wavelet/plugins/infra/storage"
-	"github.com/pressly/goose/v3"
-	goosedb "github.com/pressly/goose/v3/database"
 )
 
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.

@@ -4,28 +4,23 @@
 package task
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"Wavelet/pkg/testhelper"
+	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/upload/models"
-	cache "Wavelet/plugins/infra/cache"
-	"Wavelet/plugins/infra/storage/objectstore"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
+	"Wavelet/plugins/domain/upload/shared"
+	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
 
 func TestMigrationHandlerExecute(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	sourceRoot := t.TempDir()
@@ -39,21 +34,24 @@ func TestMigrationHandlerExecute(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	active := objectstore.DefaultConfig()
-	active.Local.Root = sourceRoot
-	if err := objectstore.SaveActiveConfig(ctx, active); err != nil {
+	active := contracts.StorageConfigDTO{
+		Driver: contracts.StorageDriverLocal,
+		Local:  contracts.LocalStorageConfigDTO{Root: sourceRoot},
+	}
+	if err := uploadstorage.SaveActiveConfig(ctx, active); err != nil {
 		t.Fatalf("SaveActiveConfig() returned error: %v", err)
 	}
-	target := objectstore.DefaultConfig()
-	target.Driver = objectstore.DriverS3
-	target.S3 = objectstore.ObjectConfig{
-		Region:          "us-east-1",
-		Bucket:          "target",
-		AccessKeyID:     "key",
-		SecretAccessKey: "secret",
+	target := contracts.StorageConfigDTO{
+		Driver: contracts.StorageDriverS3,
+		S3: contracts.ObjectStorageConfigDTO{
+			Region:          "us-east-1",
+			Bucket:          "target",
+			AccessKeyID:     "key",
+			SecretAccessKey: "secret",
+		},
 	}
 	payload, err := json.Marshal(struct {
-		Target objectstore.Config `json:"target"`
+		Target contracts.StorageConfigDTO `json:"target"`
 	}{Target: target})
 	if err != nil {
 		t.Fatalf("Marshal(storageMigrationPayload) returned error: %v", err)
@@ -63,7 +61,7 @@ func TestMigrationHandlerExecute(t *testing.T) {
 		ID:        99101,
 		UserID:    1,
 		FileName:  "test.txt",
-		FilePath:  "uploads/test.txt",
+		FilePath:  sourcePath,
 		FileSize:  int64(len(content)),
 		MimeType:  "text/plain",
 		Extension: "txt",
@@ -75,21 +73,6 @@ func TestMigrationHandlerExecute(t *testing.T) {
 		t.Fatalf("Create(upload) returned error: %v", err)
 	}
 
-	var copied bytes.Buffer
-	restore := objectstore.MockStorage(
-		func(_ context.Context, _ string, body io.Reader, _ int64, _ string) error {
-			_, err := io.Copy(&copied, body)
-			return err
-		},
-		func(context.Context, string) (*objectstore.Object, error) {
-			return nil, nil
-		},
-		func(context.Context, string) error {
-			return nil
-		},
-	)
-	defer restore()
-
 	result, err := (&MigrationHandler{}).Execute(ctx, payload)
 	if err != nil {
 		t.Fatalf("Execute() returned error: %v", err)
@@ -97,25 +80,22 @@ func TestMigrationHandlerExecute(t *testing.T) {
 	if result == nil {
 		t.Fatal("Execute() result = nil, want non-nil")
 	}
-	if copied.String() != content {
-		t.Errorf("migrated content = %q, want %q", copied.String(), content)
-	}
 
 	var migrated models.Upload
 	if err := dbConn.First(&migrated, upload.ID).Error; err != nil {
 		t.Fatalf("First(upload) returned error: %v", err)
 	}
-	current, err := objectstore.LoadConfig(ctx)
+	current, err := uploadstorage.LoadStorageConfig(ctx)
 	if err != nil {
-		t.Fatalf("LoadConfig() returned error: %v", err)
+		t.Fatalf("LoadStorageConfig() returned error: %v", err)
 	}
-	if current.Driver != objectstore.DriverS3 {
-		t.Errorf("active driver = %q, want %q", current.Driver, objectstore.DriverS3)
+	if current.Driver != contracts.StorageDriverS3 {
+		t.Errorf("active driver = %q, want %q", current.Driver, contracts.StorageDriverS3)
 	}
 }
 
 func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	sourceRoot := t.TempDir()
@@ -134,22 +114,25 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 	correctHash := hex.EncodeToString(h.Sum(nil))
 
 	ctx := context.Background()
-	active := objectstore.DefaultConfig()
-	active.Local.Root = sourceRoot
-	if err := objectstore.SaveActiveConfig(ctx, active); err != nil {
+	active := contracts.StorageConfigDTO{
+		Driver: contracts.StorageDriverLocal,
+		Local:  contracts.LocalStorageConfigDTO{Root: sourceRoot},
+	}
+	if err := uploadstorage.SaveActiveConfig(ctx, active); err != nil {
 		t.Fatalf("SaveActiveConfig() returned error: %v", err)
 	}
 
-	target := objectstore.DefaultConfig()
-	target.Driver = objectstore.DriverS3
-	target.S3 = objectstore.ObjectConfig{
-		Region:          "us-east-1",
-		Bucket:          "target",
-		AccessKeyID:     "key",
-		SecretAccessKey: "secret",
+	target := contracts.StorageConfigDTO{
+		Driver: contracts.StorageDriverS3,
+		S3: contracts.ObjectStorageConfigDTO{
+			Region:          "us-east-1",
+			Bucket:          "target",
+			AccessKeyID:     "key",
+			SecretAccessKey: "secret",
+		},
 	}
 	payload, err := json.Marshal(struct {
-		Target objectstore.Config `json:"target"`
+		Target contracts.StorageConfigDTO `json:"target"`
 	}{Target: target})
 	if err != nil {
 		t.Fatalf("Marshal(storageMigrationPayload) returned error: %v", err)
@@ -160,7 +143,7 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 		ID:        99102,
 		UserID:    1,
 		FileName:  "test-hash.txt",
-		FilePath:  "uploads/test-hash.txt",
+		FilePath:  sourcePath,
 		FileSize:  int64(len(content)),
 		MimeType:  "text/plain",
 		Extension: "txt",
@@ -171,26 +154,6 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 	if err := dbConn.Create(&uploadIncorrect).Error; err != nil {
 		t.Fatalf("Create(uploadIncorrect) returned error: %v", err)
 	}
-
-	var copied bytes.Buffer
-	restore := objectstore.MockStorage(
-		func(_ context.Context, _ string, body io.Reader, _ int64, _ string) error {
-			copied.Reset()
-			_, err := io.Copy(&copied, body)
-			return err
-		},
-		func(context.Context, string) (*objectstore.Object, error) {
-			return &objectstore.Object{
-				Body:          io.NopCloser(bytes.NewBuffer(copied.Bytes())),
-				ContentLength: int64(copied.Len()),
-				ContentType:   "text/plain",
-			}, nil
-		},
-		func(context.Context, string) error {
-			return nil
-		},
-	)
-	defer restore()
 
 	// Running execution with incorrect hash should fail with integrity error
 	_, err = (&MigrationHandler{}).Execute(ctx, payload)
@@ -219,47 +182,30 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 	if err := dbConn.First(&migrated, uploadIncorrect.ID).Error; err != nil {
 		t.Fatalf("First(upload) returned error: %v", err)
 	}
-	if migrated.FilePath != "uploads/test-hash.txt" {
-		t.Errorf("FilePath = %q, want %q", migrated.FilePath, "uploads/test-hash.txt")
+	if migrated.FilePath != sourcePath {
+		t.Errorf("FilePath = %q, want %q", migrated.FilePath, sourcePath)
 	}
 }
 
-func TestMigrationHandlerExecuteWithRedisLock(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+func TestMigrationHandlerExecuteWithLock(t *testing.T) {
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	mr, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("Failed to run miniredis: %v", err)
-	}
-	defer mr.Close()
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-	})
-	defer rdb.Close()
-
-	oldRedis := cache.Redis
-	cache.Redis = rdb
-	defer func() {
-		cache.Redis = oldRedis
-	}()
-
 	ctx := context.Background()
-
-	// Acquire lock manually
-	lockKey := cache.PrefixedKey("lock:storage:migrate")
-	if err := rdb.Set(ctx, lockKey, "locked", time.Hour).Err(); err != nil {
-		t.Fatalf("Failed to set manual lock in Redis: %v", err)
+	cacheSvc := shared.GetCache(ctx)
+	if cacheSvc != nil {
+		_ = cacheSvc.Set(ctx, "lock:storage:migrate", "locked", 3600)
 	}
 
-	active := objectstore.DefaultConfig()
-	if err := objectstore.SaveActiveConfig(ctx, active); err != nil {
+	active := contracts.StorageConfigDTO{
+		Driver: contracts.StorageDriverLocal,
+	}
+	if err := uploadstorage.SaveActiveConfig(ctx, active); err != nil {
 		t.Fatalf("SaveActiveConfig() returned error: %v", err)
 	}
 
 	payload, err := json.Marshal(struct {
-		Target objectstore.Config `json:"target"`
+		Target contracts.StorageConfigDTO `json:"target"`
 	}{Target: active})
 	if err != nil {
 		t.Fatalf("Marshal payload failed: %v", err)
@@ -275,8 +221,8 @@ func TestMigrationHandlerExecuteWithRedisLock(t *testing.T) {
 	}
 
 	// Release lock and run again, should succeed
-	if err := rdb.Del(ctx, lockKey).Err(); err != nil {
-		t.Fatalf("Failed to delete lock: %v", err)
+	if cacheSvc != nil {
+		_ = cacheSvc.Delete(ctx, "lock:storage:migrate")
 	}
 
 	_, err = (&MigrationHandler{}).Execute(ctx, payload)

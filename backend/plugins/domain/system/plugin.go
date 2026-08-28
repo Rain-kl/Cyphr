@@ -8,11 +8,12 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/response"
-	"github.com/gin-gonic/gin"
 )
 
 // Plugin implements core.Plugin to provide system-level basic routes.
@@ -62,7 +63,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 			Value string `json:"value"`
 		}
 		var configs []configItem
-		if dbSvc := ctx.DB(); dbSvc != nil {
+		if dbSvc, err := core.Inject[contracts.DBService](ctx); err == nil && dbSvc != nil {
 			_ = dbSvc.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
 		}
 		c.JSON(http.StatusOK, response.OK(gin.H{

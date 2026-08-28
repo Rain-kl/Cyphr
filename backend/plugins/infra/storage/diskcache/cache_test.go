@@ -5,20 +5,38 @@ package diskcache
 
 import (
 	"context"
-	"os"
 	"testing"
 
+	"gorm.io/gorm"
+
 	"Wavelet/pkg/testhelper"
-	cache "Wavelet/plugins/infra/cache"
 )
+
+type mockDBService struct {
+	db *gorm.DB
+}
+
+func (m *mockDBService) GORM() *gorm.DB {
+	return m.db
+}
+
+func (m *mockDBService) DB(ctx context.Context) *gorm.DB {
+	return m.db.WithContext(ctx)
+}
+
+func (m *mockDBService) Named(_ string) *gorm.DB {
+	return m.db
+}
 
 func TestDiskCacheReloadConfig(t *testing.T) {
 	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
-	defer cleanup()
+	SetDBService(&mockDBService{db: dbConn})
+	defer func() {
+		SetDBService(nil)
+		cleanup()
+	}()
 
-	testDir := "uploads/test_diskcache_reload"
-	defer func() { _ = os.RemoveAll(testDir) }()
-	_ = os.RemoveAll(testDir)
+	testDir := t.TempDir()
 
 	c := New(testDir)
 	defer func() { _ = c.Clear() }()
@@ -27,11 +45,6 @@ func TestDiskCacheReloadConfig(t *testing.T) {
 	dbConn.Table("w_system_configs").Where("key = ?", "disk_cache_max_size_mb").Update("value", "250")
 	dbConn.Table("w_system_configs").Where("key = ?", "disk_cache_ttl_minutes").Update("value", "120")
 	dbConn.Table("w_system_configs").Where("key = ?", "disk_cache_lru_enabled").Update("value", "false")
-
-	// Invalidate Redis config cache to force DB reload
-	if cache.Redis != nil {
-		cache.Redis.Del(context.Background(), cache.PrefixedKey("system_configs"))
-	}
 
 	// Reload config
 	c.ReloadConfig(context.Background())

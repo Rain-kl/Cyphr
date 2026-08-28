@@ -9,13 +9,14 @@ import (
 	"testing"
 	"time"
 
-	cachepkg "Wavelet/plugins/infra/cache"
-	db "Wavelet/plugins/infra/database"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 	"gorm.io/gorm"
+
+	cachepkg "Wavelet/plugins/infra/cache"
+	db "Wavelet/plugins/infra/database"
 )
 
 // SystemConfig 测试用系统配置表

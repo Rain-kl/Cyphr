@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"sort"
 	"time"
-
-	db "Wavelet/plugins/infra/database"
 )
 
 const hoursInDay = 24
@@ -20,7 +18,7 @@ func GetDailyTrend(ctx context.Context, days int) ([]DailyTrend, error) {
 		days = 7
 	}
 
-	ch := db.ChDB(ctx)
+	ch := getChDB(ctx)
 	if ch == nil {
 		return nil, fmt.Errorf("clickhouse gorm connection is not initialized")
 	}
@@ -69,7 +67,7 @@ func GetDailyTrend(ctx context.Context, days int) ([]DailyTrend, error) {
 
 // GetBrowserDistribution returns browser-grouped access counts since startTime.
 func GetBrowserDistribution(ctx context.Context, startTime time.Time) ([]BrowserShare, error) {
-	ch := db.ChDB(ctx)
+	ch := getChDB(ctx)
 	if ch == nil {
 		return nil, fmt.Errorf("clickhouse gorm connection is not initialized")
 	}
@@ -117,7 +115,7 @@ func GetTopActiveUsers(ctx context.Context, startTime time.Time, limit int) ([]T
 		limit = 10
 	}
 
-	ch := db.ChDB(ctx)
+	ch := getChDB(ctx)
 	if ch == nil {
 		return nil, fmt.Errorf("clickhouse gorm connection is not initialized")
 	}

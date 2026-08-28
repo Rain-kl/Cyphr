@@ -63,3 +63,5 @@ s3_cache
 
 .worktrees/
 /.superpowers/
+/backend/plugins/domain/upload/filesrv/uploads/
+/backend/plugins/domain/upload/task/uploads/

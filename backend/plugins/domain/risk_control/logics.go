@@ -139,3 +139,55 @@ func Drain(ctx context.Context) error {
 		}
 	}
 }
+
+// MigrateAndSwitchEngine migrates access logs to target database and switches the active store.
+func MigrateAndSwitchEngine(ctx context.Context, targetEngine string, reportProgress func(copied int)) error {
+	if err := Drain(ctx); err != nil {
+		return err
+	}
+	src, err := logstore.Active(ctx)
+	if err != nil {
+		return err
+	}
+	dst, err := logstore.BuildForMigration(ctx, targetEngine)
+	if err != nil {
+		return err
+	}
+	if _, err := dst.UserAccessLogs.DeleteAll(ctx); err != nil {
+		return err
+	}
+	from, to, err := src.UserAccessLogs.MigrationRange(ctx)
+	if err != nil {
+		return err
+	}
+	if !from.IsZero() && !to.IsZero() {
+		if err := dst.UserAccessLogs.EnsurePartitions(ctx, from, to); err != nil {
+			return err
+		}
+	}
+	var afterID uint64
+	var copied int
+	const copyBatchSize = 1000
+	for {
+		rows, err := src.UserAccessLogs.ListForMigration(ctx, afterID, copyBatchSize)
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			break
+		}
+		if err := dst.UserAccessLogs.BatchInsert(ctx, rows); err != nil {
+			return err
+		}
+		afterID = rows[len(rows)-1].ID
+		copied += len(rows)
+		if reportProgress != nil {
+			reportProgress(copied)
+		}
+		if len(rows) < copyBatchSize {
+			break
+		}
+	}
+	logstore.InvalidateCache()
+	return nil
+}

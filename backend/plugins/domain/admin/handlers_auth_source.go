@@ -15,7 +15,7 @@ import (
 
 // ListAuthSources lists all configured authentication sources.
 func ListAuthSources(c *gin.Context) {
-	authSvc := getAuthService(c.Request.Context())
+	authSvc := GetAuthService(c.Request.Context())
 	if authSvc == nil {
 		response.AbortInternal(c, "认证服务未就绪")
 		return
@@ -38,7 +38,7 @@ func CreateAuthSource(c *gin.Context) {
 		return
 	}
 
-	authSvc := getAuthService(c.Request.Context())
+	authSvc := GetAuthService(c.Request.Context())
 	if authSvc == nil {
 		response.AbortInternal(c, "认证服务未就绪")
 		return
@@ -68,7 +68,7 @@ func UpdateAuthSource(c *gin.Context) {
 		return
 	}
 
-	authSvc := getAuthService(c.Request.Context())
+	authSvc := GetAuthService(c.Request.Context())
 	if authSvc == nil {
 		response.AbortInternal(c, "认证服务未就绪")
 		return
@@ -92,7 +92,7 @@ func ToggleAuthSource(c *gin.Context) {
 		return
 	}
 
-	authSvc := getAuthService(c.Request.Context())
+	authSvc := GetAuthService(c.Request.Context())
 	if authSvc == nil {
 		response.AbortInternal(c, "认证服务未就绪")
 		return
@@ -116,7 +116,7 @@ func DeleteAuthSource(c *gin.Context) {
 		return
 	}
 
-	authSvc := getAuthService(c.Request.Context())
+	authSvc := GetAuthService(c.Request.Context())
 	if authSvc == nil {
 		response.AbortInternal(c, "认证服务未就绪")
 		return

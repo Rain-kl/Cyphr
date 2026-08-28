@@ -13,13 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"Wavelet/pkg/config"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"go.opentelemetry.io/otel/attribute"
 	clickhouseDriver "gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
 	"gorm.io/plugin/opentelemetry/tracing"
+
+	"Wavelet/pkg/config"
 )
 
 const (

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 )
 
@@ -235,24 +234,6 @@ func (c *Context) Settings() extpoints.SettingExtension {
 // Setting is an alias for Settings().
 func (c *Context) Setting() extpoints.SettingExtension {
 	return c.Settings()
-}
-
-// DB returns the contracts.DBService registered in the IoC container, or nil if not registered.
-func (c *Context) DB() contracts.DBService {
-	svc, err := Inject[contracts.DBService](c)
-	if err != nil {
-		return nil
-	}
-	return svc
-}
-
-// Cache returns the contracts.CacheService registered in the IoC container, or nil if not registered.
-func (c *Context) Cache() contracts.CacheService {
-	svc, err := Inject[contracts.CacheService](c)
-	if err != nil {
-		return nil
-	}
-	return svc
 }
 
 // OnDispose registers a cleanup callback function to be executed when this Context is disposed.

@@ -76,6 +76,27 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers the auth migrations, services, routes, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Bind DBService & CacheService from Context
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+		setCacheService(cache)
+	} else {
+		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
+			setCacheService(cache)
+		})
+	}
+	ctx.OnDispose(func() error {
+		setDBService(nil)
+		setCacheService(nil)
+		return nil
+	})
+
 	// 1. Register migrations
 	ctx.Migrations().Register("auth", authMigrations)
 

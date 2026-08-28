@@ -9,15 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/upload/shared"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 // MigrationAccessState captures cached migration maintenance state.
 type MigrationAccessState struct {
 	ReadOnly  bool
-	Target    objectstore.Config
+	Target    contracts.StorageConfigDTO
 	HasTarget bool
 	TargetErr error
 	LoadErr   error
@@ -65,14 +64,14 @@ func buildMigrationAccessState(ctx context.Context) MigrationAccessState {
 	if err != nil {
 		return MigrationAccessState{LoadErr: err, ReadOnly: true}
 	}
-	if !ok {
+	if !ok || execution == nil {
 		return MigrationAccessState{}
 	}
 
 	state := MigrationAccessState{
-		ReadOnly: execution.Status != driver_asynq_worker.TaskExecutionStatusSucceeded,
+		ReadOnly: execution.Status != "succeeded",
 	}
-	if execution.Status == driver_asynq_worker.TaskExecutionStatusSucceeded {
+	if execution.Status == "succeeded" {
 		return state
 	}
 

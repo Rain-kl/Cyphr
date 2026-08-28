@@ -8,13 +8,35 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/domain/message_gateway"
 )
 
+type mockDBService struct {
+	db *gorm.DB
+}
+
+func (m *mockDBService) GORM() *gorm.DB {
+	return m.db
+}
+
+func (m *mockDBService) DB(ctx context.Context) *gorm.DB {
+	return m.db.WithContext(ctx)
+}
+
+func (m *mockDBService) Named(_ string) *gorm.DB {
+	return m.db
+}
+
 func TestUpsertPairingCode_ReusesUnexpired(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
-	defer cleanup()
+	testDB, _, cleanup := testhelper.SetupTestEnvironment(t)
+	message_gateway.SetDBServiceForTest(&mockDBService{db: testDB})
+	defer func() {
+		message_gateway.SetDBServiceForTest(nil)
+		cleanup()
+	}()
 	ctx := context.Background()
 	first, err := message_gateway.UpsertPairingCode(ctx, 1, "tg-1", "ABCD1234", time.Now().Add(15*time.Minute))
 	if err != nil {

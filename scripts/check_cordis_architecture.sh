@@ -118,38 +118,50 @@ else
 fi
 
 # ==============================================================================
-# 4. 插件间隔离与单一所有者防线 (Plugin-to-Plugin Isolation & Single Owner Principle)
+# 4. 全量跨插件直接调用拦截 (Universal Cross-Plugin Import Guard)
 # ==============================================================================
-log_check "4. 检查插件间隔离性 (禁止跨域直接 import)..."
+log_check "4. 检查插件间隔离性 (严禁跨插件直接 import，必须面向 core/contracts 编程)..."
 
-# 4.1 Domain 插件之间严禁相互 import
-DOMAIN_CROSS_IMPORTS=""
-for d in "${BACKEND_DIR}"/plugins/domain/*/; do
-    [ -d "$d" ] || continue
-    name=$(basename "$d")
-    imports=$(rg -n "\"${MODULE}/plugins/domain/" "${BACKEND_DIR}/plugins/domain/${name}" \
-        -g '*.go' -g '!*_test.go' 2>/dev/null | rg -v "backend/plugins/domain/${name}/" || true)
-    if [ -n "$imports" ]; then
-        DOMAIN_CROSS_IMPORTS="${DOMAIN_CROSS_IMPORTS}\n[domain/${name} -> other domain]:\n${imports}\n"
-    fi
+CROSS_PLUGIN_IMPORTS=""
+
+# 遍历 plugins/ 下的所有类别 (domain, infra, drivers) 和子插件
+for category_dir in "${BACKEND_DIR}"/plugins/*/; do
+    [ -d "$category_dir" ] || continue
+    category=$(basename "$category_dir")
+    for plugin_dir in "$category_dir"*/; do
+        [ -d "$plugin_dir" ] || continue
+        plugin_name=$(basename "$plugin_dir")
+
+        self_prefix="${MODULE}/plugins/${category}/${plugin_name}"
+
+        # 查找该插件内所有的 "Wavelet/plugins/" 导入，排除自身前缀和测试文件
+        cross_imports=$(rg -n "\"${MODULE}/plugins/" "${plugin_dir}" \
+            -g '*.go' -g '!*_test.go' 2>/dev/null | rg -v "\"${self_prefix}(/|\")" || true)
+
+        if [ -n "$cross_imports" ]; then
+            CROSS_PLUGIN_IMPORTS="${CROSS_PLUGIN_IMPORTS}\n[${category}/${plugin_name} 违规引用其他插件]:\n${cross_imports}\n"
+        fi
+    done
 done
 
-if [ -n "${DOMAIN_CROSS_IMPORTS}" ]; then
-    log_fail "发现跨 Domain 插件直接依赖（必须通过 core/contracts 接口或 EventBus 解耦）:"
-    echo -e "${DOMAIN_CROSS_IMPORTS}" >&2
-else
-    log_pass "Domain 插件间 100% 解耦，无跨域直连 import"
+# 检查 downstream/ 下的下游插件
+if [ -d "${BACKEND_DIR}/downstream/plugins" ]; then
+    for downstream_dir in "${BACKEND_DIR}"/downstream/plugins/*/; do
+        [ -d "$downstream_dir" ] || continue
+        downstream_name=$(basename "$downstream_dir")
+        downstream_cross=$(rg -n "\"${MODULE}/plugins/" "${downstream_dir}" \
+            -g '*.go' -g '!*_test.go' 2>/dev/null || true)
+        if [ -n "$downstream_cross" ]; then
+            CROSS_PLUGIN_IMPORTS="${CROSS_PLUGIN_IMPORTS}\n[downstream/${downstream_name} 违规直接引用内部插件实现]:\n${downstream_cross}\n"
+        fi
+    done
 fi
 
-# 4.2 Driver 插件严禁导入 Domain 插件
-DRIVER_DOMAIN_IMPORTS=$(rg -n "\"${MODULE}/plugins/domain/" \
-    "${BACKEND_DIR}/plugins/drivers/" --glob '*.go' -g '!*_test.go' || true)
-
-if [ -n "${DRIVER_DOMAIN_IMPORTS}" ]; then
-    log_fail "Driver 驱动插件严禁直接依赖具体业务 domain 插件:"
-    echo "${DRIVER_DOMAIN_IMPORTS}" >&2
+if [ -n "${CROSS_PLUGIN_IMPORTS}" ]; then
+    log_fail "发现跨插件直接依赖违规（必须通过 core/contracts 契约接口或 EventBus 解耦，严禁跨插件直接 import 具体包）:"
+    echo -e "${CROSS_PLUGIN_IMPORTS}" >&2
 else
-    log_pass "Driver 驱动插件独立无业务污染"
+    log_pass "所有插件 100% 解耦，零跨插件直接 import"
 fi
 
 # ==============================================================================

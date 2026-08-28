@@ -5,15 +5,14 @@ package cache
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"sync"
+	"time"
+
+	"gorm.io/gorm"
 
 	"Wavelet/pkg/cache/ram"
-	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/models"
-	cachepkg "Wavelet/plugins/infra/cache"
-	database "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 const (
@@ -22,16 +21,8 @@ const (
 	uploadMetaInvalidationChan = "upload:meta_invalidation"
 )
 
-type uploadMetaInvalidationMessage struct {
-	ID uint64 `json:"id"`
-}
-
 var (
-	uploadMetaRAM            = ram.MustNew[uint64, models.Upload](ram.Options{MaximumSize: uploadMetaRAMMaximumSize})
-	uploadMetaListenerOnce   sync.Once
-	uploadMetaListenerCtx    context.Context
-	uploadMetaListenerCancel context.CancelFunc
-	uploadMetaListenerDone   chan struct{}
+	uploadMetaRAM = ram.MustNew[uint64, models.Upload](ram.Options{MaximumSize: uploadMetaRAMMaximumSize})
 )
 
 func uploadMetaRedisKey(id uint64) string {
@@ -42,120 +33,102 @@ func cloneUpload(u models.Upload) models.Upload {
 	return u
 }
 
-func ensureUploadMetaCacheListener() {
-	if cachepkg.Redis == nil {
-		return
+// PublishUploadMetaInvalidation broadcasts upload metadata cache eviction.
+func PublishUploadMetaInvalidation(ctx context.Context, id uint64) {
+	if cache := shared.GetCache(ctx); cache != nil {
+		_ = cache.Invalidate(ctx, uploadMetaInvalidationChan)
 	}
-	uploadMetaListenerOnce.Do(startUploadMetaCacheInvalidationListener)
-}
-
-func startUploadMetaCacheInvalidationListener() {
-	uploadMetaListenerCtx, uploadMetaListenerCancel = context.WithCancel(context.Background())
-	uploadMetaListenerDone = make(chan struct{})
-
-	redisClient := cachepkg.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 cachepkg.Redis 竞争
-	util.Go(func() {
-		defer close(uploadMetaListenerDone)
-		pubsub := redisClient.Subscribe(uploadMetaListenerCtx, uploadMetaInvalidationChan)
-		defer func() {
-			_ = pubsub.Close()
-		}()
-
-		util.Go(func() {
-			<-uploadMetaListenerCtx.Done()
-			_ = pubsub.Close()
-		})
-
-		for msg := range pubsub.Channel() {
-			var payload uploadMetaInvalidationMessage
-			if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil || payload.ID == 0 {
-				uploadMetaRAM.InvalidateAll()
-				continue
-			}
-			uploadMetaRAM.Invalidate(payload.ID)
-		}
-	})
-}
-
-func publishUploadMetaRAMInvalidation(ctx context.Context, id uint64) {
-	if cachepkg.Redis == nil {
-		return
-	}
-	payload, err := json.Marshal(uploadMetaInvalidationMessage{ID: id})
-	if err != nil {
-		return
-	}
-	_ = cachepkg.Redis.Publish(ctx, uploadMetaInvalidationChan, payload).Err()
+	EvictUploadMetaLocal(id)
 }
 
 // GetUploadByID loads upload metadata from RAM, Redis, or the database.
 func GetUploadByID(ctx context.Context, id uint64) (models.Upload, error) {
-	ensureUploadMetaCacheListener()
+	if id == 0 {
+		return models.Upload{}, gorm.ErrRecordNotFound
+	}
 
+	// 1. RAM L1 Cache
 	if u, ok := uploadMetaRAM.GetIfPresent(id); ok {
 		return cloneUpload(u), nil
 	}
 
 	key := uploadMetaRedisKey(id)
-	if cachepkg.Redis != nil {
+
+	// 2. Redis L2 Cache
+	if cache := shared.GetCache(ctx); cache != nil {
 		var u models.Upload
-		if err := cachepkg.GetJSON(ctx, key, &u); err == nil {
-			uploadMetaRAM.Set(id, cloneUpload(u))
-			return u, nil
+		if err := cache.Get(ctx, key, &u); err == nil {
+			uploadMetaRAM.Set(id, u)
+			return cloneUpload(u), nil
 		}
 	}
 
-	var u models.Upload
-	if err := database.DB(ctx).
-		Where("id = ? AND status IN (?, ?)", id, models.UploadStatusPending, models.UploadStatusUsed).
-		First(&u).Error; err != nil {
+	// 3. Database L3 Source of Truth
+	var upload models.Upload
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return models.Upload{}, gorm.ErrRecordNotFound
+	}
+	if err := db.
+		Where("id = ? AND status != ?", id, models.UploadStatusDeleted).
+		First(&upload).Error; err != nil {
 		return models.Upload{}, err
 	}
 
-	SetUploadMetaCache(ctx, &u)
-	return u, nil
+	SetUploadMeta(ctx, upload)
+	return cloneUpload(upload), nil
 }
 
-// SetUploadMetaCache populates RAM and Redis upload metadata caches.
-func SetUploadMetaCache(ctx context.Context, u *models.Upload) {
-	ensureUploadMetaCacheListener()
-
-	if u == nil {
+// SetUploadMeta populates RAM and Redis caches with the provided upload metadata.
+func SetUploadMeta(ctx context.Context, u models.Upload) {
+	if u.ID == 0 {
 		return
 	}
-
-	cloned := cloneUpload(*u)
+	cloned := cloneUpload(u)
 	uploadMetaRAM.Set(u.ID, cloned)
-	if cachepkg.Redis != nil {
-		_ = cachepkg.SetJSON(ctx, uploadMetaRedisKey(u.ID), cloned, uploadMetaRedisCacheTTL)
+
+	if cache := shared.GetCache(ctx); cache != nil {
+		_ = cache.Set(ctx, uploadMetaRedisKey(u.ID), cloned, uploadMetaRedisCacheTTL*time.Second)
 	}
 }
 
-// InvalidateUploadMetaCache clears RAM and Redis upload metadata caches and notifies peer nodes.
-func InvalidateUploadMetaCache(ctx context.Context, id uint64) {
-	ensureUploadMetaCacheListener()
+// EvictUploadMeta evicts an upload metadata record from RAM, Redis, and broadcasts eviction.
+func EvictUploadMeta(ctx context.Context, id uint64) {
+	EvictUploadMetaLocal(id)
 
+	if cache := shared.GetCache(ctx); cache != nil {
+		_ = cache.Delete(ctx, uploadMetaRedisKey(id))
+	}
+
+	PublishUploadMetaInvalidation(ctx, id)
+}
+
+// EvictUploadMetaLocal removes upload metadata from the local process RAM cache only.
+func EvictUploadMetaLocal(id uint64) {
 	uploadMetaRAM.Invalidate(id)
-	if cachepkg.Redis != nil {
-		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey(uploadMetaRedisKey(id))).Err()
-		publishUploadMetaRAMInvalidation(ctx, id)
-	}
 }
 
-// ResetUploadMetaCacheForTest clears the in-process upload metadata RAM cache.
-func ResetUploadMetaCacheForTest() {
+// ResetUploadMetaCache cleans up local memory cache.
+func ResetUploadMetaCache() {
 	uploadMetaRAM.InvalidateAll()
 }
 
-// StopUploadMetaCacheListener stops the Redis Pub/Sub subscription listener and resets the sync.Once guard.
-func StopUploadMetaCacheListener() {
-	if uploadMetaListenerCancel != nil {
-		uploadMetaListenerCancel()
-		if uploadMetaListenerDone != nil {
-			<-uploadMetaListenerDone // 等待 goroutine 退出，保证之后置空 cachepkg.Redis 不再竞争
-		}
-		uploadMetaListenerCancel = nil
-		uploadMetaListenerDone = nil
-	}
-	uploadMetaListenerOnce = sync.Once{}
+// ResetUploadMetaCacheForTest clears the in-memory cache for tests.
+func ResetUploadMetaCacheForTest() {
+	ResetUploadMetaCache()
 }
+
+// SetUploadMetaCache is a backward-compatible alias for SetUploadMeta.
+func SetUploadMetaCache(ctx context.Context, u *models.Upload) {
+	if u != nil {
+		SetUploadMeta(ctx, *u)
+	}
+}
+
+// InvalidateUploadMetaCache is an alias for EvictUploadMeta.
+func InvalidateUploadMetaCache(ctx context.Context, id uint64) {
+	EvictUploadMeta(ctx, id)
+}
+
+// StopUploadMetaCacheListener stops listener for tests.
+func StopUploadMetaCacheListener() {}

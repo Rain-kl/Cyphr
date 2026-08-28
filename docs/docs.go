@@ -264,7 +264,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/diskcache.Status"
+                                            "$ref": "#/definitions/disk.Status"
                                         }
                                     }
                                 }
@@ -2156,7 +2156,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/driver_asynq_worker.TaskMeta"
+                                                "$ref": "#/definitions/contracts.TaskMetaDTO"
                                             }
                                         }
                                     }
@@ -4696,6 +4696,9 @@ const docTemplate = `{
                 "status": {
                     "type": "integer"
                 },
+                "trace_id": {
+                    "type": "string"
+                },
                 "user_agent": {
                     "type": "string"
                 },
@@ -5026,7 +5029,60 @@ const docTemplate = `{
                 }
             }
         },
-        "diskcache.Status": {
+        "contracts.TaskMetaDTO": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "max_retry": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contracts.TaskParamDTO"
+                    }
+                },
+                "queue": {
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "timeout": {
+                    "$ref": "#/definitions/time.Duration"
+                }
+            }
+        },
+        "contracts.TaskParamDTO": {
+            "type": "object",
+            "properties": {
+                "default": {},
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "disk.Status": {
             "type": "object",
             "properties": {
                 "base_path": {
@@ -5046,71 +5102,6 @@ const docTemplate = `{
                 },
                 "ttl_minutes": {
                     "type": "integer"
-                }
-            }
-        },
-        "driver_asynq_worker.TaskMeta": {
-            "type": "object",
-            "properties": {
-                "asynq_task": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "max_retry": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "params": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/driver_asynq_worker.TaskParam"
-                    }
-                },
-                "queue": {
-                    "type": "string"
-                },
-                "retryable": {
-                    "description": "是否支持手动重试",
-                    "type": "boolean"
-                },
-                "supports_time": {
-                    "type": "boolean"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "driver_asynq_worker.TaskParam": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "description": "描述",
-                    "type": "string"
-                },
-                "label": {
-                    "description": "显示名称",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "参数键名",
-                    "type": "string"
-                },
-                "placeholder": {
-                    "description": "占位符",
-                    "type": "string"
-                },
-                "required": {
-                    "description": "是否必填",
-                    "type": "boolean"
-                },
-                "type": {
-                    "description": "类型：string, text, number, boolean",
-                    "type": "string"
                 }
             }
         },
@@ -5535,6 +5526,30 @@ const docTemplate = `{
                     "example": ""
                 }
             }
+        },
+        "time.Duration": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                -9223372036854775808,
+                9223372036854775807,
+                1,
+                1000,
+                1000000,
+                1000000000,
+                60000000000,
+                3600000000000
+            ],
+            "x-enum-varnames": [
+                "minDuration",
+                "maxDuration",
+                "Nanosecond",
+                "Microsecond",
+                "Millisecond",
+                "Second",
+                "Minute",
+                "Hour"
+            ]
         }
     },
     "securityDefinitions": {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,41 +18,48 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	cache "Wavelet/plugins/infra/cache"
-	database "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 const (
-	// StorageMigrationTask is the Asynq task name for storage migration.
+	// StorageMigrationTask is the task name for storage migration.
 	StorageMigrationTask = uploadstorage.StorageMigrationTask
 	// TaskTypeStorageMigration is the task metadata type for storage migration.
 	TaskTypeStorageMigration = "storage_migration"
 )
 
 // StorageMigrationMeta describes the manually dispatchable migration task.
-var StorageMigrationMeta = driver_asynq_worker.TaskMeta{
-	Type:         TaskTypeStorageMigration,
-	AsynqTask:    StorageMigrationTask,
-	Name:         "迁移文件存储",
-	Description:  "将活动存储中的文件迁移到待切换的目标存储，迁移期间文件系统保持只读",
-	SupportsTime: false,
-	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
-	Queue:        driver_asynq_worker.QueueDefault,
-	Retryable:    true,
-	Params: []driver_asynq_worker.TaskParam{
+var StorageMigrationMeta = contracts.TaskMetaDTO{
+	Name:        StorageMigrationTask,
+	DisplayName: "迁移文件存储",
+	Description: "将活动存储中的文件迁移到待切换的目标存储，迁移期间文件系统保持只读",
+	Category:    "upload",
+	MaxRetry:    3,
+	Queue:       "default",
+	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "target",
-			Label:       "目标存储配置 (JSON)",
 			Type:        "text",
 			Required:    true,
-			Placeholder: `{"driver": "s3", "local": {"root": "."}, "s3": {"bucket": "my-bucket", ...}}`,
 			Description: "待迁移到的目标存储引擎完整配置 JSON 字符串",
+		},
+		{
+			Name:        "batch_size",
+			Type:        "number",
+			Required:    false,
+			Description: "每批扫描的文件数量（默认 100）",
+		},
+		{
+			Name:        "concurrency",
+			Type:        "number",
+			Required:    false,
+			Description: "并发迁移 worker 数量（默认 4）",
 		},
 	},
 }
@@ -76,21 +84,20 @@ func (h *MigrationHandler) ValidatePayload(payload []byte) ([]byte, error) {
 }
 
 // Execute migrates all unique active-storage objects to the pending backend.
-func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*driver_asynq_worker.TaskResult, error) {
-	if cache.Redis != nil {
+func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contracts.TaskResultDTO, error) {
+	cache := shared.GetCache(ctx)
+	if cache != nil {
 		const (
 			cleanupTimeout  = 5 * time.Second
 			renewalInterval = 10 * time.Minute
 		)
 
-		lockKey := cache.PrefixedKey("lock:storage:migrate")
-		ok, err := cache.Redis.SetNX(ctx, lockKey, "locked", time.Hour).Result()
-		if err != nil {
-			return nil, fmt.Errorf("acquire migration lock: %w", err)
-		}
-		if !ok {
+		lockKey := "lock:storage:migrate"
+		var lockVal string
+		if err := cache.Get(ctx, lockKey, &lockVal); err == nil && lockVal != "" {
 			return nil, errors.New("另一个存储迁移任务正在运行中")
 		}
+		_ = cache.Set(ctx, lockKey, "locked", time.Hour)
 
 		stopRenewal := make(chan struct{})
 		//nolint:contextcheck
@@ -98,7 +105,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*driver
 			close(stopRenewal)
 			cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 			defer cancel()
-			_ = cache.Redis.Del(cleanupCtx, lockKey)
+			_ = cache.Delete(cleanupCtx, lockKey)
 		}()
 
 		//nolint:contextcheck,gosec
@@ -109,7 +116,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*driver
 				select {
 				case <-ticker.C:
 					renewCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-					_ = cache.Redis.Expire(renewCtx, lockKey, time.Hour).Err()
+					_ = cache.Set(renewCtx, lockKey, "locked", time.Hour)
 					cancel()
 				case <-stopRenewal:
 					return
@@ -120,7 +127,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*driver
 		})
 	}
 
-	active, err := objectstore.LoadConfig(ctx)
+	active, err := loadActiveStorageConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load active storage config: %w", err)
 	}
@@ -129,12 +136,12 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*driver
 		return nil, err
 	}
 	if target.Driver == active.Driver {
-		if err := objectstore.SaveActiveConfig(ctx, target); err != nil {
+		if err := saveActiveStorageConfig(ctx, target); err != nil {
 			return nil, fmt.Errorf("activate same-driver storage config: %w", err)
 		}
 		message := fmt.Sprintf("存储配置已更新，活动存储保持为 %s", target.Driver)
-		driver_asynq_worker.AppendLog(ctx, "%s", message)
-		return &driver_asynq_worker.TaskResult{Message: message}, nil
+		logger.InfoF(ctx, "%s", message)
+		return &contracts.TaskResultDTO{Message: message}, nil
 	}
 
 	total, err := countStorageObjects(ctx)
@@ -142,40 +149,67 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*driver
 		return nil, fmt.Errorf("count source objects: %w", err)
 	}
 	if total == 0 {
-		if err := objectstore.SaveActiveConfig(ctx, target); err != nil {
+		if err := saveActiveStorageConfig(ctx, target); err != nil {
 			return nil, fmt.Errorf("activate empty storage config: %w", err)
 		}
 		message := fmt.Sprintf("当前存储没有需要迁移的对象，活动存储已切换为 %s", target.Driver)
-		driver_asynq_worker.AppendLog(ctx, "%s", message)
-		return &driver_asynq_worker.TaskResult{Message: message}, nil
+		logger.InfoF(ctx, "%s", message)
+		return &contracts.TaskResultDTO{Message: message}, nil
 	}
 
-	sourceBackend, err := objectstore.NewBackend(ctx, active, active.Driver)
-	if err != nil {
-		return nil, fmt.Errorf("create source storage: %w", err)
-	}
-	targetBackend, err := objectstore.NewBackend(ctx, target, target.Driver)
-	if err != nil {
-		return nil, fmt.Errorf("create target storage: %w", err)
+	storageSvc := shared.GetStorage(ctx)
+	if storageSvc == nil {
+		return nil, errors.New("source storage service not available")
 	}
 
-	driver_asynq_worker.AppendLog(ctx, "开始存储迁移: %s -> %s，总对象数: %d", active.Driver, target.Driver, total)
-	migrated, err := migrateObjects(ctx, sourceBackend, targetBackend, total)
+	logger.InfoF(ctx, "开始存储迁移: %s -> %s，总对象数: %d", active.Driver, target.Driver, total)
+	migrated, err := migrateObjects(ctx, storageSvc, storageSvc, total)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := objectstore.SaveActiveConfig(ctx, target); err != nil {
+	if err := saveActiveStorageConfig(ctx, target); err != nil {
 		return nil, fmt.Errorf("activate target storage: %w", err)
 	}
 	message := fmt.Sprintf("存储迁移完成，共迁移 %d 个对象，活动存储已切换为 %s", migrated, target.Driver)
-	driver_asynq_worker.AppendLog(ctx, "%s", message)
-	return &driver_asynq_worker.TaskResult{Message: message}, nil
+	logger.InfoF(ctx, "%s", message)
+	return &contracts.TaskResultDTO{Message: message}, nil
+}
+
+func loadActiveStorageConfig(ctx context.Context) (contracts.StorageConfigDTO, error) {
+	var val string
+	db := shared.GetDB(ctx)
+	if db != nil {
+		_ = db.Table("w_system_configs").Where("key = ?", "storage_config").Pluck("value", &val).Error
+	}
+	var cfg contracts.StorageConfigDTO
+	if val != "" {
+		_ = json.Unmarshal([]byte(val), &cfg)
+	}
+	return cfg, nil
+}
+
+func saveActiveStorageConfig(ctx context.Context, cfg contracts.StorageConfigDTO) error {
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return errors.New("database not available")
+	}
+	return db.Table("w_system_configs").
+		Where("key = ?", "storage_config").
+		Update("value", string(data)).Error
 }
 
 func countStorageObjects(ctx context.Context) (int64, error) {
 	var count int64
-	err := database.DB(ctx).Model(&models.Upload{}).
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return 0, errors.New("database not available")
+	}
+	err := db.Model(&models.Upload{}).
 		Where("status != ?", models.UploadStatusDeleted).
 		Distinct("file_path").
 		Count(&count).Error
@@ -184,10 +218,10 @@ func countStorageObjects(ctx context.Context) (int64, error) {
 
 func hasUnresolvedMigrationTask(ctx context.Context) (bool, error) {
 	execution, ok, err := uploadstorage.LatestMigrationExecution(ctx)
-	if err != nil || !ok {
+	if err != nil || !ok || execution == nil {
 		return false, err
 	}
-	return execution.Status == driver_asynq_worker.TaskExecutionStatusPending || execution.Status == driver_asynq_worker.TaskExecutionStatusRunning, nil
+	return execution.Status == "pending" || execution.Status == "running", nil
 }
 
 type migrationObject struct {
@@ -197,10 +231,15 @@ type migrationObject struct {
 	Hash     string `gorm:"column:hash"`
 }
 
+type storageReaderWriter interface {
+	Get(ctx context.Context, key string) (*contracts.StorageObject, error)
+	Put(ctx context.Context, key string, body io.Reader, size int64, contentType string) (contracts.StoragePutResult, error)
+}
+
 func migrateObjects(
 	ctx context.Context,
-	sourceBackend objectstore.Backend,
-	targetBackend objectstore.Backend,
+	sourceBackend storageReaderWriter,
+	targetBackend storageReaderWriter,
 	total int64,
 ) (int64, error) {
 	const batchSize = 50
@@ -208,15 +247,19 @@ func migrateObjects(
 	const sha256HexLength = 64
 	var migrated int64
 	var lastFilePath string
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return 0, errors.New("database not available")
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return atomic.LoadInt64(&migrated), fmt.Errorf("storage migration canceled: %w", err)
 		}
 
-		driver_asynq_worker.AppendLog(ctx, "正在查询待迁移对象批次，当前已完成迁移: %d/%d", atomic.LoadInt64(&migrated), total)
+		logger.InfoF(ctx, "正在查询待迁移对象批次，当前已完成迁移: %d/%d", atomic.LoadInt64(&migrated), total)
 
 		var objects []migrationObject
-		query := database.DB(ctx).Model(&models.Upload{}).
+		query := db.Model(&models.Upload{}).
 			Select("file_path, MAX(file_size) AS file_size, MAX(mime_type) AS mime_type, MAX(hash) AS hash").
 			Where("status != ?", models.UploadStatusDeleted)
 		if lastFilePath != "" {
@@ -229,12 +272,12 @@ func migrateObjects(
 			return atomic.LoadInt64(&migrated), fmt.Errorf("query source objects: %w", err)
 		}
 		if len(objects) == 0 {
-			driver_asynq_worker.AppendLog(ctx, "所有对象迁移完毕")
+			logger.InfoF(ctx, "所有对象迁移完毕")
 			break
 		}
 
 		lastFilePath = objects[len(objects)-1].FilePath
-		driver_asynq_worker.AppendLog(ctx, "获取当前批次迁移对象，批次大小: %d，实际获取对象数: %d", batchSize, len(objects))
+		logger.InfoF(ctx, "获取当前批次迁移对象，批次大小: %d，实际获取对象数: %d", batchSize, len(objects))
 
 		var g errgroup.Group
 		g.SetLimit(migrationConcurrency)
@@ -254,24 +297,24 @@ func migrateObjects(
 			return atomic.LoadInt64(&migrated), err
 		}
 
-		driver_asynq_worker.AppendLog(ctx, "当前批次迁移完成。迁移进度: %d/%d", atomic.LoadInt64(&migrated), total)
+		logger.InfoF(ctx, "当前批次迁移完成。迁移进度: %d/%d", atomic.LoadInt64(&migrated), total)
 	}
 	return atomic.LoadInt64(&migrated), nil
 }
 
 func migrateSingleObject(
 	ctx context.Context,
-	sourceBackend objectstore.Backend,
-	targetBackend objectstore.Backend,
+	sourceBackend storageReaderWriter,
+	targetBackend storageReaderWriter,
 	obj migrationObject,
 	sha256HexLength int,
 ) error {
-	if shouldSkipMigration(ctx, targetBackend, obj) {
-		driver_asynq_worker.AppendLog(ctx, "[跳过迁移] 目标存储已存在相同文件: %s", obj.FilePath)
+	if shouldSkipMigration(ctx, sourceBackend, targetBackend, obj) {
+		logger.InfoF(ctx, "[跳过迁移] 目标存储已存在相同文件: %s", obj.FilePath)
 		return nil
 	}
 
-	driver_asynq_worker.AppendLog(ctx, "[迁移开始] 正在从源存储读取文件: %s", obj.FilePath)
+	logger.InfoF(ctx, "[迁移开始] 正在从源存储读取文件: %s", obj.FilePath)
 	source, err := sourceBackend.Get(ctx, obj.FilePath)
 	if err != nil {
 		if isNotFoundError(err) {
@@ -279,7 +322,7 @@ func migrateSingleObject(
 		}
 		return fmt.Errorf("open source object %q: %w", obj.FilePath, err)
 	}
-	driver_asynq_worker.AppendLog(ctx, "[传输中] 正在向目标存储上传文件: %s (大小: %d 字节, 类型: %s)", obj.FilePath, obj.FileSize, obj.MimeType)
+	logger.InfoF(ctx, "[传输中] 正在向目标存储上传文件: %s (大小: %d 字节, 类型: %s)", obj.FilePath, obj.FileSize, obj.MimeType)
 	targetResult, putErr := targetBackend.Put(ctx, obj.FilePath, source.Body, obj.FileSize, obj.MimeType)
 	closeErr := source.Body.Close()
 	if putErr != nil {
@@ -290,7 +333,7 @@ func migrateSingleObject(
 	}
 
 	if len(obj.Hash) == sha256HexLength {
-		driver_asynq_worker.AppendLog(ctx, "[校验中] 正在对目标文件进行数据一致性校验 (SHA-256): %s", targetResult.Key)
+		logger.InfoF(ctx, "[校验中] 正在对目标文件进行数据一致性校验 (SHA-256): %s", targetResult.Key)
 		targetObj, getErr := targetBackend.Get(ctx, targetResult.Key)
 		if getErr != nil {
 			return fmt.Errorf("retrieve target object for verification %q: %w", obj.FilePath, getErr)
@@ -304,30 +347,36 @@ func migrateSingleObject(
 			return fmt.Errorf("read target object for verification %q: %w", obj.FilePath, copyErr)
 		}
 		_ = targetObj.Body.Close()
+
 		computedHash := hex.EncodeToString(h.Sum(nil))
 		if computedHash != obj.Hash {
 			return fmt.Errorf("integrity check failed for %q: got hash %s, want %s", obj.FilePath, computedHash, obj.Hash)
 		}
-		driver_asynq_worker.AppendLog(ctx, "[校验通过] 文件一致性校验成功: %s", targetResult.Key)
+		logger.InfoF(ctx, "[校验通过] 文件一致性校验成功: %s", targetResult.Key)
 	}
 
-	if targetResult.Key != obj.FilePath {
-		driver_asynq_worker.AppendLog(ctx, "[更新数据库] 正在更新文件路径: %s -> %s", obj.FilePath, targetResult.Key)
-		if err := database.DB(ctx).Model(&models.Upload{}).
+	db := shared.GetDB(ctx)
+	if targetResult.Key != obj.FilePath && db != nil {
+		logger.InfoF(ctx, "[更新数据库] 正在更新文件路径: %s -> %s", obj.FilePath, targetResult.Key)
+		if err := db.Model(&models.Upload{}).
 			Where("file_path = ? AND status != ?", obj.FilePath, models.UploadStatusDeleted).
 			Update("file_path", targetResult.Key).Error; err != nil {
 			return fmt.Errorf("update migrated object %q: %w", obj.FilePath, err)
 		}
 	}
-	driver_asynq_worker.AppendLog(ctx, "[迁移成功] 文件已完成迁移: %s", targetResult.Key)
+	logger.InfoF(ctx, "[迁移成功] 文件已完成迁移: %s", targetResult.Key)
 	return nil
 }
 
 func shouldSkipMigration(
 	ctx context.Context,
-	targetBackend objectstore.Backend,
+	sourceBackend storageReaderWriter,
+	targetBackend storageReaderWriter,
 	obj migrationObject,
 ) bool {
+	if sourceBackend == targetBackend {
+		return false
+	}
 	targetObj, err := targetBackend.Get(ctx, obj.FilePath)
 	if err != nil || targetObj == nil || targetObj.Body == nil {
 		return false
@@ -344,21 +393,25 @@ func markMissingMigrationObjectDeleted(
 	filePath string,
 	sourceErr error,
 ) error {
-	driver_asynq_worker.AppendLog(ctx, "警告: 源存储中物理文件不存在，标记为已删除并跳过: %s (错误: %v)", filePath, sourceErr)
+	logger.WarnF(ctx, "警告: 源存储中物理文件不存在，标记为已删除并跳过: %s (错误: %v)", filePath, sourceErr)
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return errors.New("database not available")
+	}
 
 	var affectedUploads []models.Upload
-	if err := database.DB(ctx).
+	if err := db.
 		Where("file_path = ? AND status != ?", filePath, models.UploadStatusDeleted).
 		Find(&affectedUploads).Error; err != nil {
 		return fmt.Errorf("load missing object uploads %q: %w", filePath, err)
 	}
-	if err := database.DB(ctx).Model(&models.Upload{}).
+	if err := db.Model(&models.Upload{}).
 		Where("file_path = ?", filePath).
 		Update("status", models.UploadStatusDeleted).Error; err != nil {
 		return fmt.Errorf("update missing object %q: %w", filePath, err)
 	}
 	for i := range affectedUploads {
-		uploadstats.RecordUploadStatsRemove(ctx, &affectedUploads[i])
+		_ = uploadstats.ApplyUploadStatsRemove(ctx, &affectedUploads[i])
 	}
 	return nil
 }

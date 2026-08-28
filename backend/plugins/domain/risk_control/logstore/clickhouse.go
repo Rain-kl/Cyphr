@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	db "Wavelet/plugins/infra/database"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
@@ -93,12 +92,13 @@ func (s *clickhouseUserAccessLogStore) DropExpiredPartitions(_ context.Context, 
 }
 
 func (s *clickhouseUserAccessLogStore) MigrationRange(ctx context.Context) (time.Time, time.Time, error) {
-	if db.ChConn == nil {
+	conn := getChConn()
+	if conn == nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("clickhouse connection is not initialized")
 	}
 	table := UserAccessLog{}.TableName()
 	var minTime, maxTime *time.Time
-	if err := db.ChConn.QueryRow(ctx, "SELECT min(created_at), max(created_at) FROM "+table).Scan(&minTime, &maxTime); err != nil {
+	if err := conn.QueryRow(ctx, "SELECT min(created_at), max(created_at) FROM "+table).Scan(&minTime, &maxTime); err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("query migration range %s: %w", table, err)
 	}
 	if minTime == nil || maxTime == nil {
@@ -108,7 +108,8 @@ func (s *clickhouseUserAccessLogStore) MigrationRange(ctx context.Context) (time
 }
 
 func (s *clickhouseUserAccessLogStore) ListForMigration(ctx context.Context, afterID uint64, limit int) ([]UserAccessLog, error) {
-	if db.ChConn == nil {
+	conn := getChConn()
+	if conn == nil {
 		return nil, fmt.Errorf("clickhouse connection is not initialized")
 	}
 	if limit <= 0 {
@@ -116,7 +117,7 @@ func (s *clickhouseUserAccessLogStore) ListForMigration(ctx context.Context, aft
 	}
 	table := UserAccessLog{}.TableName()
 	columns := UserAccessLog{}.InsertColumns()
-	rows, err := db.ChConn.Query(ctx, fmt.Sprintf(
+	rows, err := conn.Query(ctx, fmt.Sprintf(
 		"SELECT %s FROM %s WHERE id > ? ORDER BY id ASC LIMIT ?",
 		columns, table,
 	), afterID, limit)

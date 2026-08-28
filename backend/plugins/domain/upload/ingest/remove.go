@@ -6,12 +6,13 @@ package ingest
 import (
 	"context"
 
+	"gorm.io/gorm"
+
 	uploadcache "Wavelet/plugins/domain/upload/cache"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/repository"
+	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
-	database "Wavelet/plugins/infra/database"
-	"gorm.io/gorm"
 )
 
 // Remove soft-deletes an upload and decrements incremental stats.
@@ -45,14 +46,17 @@ func RemoveOwned(ctx context.Context, userID, uploadID uint64) (models.Upload, e
 
 func softDeleteUploadWithStats(ctx context.Context, upload *models.Upload) error {
 	statsSnapshot := *upload
-	if err := database.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := repository.SoftDeleteUploadTx(tx, upload); err != nil {
+	db := shared.GetDB(ctx)
+	if db != nil {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			if err := repository.SoftDeleteUploadTx(tx, upload); err != nil {
+				return err
+			}
+			return uploadstats.ApplyUploadStatsDeltaTx(tx, &statsSnapshot, -1)
+		}); err != nil {
 			return err
 		}
-		return uploadstats.ApplyUploadStatsDeltaTx(tx, &statsSnapshot, -1)
-	}); err != nil {
-		return err
 	}
-	uploadcache.InvalidateUploadMetaCache(ctx, upload.ID)
+	uploadcache.EvictUploadMeta(ctx, upload.ID)
 	return nil
 }

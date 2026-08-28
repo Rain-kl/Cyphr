@@ -11,13 +11,13 @@ import (
 	"strconv"
 	"strings"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
-	db "Wavelet/plugins/infra/database"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	gsessions "github.com/gorilla/sessions"
+
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
 )
 
 // GetSessionOptions 根据配置构建 Session 选项
@@ -118,7 +118,7 @@ func SetLoginSession(ctx context.Context, c *gin.Context, user *contracts.UserDT
 	isSessionCookie := false
 
 	var val string
-	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "login_session_ttl_hours").Pluck("value", &val).Error; err == nil && val != "" {
+	if err := getDB(ctx).Table("w_system_configs").Where("key = ?", "login_session_ttl_hours").Pluck("value", &val).Error; err == nil && val != "" {
 		if ttlHours, err := strconv.Atoi(val); err == nil {
 			switch {
 			case ttlHours == -1:

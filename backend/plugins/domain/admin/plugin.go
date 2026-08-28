@@ -9,11 +9,12 @@ import (
 	"embed"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
-	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*.sql
@@ -61,68 +62,86 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
-var (
-	globalUserSvc contracts.UserService
-	globalAuthSvc contracts.AuthService
-	globalCoreCtx *core.Context
-)
-
-func getUserService(_ context.Context) contracts.UserService {
-	if globalUserSvc != nil {
-		return globalUserSvc
-	}
-	if globalCoreCtx != nil {
-		if svc, err := core.Inject[contracts.UserService](globalCoreCtx); err == nil {
-			globalUserSvc = svc
-			return svc
-		}
-	}
-	return nil
-}
-
-func getAuthService(_ context.Context) contracts.AuthService {
-	if globalAuthSvc != nil {
-		return globalAuthSvc
-	}
-	if globalCoreCtx != nil {
-		if svc, err := core.Inject[contracts.AuthService](globalCoreCtx); err == nil {
-			globalAuthSvc = svc
-			return svc
-		}
-	}
-	return nil
-}
-
 // Apply registers admin routes, tasks, schedules, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
-	globalCoreCtx = ctx
-
-	// 0. Resolve auth and user services reactively via IoC
-	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
-	var adminMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
-	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
-		globalAuthSvc = authSvc
-		if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
-			loginMW = mw
-		}
-		if mw, ok := authSvc.RequireAdminMiddleware().(gin.HandlerFunc); ok {
-			adminMW = mw
-		}
+	// 0. Bind Services reactively
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		SetDBService(db)
 	} else {
-		core.When[contracts.AuthService](ctx, func(svc contracts.AuthService) {
-			globalAuthSvc = svc
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			SetDBService(db)
 		})
 	}
-
-	if userSvc, err := core.Inject[contracts.UserService](ctx); err == nil && userSvc != nil {
-		globalUserSvc = userSvc
+	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+		SetCacheService(cache)
 	} else {
-		core.When[contracts.UserService](ctx, func(svc contracts.UserService) {
-			globalUserSvc = svc
+		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
+			SetCacheService(cache)
 		})
 	}
+	if user, err := core.Inject[contracts.UserService](ctx); err == nil && user != nil {
+		SetUserService(user)
+	} else {
+		core.When[contracts.UserService](ctx, func(user contracts.UserService) {
+			SetUserService(user)
+		})
+	}
+	if auth, err := core.Inject[contracts.AuthService](ctx); err == nil && auth != nil {
+		SetAuthService(auth)
+	} else {
+		core.When[contracts.AuthService](ctx, func(auth contracts.AuthService) {
+			SetAuthService(auth)
+		})
+	}
+	if task, err := core.Inject[contracts.TaskService](ctx); err == nil && task != nil {
+		SetTaskService(task)
+	} else {
+		core.When[contracts.TaskService](ctx, func(task contracts.TaskService) {
+			SetTaskService(task)
+		})
+	}
+	if storage, err := core.Inject[contracts.StorageService](ctx); err == nil && storage != nil {
+		SetStorageService(storage)
+	} else {
+		core.When[contracts.StorageService](ctx, func(storage contracts.StorageService) {
+			SetStorageService(storage)
+		})
+	}
+	if rc, err := core.Inject[contracts.RiskControlService](ctx); err == nil && rc != nil {
+		SetRiskControlService(rc)
+	} else {
+		core.When[contracts.RiskControlService](ctx, func(rc contracts.RiskControlService) {
+			SetRiskControlService(rc)
+		})
+	}
+	SetEventEmitter(ctx.Events().Emit)
 
-	// 0a. Register migrations
+	ctx.OnDispose(func() error {
+		ResetServices()
+		return nil
+	})
+
+	// 0a. Dynamic Auth Middlewares
+	var loginMW gin.HandlerFunc = func(c *gin.Context) {
+		if authSvc := GetAuthService(c.Request.Context()); authSvc != nil {
+			if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
+				mw(c)
+				return
+			}
+		}
+		c.Next()
+	}
+	var adminMW gin.HandlerFunc = func(c *gin.Context) {
+		if authSvc := GetAuthService(c.Request.Context()); authSvc != nil {
+			if mw, ok := authSvc.RequireAdminMiddleware().(gin.HandlerFunc); ok {
+				mw(c)
+				return
+			}
+		}
+		c.Next()
+	}
+
+	// 0b. Register migrations
 	ctx.Migrations().Register("admin", adminMigrations)
 
 	// 1. Register Admin HTTP Routes

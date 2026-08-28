@@ -17,8 +17,27 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
+
 	"Wavelet/pkg/testhelper"
 )
+
+type mockDBService struct {
+	db *gorm.DB
+}
+
+func (m *mockDBService) GORM() *gorm.DB {
+	return m.db
+}
+
+func (m *mockDBService) DB(ctx context.Context) *gorm.DB {
+	return m.db.WithContext(ctx)
+}
+
+func (m *mockDBService) Named(_ string) *gorm.DB {
+	return m.db
+}
 
 // mockHandler 用于测试的模拟任务处理器
 type mockHandler struct {
@@ -55,7 +74,11 @@ func failHandler() *mockHandler {
 const testTaskType = "test:mock_task"
 
 func setupTest(t *testing.T) func() {
-	_, mr, cleanup := testhelper.SetupTestEnvironment(t)
+	testDB, mr, cleanup := testhelper.SetupTestEnvironment(t)
+	setDBService(&mockDBService{db: testDB})
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	SetRedisClient(rdb)
+
 	AsynqClient = asynq.NewClient(asynq.RedisClientOpt{
 		Addr: mr.Addr(),
 	})
@@ -66,6 +89,9 @@ func setupTest(t *testing.T) func() {
 			_ = AsynqClient.Close()
 			AsynqClient = nil
 		}
+		_ = rdb.Close()
+		setDBService(nil)
+		SetRedisClient(nil)
 		cleanup()
 	}
 }

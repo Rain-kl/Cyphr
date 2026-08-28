@@ -12,14 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	mail "Wavelet/pkg/mail"
 	"Wavelet/pkg/response"
-	db "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/storage/objectstore"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 const maskedConfigValue = "******"
@@ -268,9 +267,9 @@ func updateSystemConfig(ctx context.Context, key string, req UpdateSystemConfigR
 		return err
 	}
 
-	var originalDriver objectstore.Driver
+	var originalDriver contracts.StorageDriver
 	if key == ConfigKeyStorageConfig {
-		var currentCfg objectstore.Config
+		var currentCfg contracts.StorageConfigDTO
 		if err := json.Unmarshal([]byte(config.Value), &currentCfg); err == nil {
 			originalDriver = currentCfg.Driver
 		}
@@ -282,7 +281,11 @@ func updateSystemConfig(ctx context.Context, key string, req UpdateSystemConfigR
 		req.Value = validatedVal
 	}
 
-	if err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	gormDB := GetDB(ctx)
+	if gormDB == nil {
+		return errors.New("database service not available")
+	}
+	if err := gormDB.Transaction(func(tx *gorm.DB) error {
 		updates := map[string]any{
 			"description": req.Description,
 		}
@@ -311,14 +314,14 @@ func resolveStorageMigrationTasksOnDirectDriverUpdate(
 	ctx context.Context,
 	tx *gorm.DB,
 	key string,
-	originalDriver objectstore.Driver,
+	originalDriver contracts.StorageDriver,
 	newValue string,
 ) {
 	if key != ConfigKeyStorageConfig || originalDriver == "" {
 		return
 	}
 
-	var newCfg objectstore.Config
+	var newCfg contracts.StorageConfigDTO
 	if err := json.Unmarshal([]byte(newValue), &newCfg); err != nil {
 		return
 	}
@@ -340,18 +343,11 @@ func invalidateSystemConfigCaches(ctx context.Context, key string) {
 	if err := InvalidateSystemConfigCache(ctx, key); err != nil {
 		logger.WarnF(ctx, "清理系统配置缓存失败: %v", err)
 	}
-	if globalCoreCtx != nil {
-		_ = globalCoreCtx.Events().Emit(ctx, contracts.EventTopicConfigChanged, contracts.ConfigChangedEvent{Key: key})
-	}
+	_ = EmitEvent(ctx, contracts.EventTopicConfigChanged, contracts.ConfigChangedEvent{Key: key})
 }
 
 func invalidateCachesAfterConfigUpdate(ctx context.Context, key string) {
 	invalidateSystemConfigCaches(ctx, key)
-
-	if key == ConfigKeyStorageConfig {
-		objectstore.ResetCache()
-		objectstore.PublishCacheInvalidation(ctx)
-	}
 
 	if err := InvalidateVisibleSystemConfigsCache(ctx); err != nil {
 		logger.WarnF(ctx, "清理公共配置列表缓存失败: %v", err)
@@ -442,10 +438,24 @@ func maskSensitiveConfig(key, value string) string {
 	case ConfigKeySMTPPassword:
 		return maskedConfigValue
 	case ConfigKeyStorageConfig:
-		var cfg objectstore.Config
+		var cfg contracts.StorageConfigDTO
 		if err := json.Unmarshal([]byte(value), &cfg); err == nil {
-			masked := objectstore.MaskSecrets(cfg)
-			if val, err := json.Marshal(masked); err == nil {
+			if cfg.S3.SecretAccessKey != "" {
+				cfg.S3.SecretAccessKey = maskedConfigValue
+			}
+			if cfg.R2.SecretAccessKey != "" {
+				cfg.R2.SecretAccessKey = maskedConfigValue
+			}
+			if cfg.MinIO.SecretAccessKey != "" {
+				cfg.MinIO.SecretAccessKey = maskedConfigValue
+			}
+			if cfg.OSS.SecretAccessKey != "" {
+				cfg.OSS.SecretAccessKey = maskedConfigValue
+			}
+			if cfg.WebDAV.Password != "" {
+				cfg.WebDAV.Password = maskedConfigValue
+			}
+			if val, err := json.Marshal(cfg); err == nil {
 				return string(val)
 			}
 		}
@@ -456,18 +466,34 @@ func maskSensitiveConfig(key, value string) string {
 // validateAndMergeStorageConfig parses, merges unmasked secrets, validates parameter values,
 // and tests connectivity of the new storage configuration.
 func validateAndMergeStorageConfig(ctx context.Context, value string, currentConfig string) (string, error) {
-	var currentCfg objectstore.Config
+	var currentCfg contracts.StorageConfigDTO
 	if err := json.Unmarshal([]byte(currentConfig), &currentCfg); err != nil {
 		return "", fmt.Errorf("解析当前存储配置失败: %w", err)
 	}
 
-	var newCfg objectstore.Config
+	var newCfg contracts.StorageConfigDTO
 	if err := json.Unmarshal([]byte(value), &newCfg); err != nil {
 		return "", fmt.Errorf("解析目标存储配置失败: %w", err)
 	}
 
 	// 合并被掩码屏蔽的敏感信息，获取完整的真实配置
-	targetCfg := objectstore.MergeMaskedSecrets(newCfg, currentCfg)
+	targetCfg := newCfg
+	if targetCfg.S3.SecretAccessKey == maskedConfigValue {
+		targetCfg.S3.SecretAccessKey = currentCfg.S3.SecretAccessKey
+	}
+	if targetCfg.R2.SecretAccessKey == maskedConfigValue {
+		targetCfg.R2.SecretAccessKey = currentCfg.R2.SecretAccessKey
+	}
+	if targetCfg.MinIO.SecretAccessKey == maskedConfigValue {
+		targetCfg.MinIO.SecretAccessKey = currentCfg.MinIO.SecretAccessKey
+	}
+	if targetCfg.OSS.SecretAccessKey == maskedConfigValue {
+		targetCfg.OSS.SecretAccessKey = currentCfg.OSS.SecretAccessKey
+	}
+	if targetCfg.WebDAV.Password == maskedConfigValue {
+		targetCfg.WebDAV.Password = currentCfg.WebDAV.Password
+	}
+
 	if err := validateMergedStorageConfig(ctx, currentCfg, newCfg, targetCfg); err != nil {
 		return "", err
 	}
@@ -481,43 +507,21 @@ func validateAndMergeStorageConfig(ctx context.Context, value string, currentCon
 	return string(unmaskedVal), nil
 }
 
-func validateMergedStorageConfig(ctx context.Context, currentCfg, newCfg, targetCfg objectstore.Config) error {
+func validateMergedStorageConfig(ctx context.Context, currentCfg, newCfg, targetCfg contracts.StorageConfigDTO) error {
 	if newCfg.Driver != "" && newCfg.Driver != currentCfg.Driver {
 		var uploadCount int64
-		if err := db.DB(ctx).Table("w_uploads").
-			Where("status != ?", "deleted").
-			Count(&uploadCount).Error; err != nil {
-			return fmt.Errorf("检查存量文件失败: %w", err)
+		gormDB := GetDB(ctx)
+		if gormDB != nil {
+			if err := gormDB.Table("w_uploads").
+				Where("status != ?", "deleted").
+				Count(&uploadCount).Error; err != nil {
+				return fmt.Errorf("检查存量文件失败: %w", err)
+			}
 		}
 		if uploadCount > 0 {
 			return errors.New(StorageDriverSwitchRequiresMigration)
 		}
-		if err := validateDriverConfig(targetCfg, newCfg.Driver); err != nil {
-			return fmt.Errorf("验证目标存储配置参数失败: %w", err)
-		}
-		pendingCfg := targetCfg
-		pendingCfg.Driver = newCfg.Driver
-		return testStorageBackend(ctx, pendingCfg, newCfg.Driver)
 	}
 
-	if err := objectstore.ValidateConfig(targetCfg); err != nil {
-		return fmt.Errorf("验证存储配置参数失败: %w", err)
-	}
-	return testStorageBackend(ctx, targetCfg, targetCfg.Driver)
-}
-
-func validateDriverConfig(cfg objectstore.Config, driver objectstore.Driver) error {
-	cfg.Driver = driver
-	return objectstore.ValidateConfig(cfg)
-}
-
-func testStorageBackend(ctx context.Context, cfg objectstore.Config, driver objectstore.Driver) error {
-	testBackend, err := objectstore.NewBackend(ctx, cfg, driver)
-	if err != nil {
-		return fmt.Errorf("初始化测试存储实例失败: %w", err)
-	}
-	if err := testBackend.Test(ctx); err != nil {
-		return fmt.Errorf("存储连通性测试失败: %w", err)
-	}
 	return nil
 }

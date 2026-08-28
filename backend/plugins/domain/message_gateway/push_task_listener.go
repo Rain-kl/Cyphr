@@ -9,19 +9,14 @@ import (
 	"strconv"
 	"time"
 
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
-// RegisterTaskListeners subscribes push notification handlers to task completion events.
-func RegisterTaskListeners() {
-	driver_asynq_worker.OnTaskCompleted(handleTaskCompleted)
-}
-
-func handleTaskCompleted(ctx context.Context, execution *driver_asynq_worker.TaskExecution, result *driver_asynq_worker.TaskResult, execErr error) {
-	events, err := listActivePushEventsByTaskType(ctx, execution.TaskType)
+func handleTaskCompleted(ctx context.Context, e contracts.TaskCompletedEvent) {
+	events, err := listActivePushEventsByTaskType(ctx, e.TaskType)
 	if err != nil {
-		logger.ErrorF(ctx, "push_task_completed_listener: failed to query push events for task type %s: %v", execution.TaskType, err)
+		logger.ErrorF(ctx, "push_task_completed_listener: failed to query push events for task type %s: %v", e.TaskType, err)
 		return
 	}
 	if len(events) == 0 {
@@ -29,34 +24,26 @@ func handleTaskCompleted(ctx context.Context, execution *driver_asynq_worker.Tas
 	}
 
 	body := map[string]any{
-		"task_id":       execution.TaskID,
-		"task_name":     execution.TaskName,
-		"task_type":     execution.TaskType,
-		"task_status":   string(execution.Status),
-		"task_duration": execution.Duration,
+		"task_id":       e.TaskID,
+		"task_name":     e.TaskName,
+		"task_type":     e.TaskType,
+		"task_status":   e.Status,
+		"task_duration": e.Duration,
 		"time":          time.Now().Format("2006-01-02 15:04:05"),
-	}
-	if execErr != nil {
-		body["task_error"] = execErr.Error()
-	} else {
-		body["task_error"] = ""
-	}
-	if result != nil {
-		body["task_result"] = result.Message
-	} else {
-		body["task_result"] = ""
+		"task_error":    e.ErrorMsg,
+		"task_result":   e.ResultMsg,
 	}
 
 	var payloadMap map[string]any
-	if execution.Payload != "" {
-		if err := json.Unmarshal([]byte(execution.Payload), &payloadMap); err == nil {
+	if e.Payload != "" {
+		if err := json.Unmarshal([]byte(e.Payload), &payloadMap); err == nil {
 			body["payload"] = payloadMap
 			extractUserFromMap(ctx, payloadMap, body)
 		}
 	}
-	if result != nil && result.Detail != "" {
+	if e.Detail != "" {
 		var detailMap map[string]any
-		if err := json.Unmarshal([]byte(result.Detail), &detailMap); err == nil {
+		if err := json.Unmarshal([]byte(e.Detail), &detailMap); err == nil {
 			body["detail"] = detailMap
 			extractUserFromMap(ctx, detailMap, body)
 		}

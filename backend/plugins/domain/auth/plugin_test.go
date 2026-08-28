@@ -19,8 +19,23 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/auth"
-	db "Wavelet/plugins/infra/database"
 )
+
+type mockDBService struct {
+	db *gorm.DB
+}
+
+func (m *mockDBService) GORM() *gorm.DB {
+	return m.db
+}
+
+func (m *mockDBService) DB(ctx context.Context) *gorm.DB {
+	return m.db.WithContext(ctx)
+}
+
+func (m *mockDBService) Named(_ string) *gorm.DB {
+	return m.db
+}
 
 type testUser struct {
 	ID          uint64 `gorm:"primaryKey"`
@@ -60,7 +75,6 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&auth.ExternalAccount{},
 	))
 
-	db.SetDB(testDB)
 	return testDB
 }
 
@@ -81,6 +95,7 @@ func (m *mockProvider) ExchangeCode(ctx context.Context, code string) (*contract
 func TestAuthPluginUnit(t *testing.T) {
 	ctx := core.NewContext(context.Background())
 	testDB := setupTestDB(t)
+	core.Provide[contracts.DBService](ctx, &mockDBService{db: testDB})
 
 	p := auth.New()
 	assert.Equal(t, "auth", p.Name())

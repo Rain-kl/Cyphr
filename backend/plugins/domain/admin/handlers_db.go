@@ -20,7 +20,6 @@ import (
 
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/response"
-	db "Wavelet/plugins/infra/database"
 )
 
 const (
@@ -219,7 +218,7 @@ func getPostgresOverview(gormDB *gorm.DB) (DBOverviewResponse, error) {
 // @Failure 500 {object} response.Any "内部错误"
 // @Router /api/v1/admin/db-manage/overview [get]
 func GetDBOverview(c *gin.Context) {
-	gormDB := db.DB(c.Request.Context())
+	gormDB := GetDB(c.Request.Context())
 	if gormDB == nil {
 		response.AbortInternal(c, "数据库未初始化")
 		return
@@ -254,7 +253,7 @@ func GetDBOverview(c *gin.Context) {
 // @Failure 500 {object} response.Any "内部错误"
 // @Router /api/v1/admin/db-manage/tables [get]
 func ListDBTables(c *gin.Context) {
-	gormDB := db.DB(c.Request.Context())
+	gormDB := GetDB(c.Request.Context())
 	if gormDB == nil {
 		response.AbortInternal(c, "数据库未初始化")
 		return
@@ -285,7 +284,7 @@ func GetDBTableData(c *gin.Context) {
 		return
 	}
 
-	gormDB := db.DB(c.Request.Context())
+	gormDB := GetDB(c.Request.Context())
 	if gormDB == nil {
 		response.AbortInternal(c, "数据库未初始化")
 		return
@@ -458,7 +457,7 @@ func ExecuteSQL(c *gin.Context) {
 		return
 	}
 
-	gormDB := db.DB(c.Request.Context())
+	gormDB := GetDB(c.Request.Context())
 	if gormDB == nil {
 		response.AbortInternal(c, "数据库未初始化")
 		return
@@ -508,7 +507,7 @@ func getSQLiteInfo(ctx context.Context) DatabaseInfoResponse {
 	if info.Name == "" {
 		info.Name = "./data/wavelet.db"
 	}
-	gormDB := db.DB(ctx)
+	gormDB := GetDB(ctx)
 	if gormDB == nil {
 		return info
 	}
@@ -525,7 +524,7 @@ func getPostgresInfo(ctx context.Context) DatabaseInfoResponse {
 		Name:    config.Config.Database.Database,
 		Version: "PostgreSQL",
 	}
-	gormDB := db.DB(ctx)
+	gormDB := GetDB(ctx)
 	if gormDB == nil {
 		return info
 	}

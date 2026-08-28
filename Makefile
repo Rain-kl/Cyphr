@@ -14,8 +14,9 @@ license-check:
 	scripts/update_go_license.sh --check
 
 format:
-	@echo "==> Formatting backend Go source..."
-	gofmt -w $$(find backend -type f -name '*.go' -not -path './.git/*')
+	@echo "==> Formatting backend Go source with goimports..."
+	@command -v goimports >/dev/null 2>&1 || { echo 'error: goimports is required. Run: go install golang.org/x/tools/cmd/goimports@latest' >&2; exit 1; }
+	goimports -w -local $(MODULE) $$(find backend -type f -name '*.go' -not -path './.git/*')
 	@echo "==> Formatting frontend source..."
 	cd frontend && pnpm format
 

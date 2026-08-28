@@ -67,8 +67,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 ```go
 // 1. 插件 A (提供者 plugins/user) 将服务注入 Context
 func (p *UserPlugin) Apply(ctx *core.Context) error {
-    userSvc := NewUserServiceImpl(ctx.DB())
-    ctx.Provide[contracts.UserService](userSvc)
+    dbSvc, _ := core.Inject[contracts.DBService](ctx)
+    userSvc := NewUserServiceImpl(dbSvc)
+    core.Provide[contracts.UserService](ctx, userSvc)
     return nil
 }
 
@@ -611,7 +612,7 @@ Wavelet/
 
 每个插件在 `Apply(ctx *core.Context)` 时，都可以无缝调用微内核暴露的以下标准能力：
 
-| 扩展点方法 | 返回类型 | 功能说明 | 适用场景 |
+| 扩展点/能力方法 | 返回类型 | 功能说明 | 适用场景 |
 | :--- | :--- | :--- | :--- |
 | `ctx.Router()` | `RouterExtension` | 声明 HTTP 路由、前缀分组与挂载中间件，支持 `Unregister` / `UnregisterByID` | 暴露 API 接口、Web 控制台 |
 | `ctx.Task()` | `TaskExtension` | 注册 Asynq 异步任务消费处理器，支持 `Unregister` | 耗时后台任务、异步消息发送 |
@@ -619,15 +620,15 @@ Wavelet/
 | `ctx.Migrations()` | `MigrationExtension`| 注册插件专属的 Goose SQL 迁移嵌入系统，支持 `Unregister` | 自建数据表、版本升级 |
 | `ctx.Events()` | `EventBus` | 强类型领域事件总线（支持 `Emit`, `Waterfall`, `Parallel`, `Serial`） | 跨插件完全解耦通知与状态同步 |
 | `ctx.Settings()` | `SettingExtension` | 声明动态可配置项（支持热更新），支持 `Unregister` | 业务参数配置、管理台可调节参数 |
-| `ctx.DB()` | `contracts.DBService` | 获取受事务与 Trace 保护的数据库连接与 GORM 实例 | 数据持久化 CRUD |
-| `ctx.Cache()` | `contracts.CacheService` | 三层穿透缓存（RAM L1 + Redis L2 + PubSub 广播）| 高频读数据性能加速 |
-| `ctx.DistLock()` | `DistLockService` | 基于 Redis 的工业级分布式锁 | 防并发超卖、防重复执行 |
-| `ctx.Logger()` | `Logger` | 携带链路 TraceID 的结构化日志记录器 | 业务日志打印与审计 |
-| `ctx.Storage()` | `contracts.StorageService` | 统一对象存储读写引擎 | 文件摄取、图片持久化 |
 | `ctx.Fork()` | `*Context` | 创建继承父级容器并隔离局部副作用的子上下文 | 局部 Fiber、请求域隔离 |
 | `core.Provide[T]`| `void` | 向全局 IoC 容器注册强类型服务（自动挂载 `OnDispose` 逆操作） | 暴露自身能力给其他插件消费 |
 | `core.Inject[T]` | `(T, error)` | 从全局 IoC 容器中按类型获取服务实例 | 消费其他插件暴露的服务 |
 | `core.When[T]` | `void` | 响应式监听服务注入（当服务一旦就绪立即触发回调） | 解决插件装载时序竞争与延迟初始化 |
 | `core.Has[T]` | `bool` | 判断指定服务类型当前是否已在容器中注册 | 探测环境能力与条件装载 |
-| `core.Using[T]` | `error` | 响应式声明依赖，当服务就绪时执行回调 | 声明前置依赖关系 |
+| `ctx.Using(func(T))` | `error` | 响应式声明依赖，当服务就绪时执行回调 | 声明前置依赖关系 |
+| `core.Inject[contracts.DBService]` | `(DBService, error)` | 获取受事务与 Trace 保护的数据库连接与 GORM 实例 | 数据持久化 CRUD |
+| `core.Inject[contracts.CacheService]` | `(CacheService, error)` | 三层穿透缓存（RAM L1 + Redis L2 + PubSub 广播）| 高频读数据性能加速 |
+| `core.Inject[contracts.StorageService]` | `(StorageService, error)` | 统一对象存储读写引擎 | 文件摄取、图片持久化 |
+| `core.Inject[contracts.TaskService]` | `(TaskService, error)` | 后台任务下发、重试与调度管理契约 | 任务下发与定时调度管理 |
+| `core.Inject[contracts.RiskControlService]` | `(RiskControlService, error)` | 访问日志查询、聚合分析与存储引擎管理契约 | 审计日志与安全分析 |
 

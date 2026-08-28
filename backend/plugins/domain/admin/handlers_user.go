@@ -129,7 +129,7 @@ func ListUsers(c *gin.Context) {
 		return
 	}
 
-	userSvc := getUserService(c.Request.Context())
+	userSvc := GetUserService(c.Request.Context())
 	if userSvc == nil {
 		response.AbortInternal(c, "用户服务未就绪")
 		return
@@ -179,7 +179,7 @@ func GetUser(c *gin.Context) {
 		return
 	}
 
-	userSvc := getUserService(c.Request.Context())
+	userSvc := GetUserService(c.Request.Context())
 	if userSvc == nil {
 		response.AbortInternal(c, "用户服务未就绪")
 		return
@@ -226,7 +226,7 @@ func UpdateUserStatus(c *gin.Context) {
 		return
 	}
 
-	userSvc := getUserService(c.Request.Context())
+	userSvc := GetUserService(c.Request.Context())
 	if userSvc == nil {
 		response.AbortInternal(c, "用户服务未就绪")
 		return
@@ -269,7 +269,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	userSvc := getUserService(c.Request.Context())
+	userSvc := GetUserService(c.Request.Context())
 	if userSvc == nil {
 		response.AbortInternal(c, "用户服务未就绪")
 		return
@@ -317,7 +317,7 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	userSvc := getUserService(c.Request.Context())
+	userSvc := GetUserService(c.Request.Context())
 	if userSvc == nil {
 		response.AbortInternal(c, "用户服务未就绪")
 		return
@@ -380,7 +380,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	userSvc := getUserService(c.Request.Context())
+	userSvc := GetUserService(c.Request.Context())
 	if userSvc == nil {
 		response.AbortInternal(c, "用户服务未就绪")
 		return

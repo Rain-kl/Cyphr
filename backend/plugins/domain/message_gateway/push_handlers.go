@@ -11,9 +11,10 @@ import (
 
 	pkgpush "Wavelet/plugins/domain/message_gateway/push"
 
-	"Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	"Wavelet/pkg/response"
 )
 
 // UpdatePushEventRequest is the request body for updating a push event.

@@ -88,6 +88,20 @@ func New(basePath string) *Cache {
 	return c
 }
 
+var (
+	defaultCache     *Cache
+	defaultCacheOnce sync.Once
+)
+
+// Default returns the default global disk cache instance.
+func Default() *Cache {
+	defaultCacheOnce.Do(func() {
+		defaultCache = New("uploads/diskcache")
+		go defaultCache.StartCleanupWorker(10 * time.Minute)
+	})
+	return defaultCache
+}
+
 // Set stores a key-value pair in the cache.
 // Use DefaultExpiration for the configured default TTL, NoExpiration for no
 // TTL, or a positive duration for a business-specific TTL.

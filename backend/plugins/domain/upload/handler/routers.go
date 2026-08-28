@@ -21,6 +21,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
@@ -31,8 +34,6 @@ import (
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 	"Wavelet/plugins/domain/upload/util"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type batchDownloadRequest struct {

@@ -7,11 +7,12 @@ import (
 	"context"
 	"time"
 
-	"Wavelet/pkg/logger"
-	"Wavelet/plugins/domain/upload/models"
-	database "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 // ApplyUploadStatsAdd increments incremental stats for a newly active upload record.
@@ -26,7 +27,7 @@ func ApplyUploadStatsRemove(ctx context.Context, upload *models.Upload) error {
 
 // RebuildUploadStats rebuilds all incremental stats from current upload records.
 func RebuildUploadStats(ctx context.Context) error {
-	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return shared.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("1 = 1").Delete(&models.UploadStat{}).Error; err != nil {
 			return err
 		}
@@ -49,7 +50,7 @@ func applyUploadStatsDelta(ctx context.Context, upload *models.Upload, sign int6
 	if upload == nil || !isActiveUploadStatus(upload.Status) {
 		return nil
 	}
-	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return shared.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
 		return ApplyUploadStatsDeltaTx(tx, upload, sign)
 	})
 }

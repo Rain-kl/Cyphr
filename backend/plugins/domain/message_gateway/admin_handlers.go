@@ -7,8 +7,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
+
+	"Wavelet/pkg/response"
 )
 
 // ListAdminChannelDefinitions returns form schemas for supported channel types.

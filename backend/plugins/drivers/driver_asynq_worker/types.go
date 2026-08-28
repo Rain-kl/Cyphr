@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-
-	db "Wavelet/plugins/infra/database"
 )
 
 // TaskExecutionStatus 任务执行状态
@@ -57,13 +55,13 @@ func (TaskExecution) TableName() string {
 
 // CreateTaskExecution 创建任务执行记录
 func CreateTaskExecution(ctx context.Context, exec *TaskExecution) error {
-	return db.DB(ctx).Create(exec).Error
+	return getDB(ctx).Create(exec).Error
 }
 
 // GetTaskExecutionByTaskID 根据 TaskID 查询执行记录
 func GetTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecution, error) {
 	var exec TaskExecution
-	if err := db.DB(ctx).Where("task_id = ?", taskID).First(&exec).Error; err != nil {
+	if err := getDB(ctx).Where("task_id = ?", taskID).First(&exec).Error; err != nil {
 		return nil, err
 	}
 	_ = loadTaskExecutionLog(ctx, &exec)
@@ -73,7 +71,7 @@ func GetTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecutio
 // GetTaskExecutionByID 根据主键 ID 查询执行记录
 func GetTaskExecutionByID(ctx context.Context, id uint64) (*TaskExecution, error) {
 	var exec TaskExecution
-	if err := db.DB(ctx).Where("id = ?", id).First(&exec).Error; err != nil {
+	if err := getDB(ctx).Where("id = ?", id).First(&exec).Error; err != nil {
 		return nil, err
 	}
 	_ = loadTaskExecutionLog(ctx, &exec)
@@ -83,7 +81,7 @@ func GetTaskExecutionByID(ctx context.Context, id uint64) (*TaskExecution, error
 // GetLatestTaskExecutionByTaskType 获取指定任务类型的最新执行记录
 func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*TaskExecution, bool, error) {
 	var exec TaskExecution
-	err := db.DB(ctx).Where("task_type = ?", taskType).Order("id DESC").First(&exec).Error
+	err := getDB(ctx).Where("task_type = ?", taskType).Order("id DESC").First(&exec).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, false, nil
@@ -114,7 +112,7 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 	terminalStatuses := []TaskExecutionStatus{TaskExecutionStatusSucceeded, TaskExecutionStatusFailed}
 
 	var highFrequencyTaskTypes []string
-	if err := db.DB(ctx).
+	if err := getDB(ctx).
 		Model(&TaskExecution{}).
 		Select("task_type").
 		Where("created_at >= ?", frequencyWindowStart).
@@ -126,7 +124,7 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 
 	var highFrequencyDeleted int64
 	if len(highFrequencyTaskTypes) > 0 {
-		highFrequencyResult := db.DB(ctx).
+		highFrequencyResult := getDB(ctx).
 			Where("status IN ?", terminalStatuses).
 			Where("created_at < ?", highFrequencyCutoff).
 			Where("task_type IN ?", highFrequencyTaskTypes).
@@ -137,7 +135,7 @@ func CleanupTaskExecutionLogs(ctx context.Context, now time.Time) (TaskExecution
 		highFrequencyDeleted = highFrequencyResult.RowsAffected
 	}
 
-	lowFrequencyQuery := db.DB(ctx).
+	lowFrequencyQuery := getDB(ctx).
 		Where("status IN ?", terminalStatuses).
 		Where("created_at < ?", lowFrequencyCutoff)
 	if len(highFrequencyTaskTypes) > 0 {

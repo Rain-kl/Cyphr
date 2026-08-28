@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	uploadcache "Wavelet/plugins/domain/upload/cache"
@@ -20,9 +22,6 @@ import (
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
-	database "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/storage/objectstore"
-	"gorm.io/gorm"
 )
 
 func normalizeRequest(req *Request) {
@@ -50,13 +49,16 @@ func resolveAccessMode(uploadType string, explicit *int) int {
 
 func validateAllowedExtension(ctx context.Context, ext string) error {
 	var val string
-	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Pluck("value", &val).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	db := shared.GetDB(ctx)
+	if db != nil {
+		err := db.Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Pluck("value", &val).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			logger.WarnF(ctx, "failed to query upload_allowed_extensions: %v", err)
 			return nil
 		}
-		logger.WarnF(ctx, "failed to query upload_allowed_extensions: %v", err)
-		return nil
 	}
 	if val == "" {
 		return nil
@@ -97,15 +99,15 @@ func storeObject(ctx context.Context, objectKey string, reader io.Reader, size i
 		return "", ErrStorageReadOnly
 	}
 
-	driver, backend, err := objectstore.Active(ctx)
-	if err != nil {
-		logger.ErrorF(ctx, "初始化活动存储失败: %v", err)
+	storageSvc := shared.GetStorage(ctx)
+	if storageSvc == nil {
+		logger.ErrorF(ctx, "初始化活动存储失败: storage service is nil")
 		return "", errors.New(shared.ErrSaveFileFailed)
 	}
 
-	result, err := backend.Put(ctx, objectKey, reader, size, mimeType)
+	result, err := storageSvc.Put(ctx, objectKey, reader, size, mimeType)
 	if err != nil {
-		logger.ErrorF(ctx, "写入 %s 存储失败: %v", driver, err)
+		logger.ErrorF(ctx, "写入存储失败: %v", err)
 		return "", errors.New(shared.ErrSaveFileFailed)
 	}
 
@@ -115,20 +117,23 @@ func storeObject(ctx context.Context, objectKey string, reader io.Reader, size i
 
 func persistUploadRecord(ctx context.Context, upload *models.Upload, objectKey string) error {
 	if err := createUploadWithStats(ctx, upload); err != nil {
-		_, backend, backendErr := objectstore.Active(ctx)
-		if backendErr == nil {
-			if deleteErr := backend.Delete(ctx, objectKey); deleteErr != nil {
+		if storageSvc := shared.GetStorage(ctx); storageSvc != nil {
+			if deleteErr := storageSvc.Delete(ctx, objectKey); deleteErr != nil {
 				logger.WarnF(ctx, "清理未写入数据库的上传对象失败: %v", deleteErr)
 			}
 		}
 		return err
 	}
-	uploadcache.SetUploadMetaCache(ctx, upload)
+	uploadcache.SetUploadMeta(ctx, *upload)
 	return nil
 }
 
 func createUploadWithStats(ctx context.Context, upload *models.Upload) error {
-	return database.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	db := shared.GetDB(ctx)
+	if db == nil {
+		return errors.New("database service not available")
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
 		if err := repository.CreateUploadTx(tx, upload); err != nil {
 			return err
 		}

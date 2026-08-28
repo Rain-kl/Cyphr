@@ -5,48 +5,69 @@ package auth_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
-	"github.com/alicebob/miniredis/v2"
-	"github.com/redis/go-redis/v9"
-	"github.com/redis/go-redis/v9/maintnotifications"
-
+	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/auth"
-	db "Wavelet/plugins/infra/cache"
 )
 
-func setupOauthCacheTest(t *testing.T) (*miniredis.Miniredis, func()) {
-	t.Helper()
+type mockCacheService struct {
+	items map[string][]byte
+}
 
-	miniRedis, err := miniredis.Run()
+func newMockCacheService() *mockCacheService {
+	return &mockCacheService{items: make(map[string][]byte)}
+}
+
+func (m *mockCacheService) Get(ctx context.Context, key string, target any) error {
+	b, ok := m.items[key]
+	if !ok {
+		return contracts.ErrCacheMiss
+	}
+	return json.Unmarshal(b, target)
+}
+
+func (m *mockCacheService) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
+	b, err := json.Marshal(value)
 	if err != nil {
-		t.Fatalf("failed to start miniredis: %v", err)
+		return err
 	}
+	m.items[key] = b
+	return nil
+}
 
-	db.Redis = redis.NewClient(&redis.Options{
-		Addr: miniRedis.Addr(),
-		MaintNotificationsConfig: &maintnotifications.Config{
-			Mode: maintnotifications.ModeDisabled,
-		},
-	})
+func (m *mockCacheService) Delete(ctx context.Context, key string) error {
+	delete(m.items, key)
+	return nil
+}
 
-	auth.ResetAuthRAMCacheForTest()
+func (m *mockCacheService) Invalidate(ctx context.Context, key string) error {
+	return m.Delete(ctx, key)
+}
 
-	cleanup := func() {
-		auth.StopAuthCacheListener()
-		auth.ResetAuthRAMCacheForTest()
-		_ = db.Redis.Close()
-		miniRedis.Close()
-		db.Redis = nil
+func (m *mockCacheService) GetOrSet(ctx context.Context, key string, target any, ttl time.Duration, loader func() (any, error)) error {
+	err := m.Get(ctx, key, target)
+	if err == nil {
+		return nil
 	}
-	return miniRedis, cleanup
+	val, err := loader()
+	if err != nil {
+		return err
+	}
+	if err := m.Set(ctx, key, val, ttl); err != nil {
+		return err
+	}
+	b, _ := json.Marshal(val)
+	return json.Unmarshal(b, target)
 }
 
 func TestTokenCache_GetSetInvalidate(t *testing.T) {
-	_, cleanup := setupOauthCacheTest(t)
-	defer cleanup()
-	ctx := context.Background()
+	ctx := core.NewContext(context.Background())
+	mockCache := newMockCacheService()
+	core.Provide[contracts.CacheService](ctx, mockCache)
 
 	tokenHash := "test-token-hash"
 	token := &auth.CachedToken{
@@ -84,9 +105,9 @@ func TestTokenCache_GetSetInvalidate(t *testing.T) {
 }
 
 func TestUserCache_GetSetInvalidate(t *testing.T) {
-	_, cleanup := setupOauthCacheTest(t)
-	defer cleanup()
-	ctx := context.Background()
+	ctx := core.NewContext(context.Background())
+	mockCache := newMockCacheService()
+	core.Provide[contracts.CacheService](ctx, mockCache)
 
 	userID := uint64(789)
 	user := &contracts.UserDTO{

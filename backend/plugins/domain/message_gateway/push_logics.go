@@ -11,11 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"Wavelet/core/contracts"
 	pkgpush "Wavelet/plugins/domain/message_gateway/push"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	db "Wavelet/plugins/infra/database"
-	"gorm.io/gorm"
 )
 
 type smtpConfig struct {
@@ -28,10 +27,10 @@ type smtpConfig struct {
 func loadSMTPConfig(ctx context.Context) smtpConfig {
 	var cfg smtpConfig
 	var host, port, user, pass string
-	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_host").Pluck("value", &host).Error
-	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_port").Pluck("value", &port).Error
-	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_username").Pluck("value", &user).Error
-	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_password").Pluck("value", &pass).Error
+	_ = getDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_host").Pluck("value", &host).Error
+	_ = getDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_port").Pluck("value", &port).Error
+	_ = getDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_username").Pluck("value", &user).Error
+	_ = getDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_password").Pluck("value", &pass).Error
 	cfg.Host = host
 	cfg.Port = port
 	cfg.Username = user
@@ -263,14 +262,14 @@ func loadUserFromPayload(ctx context.Context, data map[string]any) any {
 
 	if userID, ok := extractUserID(data); ok && userID > 0 {
 		var user contracts.UserDTO
-		if err := db.DB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err == nil {
+		if err := getDB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err == nil {
 			return &user
 		}
 	}
 
 	if username := extractUsername(data); username != "" {
 		var user contracts.UserDTO
-		if err := db.DB(ctx).Table("w_users").Where("username = ?", username).First(&user).Error; err == nil {
+		if err := getDB(ctx).Table("w_users").Where("username = ?", username).First(&user).Error; err == nil {
 			return &user
 		}
 	}
@@ -372,11 +371,11 @@ func resolveDynamicKeyword(target string, flatBody map[string]any) string {
 func resolveTargetUser(ctx context.Context, resolved string, _ string) (contracts.UserDTO, bool) {
 	var user contracts.UserDTO
 	if id, err := strconv.ParseUint(resolved, 10, 64); err == nil {
-		if err := db.DB(ctx).Table("w_users").Where("id = ?", id).First(&user).Error; err == nil {
+		if err := getDB(ctx).Table("w_users").Where("id = ?", id).First(&user).Error; err == nil {
 			return user, true
 		}
 	}
-	if err := db.DB(ctx).Table("w_users").Where("username = ?", resolved).First(&user).Error; err == nil {
+	if err := getDB(ctx).Table("w_users").Where("username = ?", resolved).First(&user).Error; err == nil {
 		return user, true
 	}
 	return user, false
@@ -387,7 +386,7 @@ func resolveSystemTarget(ctx context.Context, resolved string, channel string) (
 		return "", false
 	}
 	var adminUser contracts.UserDTO
-	if err := db.DB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
+	if err := getDB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
 		return resolved, true
 	}
 	if channel == channelEmail && adminUser.Email != "" {
@@ -425,7 +424,7 @@ func resolveSMTPConfig(ctx context.Context, url, token, other string) (string, s
 
 func getSystemUser(ctx context.Context) *contracts.UserDTO {
 	var user contracts.UserDTO
-	if err := db.DB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&user).Error; err == nil {
+	if err := getDB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&user).Error; err == nil {
 		return &user
 	}
 	return &contracts.UserDTO{
@@ -445,14 +444,16 @@ func findBuiltInEvent(key string) (EventMetadata, bool) {
 
 func getEventInfo(req CreatePushEventRequest) (string, string, []byte, error) {
 	if req.TaskType != "" {
-		meta := driver_asynq_worker.GetTaskMetaByAsynqTask(req.TaskType)
-		if meta == nil {
-			return "", "", nil, errors.New("unsupported task type")
+		taskName := req.TaskType
+		if taskSvc := getTaskService(); taskSvc != nil {
+			if meta, ok := taskSvc.GetTaskMeta(req.TaskType); ok {
+				taskName = meta.DisplayName
+			}
 		}
 		eventKey := "task_completed:" + req.TaskType
-		eventName := "任务完成: " + meta.Name
+		eventName := "任务完成: " + taskName
 		defaultTemplate := NotificationMessage{
-			Title:   "任务完成: " + meta.Name,
+			Title:   "任务完成: " + taskName,
 			Content: "异步任务 {{task_name}} (ID: {{task_id}}) 已完成。状态: {{task_status}}，耗时: {{task_duration}} ms。",
 			Level:   defaultLevelInfo,
 		}
@@ -484,8 +485,11 @@ func enqueuePushTask(ctx context.Context, payload SendPayload) error {
 	if err != nil {
 		return err
 	}
-	_, err = driver_asynq_worker.DispatchTask(ctx, "send_notification", payloadBytes, "system")
-	return err
+	if taskSvc := getTaskService(); taskSvc != nil {
+		_, err = taskSvc.Dispatch(ctx, "send_notification", payloadBytes, "system")
+		return err
+	}
+	return errors.New("task service not available")
 }
 
 func getFlatBody(body map[string]any) map[string]any {

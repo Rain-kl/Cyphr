@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"time"
 
-	"Wavelet/pkg/util"
-	db "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
+
+	"Wavelet/pkg/util"
 )
 
 // CountAccessLogs returns the number of access logs matching filter.
 func CountAccessLogs(ctx context.Context, filter AccessLogFilter) (uint64, error) {
-	ch := db.ChDB(ctx)
+	ch := getChDB(ctx)
 	if ch == nil {
 		return 0, fmt.Errorf("clickhouse gorm connection is not initialized")
 	}
@@ -31,7 +31,7 @@ func CountAccessLogs(ctx context.Context, filter AccessLogFilter) (uint64, error
 
 // ListAccessLogs returns paginated access logs and the total match count.
 func ListAccessLogs(ctx context.Context, filter AccessLogFilter, page, pageSize int) ([]UserAccessLog, uint64, error) {
-	ch := db.ChDB(ctx)
+	ch := getChDB(ctx)
 	if ch == nil {
 		return nil, 0, fmt.Errorf("clickhouse gorm connection is not initialized")
 	}
@@ -40,42 +40,28 @@ func ListAccessLogs(ctx context.Context, filter AccessLogFilter, page, pageSize 
 		return []UserAccessLog{}, 0, nil
 	}
 
-	var total int64
-	baseQuery := applyFilter(ch.Model(&UserAccessLog{}), filter)
-	if err := baseQuery.Count(&total).Error; err != nil {
+	var count int64
+	query := applyFilter(ch.Model(&UserAccessLog{}), filter)
+	if err := query.Count(&count).Error; err != nil {
 		return nil, 0, fmt.Errorf("count access logs: %w", err)
 	}
-	if total == 0 {
-		return []UserAccessLog{}, 0, nil
-	}
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
 
 	var logs []UserAccessLog
-	err := applyFilter(ch.Model(&UserAccessLog{}), filter).
-		Order("created_at DESC, id DESC").
-		Limit(pageSize).
-		Offset(offset).
-		Find(&logs).Error
-	if err != nil {
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&logs).Error; err != nil {
 		return nil, 0, fmt.Errorf("list access logs: %w", err)
 	}
 
-	return logs, safeUint64Count(total), nil
+	return logs, safeUint64Count(count), nil
 }
 
 // DeleteAllUserAccessLogs hard-deletes all user access logs via TRUNCATE.
 func DeleteAllUserAccessLogs(ctx context.Context) (int64, error) {
-	if db.ChConn == nil {
+	conn := getChConn()
+	if conn == nil {
 		return 0, fmt.Errorf("clickhouse connection is not initialized")
 	}
-	if err := db.ChConn.Exec(ctx, "TRUNCATE TABLE "+UserAccessLog{}.TableName()); err != nil {
+	if err := conn.Exec(ctx, "TRUNCATE TABLE "+UserAccessLog{}.TableName()); err != nil {
 		return 0, fmt.Errorf("truncate user access logs: %w", err)
 	}
 	return 0, nil
@@ -83,10 +69,11 @@ func DeleteAllUserAccessLogs(ctx context.Context) (int64, error) {
 
 // DeleteUserAccessLogsBefore deletes user access logs older than cutoff.
 func DeleteUserAccessLogsBefore(ctx context.Context, cutoff time.Time) (int64, error) {
-	if db.ChConn == nil {
+	conn := getChConn()
+	if conn == nil {
 		return 0, fmt.Errorf("clickhouse connection is not initialized")
 	}
-	if err := db.ChConn.Exec(ctx, "ALTER TABLE "+UserAccessLog{}.TableName()+" DELETE WHERE created_at < ?", cutoff); err != nil {
+	if err := conn.Exec(ctx, "ALTER TABLE "+UserAccessLog{}.TableName()+" DELETE WHERE created_at < ?", cutoff); err != nil {
 		return 0, fmt.Errorf("delete expired user access logs: %w", err)
 	}
 	return 0, nil

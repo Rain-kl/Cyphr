@@ -16,9 +16,10 @@ import (
 	userdomain "Wavelet/plugins/domain/user"
 	"Wavelet/plugins/infra/database"
 
-	"Wavelet/plugins/domain/auth"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
+
+	"Wavelet/plugins/domain/auth"
 )
 
 var (
@@ -49,7 +50,10 @@ var resetPasswdCmd = &cobra.Command{
 		ctx := context.Background()
 
 		// Ensure database is initialized
-		database.DB(ctx)
+		dbConn := database.DB(ctx)
+		if dbConn != nil {
+			userdomain.SetDBService(database.NewService(dbConn))
+		}
 
 		var username string
 		if usernameFlag != "" {

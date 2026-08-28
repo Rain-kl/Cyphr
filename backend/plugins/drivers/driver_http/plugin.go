@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/util"
 )
 
@@ -96,6 +97,19 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	p.mu.Lock()
 	p.coreCtx = ctx
 	p.mu.Unlock()
+
+	// Bind DBService from Context
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+	ctx.OnDispose(func() error {
+		setDBService(nil)
+		return nil
+	})
 
 	ctx.OnDispose(func() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)

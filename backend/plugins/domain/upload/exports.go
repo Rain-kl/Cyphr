@@ -11,7 +11,6 @@ import (
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadtask "Wavelet/plugins/domain/upload/task"
 	"Wavelet/plugins/domain/upload/util"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 // HTTP handlers
@@ -113,14 +112,3 @@ type RebuildUploadStatsHandler = uploadtask.RebuildUploadStatsHandler
 
 // WarmImageCachePayload is the payload for image cache warmup tasks.
 type WarmImageCachePayload = uploadtask.WarmImageCachePayload
-
-// Ensure task handler types implement required interfaces.
-var (
-	_ driver_asynq_worker.TaskHandler = (*MigrationHandler)(nil)
-	_ driver_asynq_worker.TaskHandler = (*SystemCleanupHandler)(nil)
-	_ driver_asynq_worker.TaskHandler = (*RebuildUploadStatsHandler)(nil)
-	_ interface {
-		driver_asynq_worker.TaskHandler
-		ValidatePayload([]byte) ([]byte, error)
-	} = (*WarmImageCacheHandler)(nil)
-)

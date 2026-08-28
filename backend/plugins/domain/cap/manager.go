@@ -15,7 +15,6 @@ import (
 
 	"Wavelet/pkg/config"
 	"Wavelet/plugins/domain/cap/pow"
-	db "Wavelet/plugins/infra/cache"
 )
 
 const (
@@ -186,13 +185,7 @@ func GetDefaultManager() *Manager {
 			return
 		}
 
-		var store pow.Store
-		if config.Config != nil && config.Config.Redis.Enabled && db.Redis != nil {
-			store = pow.NewRedisStore(db.Redis)
-		} else {
-			store = pow.NewMemoryStore(1 * time.Minute)
-		}
-
+		store := pow.NewMemoryStore(1 * time.Minute)
 		defaultManager = NewManager(secret, store)
 	})
 	return defaultManager

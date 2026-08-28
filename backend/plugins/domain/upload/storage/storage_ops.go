@@ -5,10 +5,12 @@ package storage
 
 import (
 	"context"
+	"errors"
 
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/infra/storage/objectstore"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 // ReadOnly checks if the storage system is in read-only maintenance mode.
@@ -22,10 +24,10 @@ func ReadOnly(ctx context.Context) bool {
 }
 
 // OpenStoredObject opens a stored upload object from the active storage backend.
-func OpenStoredObject(ctx context.Context, upload *models.Upload) (*objectstore.Object, error) {
-	_, backend, err := objectstore.Active(ctx)
-	if err != nil {
-		return nil, err
+func OpenStoredObject(ctx context.Context, upload *models.Upload) (*contracts.StorageObject, error) {
+	storageSvc := shared.GetStorage(ctx)
+	if storageSvc == nil {
+		return nil, errors.New("storage service not available")
 	}
-	return backend.Get(ctx, upload.FilePath)
+	return storageSvc.Get(ctx, upload.FilePath)
 }

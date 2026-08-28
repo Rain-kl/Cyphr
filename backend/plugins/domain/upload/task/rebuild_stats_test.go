@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/domain/upload/models"
-	database "Wavelet/plugins/infra/database"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	ctx := context.Background()
@@ -32,14 +31,15 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 			Type: "attachment", Status: models.UploadStatusUsed, CreatedAt: now,
 		},
 	}
+	db := shared.GetDB(ctx)
 	for i := range uploads {
-		if err := database.DB(ctx).Create(&uploads[i]).Error; err != nil {
+		if err := db.Create(&uploads[i]).Error; err != nil {
 			t.Fatalf("seed upload failed: %v", err)
 		}
 	}
 
 	// Corrupt stats to ensure rebuild recalculates from uploads.
-	if err := database.DB(ctx).Create(&models.UploadStat{
+	if err := db.Create(&models.UploadStat{
 		Dimension: models.UploadStatDimensionTotal,
 		StatKey:   "",
 		FileCount: 0,
@@ -58,12 +58,10 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 	}
 
 	var totalStat models.UploadStat
-	if err := database.DB(ctx).
-		Where("dimension = ? AND stat_key = ?", models.UploadStatDimensionTotal, "").
-		First(&totalStat).Error; err != nil {
-		t.Fatalf("load total stat failed: %v", err)
+	if err := db.Where("dimension = ? AND stat_key = ?", models.UploadStatDimensionTotal, "").First(&totalStat).Error; err != nil {
+		t.Fatalf("query total stat failed: %v", err)
 	}
 	if totalStat.FileCount != 2 || totalStat.FileSize != 300 {
-		t.Fatalf("total stat = count %d size %d, want 2 / 300", totalStat.FileCount, totalStat.FileSize)
+		t.Fatalf("total stat mismatch: count=%d size=%d, want count=2 size=300", totalStat.FileCount, totalStat.FileSize)
 	}
 }

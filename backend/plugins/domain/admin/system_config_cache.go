@@ -7,14 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
 
 	"Wavelet/pkg/cache/ram"
-	"Wavelet/pkg/util"
-	cachepkg "Wavelet/plugins/infra/cache"
 )
 
 const (
@@ -32,11 +29,6 @@ const (
 	// ConfigCacheType is the cache type for all system configs.
 	ConfigCacheType = "config"
 )
-
-type systemConfigBroadcastMessage struct {
-	Type string `json:"type"`
-	Key  string `json:"key"`
-}
 
 // ConfigLoader loads configuration data from the database.
 type ConfigLoader struct{}
@@ -64,21 +56,19 @@ func (ConfigLoader) LoadAll(ctx context.Context, configType string) ([]ram.Cache
 	return items, nil
 }
 
-// LoadOne loads a single system config from database as a CacheItem.
+// LoadOne loads a single system config from database as CacheItem.
 func (ConfigLoader) LoadOne(ctx context.Context, configType string, key string) (ram.CacheItem, error) {
-	cfg, err := PreheatSystemConfigByKey(ctx, key)
+	cfg, err := GetSystemConfigByKey(ctx, key)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ram.CacheItem{}, ram.ErrNotFound
 		}
 		return ram.CacheItem{}, err
 	}
-
 	valBytes, err := json.Marshal(cfg)
 	if err != nil {
 		return ram.CacheItem{}, err
 	}
-
 	return ram.CacheItem{
 		Key:   cfg.Key,
 		Value: string(valBytes),
@@ -87,119 +77,65 @@ func (ConfigLoader) LoadOne(ctx context.Context, configType string, key string) 
 	}, nil
 }
 
-// PreloadSystemConfigs warms the in-memory RAM cache from database on startup.
-func PreloadSystemConfigs(ctx context.Context) error {
-	return ram.Refresh(ctx, ConfigCacheType, "", ConfigLoader{})
+// GetCachedSystemConfig retrieves a single system config with RAM L1 fallback to DB.
+func GetCachedSystemConfig(ctx context.Context, key string) (*SystemConfig, error) {
+	if item, ok := ram.Get(ConfigCacheType, key); ok {
+		var cfg SystemConfig
+		if err := json.Unmarshal([]byte(item.Value), &cfg); err == nil {
+			return &cfg, nil
+		}
+	}
+
+	cfg, err := GetSystemConfigByKey(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+
+	valBytes, err := json.Marshal(cfg)
+	if err == nil {
+		ram.Set(ram.CacheItem{
+			Key:   cfg.Key,
+			Value: string(valBytes),
+			Type:  ConfigCacheType,
+			TTL:   determineTTL(key),
+		})
+	}
+	return &cfg, nil
 }
 
-var (
-	systemConfigListenerOnce   sync.Once
-	systemConfigListenerCtx    context.Context
-	systemConfigListenerCancel context.CancelFunc
-	systemConfigListenerDone   chan struct{}
-)
+// StopSystemConfigCacheListener stops the cache invalidation listener (kept for backward compatibility).
+func StopSystemConfigCacheListener() {
+}
+
+// StartSystemConfigCacheListener starts the cache listener (kept for backward compatibility).
+func StartSystemConfigCacheListener() {
+}
 
 func ensureSystemConfigCacheListener() {
-	systemConfigListenerOnce.Do(startSystemConfigCacheInvalidationListener)
-}
-
-func startSystemConfigCacheInvalidationListener() {
-	if cachepkg.Redis == nil {
-		return
-	}
-
-	systemConfigListenerCtx, systemConfigListenerCancel = context.WithCancel(context.Background())
-	systemConfigListenerDone = make(chan struct{})
-
-	redisClient := cachepkg.Redis // 捕获当前客户端：goroutine 不读可变全局，避免与测试置空 cachepkg.Redis 竞争
-	util.Go(func() {
-		listenerCtx := systemConfigListenerCtx
-		defer close(systemConfigListenerDone)
-
-		pubsub := redisClient.Subscribe(listenerCtx, SystemConfigBroadcastChannel)
-		defer func() {
-			_ = pubsub.Close()
-		}()
-
-		util.Go(func() {
-			<-listenerCtx.Done()
-			_ = pubsub.Close()
-		})
-
-		for msg := range pubsub.Channel() {
-			var payload systemConfigBroadcastMessage
-			if err := json.Unmarshal([]byte(msg.Payload), &payload); err != nil {
-				ram.UpdateTypeItems(ConfigCacheType, nil)
-				continue
-			}
-
-			key := payload.Key
-			if key == "*" || key == "" {
-				ram.UpdateTypeItems(payload.Type, nil)
-			} else {
-				ram.Delete(payload.Type, key)
-			}
-		}
-	})
-}
-
-// StopSystemConfigCacheListener stops the Redis Pub/Sub subscription listener and resets the sync.Once guard.
-func StopSystemConfigCacheListener() {
-	if systemConfigListenerCancel != nil {
-		systemConfigListenerCancel()
-		if systemConfigListenerDone != nil {
-			<-systemConfigListenerDone
-		}
-		systemConfigListenerCancel = nil
-		systemConfigListenerDone = nil
-	}
-	systemConfigListenerOnce = sync.Once{}
 }
 
 func determineTTL(_ string) time.Duration {
-	// Program-determined TTL: -1 means never expire for all configs by default
 	return -1
 }
 
 // InvalidateSystemConfigCache triggers a broadcast to refresh the cache for key.
 func InvalidateSystemConfigCache(ctx context.Context, key string) error {
-	ensureSystemConfigCacheListener()
-
-	// Invalidate local cache synchronously first
 	ram.Delete(ConfigCacheType, key)
-
-	// Broadcast to other nodes and clean legacy Redis cache key
-	if cachepkg.Redis != nil {
-		_ = cachepkg.HDel(ctx, SystemConfigRedisHashKey, key)
-		publishSystemConfigBroadcast(ctx, ConfigCacheType, key)
+	if cacheSvc := GetCache(ctx); cacheSvc != nil {
+		_ = cacheSvc.Delete(ctx, "system:config:"+key)
+		_ = cacheSvc.Delete(ctx, SystemConfigVisibleListRedisKey)
 	}
 	return nil
 }
 
 // InvalidateAllSystemConfigCaches triggers a broadcast to refresh the entire config cache.
 func InvalidateAllSystemConfigCaches(ctx context.Context) error {
-	ensureSystemConfigCacheListener()
-
-	// Invalidate all items of type ConfigCacheType synchronously first
 	ram.UpdateTypeItems(ConfigCacheType, nil)
-
-	// Broadcast to other nodes and clean legacy Redis cache keys
-	if cachepkg.Redis != nil {
-		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey(SystemConfigRedisHashKey), cachepkg.PrefixedKey(SystemConfigVisibleListRedisKey)).Err()
-		publishSystemConfigBroadcast(ctx, ConfigCacheType, "*")
+	if cacheSvc := GetCache(ctx); cacheSvc != nil {
+		_ = cacheSvc.Delete(ctx, SystemConfigRedisHashKey)
+		_ = cacheSvc.Delete(ctx, SystemConfigVisibleListRedisKey)
 	}
 	return nil
-}
-
-func publishSystemConfigBroadcast(ctx context.Context, configType string, key string) {
-	if cachepkg.Redis == nil {
-		return
-	}
-	payload, err := json.Marshal(systemConfigBroadcastMessage{Type: configType, Key: key})
-	if err != nil {
-		return
-	}
-	_ = cachepkg.Redis.Publish(ctx, SystemConfigBroadcastChannel, payload).Err()
 }
 
 // ResetSystemConfigRAMCacheForTest clears only the process-local RAM cache.

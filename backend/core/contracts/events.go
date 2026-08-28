@@ -44,6 +44,25 @@ const (
 	EventTopicSystemCleanup = "admin:system_cleanup"
 )
 
+// --- Task Events ---
+const (
+	// EventTopicTaskCompleted fires when an asynchronous background task execution finishes.
+	EventTopicTaskCompleted = "task:completed"
+)
+
+// TaskCompletedEvent carries task execution outcome details.
+type TaskCompletedEvent struct {
+	TaskID    string `json:"task_id"`
+	TaskName  string `json:"task_name"`
+	TaskType  string `json:"task_type"`
+	Status    string `json:"status"`
+	Duration  int64  `json:"duration"`
+	ErrorMsg  string `json:"error_msg,omitempty"`
+	ResultMsg string `json:"result_msg,omitempty"`
+	Payload   string `json:"payload,omitempty"`
+	Detail    string `json:"detail,omitempty"`
+}
+
 // --- Upload / Storage Events ---
 const (
 	// EventTopicUploadCreated fires when a new file upload is recorded.

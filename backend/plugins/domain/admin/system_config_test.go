@@ -8,15 +8,29 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/glebarez/sqlite"
-	"github.com/redis/go-redis/v9"
-	"github.com/redis/go-redis/v9/maintnotifications"
 	"gorm.io/gorm"
-
-	"Wavelet/plugins/infra/cache"
-	"Wavelet/plugins/infra/database"
 )
+
+type testDBService struct {
+	db *gorm.DB
+}
+
+func (s *testDBService) DB(ctx context.Context) *gorm.DB {
+	return s.db
+}
+
+func (s *testDBService) MasterDB(ctx context.Context) *gorm.DB {
+	return s.db
+}
+
+func (s *testDBService) GORM() *gorm.DB {
+	return s.db
+}
+
+func (s *testDBService) Named(_ string) *gorm.DB {
+	return s.db
+}
 
 func setupSystemConfigTest(t *testing.T) (*gorm.DB, func()) {
 	t.Helper()
@@ -41,28 +55,12 @@ func setupSystemConfigTest(t *testing.T) (*gorm.DB, func()) {
 		t.Fatalf("Create(site_name) error = %v", err)
 	}
 
-	mr, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("miniredis.Run() error = %v", err)
-	}
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: mr.Addr(),
-		MaintNotificationsConfig: &maintnotifications.Config{
-			Mode: maintnotifications.ModeDisabled,
-		},
-	})
-
-	previousRedis := cache.Redis
-	database.SetDB(sqliteDB)
-	cache.Redis = redisClient
+	SetDBService(&testDBService{db: sqliteDB})
 
 	cleanup := func() {
 		StopSystemConfigCacheListener()
 		ResetSystemConfigRAMCacheForTest()
-		database.SetDB(nil)
-		cache.Redis = previousRedis
-		_ = redisClient.Close()
-		mr.Close()
+		ResetServices()
 	}
 
 	return sqliteDB, cleanup

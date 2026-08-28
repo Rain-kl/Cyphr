@@ -6,13 +6,13 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/upload/ingest"
-	uploadmodels "Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/infra/storage/diskcache"
 	"Wavelet/plugins/infra/storage/objectstore"
 )
 
@@ -49,6 +49,33 @@ func (p *Plugin) Name() string {
 
 // Apply mounts the storage service into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// Bind DBService
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		objectstore.SetDBService(db)
+		diskcache.SetDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			objectstore.SetDBService(db)
+			diskcache.SetDBService(db)
+		})
+	}
+
+	// Bind CacheService
+	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+		objectstore.SetCacheService(cache)
+	} else {
+		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
+			objectstore.SetCacheService(cache)
+		})
+	}
+
+	ctx.OnDispose(func() error {
+		objectstore.SetDBService(nil)
+		diskcache.SetDBService(nil)
+		objectstore.SetCacheService(nil)
+		return nil
+	})
+
 	svc := &storageServiceImpl{
 		backend: p.backend,
 	}
@@ -116,33 +143,6 @@ func (s *storageServiceImpl) Delete(ctx context.Context, key string) error {
 	return b.Delete(ctx, key)
 }
 
-func (s *storageServiceImpl) Ingest(ctx context.Context, reader io.Reader, opts contracts.IngestOptions) (*contracts.IngestResult, error) {
-	meta := uploadmodels.UploadMetadata{
-		Extra: opts.Metadata,
-	}
-
-	req := ingest.Request{
-		UserID:    opts.UserID,
-		Type:      opts.Type,
-		FileName:  opts.FileName,
-		MimeType:  opts.MimeType,
-		Extension: opts.Extension,
-		Size:      opts.Size,
-		Reader:    reader,
-		Policy:    ingest.Policy(opts.Policy),
-		Metadata:  meta,
-	}
-
-	res, err := ingest.Ingest(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return &contracts.IngestResult{
-		ID:       res.Upload.ID,
-		Key:      res.Upload.FilePath,
-		Created:  res.Created,
-		Stored:   res.Stored,
-		Resolved: res.Resolved,
-	}, nil
+func (s *storageServiceImpl) Ingest(_ context.Context, _ io.Reader, _ contracts.IngestOptions) (*contracts.IngestResult, error) {
+	return nil, errors.New("storage: programmatic ingest is managed by domain/upload plugin")
 }

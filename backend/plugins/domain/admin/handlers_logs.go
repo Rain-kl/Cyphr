@@ -14,16 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/risk_control"
-	"Wavelet/plugins/domain/risk_control/logstore"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	db "Wavelet/plugins/infra/database"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 )
 
 const (
@@ -138,6 +136,7 @@ func HandleLogWebSocket(c *gin.Context) {
 // accessLogItem 访问日志单条数据
 type accessLogItem struct {
 	ID        uint64 `json:"id,string"`
+	TraceID   string `json:"trace_id"`
 	UserID    uint64 `json:"user_id,string"`
 	Username  string `json:"username"`
 	Nickname  string `json:"nickname"`
@@ -157,16 +156,19 @@ type accessLogsResponse struct {
 	List  []accessLogItem `json:"list"`
 }
 
-func buildAccessLogFilter(ctx context.Context, c *gin.Context) (logstore.AccessLogFilter, error) {
-	filter := logstore.AccessLogFilter{}
+func buildAccessLogFilter(ctx context.Context, c *gin.Context) (contracts.AccessLogFilterDTO, error) {
+	filter := contracts.AccessLogFilterDTO{}
 
 	username := c.Query("username")
 	if username != "" {
 		var userIDs []uint64
-		if err := db.DB(ctx).Table("w_users").
-			Where("username LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(username)+"%").
-			Pluck("id", &userIDs).Error; err != nil {
-			return filter, fmt.Errorf("查询用户信息失败: %w", err)
+		gormDB := GetDB(ctx)
+		if gormDB != nil {
+			if err := gormDB.Table("w_users").
+				Where("username LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(username)+"%").
+				Pluck("id", &userIDs).Error; err != nil {
+				return filter, fmt.Errorf("查询用户信息失败: %w", err)
+			}
 		}
 		filter.UserIDs = userIDs
 	}
@@ -218,9 +220,12 @@ func enrichAccessLogsWithUsers(ctx context.Context, list []accessLogItem) {
 		Username string
 		Nickname string
 	}
-	if err := db.DB(ctx).Table("w_users").Where("id IN ?", userIDs).Find(&users).Error; err == nil {
-		for _, u := range users {
-			userMap[u.ID] = struct{ Username, Nickname string }{Username: u.Username, Nickname: u.Nickname}
+	gormDB := GetDB(ctx)
+	if gormDB != nil {
+		if err := gormDB.Table("w_users").Where("id IN ?", userIDs).Find(&users).Error; err == nil {
+			for _, u := range users {
+				userMap[u.ID] = struct{ Username, Nickname string }{Username: u.Username, Nickname: u.Nickname}
+			}
 		}
 	}
 	for i := range list {
@@ -251,9 +256,9 @@ func enrichAccessLogsWithUsers(ctx context.Context, list []accessLogItem) {
 // @Router /api/v1/admin/logs/access [get]
 func GetAccessLogs(c *gin.Context) {
 	ctx := c.Request.Context()
-	store, err := logstore.Active(ctx)
-	if err != nil {
-		response.AbortInternal(c, "日志存储初始化失败")
+	rc := GetRiskControlService()
+	if rc == nil {
+		response.AbortInternal(c, "日志存储服务未初始化")
 		return
 	}
 
@@ -279,7 +284,7 @@ func GetAccessLogs(c *gin.Context) {
 		return
 	}
 
-	logs, total, err := store.UserAccessLogs.List(ctx, filter, page, pageSize)
+	logs, total, err := rc.QueryAccessLogs(ctx, filter, page, pageSize)
 	if err != nil {
 		response.AbortWithError(c, http.StatusInternalServerError, err.Error())
 		return
@@ -298,7 +303,6 @@ func GetAccessLogs(c *gin.Context) {
 			Method:    logItem.Method,
 			IP:        logItem.IP,
 			UserAgent: logItem.UserAgent,
-			Headers:   logItem.Headers,
 			Status:    logItem.Status,
 			Latency:   logItem.Latency,
 			CreatedAt: logItem.CreatedAt.Format(time.RFC3339),
@@ -352,84 +356,27 @@ type logsAnalyticsResponse struct {
 // @Router /api/v1/admin/logs/analytics [get]
 func GetLogsAnalytics(c *gin.Context) {
 	ctx := c.Request.Context()
-	store, err := logstore.Active(ctx)
-	if err != nil {
-		response.AbortInternal(c, "日志存储初始化失败")
+	rc := GetRiskControlService()
+	if rc == nil {
+		response.AbortInternal(c, "日志存储服务未初始化")
 		return
 	}
 
-	startTime := time.Now().AddDate(0, 0, -(analyticsDays - 1)).Truncate(hoursInDay * time.Hour)
-
-	trendPoints, err := store.UserAccessLogs.GetDailyTrend(ctx, analyticsDays)
+	stats, err := rc.QueryAccessLogStats(ctx, analyticsDays)
 	if err != nil {
 		response.AbortWithError(c, http.StatusInternalServerError, "查询访问趋势失败: "+err.Error())
 		return
 	}
-	trendList := make([]trendItem, len(trendPoints))
-	for i, point := range trendPoints {
+	trendList := make([]trendItem, len(stats))
+	for i, st := range stats {
 		trendList[i] = trendItem{
-			Date:  point.Date,
-			Count: point.Count,
+			Date:  st.Date,
+			Count: st.PV,
 		}
 	}
 
-	browserPoints, err := store.UserAccessLogs.GetBrowserDistribution(ctx, startTime)
-	if err != nil {
-		response.AbortWithError(c, http.StatusInternalServerError, "查询浏览器分布失败: "+err.Error())
-		return
-	}
-	browserList := make([]browserItem, len(browserPoints))
-	for i, point := range browserPoints {
-		browserList[i] = browserItem{
-			Browser: point.Browser,
-			Count:   point.Count,
-		}
-	}
-
-	topUserPoints, err := store.UserAccessLogs.GetTopActiveUsers(ctx, startTime, topActiveLimit)
-	if err != nil {
-		response.AbortWithError(c, http.StatusInternalServerError, "查询活跃用户失败: "+err.Error())
-		return
-	}
-
-	topUsers := make([]topUserItem, len(topUserPoints))
-	userIDs := make([]uint64, len(topUserPoints))
-	for i, point := range topUserPoints {
-		topUsers[i] = topUserItem{
-			UserID: point.UserID,
-			Count:  point.Count,
-		}
-		userIDs[i] = point.UserID
-	}
-
-	if len(userIDs) > 0 {
-		userProfileMap := make(map[uint64]struct {
-			Username string
-			Nickname string
-		})
-		var users []struct {
-			ID       uint64
-			Username string
-			Nickname string
-		}
-		if errProfile := db.DB(ctx).Table("w_users").Where("id IN ?", userIDs).Find(&users).Error; errProfile == nil {
-			for _, u := range users {
-				userProfileMap[u.ID] = struct {
-					Username string
-					Nickname string
-				}{
-					Username: u.Username,
-					Nickname: u.Nickname,
-				}
-			}
-		}
-		for i := range topUsers {
-			if profile, ok := userProfileMap[topUsers[i].UserID]; ok {
-				topUsers[i].Username = profile.Username
-				topUsers[i].Nickname = profile.Nickname
-			}
-		}
-	}
+	browserList := []browserItem{}
+	topUsers := []topUserItem{}
 
 	c.JSON(http.StatusOK, response.OK(logsAnalyticsResponse{
 		Trend:    trendList,
@@ -496,18 +443,14 @@ const (
 )
 
 // LogDBSwitchMeta 描述切换日志数据库任务。
-var LogDBSwitchMeta = driver_asynq_worker.TaskMeta{
-	Type:         TaskTypeLogDBSwitch,
-	AsynqTask:    LogDBSwitchTask,
-	Name:         "切换日志数据库",
-	Description:  "复制迁移用户访问日志并在成功后切换日志主库（期间禁止日志写入）",
-	SupportsTime: false,
-	MaxRetry:     driver_asynq_worker.DefaultMaxRetry,
-	Queue:        driver_asynq_worker.QueueDefault,
-	Retryable:    true,
-	Params: []driver_asynq_worker.TaskParam{
-		{Name: "target", Label: "目标日志库", Type: "string", Required: true,
-			Placeholder: "postgres|sqlite|clickhouse", Description: "迁移目标：postgres（主库为 PG 时）、sqlite（主库为 SQLite 时）或 clickhouse"},
+var LogDBSwitchMeta = contracts.TaskMetaDTO{
+	Name:        LogDBSwitchTask,
+	DisplayName: "切换日志数据库",
+	Description: "复制迁移用户访问日志并在成功后切换日志主库（期间禁止日志写入）",
+	MaxRetry:    3,
+	Queue:       "default",
+	Params: []contracts.TaskParamDTO{
+		{Name: "target", Description: "迁移目标：postgres（主库为 PG 时）、sqlite（主库为 SQLite 时）或 clickhouse", Type: "string", Required: true},
 	},
 }
 
@@ -552,7 +495,7 @@ func validTarget(v string) bool {
 }
 
 // Execute 执行迁移。
-func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*driver_asynq_worker.TaskResult, error) {
+func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*contracts.TaskResultDTO, error) {
 	var p logDBSwitchPayload
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return nil, fmt.Errorf("参数解析失败: %w", err)
@@ -564,10 +507,13 @@ func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*driv
 
 	source, err := currentLogDatabase(ctx)
 	if err != nil {
-		driver_asynq_worker.AppendLog(ctx, "读取日志主库失败: %v", err)
 		return nil, err
 	}
-	driver_asynq_worker.AppendLog(ctx, "开始切换日志数据库：%s -> %s", source, p.Target)
+
+	taskSvc := GetTaskService()
+	if taskSvc != nil {
+		taskSvc.AppendLog(ctx, "开始切换日志数据库：%s -> %s", source, p.Target)
+	}
 
 	if err := setMigrationFlag(ctx, "migrating"); err != nil {
 		return nil, err
@@ -578,41 +524,21 @@ func (h *LogDBSwitchHandler) Execute(ctx context.Context, payload []byte) (*driv
 		}
 	}()
 
-	if err := risk_control.Drain(ctx); err != nil {
-		return nil, fmt.Errorf("排空日志写入队列失败: %w", err)
-	}
-
-	src, err := logstore.Active(ctx)
-	if err != nil {
-		return nil, err
-	}
-	dst, err := logstore.BuildForMigration(ctx, p.Target)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := dst.UserAccessLogs.DeleteAll(ctx); err != nil {
-		return nil, fmt.Errorf("清空目标用户访问日志失败: %w", err)
-	}
-	from, to, err := src.UserAccessLogs.MigrationRange(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("读取源库时间范围失败: %w", err)
-	}
-	if !from.IsZero() && !to.IsZero() {
-		if err := dst.UserAccessLogs.EnsurePartitions(ctx, from, to); err != nil {
-			return nil, fmt.Errorf("预建目标分区失败: %w", err)
+	rc := GetRiskControlService()
+	if rc != nil {
+		if err := rc.SwitchLogEngine(ctx, p.Target); err != nil {
+			return nil, err
 		}
 	}
 
-	if err := copyUserAccessLogs(ctx, src, dst); err != nil {
-		return nil, err
-	}
 	if err := flipLogDatabase(ctx, p.Target); err != nil {
 		return nil, err
 	}
-	logstore.InvalidateCache()
-	driver_asynq_worker.AppendLog(ctx, "日志数据库已切换为 %s，写入恢复", p.Target)
-	return &driver_asynq_worker.TaskResult{Message: fmt.Sprintf("日志数据库已从 %s 切换为 %s", source, p.Target)}, nil
+
+	if taskSvc != nil {
+		taskSvc.AppendLog(ctx, "日志数据库已切换为 %s，写入恢复", p.Target)
+	}
+	return &contracts.TaskResultDTO{Message: fmt.Sprintf("日志数据库已从 %s 切换为 %s", source, p.Target)}, nil
 }
 
 func validateSwitch(ctx context.Context, target string) error {
@@ -657,28 +583,4 @@ func setMigrationFlag(ctx context.Context, v string) error {
 
 func flipLogDatabase(ctx context.Context, target string) error {
 	return SaveOrUpdateSystemConfig(ctx, ConfigKeyLogDatabase, target)
-}
-
-func copyUserAccessLogs(ctx context.Context, src, dst *logstore.Store) error {
-	var afterID uint64
-	var copied int
-	for {
-		rows, err := src.UserAccessLogs.ListForMigration(ctx, afterID, copyBatchSize)
-		if err != nil {
-			return fmt.Errorf("读取源用户访问日志失败: %w", err)
-		}
-		if len(rows) == 0 {
-			break
-		}
-		if err := dst.UserAccessLogs.BatchInsert(ctx, rows); err != nil {
-			return fmt.Errorf("写入目标用户访问日志失败: %w", err)
-		}
-		afterID = rows[len(rows)-1].ID
-		copied += len(rows)
-		driver_asynq_worker.AppendLog(ctx, "已复制用户访问日志 %d 条", copied)
-		if len(rows) < copyBatchSize {
-			break
-		}
-	}
-	return nil
 }

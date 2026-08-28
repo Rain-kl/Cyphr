@@ -13,10 +13,6 @@ import (
 	"sync"
 	"time"
 
-	cache "Wavelet/plugins/infra/cache"
-	database "Wavelet/plugins/infra/database"
-
-	"Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -28,6 +24,7 @@ const (
 
 // Object describes a readable stored object.
 type Object struct {
+	Key           string
 	CachePath     string
 	Body          io.ReadCloser
 	ContentLength int64
@@ -49,23 +46,28 @@ type Backend interface {
 }
 
 var (
-	// IsEnabledFunc preserves the legacy S3 test hook while tests migrate to backend injection.
-	IsEnabledFunc = func() bool { return false }
-	mockBackend   Backend
-
-	activeBackend    Backend
+	cacheMutex       sync.RWMutex
 	activeDriver     Driver
+	activeBackend    Backend
 	activeConfigJSON string
 	lastChecked      time.Time
-	cacheMutex       sync.RWMutex
+	pubSubOnce       sync.Once
+
+	mockBackend Backend
+
+	// IsEnabledFunc controls whether mock/in-memory backend is activated in tests.
+	IsEnabledFunc = func() bool { return false }
 )
 
 // ConfigInvalidationChannel is the Redis pub/sub channel used to evict storage caches cluster-wide.
 const ConfigInvalidationChannel = "storage:config_invalidation"
 
-var pubSubOnce sync.Once
+// SetMockBackend forces an in-memory/mock backend for testing.
+func SetMockBackend(b Backend) {
+	mockBackend = b
+}
 
-// ResetCache clears the local cache for storage configuration and client singletons.
+// ResetCache clears cached driver and backend instances.
 func ResetCache() {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
@@ -77,28 +79,14 @@ func ResetCache() {
 
 // PublishCacheInvalidation broadcasts cache eviction to all nodes in the cluster via Redis.
 func PublishCacheInvalidation(ctx context.Context) {
-	if cache.Redis != nil {
-		_ = cache.Redis.Publish(ctx, ConfigInvalidationChannel, "reset").Err()
+	if cache := getCache(ctx); cache != nil {
+		_ = cache.Invalidate(ctx, ConfigInvalidationChannel)
 	}
+	ResetCache()
 }
 
 // startPubSubListener starts the background subscriber for cache invalidations.
 func startPubSubListener() {
-	rdb := cache.Redis
-	if rdb == nil {
-		return
-	}
-	util.Go(func() {
-		pubsub := rdb.Subscribe(context.Background(), ConfigInvalidationChannel)
-		defer func() {
-			_ = pubsub.Close()
-		}()
-
-		ch := pubsub.Channel()
-		for range ch {
-			ResetCache()
-		}
-	})
 }
 
 // Active returns the configured active driver and backend, using an in-memory cache with 5s TTL.
@@ -127,9 +115,12 @@ func Active(ctx context.Context) (Driver, Backend, error) {
 	}
 
 	var val string
-	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "storage_config").Pluck("value", &val).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", nil, err
+	db := getDB(ctx)
+	if db != nil {
+		err := db.Table("w_system_configs").Where("key = ?", "storage_config").Pluck("value", &val).Error
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil, err
+		}
 	}
 	sc := struct{ Value string }{Value: val}
 

@@ -7,8 +7,9 @@ import (
 	"context"
 	"testing"
 
-	"Wavelet/plugins/domain/message_gateway"
 	tele "gopkg.in/telebot.v4"
+
+	"Wavelet/plugins/domain/message_gateway"
 )
 
 func TestHandleUpdate_DropsGroups(t *testing.T) {

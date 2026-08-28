@@ -4,17 +4,40 @@
 package driver_http
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"Wavelet/pkg/testhelper"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
+	"Wavelet/pkg/testhelper"
 )
+
+type mockDBService struct {
+	db *gorm.DB
+}
+
+func (m *mockDBService) GORM() *gorm.DB {
+	return m.db
+}
+
+func (m *mockDBService) DB(ctx context.Context) *gorm.DB {
+	return m.db.WithContext(ctx)
+}
+
+func (m *mockDBService) Named(_ string) *gorm.DB {
+	return m.db
+}
 
 func TestCORSMiddleware(t *testing.T) {
 	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
-	defer cleanup()
+	setDBService(&mockDBService{db: dbConn})
+	defer func() {
+		setDBService(nil)
+		cleanup()
+	}()
 
 	gin.SetMode(gin.TestMode)
 

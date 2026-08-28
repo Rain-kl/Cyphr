@@ -4,8 +4,9 @@
 package testhelper
 
 import (
-	"Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
+
+	"Wavelet/pkg/response"
 )
 
 // NewTestGinEngine 创建带 ErrorHandlerMiddleware 的 Gin 引擎，与生产环境错误响应行为一致。

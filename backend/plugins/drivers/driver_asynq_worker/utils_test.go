@@ -6,8 +6,9 @@ package driver_asynq_worker
 import (
 	"testing"
 
-	"Wavelet/pkg/config"
 	"github.com/redis/go-redis/v9/maintnotifications"
+
+	"Wavelet/pkg/config"
 )
 
 func TestMaintNotificationsConfig(t *testing.T) {

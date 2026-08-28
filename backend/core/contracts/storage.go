@@ -46,6 +46,55 @@ type IngestResult struct {
 	Resolved bool
 }
 
+// StorageDriver identifies a supported storage backend.
+type StorageDriver string
+
+const (
+	StorageDriverLocal  StorageDriver = "local"
+	StorageDriverS3     StorageDriver = "s3"
+	StorageDriverR2     StorageDriver = "r2"
+	StorageDriverMinIO  StorageDriver = "minio"
+	StorageDriverOSS    StorageDriver = "oss"
+	StorageDriverWebDAV StorageDriver = "webdav"
+)
+
+// LocalStorageConfigDTO configures local filesystem storage.
+type LocalStorageConfigDTO struct {
+	Root string `json:"root"`
+}
+
+// ObjectStorageConfigDTO configures S3-compatible or OSS object storage.
+type ObjectStorageConfigDTO struct {
+	Endpoint        string `json:"endpoint"`
+	Region          string `json:"region"`
+	Bucket          string `json:"bucket"`
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
+	AccountID       string `json:"account_id,omitempty"`
+	PathStyle       bool   `json:"path_style"`
+	KeyPrefix       string `json:"key_prefix"`
+	CDNURL          string `json:"cdn_url"`
+}
+
+// WebDAVStorageConfigDTO configures WebDAV storage.
+type WebDAVStorageConfigDTO struct {
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Root     string `json:"root"`
+}
+
+// StorageConfigDTO encapsulates full storage configuration across all backends.
+type StorageConfigDTO struct {
+	Driver StorageDriver          `json:"driver"`
+	Local  LocalStorageConfigDTO  `json:"local"`
+	S3     ObjectStorageConfigDTO `json:"s3"`
+	R2     ObjectStorageConfigDTO `json:"r2"`
+	MinIO  ObjectStorageConfigDTO `json:"minio"`
+	OSS    ObjectStorageConfigDTO `json:"oss"`
+	WebDAV WebDAVStorageConfigDTO `json:"webdav"`
+}
+
 // StorageService defines the contract for unified object storage and managed file ingestion.
 type StorageService interface {
 	// Put writes an object to storage.

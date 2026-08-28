@@ -13,8 +13,6 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"Wavelet/pkg/idgen"
-	cachepkg "Wavelet/plugins/infra/cache"
-	db "Wavelet/plugins/infra/database"
 )
 
 const (
@@ -24,23 +22,23 @@ const (
 )
 
 func taskExecutionLogRedisKey(taskID string) string {
-	return cachepkg.PrefixedKey(taskExecutionLogRedisKeyPrefix + taskID)
+	return taskExecutionLogRedisKeyPrefix + taskID
 }
 
 func createTaskExecution(ctx context.Context, execution *TaskExecution) error {
 	if execution.ID == 0 {
 		execution.ID = idgen.NextUint64ID()
 	}
-	return db.DB(ctx).Create(execution).Error
+	return getDB(ctx).Create(execution).Error
 }
 
 func updateTaskExecution(ctx context.Context, execution *TaskExecution) error {
-	return db.DB(ctx).Omit("log").Save(execution).Error
+	return getDB(ctx).Omit("log").Save(execution).Error
 }
 
 func getTaskExecutionByID(ctx context.Context, id uint64) (*TaskExecution, error) {
 	var execution TaskExecution
-	if err := db.DB(ctx).Where("id = ?", id).First(&execution).Error; err != nil {
+	if err := getDB(ctx).Where("id = ?", id).First(&execution).Error; err != nil {
 		return nil, err
 	}
 	_ = loadTaskExecutionLog(ctx, &execution)
@@ -49,7 +47,7 @@ func getTaskExecutionByID(ctx context.Context, id uint64) (*TaskExecution, error
 
 func getTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecution, error) {
 	var execution TaskExecution
-	if err := db.DB(ctx).Where("task_id = ?", taskID).First(&execution).Error; err != nil {
+	if err := getDB(ctx).Where("task_id = ?", taskID).First(&execution).Error; err != nil {
 		return nil, err
 	}
 	_ = loadTaskExecutionLog(ctx, &execution)
@@ -57,7 +55,8 @@ func getTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecutio
 }
 
 func appendTaskExecutionLog(ctx context.Context, taskID string, logLine string) error {
-	if cachepkg.Redis == nil {
+	rdb := getRedisClient()
+	if rdb == nil {
 		return errors.New("redis client is not initialized")
 	}
 
@@ -65,7 +64,7 @@ func appendTaskExecutionLog(ctx context.Context, taskID string, logLine string) 
 	line := fmt.Sprintf("[%s] %s\n", now, logLine)
 	key := taskExecutionLogRedisKey(taskID)
 
-	_, err := cachepkg.Redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+	_, err := rdb.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 		pipe.RPush(ctx, key, line)
 		pipe.LTrim(ctx, key, -taskExecutionLogMaxLines, -1)
 		pipe.Expire(ctx, key, taskExecutionLogExpiration)
@@ -78,12 +77,13 @@ func appendTaskExecutionLog(ctx context.Context, taskID string, logLine string) 
 }
 
 func flushTaskExecutionLog(ctx context.Context, taskID string) error {
-	if cachepkg.Redis == nil {
+	rdb := getRedisClient()
+	if rdb == nil {
 		return errors.New("redis client is not initialized")
 	}
 
 	key := taskExecutionLogRedisKey(taskID)
-	logLines, err := cachepkg.Redis.LRange(ctx, key, 0, -1).Result()
+	logLines, err := rdb.LRange(ctx, key, 0, -1).Result()
 	if err != nil {
 		return fmt.Errorf("get task execution log from redis: %w", err)
 	}
@@ -92,7 +92,7 @@ func flushTaskExecutionLog(ctx context.Context, taskID string) error {
 	}
 	logText := strings.Join(logLines, "")
 
-	result := db.DB(ctx).Model(&TaskExecution{}).
+	result := getDB(ctx).Model(&TaskExecution{}).
 		Where("task_id = ?", taskID).
 		Update("log", logText)
 	if result.Error != nil {
@@ -102,18 +102,19 @@ func flushTaskExecutionLog(ctx context.Context, taskID string) error {
 		return fmt.Errorf("persist task execution log: task %q not found", taskID)
 	}
 
-	if err := cachepkg.Redis.Del(ctx, key).Err(); err != nil {
+	if err := rdb.Del(ctx, key).Err(); err != nil {
 		return fmt.Errorf("delete persisted task execution log from redis: %w", err)
 	}
 	return nil
 }
 
 func loadTaskExecutionLog(ctx context.Context, execution *TaskExecution) error {
-	if cachepkg.Redis == nil {
+	rdb := getRedisClient()
+	if rdb == nil {
 		return nil
 	}
 
-	logLines, err := cachepkg.Redis.LRange(ctx, taskExecutionLogRedisKey(execution.TaskID), 0, -1).Result()
+	logLines, err := rdb.LRange(ctx, taskExecutionLogRedisKey(execution.TaskID), 0, -1).Result()
 	if err != nil {
 		return fmt.Errorf("get task execution log from redis: %w", err)
 	}

@@ -8,15 +8,36 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/domain/upload/models"
-	database "Wavelet/plugins/infra/database"
-	"gorm.io/gorm"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
+type mockDBService struct {
+	db *gorm.DB
+}
+
+func (m *mockDBService) GORM() *gorm.DB {
+	return m.db
+}
+
+func (m *mockDBService) DB(ctx context.Context) *gorm.DB {
+	return m.db.WithContext(ctx)
+}
+
+func (m *mockDBService) Named(_ string) *gorm.DB {
+	return m.db
+}
+
 func TestApplyUploadStatsDeltaTxWithinTransaction(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
-	defer cleanup()
+	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	shared.SetDBService(&mockDBService{db: dbConn})
+	defer func() {
+		shared.SetDBService(nil)
+		cleanup()
+	}()
 	ctx := context.Background()
 
 	upload := &models.Upload{
@@ -29,7 +50,7 @@ func TestApplyUploadStatsDeltaTxWithinTransaction(t *testing.T) {
 		CreatedAt: time.Now(),
 	}
 
-	if err := database.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := shared.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
 		return ApplyUploadStatsDeltaTx(tx, upload, 1)
 	}); err != nil {
 		t.Fatalf("ApplyUploadStatsDeltaTx returned error: %v", err)
@@ -45,8 +66,12 @@ func TestApplyUploadStatsDeltaTxWithinTransaction(t *testing.T) {
 }
 
 func TestApplyUploadStatsAddAndRemove(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
-	defer cleanup()
+	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	shared.SetDBService(&mockDBService{db: dbConn})
+	defer func() {
+		shared.SetDBService(nil)
+		cleanup()
+	}()
 	ctx := context.Background()
 
 	upload := &models.Upload{
@@ -90,7 +115,7 @@ type uploadStatsSnapshot struct {
 
 func loadUploadStats(ctx context.Context) (uploadStatsSnapshot, error) {
 	var rows []models.UploadStat
-	if err := database.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
+	if err := shared.GetDB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
 		return uploadStatsSnapshot{}, err
 	}
 	if len(rows) == 0 {

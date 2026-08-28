@@ -7,9 +7,10 @@ package database
 import (
 	"context"
 
+	"gorm.io/gorm"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"gorm.io/gorm"
 )
 
 // Option configures the database plugin.
@@ -60,7 +61,11 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	targetDB := p.db
 	if targetDB == nil {
-		targetDB = DB(context.Background())
+		var err error
+		targetDB, err = InitDB()
+		if err != nil {
+			return err
+		}
 	}
 
 	svc := &dbServiceImpl{
@@ -68,8 +73,19 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		namedDBs: p.namedDBs,
 	}
 
+	if sqlDB, err := targetDB.DB(); err == nil && sqlDB != nil {
+		ctx.OnDispose(func() error {
+			return sqlDB.Close()
+		})
+	}
+
 	core.Provide[contracts.DBService](ctx, svc)
 	return nil
+}
+
+// NewService wraps a GORM DB instance into a contracts.DBService.
+func NewService(primary *gorm.DB) contracts.DBService {
+	return &dbServiceImpl{primary: primary}
 }
 
 type dbServiceImpl struct {

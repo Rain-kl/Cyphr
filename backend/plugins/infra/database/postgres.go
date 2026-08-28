@@ -11,38 +11,36 @@ import (
 	"strconv"
 	"time"
 
-	"Wavelet/pkg/config"
 	"github.com/glebarez/sqlite"
 	"go.opentelemetry.io/otel/attribute"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
 	"gorm.io/plugin/opentelemetry/tracing"
+
+	"Wavelet/pkg/config"
 )
 
 var (
 	db *gorm.DB
 )
 
-func init() {
+// InitDB 初始化主数据库实例（支持 PostgreSQL / SQLite）
+func InitDB() (*gorm.DB, error) {
 	if !config.Config.Database.Enabled {
-		// PostgreSQL 禁用，使用 SQLite
-		initSQLite()
-		return
+		return initSQLite()
 	}
-
-	initPostgres()
+	return initPostgres()
 }
 
 // initSQLite 初始化 SQLite 数据库（PostgreSQL 禁用时的后备方案）
-func initSQLite() {
+func initSQLite() (*gorm.DB, error) {
 	sqlitePath := config.Config.Database.SQLitePath
 	if sqlitePath == "" {
 		sqlitePath = "./data/wavelet.db"
 	}
 
-	var err error
-	db, err = gorm.Open(sqlite.Open(sqlitePath), &gorm.Config{
+	targetDB, err := gorm.Open(sqlite.Open(sqlitePath), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		Logger: &gormZapLogger{
 			logLevel:                  parseLogLevel(config.Config.Database.LogLevel),
@@ -51,11 +49,11 @@ func initSQLite() {
 		},
 	})
 	if err != nil {
-		log.Fatalf("[SQLite] init connection failed: %v\n", err)
+		return nil, err
 	}
 
 	// Trace 注入
-	if err = db.Use(
+	if err = targetDB.Use(
 		tracing.NewPlugin(
 			tracing.WithoutMetrics(),
 			tracing.WithAttributes(
@@ -64,15 +62,16 @@ func initSQLite() {
 			),
 		),
 	); err != nil {
-		log.Fatalf("[SQLite] init trace failed: %v\n", err)
+		return nil, err
 	}
 
+	db = targetDB
 	log.Printf("[SQLite] initialized (path: %s)\n", sqlitePath)
+	return targetDB, nil
 }
 
 // initPostgres 初始化 PostgreSQL 数据库
-func initPostgres() {
-	var err error
+func initPostgres() (*gorm.DB, error) {
 	dbConfig := config.Config.Database
 
 	// 构建主库 DSN 并连接
@@ -83,7 +82,7 @@ func initPostgres() {
 		PreferSimpleProtocol: dbConfig.PreferSimpleProtocol,
 	}
 
-	db, err = gorm.Open(postgres.New(pgConfig), &gorm.Config{
+	targetDB, err := gorm.Open(postgres.New(pgConfig), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		Logger: &gormZapLogger{
 			logLevel:                  parseLogLevel(config.Config.Database.LogLevel),
@@ -92,11 +91,11 @@ func initPostgres() {
 		},
 	})
 	if err != nil {
-		log.Fatalf("[PostgreSQL] init connection failed: %v\n", err)
+		return nil, err
 	}
 
 	// Trace 注入
-	if err = db.Use(
+	if err = targetDB.Use(
 		tracing.NewPlugin(
 			tracing.WithoutMetrics(),
 			tracing.WithAttributes(
@@ -107,7 +106,7 @@ func initPostgres() {
 			),
 		),
 	); err != nil {
-		log.Fatalf("[PostgreSQL] init trace failed: %v\n", err)
+		return nil, err
 	}
 
 	if len(dbConfig.Replicas) > 0 {
@@ -138,8 +137,8 @@ func initPostgres() {
 			SetConnMaxLifetime(time.Duration(dbConfig.ConnMaxLifetime) * time.Second).
 			SetConnMaxIdleTime(time.Duration(dbConfig.ConnMaxIdleTime) * time.Second)
 
-		if err = db.Use(resolver); err != nil {
-			log.Fatalf("[PostgreSQL] init dbresolver failed: %v\n", err)
+		if err = targetDB.Use(resolver); err != nil {
+			return nil, err
 		}
 		log.Printf("[PostgreSQL] initialized in Primary-Replica mode (%d replicas)\n", len(dbConfig.Replicas))
 	} else {
@@ -147,15 +146,18 @@ func initPostgres() {
 	}
 
 	// 获取通用数据库对象设置连接池
-	sqlDB, err := db.DB()
+	sqlDB, err := targetDB.DB()
 	if err != nil {
-		log.Fatalf("[PostgreSQL] load sql db failed: %v\n", err)
+		return nil, err
 	}
 
 	sqlDB.SetMaxIdleConns(dbConfig.MaxIdleConn)
 	sqlDB.SetMaxOpenConns(dbConfig.MaxOpenConn)
 	sqlDB.SetConnMaxLifetime(time.Duration(dbConfig.ConnMaxLifetime) * time.Second)
 	sqlDB.SetConnMaxIdleTime(time.Duration(dbConfig.ConnMaxIdleTime) * time.Second)
+
+	db = targetDB
+	return targetDB, nil
 }
 
 // buildDSN 构建 PostgreSQL DSN

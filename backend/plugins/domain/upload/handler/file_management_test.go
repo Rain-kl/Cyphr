@@ -12,12 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 func TestGetDistinctUploadTypes(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	user := contracts.UserDTO{ID: 2222, Username: "test_user_2"}
@@ -61,6 +61,6 @@ func TestGetDistinctUploadTypes(t *testing.T) {
 	}
 
 	if len(resp.Data) != 1 || resp.Data[0] != "custom_type_xyz" {
-		t.Errorf("expected only custom_type_xyz in types list, got: %v", resp.Data)
+		t.Fatalf("expected ['custom_type_xyz'], got %v", resp.Data)
 	}
 }

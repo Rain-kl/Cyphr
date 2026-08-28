@@ -18,7 +18,6 @@ import (
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
-	"Wavelet/plugins/domain/risk_control/logstore"
 )
 
 var startTime = time.Now()
@@ -177,21 +176,13 @@ type LogDatabaseStatus struct {
 // @Router /api/v1/admin/status/log-database [get]
 func GetLogDatabaseStatus(c *gin.Context) {
 	ctx := c.Request.Context()
-	store, err := logstore.Active(ctx)
-	if err != nil {
-		logger.ErrorF(ctx, "获取日志存储实例失败: %v", err)
-		response.AbortInternal(c, "日志存储初始化失败")
-		return
-	}
-	activeDB, err := store.Status.ActiveDatabase(ctx)
-	if err != nil {
-		logger.ErrorF(ctx, "获取日志库状态失败: %v", err)
-		response.AbortInternal(c, "获取日志库状态失败")
-		return
-	}
+	activeDB := "sqlite"
 	migration := "idle"
-	if logstore.Migrating(ctx) {
-		migration = "migrating"
+	if rc := GetRiskControlService(); rc != nil {
+		activeDB = rc.ActiveLogEngine(ctx)
+		if rc.IsLogEngineMigrating(ctx) {
+			migration = "migrating"
+		}
 	}
 	c.JSON(http.StatusOK, response.OK(LogDatabaseStatus{
 		ActiveDatabase: activeDB,

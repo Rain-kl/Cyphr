@@ -11,19 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
-	cachepkg "Wavelet/plugins/infra/cache"
-	database "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 const fileAccessInvalidationChannel = "upload:file_access_invalidation"
 
 var (
-	accessCacheOnce sync.Once
-
 	fileAccessWhitelistMu        sync.RWMutex
 	fileAccessWhitelistTypes     map[string]struct{}
 	fileAccessWhitelistValid     bool
@@ -42,35 +36,10 @@ func ResetAccessCaches() {
 
 // PublishAccessCacheInvalidation broadcasts upload access cache eviction to all nodes.
 func PublishAccessCacheInvalidation(ctx context.Context) {
-	if cachepkg.Redis != nil {
-		_ = cachepkg.Redis.Publish(ctx, fileAccessInvalidationChannel, "reset").Err()
+	if cache := shared.GetCache(ctx); cache != nil {
+		_ = cache.Invalidate(ctx, fileAccessInvalidationChannel)
 	}
-}
-
-func ensureAccessCacheListener() {
-	accessCacheOnce.Do(startAccessCacheInvalidationListener)
-}
-
-func startAccessCacheInvalidationListener() {
-	rdb := cachepkg.Redis
-	if rdb == nil {
-		return
-	}
-
-	util.Go(func() {
-		pubsub := rdb.Subscribe(
-			context.Background(),
-			objectstore.ConfigInvalidationChannel,
-			fileAccessInvalidationChannel,
-		)
-		defer func() {
-			_ = pubsub.Close()
-		}()
-
-		for range pubsub.Channel() {
-			ResetAccessCaches()
-		}
-	})
+	ResetAccessCaches()
 }
 
 // IsFilePublic reports whether uploadType is in the public access whitelist.
@@ -81,8 +50,6 @@ func IsFilePublic(ctx context.Context, uploadType string) bool {
 }
 
 func loadFileAccessWhitelist(ctx context.Context) map[string]struct{} {
-	ensureAccessCacheListener()
-
 	fileAccessWhitelistMu.RLock()
 	if fileAccessWhitelistValid && time.Since(fileAccessWhitelistCheckedAt) < time.Duration(shared.AccessCacheTTL)*time.Second {
 		types := fileAccessWhitelistTypes
@@ -115,8 +82,11 @@ func fetchFileAccessWhitelist(ctx context.Context) map[string]struct{} {
 
 func parseFileAccessWhitelist(ctx context.Context) []string {
 	var sc struct{ Value string }
-	err := database.DB(ctx).Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error
-	if err != nil || sc.Value == "" {
+	db := shared.GetDB(ctx)
+	if db != nil {
+		_ = db.Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error
+	}
+	if sc.Value == "" {
 		return []string{shared.DefaultPublicUploadType}
 	}
 

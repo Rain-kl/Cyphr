@@ -13,20 +13,21 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/response"
-	"Wavelet/pkg/testhelper"
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
-	"Wavelet/plugins/infra/storage/objectstore"
-	"github.com/gin-gonic/gin"
 )
 
 type testResponse struct {
@@ -86,9 +87,6 @@ func createMultipartRequest(t *testing.T, fieldName, fileName string, fileConten
 
 	for k, v := range extraFields {
 		err = writer.WriteField(k, v)
-		if err != nil {
-			t.Fatalf("failed to write form field: %v", err)
-		}
 	}
 
 	err = writer.Close()
@@ -99,51 +97,76 @@ func createMultipartRequest(t *testing.T, fieldName, fileName string, fileConten
 	return writer.FormDataContentType(), body
 }
 
+type handlerTestStorage struct {
+	mu        sync.RWMutex
+	mockFiles map[string][]byte
+	putCount  *int
+}
+
+func (s *handlerTestStorage) Put(_ context.Context, key string, body io.Reader, _ int64, _ string) (contracts.StoragePutResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, _ := io.ReadAll(body)
+	s.mockFiles[key] = data
+	if s.putCount != nil {
+		*s.putCount++
+	}
+	if strings.HasPrefix(key, "uploads/") {
+		_ = os.MkdirAll(filepath.Dir(key), 0755)
+		_ = os.WriteFile(key, data, 0644)
+	}
+	return contracts.StoragePutResult{Key: key, Bucket: "test-bucket"}, nil
+}
+
+func (s *handlerTestStorage) Get(_ context.Context, key string) (*contracts.StorageObject, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	data, ok := s.mockFiles[key]
+	if ok {
+		return &contracts.StorageObject{
+			Key:           key,
+			Body:          io.NopCloser(bytes.NewReader(data)),
+			ContentLength: int64(len(data)),
+			ContentType:   "application/octet-stream",
+		}, nil
+	}
+	if f, err := os.Open(key); err == nil {
+		info, _ := f.Stat()
+		return &contracts.StorageObject{
+			Key:           key,
+			Body:          f,
+			ContentLength: info.Size(),
+			ContentType:   "application/octet-stream",
+		}, nil
+	}
+	return nil, os.ErrNotExist
+}
+
+func (s *handlerTestStorage) Delete(_ context.Context, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.mockFiles, key)
+	return nil
+}
+
+func (s *handlerTestStorage) Ingest(_ context.Context, _ io.Reader, _ contracts.IngestOptions) (*contracts.IngestResult, error) {
+	return nil, nil
+}
+
 func TestUploadFile(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }() // Clean up local files created during tests
 
 	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
-	// Mock Storage Client
-	mockFiles := make(map[string][]byte)
 	var putCount int
-
-	restoreStorage := objectstore.MockStorage(
-		func(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
-			data, err := io.ReadAll(body)
-			if err != nil {
-				return err
-			}
-			mockFiles[key] = data
-			putCount++
-			return nil
-		},
-		func(ctx context.Context, key string) (*objectstore.Object, error) {
-			data, ok := mockFiles[key]
-			if !ok {
-				return nil, os.ErrNotExist
-			}
-			return &objectstore.Object{
-				Body:          io.NopCloser(bytes.NewReader(data)),
-				ContentLength: int64(len(data)),
-				ContentType:   "application/octet-stream",
-			}, nil
-		},
-		func(ctx context.Context, key string) error {
-			delete(mockFiles, key)
-			return nil
-		},
-	)
-	defer restoreStorage()
-
-	// 开启 S3 Storage
-	objectstore.IsEnabledFunc = func() bool { return true }
-	defer func() {
-		objectstore.IsEnabledFunc = func() bool { return false }
-	}()
+	mockStorage := &handlerTestStorage{
+		mockFiles: make(map[string][]byte),
+		putCount:  &putCount,
+	}
+	shared.SetStorageService(mockStorage)
 
 	t.Run("upload allowed image file successfully", func(t *testing.T) {
 		putCount = 0
@@ -283,9 +306,6 @@ func TestUploadFile(t *testing.T) {
 	})
 
 	t.Run("upload in local storage fallback mode", func(t *testing.T) {
-		// Turn off S3
-		objectstore.IsEnabledFunc = func() bool { return false }
-
 		// Seed allowed extensions configuration to allow txt files
 		dbConn.Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Update("value", "jpg,png,webp,txt")
 
@@ -327,7 +347,7 @@ func TestUploadFile(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }()
 
@@ -395,7 +415,7 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestListFiles(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
@@ -535,7 +555,7 @@ func TestListFiles(t *testing.T) {
 }
 
 func TestBatchDownloadFiles(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }()
 
@@ -647,7 +667,7 @@ func TestBatchDownloadFiles(t *testing.T) {
 }
 
 func TestUploadAccessModeAccessControl(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }()
 
@@ -734,7 +754,7 @@ func TestUploadAccessModeAccessControl(t *testing.T) {
 }
 
 func TestGetFileStats(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
@@ -844,7 +864,7 @@ func TestGetFileStats(t *testing.T) {
 }
 
 func TestUserUploadManagement(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
 	user1 := &contracts.UserDTO{ID: 1001, Username: "user1"}

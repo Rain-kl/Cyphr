@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
+	"gorm.io/gorm"
+
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/util"
-	database "Wavelet/plugins/infra/database"
-	"gorm.io/gorm"
 )
 
 var (
@@ -20,7 +20,8 @@ var (
 	dbSvc contracts.DBService
 )
 
-func setDBService(s contracts.DBService) {
+// SetDBService sets the active DBService contract for the user domain plugin.
+func SetDBService(s contracts.DBService) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	dbSvc = s
@@ -28,7 +29,7 @@ func setDBService(s contracts.DBService) {
 
 func getDB(ctx context.Context) *gorm.DB {
 	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s := c.DB(); s != nil {
+		if s, err := core.Inject[contracts.DBService](c); err == nil && s != nil {
 			return s.DB(ctx)
 		}
 	}
@@ -40,8 +41,7 @@ func getDB(ctx context.Context) *gorm.DB {
 		return s.DB(ctx)
 	}
 
-	// Fallback for standalone CLI commands running without core.App
-	return database.DB(ctx)
+	return nil
 }
 
 // GetUserByID 通过 ID 获取用户

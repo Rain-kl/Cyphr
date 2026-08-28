@@ -9,12 +9,12 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/trace"
 	"Wavelet/pkg/util"
-	db "Wavelet/plugins/infra/database"
-	"github.com/gin-gonic/gin"
 )
 
 func hashToken(token string) string {
@@ -38,7 +38,7 @@ func getUserByToken(ctx context.Context, tokenStr string) (*contracts.UserDTO, *
 		UserID  uint64
 		IsAdmin bool
 	}
-	if err := db.DB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
+	if err := getDB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
 		return nil, nil, err
 	}
 	tokenRecord = &CachedToken{
@@ -49,7 +49,7 @@ func getUserByToken(ctx context.Context, tokenStr string) (*contracts.UserDTO, *
 	SetCachedToken(ctx, tokenHash, tokenRecord)
 
 	var userRow contracts.UserDTO
-	if err := db.DB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRow.UserID, true).First(&userRow).Error; err != nil {
+	if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRow.UserID, true).First(&userRow).Error; err != nil {
 		return nil, nil, err
 	}
 	SetCachedUser(ctx, userRow.ID, &userRow)
@@ -90,7 +90,7 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 	user, err := GetCachedUser(ctx, userID)
 	if err != nil || user == nil || !user.IsActive {
 		var dbUser contracts.UserDTO
-		if err := db.DB(ctx).Table("w_users").Where("id = ? AND is_active = ?", userID, true).First(&dbUser).Error; err != nil {
+		if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", userID, true).First(&dbUser).Error; err != nil {
 			return nil, err
 		}
 		user = &dbUser

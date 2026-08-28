@@ -13,8 +13,8 @@ import (
 
 	"github.com/hibiken/asynq"
 
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
 )
 
 var (
@@ -22,11 +22,22 @@ var (
 	schedulerMutex  sync.Mutex
 	quitChan        chan struct{}
 	schedulerOnce   sync.Once
+	taskSvcMu       sync.RWMutex
+	taskSvcInstance contracts.TaskService
+	// RedisOpt is the Redis connection option for the scheduler.
+	RedisOpt asynq.RedisConnOpt
 )
 
-// GetAsynqClient 获取全局 AsynqClient
-func GetAsynqClient() *asynq.Client {
-	return driver_asynq_worker.AsynqClient
+func setTaskService(s contracts.TaskService) {
+	taskSvcMu.Lock()
+	defer taskSvcMu.Unlock()
+	taskSvcInstance = s
+}
+
+func getTaskService() contracts.TaskService {
+	taskSvcMu.RLock()
+	defer taskSvcMu.RUnlock()
+	return taskSvcInstance
 }
 
 // StartScheduler 启动调度器 (该函数阻塞，直到调度器退出)
@@ -92,27 +103,39 @@ func ReloadScheduler() error {
 
 	// 3. 实例化新的调度器
 	newScheduler := asynq.NewScheduler(
-		driver_asynq_worker.RedisOpt,
+		RedisOpt,
 		&asynq.SchedulerOpts{
 			Location: location,
 		},
 	)
 
 	// 4. 遍历并注册任务
+	taskSvc := getTaskService()
 	for _, s := range schedules {
-		meta := driver_asynq_worker.GetTaskMeta(s.TaskType)
-		if meta == nil {
-			continue // 忽略排程配置中无效的任务类型
+		taskName := s.TaskType
+		maxRetry := 3
+		queue := "default"
+
+		if taskSvc != nil {
+			if meta, ok := taskSvc.GetTaskMeta(s.TaskType); ok {
+				taskName = meta.Name
+				if meta.MaxRetry > 0 {
+					maxRetry = meta.MaxRetry
+				}
+				if meta.Queue != "" {
+					queue = meta.Queue
+				}
+			}
 		}
 
-		// 构造 Asynq 载荷。定时任务使用对应 Meta 中的 Asynq 标识，同时将数据库中保存的 json 作为参数
-		t := asynq.NewTask(meta.AsynqTask, []byte(s.Payload))
+		// 构造 Asynq 载荷
+		t := asynq.NewTask(taskName, []byte(s.Payload))
 
 		if _, err := newScheduler.Register(
 			s.Cron,
 			t,
-			asynq.MaxRetry(meta.MaxRetry),
-			asynq.Queue(meta.Queue),
+			asynq.MaxRetry(maxRetry),
+			asynq.Queue(queue),
 		); err != nil {
 			// 定时任务配置可能有误（如 Cron 格式不被 Asynq 识别），记录日志并跳过
 			logger.ErrorF(context.Background(), "[Scheduler] 注册定时任务失败 id=%d name=%s: %v", s.ID, s.Name, err)

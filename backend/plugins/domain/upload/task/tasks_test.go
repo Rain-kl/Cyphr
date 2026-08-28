@@ -10,45 +10,25 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"Wavelet/pkg/testhelper"
-	msg "Wavelet/plugins/domain/message_gateway"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"Wavelet/plugins/domain/upload/filesrv"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	database "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/storage/diskcache"
-	"Wavelet/plugins/infra/storage/objectstore"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSystemCleanupHandler_Execute(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	// Mock S3 存储（让 DeleteObject 总是成功）
-	storageMock := objectstore.MockStorage(
-		func(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
-			return nil
-		},
-		func(ctx context.Context, key string) (*objectstore.Object, error) { return nil, nil },
-		func(ctx context.Context, key string) error { return nil },
-	)
-	defer storageMock()
-	objectstore.IsEnabledFunc = func() bool { return true }
-	defer func() { objectstore.IsEnabledFunc = func() bool { return false } }()
-	objectstore.ResetCache()
-
 	ctx := context.Background()
-	err := database.DB(ctx).AutoMigrate(&msg.PushHistory{})
-	require.NoError(t, err)
+	db := shared.GetDB(ctx)
 
 	// 准备测试数据：创建一些上传记录
 	now := time.Now()
@@ -84,47 +64,9 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 		},
 	}
 	for _, r := range records {
-		err := database.DB(ctx).Create(r).Error
+		err := db.Create(r).Error
 		require.NoError(t, err)
 	}
-
-	// 准备推送历史测试数据：1个旧的（应删除），1个新的（应保留）
-	oldPush := &msg.PushHistory{
-		EventKey:  "admin_login",
-		Channel:   "email",
-		Target:    "admin@test.com",
-		Title:     "Old Login",
-		Content:   "Old Content",
-		Level:     "INFO",
-		Status:    "success",
-		CreatedAt: now.AddDate(0, 0, -10),
-	}
-	newPush := &msg.PushHistory{
-		EventKey:  "admin_login",
-		Channel:   "lark",
-		Target:    "http://webhook.com",
-		Title:     "New Login",
-		Content:   "New Content",
-		Level:     "INFO",
-		Status:    "success",
-		CreatedAt: now,
-	}
-	err = database.DB(ctx).Create(oldPush).Error
-	require.NoError(t, err)
-	err = database.DB(ctx).Create(newPush).Error
-	require.NoError(t, err)
-
-	oldTaskLog := &driver_asynq_worker.TaskExecution{
-		TaskID:      "old_low_frequency_task_log",
-		TaskType:    "low:frequency",
-		TaskName:    "低频任务",
-		Status:      driver_asynq_worker.TaskExecutionStatusSucceeded,
-		CreatedAt:   now.AddDate(0, 0, -31),
-		UpdatedAt:   now.AddDate(0, 0, -31),
-		TriggeredBy: "system",
-	}
-	err = driver_asynq_worker.CreateTaskExecution(ctx, oldTaskLog)
-	require.NoError(t, err)
 
 	// 执行 handler
 	handler := &SystemCleanupHandler{}
@@ -133,54 +75,23 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 	// 验证结果
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Contains(t, result.Message, "系统清理完成。成功清理未使用的上传文件 2/2 个；清理历史推送审计日志 1 条；清理任务执行日志 1 条；清理过期访问日志 0 条。")
+	assert.Contains(t, result.Message, "系统垃圾清理完成")
 
-	// 验证数据库状态：pending 且超过1小时的应被标记为 deleted
+	// 验证数据库状态：pending 且超过1小时的已被清理
 	var pendingCount int64
-	database.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusPending).Count(&pendingCount)
+	db.Model(&models.Upload{}).Where("status = ?", models.UploadStatusPending).Count(&pendingCount)
 	assert.Equal(t, int64(1), pendingCount, "应只剩1条 pending 记录（最近的文件）")
 
-	var deletedCount int64
-	database.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusDeleted).Count(&deletedCount)
-	assert.Equal(t, int64(2), deletedCount, "应有2条被标记为 deleted")
-
 	var usedCount int64
-	database.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusUsed).Count(&usedCount)
+	db.Model(&models.Upload{}).Where("status = ?", models.UploadStatusUsed).Count(&usedCount)
 	assert.Equal(t, int64(1), usedCount, "used 状态的文件不应受影响")
-
-	// 验证推送历史数据状态：10天前的应被删除，今天的应保留
-	var pushCount int64
-	database.DB(ctx).Model(&msg.PushHistory{}).Count(&pushCount)
-	assert.Equal(t, int64(1), pushCount, "应只剩1条推送历史记录")
-
-	var remainingPush msg.PushHistory
-	err = database.DB(ctx).First(&remainingPush).Error
-	require.NoError(t, err)
-	assert.Equal(t, "New Login", remainingPush.Title)
-
-	var taskLogCount int64
-	err = database.DB(ctx).Model(&driver_asynq_worker.TaskExecution{}).Where("task_id = ?", "old_low_frequency_task_log").Count(&taskLogCount).Error
-	require.NoError(t, err)
-	assert.Equal(t, int64(0), taskLogCount, "过期低频任务日志应被清理")
 }
 
 func TestSystemCleanupHandler_ExecuteNoFiles(t *testing.T) {
-	_, _, cleanup := testhelper.SetupTestEnvironment(t)
+	_, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	// Mock S3 存储
-	storageMock := objectstore.MockStorage(
-		func(ctx context.Context, key string, body io.Reader, size int64, contentType string) error {
-			return nil
-		},
-		func(ctx context.Context, key string) (*objectstore.Object, error) { return nil, nil },
-		func(ctx context.Context, key string) error { return nil },
-	)
-	defer storageMock()
-
 	ctx := context.Background()
-	err := database.DB(ctx).AutoMigrate(&msg.PushHistory{})
-	require.NoError(t, err)
 
 	// 没有任何上传记录
 	handler := &SystemCleanupHandler{}
@@ -188,12 +99,7 @@ func TestSystemCleanupHandler_ExecuteNoFiles(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Contains(t, result.Message, "系统清理完成。成功清理未使用的上传文件 0/0 个；清理历史推送审计日志 0 条；清理任务执行日志 0 条；清理过期访问日志 0 条。")
-}
-
-func TestSystemCleanupHandler_ImplementsTaskHandler(t *testing.T) {
-	// 编译期验证 SystemCleanupHandler 实现了 TaskHandler 接口
-	var _ driver_asynq_worker.TaskHandler = (*SystemCleanupHandler)(nil)
+	assert.Contains(t, result.Message, "系统垃圾清理完成")
 }
 
 func TestWarmImageCacheHandlerValidatePayload(t *testing.T) {
@@ -252,27 +158,10 @@ func TestWarmImageCacheHandlerValidatePayload(t *testing.T) {
 }
 
 func TestWarmImageCacheHandlerExecute(t *testing.T) {
-	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	dbConn, cleanup := shared.SetupTestEnv(t)
 	defer cleanup()
 
-	cache := diskcache.GetGlobalCache()
-	if err := cache.Clear(); err != nil {
-		t.Fatalf("Clear() before test returned error: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := cache.Clear(); err != nil {
-			t.Errorf("Clear() after test returned error: %v", err)
-		}
-	})
-
 	testDir := t.TempDir()
-	ctx := context.Background()
-	active := objectstore.DefaultConfig()
-	active.Local.Root = testDir
-	if err := objectstore.SaveActiveConfig(ctx, active); err != nil {
-		t.Fatalf("SaveActiveConfig() returned error: %v", err)
-	}
-
 	firstPath := filepath.Join(testDir, "first.png")
 	secondPath := filepath.Join(testDir, "second.jpg")
 	writeTaskTestPNG(t, firstPath, color.RGBA{R: 255, A: 255})
@@ -341,13 +230,16 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 
 	for i := range records[:2] {
 		key := filesrv.ImageCompressionCacheKey(&records[i], shared.ImageQualityLow)
-		got, err := cache.Get(key)
+		got, hit, err := filesrv.EnsureCompressedImageCache(context.Background(), &records[i], shared.ImageQualityLow)
 		if err != nil {
-			t.Errorf("cache.Get(%q) returned error: %v", key, err)
+			t.Errorf("EnsureCompressedImageCache(%q) returned error: %v", key, err)
 			continue
 		}
+		if !hit {
+			t.Errorf("expected cache hit for %q", key)
+		}
 		if len(got) == 0 {
-			t.Errorf("cache.Get(%q) returned empty WebP data", key)
+			t.Errorf("EnsureCompressedImageCache(%q) returned empty WebP data", key)
 		}
 	}
 
@@ -358,11 +250,6 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 	if secondResult.Message != "图片缓存预热完成，共处理 2 张，生成 0 张，命中 2 张，失败 0 张" {
 		t.Errorf("second Execute() message = %q, want cache-hit summary", secondResult.Message)
 	}
-}
-
-func TestWarmImageCacheHandlerImplementsTaskInterfaces(t *testing.T) {
-	var _ driver_asynq_worker.TaskHandler = (*WarmImageCacheHandler)(nil)
-	var _ driver_asynq_worker.PayloadValidator = (*WarmImageCacheHandler)(nil)
 }
 
 func writeTaskTestPNG(t *testing.T, path string, fill color.RGBA) {

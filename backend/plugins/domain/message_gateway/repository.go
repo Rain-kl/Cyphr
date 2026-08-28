@@ -11,8 +11,6 @@ import (
 	"gorm.io/gorm"
 
 	"Wavelet/pkg/idgen"
-	cachepkg "Wavelet/plugins/infra/cache"
-	db "Wavelet/plugins/infra/database"
 )
 
 const (
@@ -25,18 +23,18 @@ func CreateMessageChannel(ctx context.Context, ch *MessageChannel) error {
 	if ch.ID == 0 {
 		ch.ID = idgen.NextUint64ID()
 	}
-	return db.DB(ctx).Create(ch).Error
+	return getDB(ctx).Create(ch).Error
 }
 
 // UpdateMessageChannel saves a channel row.
 func UpdateMessageChannel(ctx context.Context, ch *MessageChannel) error {
-	return db.DB(ctx).Save(ch).Error
+	return getDB(ctx).Save(ch).Error
 }
 
 // GetMessageChannel loads a channel by id.
 func GetMessageChannel(ctx context.Context, id uint64) (*MessageChannel, error) {
 	var ch MessageChannel
-	if err := db.DB(ctx).Where("id = ?", id).First(&ch).Error; err != nil {
+	if err := getDB(ctx).Where("id = ?", id).First(&ch).Error; err != nil {
 		return nil, err
 	}
 	return &ch, nil
@@ -45,7 +43,7 @@ func GetMessageChannel(ctx context.Context, id uint64) (*MessageChannel, error) 
 // ListMessageChannels returns all channels newest first.
 func ListMessageChannels(ctx context.Context) ([]MessageChannel, error) {
 	var rows []MessageChannel
-	if err := db.DB(ctx).Order("id DESC").Find(&rows).Error; err != nil {
+	if err := getDB(ctx).Order("id DESC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
@@ -53,7 +51,7 @@ func ListMessageChannels(ctx context.Context) ([]MessageChannel, error) {
 
 // DeleteMessageChannel removes pairings, bindings, then the channel.
 func DeleteMessageChannel(ctx context.Context, id uint64) error {
-	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
+	return getDB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("channel_id = ?", id).Delete(&MessagePairingCode{}).Error; err != nil {
 			return err
 		}
@@ -69,13 +67,13 @@ func CreateMessageBinding(ctx context.Context, b *MessageBinding) error {
 	if b.ID == 0 {
 		b.ID = idgen.NextUint64ID()
 	}
-	return db.DB(ctx).Create(b).Error
+	return getDB(ctx).Create(b).Error
 }
 
 // GetBindingByChannelPlatform finds a binding for a platform user on a channel.
 func GetBindingByChannelPlatform(ctx context.Context, channelID uint64, platformUserID string) (*MessageBinding, error) {
 	var b MessageBinding
-	err := db.DB(ctx).Where("channel_id = ? AND platform_user_id = ?", channelID, platformUserID).First(&b).Error
+	err := getDB(ctx).Where("channel_id = ? AND platform_user_id = ?", channelID, platformUserID).First(&b).Error
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +83,7 @@ func GetBindingByChannelPlatform(ctx context.Context, channelID uint64, platform
 // ListBindingsByUser lists bindings for a Wavelet user.
 func ListBindingsByUser(ctx context.Context, userID uint64) ([]MessageBinding, error) {
 	var rows []MessageBinding
-	if err := db.DB(ctx).Where("user_id = ?", userID).Order("id DESC").Find(&rows).Error; err != nil {
+	if err := getDB(ctx).Where("user_id = ?", userID).Order("id DESC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
@@ -94,7 +92,7 @@ func ListBindingsByUser(ctx context.Context, userID uint64) ([]MessageBinding, e
 // GetMessageBinding loads a binding by id.
 func GetMessageBinding(ctx context.Context, id uint64) (*MessageBinding, error) {
 	var b MessageBinding
-	if err := db.DB(ctx).Where("id = ?", id).First(&b).Error; err != nil {
+	if err := getDB(ctx).Where("id = ?", id).First(&b).Error; err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -102,13 +100,13 @@ func GetMessageBinding(ctx context.Context, id uint64) (*MessageBinding, error) 
 
 // DeleteMessageBinding deletes a binding by id.
 func DeleteMessageBinding(ctx context.Context, id uint64) error {
-	return db.DB(ctx).Delete(&MessageBinding{}, id).Error
+	return getDB(ctx).Delete(&MessageBinding{}, id).Error
 }
 
 // UpsertPairingCode reuses an unexpired code for the same channel+platform user.
 func UpsertPairingCode(ctx context.Context, channelID uint64, platformUserID, code string, expiresAt time.Time) (*MessagePairingCode, error) {
 	var existing MessagePairingCode
-	err := db.DB(ctx).
+	err := getDB(ctx).
 		Where("channel_id = ? AND platform_user_id = ? AND expires_at > ?", channelID, platformUserID, time.Now()).
 		First(&existing).Error
 	if err == nil {
@@ -123,7 +121,7 @@ func UpsertPairingCode(ctx context.Context, channelID uint64, platformUserID, co
 		PlatformUserID: platformUserID,
 		ExpiresAt:      expiresAt,
 	}
-	if err := db.DB(ctx).Create(row).Error; err != nil {
+	if err := getDB(ctx).Create(row).Error; err != nil {
 		return nil, err
 	}
 	return row, nil
@@ -132,7 +130,7 @@ func UpsertPairingCode(ctx context.Context, channelID uint64, platformUserID, co
 // GetPairingCode loads a pairing code by normalized code string.
 func GetPairingCode(ctx context.Context, code string) (*MessagePairingCode, error) {
 	var row MessagePairingCode
-	if err := db.DB(ctx).Where("code = ?", code).First(&row).Error; err != nil {
+	if err := getDB(ctx).Where("code = ?", code).First(&row).Error; err != nil {
 		return nil, err
 	}
 	return &row, nil
@@ -140,18 +138,18 @@ func GetPairingCode(ctx context.Context, code string) (*MessagePairingCode, erro
 
 // DeletePairingCode removes a pairing code.
 func DeletePairingCode(ctx context.Context, code string) error {
-	return db.DB(ctx).Where("code = ?", code).Delete(&MessagePairingCode{}).Error
+	return getDB(ctx).Where("code = ?", code).Delete(&MessagePairingCode{}).Error
 }
 
 // DeleteExpiredPairingCodes removes expired pairing rows.
 func DeleteExpiredPairingCodes(ctx context.Context) error {
-	return db.DB(ctx).Where("expires_at <= ?", time.Now()).Delete(&MessagePairingCode{}).Error
+	return getDB(ctx).Where("expires_at <= ?", time.Now()).Delete(&MessagePairingCode{}).Error
 }
 
 // ListEnabledMessageChannels returns enabled channels.
 func ListEnabledMessageChannels(ctx context.Context) ([]MessageChannel, error) {
 	var rows []MessageChannel
-	if err := db.DB(ctx).Where("enabled = ?", true).Find(&rows).Error; err != nil {
+	if err := getDB(ctx).Where("enabled = ?", true).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return rows, nil
@@ -160,7 +158,7 @@ func ListEnabledMessageChannels(ctx context.Context) ([]MessageChannel, error) {
 // ListPushChannelsRecord returns all push channels ordered by creation time descending.
 func ListPushChannelsRecord(ctx context.Context) ([]PushChannel, error) {
 	var channels []PushChannel
-	if err := db.DB(ctx).Order("created_at DESC").Find(&channels).Error; err != nil {
+	if err := getDB(ctx).Order("created_at DESC").Find(&channels).Error; err != nil {
 		return nil, err
 	}
 	return channels, nil
@@ -169,7 +167,7 @@ func ListPushChannelsRecord(ctx context.Context) ([]PushChannel, error) {
 // GetPushChannelByIDRecord loads a push channel by primary key.
 func GetPushChannelByIDRecord(ctx context.Context, id uint64) (PushChannel, error) {
 	var channel PushChannel
-	if err := db.DB(ctx).Where("id = ?", id).First(&channel).Error; err != nil {
+	if err := getDB(ctx).Where("id = ?", id).First(&channel).Error; err != nil {
 		return PushChannel{}, err
 	}
 	return channel, nil
@@ -178,7 +176,7 @@ func GetPushChannelByIDRecord(ctx context.Context, id uint64) (PushChannel, erro
 // GetPushChannelByNameRecord 根据名称获取消息通道。
 func GetPushChannelByNameRecord(ctx context.Context, name string) (*PushChannel, error) {
 	var channel PushChannel
-	if err := db.DB(ctx).Where("name = ?", name).First(&channel).Error; err != nil {
+	if err := getDB(ctx).Where("name = ?", name).First(&channel).Error; err != nil {
 		return nil, err
 	}
 	return &channel, nil
@@ -187,7 +185,7 @@ func GetPushChannelByNameRecord(ctx context.Context, name string) (*PushChannel,
 // CountPushChannelsByNameRecord returns how many channels share the given name.
 func CountPushChannelsByNameRecord(ctx context.Context, name string) (int64, error) {
 	var count int64
-	if err := db.DB(ctx).Model(&PushChannel{}).Where("name = ?", name).Count(&count).Error; err != nil {
+	if err := getDB(ctx).Model(&PushChannel{}).Where("name = ?", name).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -195,7 +193,7 @@ func CountPushChannelsByNameRecord(ctx context.Context, name string) (int64, err
 
 // CreatePushChannelRecord persists a new channel and invalidates cache.
 func CreatePushChannelRecord(ctx context.Context, channel *PushChannel) error {
-	if err := db.DB(ctx).Create(channel).Error; err != nil {
+	if err := getDB(ctx).Create(channel).Error; err != nil {
 		return err
 	}
 	DeleteActivePushChannelCache(ctx, channel.Name)
@@ -204,7 +202,7 @@ func CreatePushChannelRecord(ctx context.Context, channel *PushChannel) error {
 
 // SavePushChannelRecord updates a channel and invalidates cache.
 func SavePushChannelRecord(ctx context.Context, channel *PushChannel) error {
-	if err := db.DB(ctx).Save(channel).Error; err != nil {
+	if err := getDB(ctx).Save(channel).Error; err != nil {
 		return err
 	}
 	DeleteActivePushChannelCache(ctx, channel.Name)
@@ -213,7 +211,7 @@ func SavePushChannelRecord(ctx context.Context, channel *PushChannel) error {
 
 // DeletePushChannelRecord removes a channel and invalidates cache.
 func DeletePushChannelRecord(ctx context.Context, channel *PushChannel) error {
-	if err := db.DB(ctx).Delete(channel).Error; err != nil {
+	if err := getDB(ctx).Delete(channel).Error; err != nil {
 		return err
 	}
 	DeleteActivePushChannelCache(ctx, channel.Name)
@@ -224,18 +222,18 @@ func DeletePushChannelRecord(ctx context.Context, channel *PushChannel) error {
 func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel, error) {
 	cacheKey := "push:channel:active:" + name
 	var channel PushChannel
-	if cachepkg.Redis != nil {
-		if err := cachepkg.GetJSON(ctx, cacheKey, &channel); err == nil {
+	if cache := getCache(ctx); cache != nil {
+		if err := cache.Get(ctx, cacheKey, &channel); err == nil {
 			return &channel, nil
 		}
 	}
 
-	if err := db.DB(ctx).Where("name = ? AND enabled = ?", name, true).First(&channel).Error; err != nil {
+	if err := getDB(ctx).Where("name = ? AND enabled = ?", name, true).First(&channel).Error; err != nil {
 		return nil, err
 	}
 
-	if cachepkg.Redis != nil {
-		_ = cachepkg.SetJSON(ctx, cacheKey, channel, activePushChannelCacheTTL)
+	if cache := getCache(ctx); cache != nil {
+		_ = cache.Set(ctx, cacheKey, channel, activePushChannelCacheTTL)
 	}
 
 	return &channel, nil
@@ -243,15 +241,15 @@ func GetActivePushChannelByName(ctx context.Context, name string) (*PushChannel,
 
 // DeleteActivePushChannelCache 清理启用消息通道的缓存。
 func DeleteActivePushChannelCache(ctx context.Context, name string) {
-	if cachepkg.Redis != nil {
-		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey("push:channel:active:"+name)).Err()
+	if cache := getCache(ctx); cache != nil {
+		_ = cache.Delete(ctx, "push:channel:active:"+name)
 	}
 }
 
 // ListPushEventsRecord returns all push events ordered by creation time descending.
 func ListPushEventsRecord(ctx context.Context) ([]PushEvent, error) {
 	var events []PushEvent
-	if err := db.DB(ctx).Order("created_at DESC").Find(&events).Error; err != nil {
+	if err := getDB(ctx).Order("created_at DESC").Find(&events).Error; err != nil {
 		return nil, err
 	}
 	return events, nil
@@ -260,7 +258,7 @@ func ListPushEventsRecord(ctx context.Context) ([]PushEvent, error) {
 // GetPushEventByIDRecord loads a push event by primary key.
 func GetPushEventByIDRecord(ctx context.Context, id uint64) (PushEvent, error) {
 	var event PushEvent
-	if err := db.DB(ctx).First(&event, id).Error; err != nil {
+	if err := getDB(ctx).First(&event, id).Error; err != nil {
 		return PushEvent{}, err
 	}
 	return event, nil
@@ -269,7 +267,7 @@ func GetPushEventByIDRecord(ctx context.Context, id uint64) (PushEvent, error) {
 // GetPushEventByKeyRecord loads a push event by event key.
 func GetPushEventByKeyRecord(ctx context.Context, key string) (PushEvent, error) {
 	var event PushEvent
-	if err := db.DB(ctx).Where("event_key = ?", key).First(&event).Error; err != nil {
+	if err := getDB(ctx).Where("event_key = ?", key).First(&event).Error; err != nil {
 		return PushEvent{}, err
 	}
 	return event, nil
@@ -278,7 +276,7 @@ func GetPushEventByKeyRecord(ctx context.Context, key string) (PushEvent, error)
 // CountPushEventsByKeyRecord returns how many events use the given event key.
 func CountPushEventsByKeyRecord(ctx context.Context, key string) (int64, error) {
 	var count int64
-	if err := db.DB(ctx).Model(&PushEvent{}).Where("event_key = ?", key).Count(&count).Error; err != nil {
+	if err := getDB(ctx).Model(&PushEvent{}).Where("event_key = ?", key).Count(&count).Error; err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -286,7 +284,7 @@ func CountPushEventsByKeyRecord(ctx context.Context, key string) (int64, error) 
 
 // CreatePushEventRecord persists a new push event and invalidates cache.
 func CreatePushEventRecord(ctx context.Context, event *PushEvent) error {
-	if err := db.DB(ctx).Create(event).Error; err != nil {
+	if err := getDB(ctx).Create(event).Error; err != nil {
 		return err
 	}
 	DeleteActivePushEventCache(ctx, event.EventKey)
@@ -295,7 +293,7 @@ func CreatePushEventRecord(ctx context.Context, event *PushEvent) error {
 
 // SavePushEventRecord updates a push event and invalidates cache.
 func SavePushEventRecord(ctx context.Context, event *PushEvent) error {
-	if err := db.DB(ctx).Save(event).Error; err != nil {
+	if err := getDB(ctx).Save(event).Error; err != nil {
 		return err
 	}
 	DeleteActivePushEventCache(ctx, event.EventKey)
@@ -305,7 +303,7 @@ func SavePushEventRecord(ctx context.Context, event *PushEvent) error {
 // UpdatePushEventEnabledRecord toggles the enabled flag for a push event.
 func UpdatePushEventEnabledRecord(ctx context.Context, event *PushEvent, enabled bool) error {
 	event.Enabled = enabled
-	if err := db.DB(ctx).Model(event).Update("enabled", enabled).Error; err != nil {
+	if err := getDB(ctx).Model(event).Update("enabled", enabled).Error; err != nil {
 		return err
 	}
 	DeleteActivePushEventCache(ctx, event.EventKey)
@@ -314,7 +312,7 @@ func UpdatePushEventEnabledRecord(ctx context.Context, event *PushEvent, enabled
 
 // DeletePushEventRecord removes a push event and invalidates cache.
 func DeletePushEventRecord(ctx context.Context, event *PushEvent) error {
-	if err := db.DB(ctx).Delete(event).Error; err != nil {
+	if err := getDB(ctx).Delete(event).Error; err != nil {
 		return err
 	}
 	DeleteActivePushEventCache(ctx, event.EventKey)
@@ -324,7 +322,7 @@ func DeletePushEventRecord(ctx context.Context, event *PushEvent) error {
 // ListActivePushEventsByTaskTypeRecord returns enabled events bound to a task type.
 func ListActivePushEventsByTaskTypeRecord(ctx context.Context, taskType string) ([]PushEvent, error) {
 	var events []PushEvent
-	if err := db.DB(ctx).Where("task_type = ? AND enabled = ?", taskType, true).Find(&events).Error; err != nil {
+	if err := getDB(ctx).Where("task_type = ? AND enabled = ?", taskType, true).Find(&events).Error; err != nil {
 		return nil, err
 	}
 	return events, nil
@@ -334,18 +332,18 @@ func ListActivePushEventsByTaskTypeRecord(ctx context.Context, taskType string) 
 func GetActivePushEventByKey(ctx context.Context, key string) (*PushEvent, error) {
 	cacheKey := "push:event:active:" + key
 	var event PushEvent
-	if cachepkg.Redis != nil {
-		if err := cachepkg.GetJSON(ctx, cacheKey, &event); err == nil {
+	if cache := getCache(ctx); cache != nil {
+		if err := cache.Get(ctx, cacheKey, &event); err == nil {
 			return &event, nil
 		}
 	}
 
-	if err := db.DB(ctx).Where("event_key = ? AND enabled = ?", key, true).First(&event).Error; err != nil {
+	if err := getDB(ctx).Where("event_key = ? AND enabled = ?", key, true).First(&event).Error; err != nil {
 		return nil, err
 	}
 
-	if cachepkg.Redis != nil {
-		_ = cachepkg.SetJSON(ctx, cacheKey, event, activePushEventCacheTTL)
+	if cache := getCache(ctx); cache != nil {
+		_ = cache.Set(ctx, cacheKey, event, activePushEventCacheTTL)
 	}
 
 	return &event, nil
@@ -353,14 +351,14 @@ func GetActivePushEventByKey(ctx context.Context, key string) (*PushEvent, error
 
 // DeleteActivePushEventCache 清理启用通知事件的缓存。
 func DeleteActivePushEventCache(ctx context.Context, key string) {
-	if cachepkg.Redis != nil {
-		_ = cachepkg.Redis.Del(ctx, cachepkg.PrefixedKey("push:event:active:"+key)).Err()
+	if cache := getCache(ctx); cache != nil {
+		_ = cache.Delete(ctx, "push:event:active:"+key)
 	}
 }
 
 // ListPushHistoriesRecord returns paginated push history records.
 func ListPushHistoriesRecord(ctx context.Context, filter PushHistoryListFilter) (int64, []PushHistory, error) {
-	query := db.DB(ctx).Model(&PushHistory{}).Order("created_at DESC")
+	query := getDB(ctx).Model(&PushHistory{}).Order("created_at DESC")
 	if filter.EventKey != "" {
 		query = query.Where("event_key = ?", filter.EventKey)
 	}
@@ -384,10 +382,10 @@ func ListPushHistoriesRecord(ctx context.Context, filter PushHistoryListFilter) 
 
 // CreatePushHistoryRecord persists a push history audit record.
 func CreatePushHistoryRecord(ctx context.Context, history *PushHistory) error {
-	return db.DB(ctx).Create(history).Error
+	return getDB(ctx).Create(history).Error
 }
 
 // PushHistoryQuery returns a scoped query builder for push histories.
 func PushHistoryQuery(ctx context.Context) *gorm.DB {
-	return db.DB(ctx).Model(&PushHistory{})
+	return getDB(ctx).Model(&PushHistory{})
 }

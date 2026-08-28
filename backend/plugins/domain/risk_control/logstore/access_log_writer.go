@@ -6,8 +6,6 @@ package logstore
 import (
 	"context"
 	"fmt"
-
-	db "Wavelet/plugins/infra/database"
 )
 
 // BatchInsert writes access logs to ClickHouse using the native batch API.
@@ -15,11 +13,12 @@ func BatchInsert(ctx context.Context, logs []UserAccessLog) error {
 	if len(logs) == 0 {
 		return nil
 	}
-	if db.ChConn == nil {
+	conn := getChConn()
+	if conn == nil {
 		return fmt.Errorf("clickhouse connection is not initialized")
 	}
 
-	batch, err := db.ChConn.PrepareBatch(ctx, UserAccessLog{}.BatchInsertSQL())
+	batch, err := conn.PrepareBatch(ctx, UserAccessLog{}.BatchInsertSQL())
 	if err != nil {
 		return fmt.Errorf("prepare clickhouse batch: %w", err)
 	}

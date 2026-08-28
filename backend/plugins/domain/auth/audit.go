@@ -7,9 +7,10 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/gin-gonic/gin"
+
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
-	"github.com/gin-gonic/gin"
 )
 
 // LogForAudit 将登录鉴权审计日志写入 Logger

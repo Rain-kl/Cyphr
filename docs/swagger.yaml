@@ -454,6 +454,8 @@ definitions:
         type: string
       status:
         type: integer
+      trace_id:
+        type: string
       user_agent:
         type: string
       user_id:
@@ -675,7 +677,42 @@ definitions:
     - solutions
     - token
     type: object
-  diskcache.Status:
+  contracts.TaskMetaDTO:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      display_name:
+        type: string
+      max_retry:
+        type: integer
+      name:
+        type: string
+      params:
+        items:
+          $ref: '#/definitions/contracts.TaskParamDTO'
+        type: array
+      queue:
+        type: string
+      schedule:
+        type: string
+      timeout:
+        $ref: '#/definitions/time.Duration'
+    type: object
+  contracts.TaskParamDTO:
+    properties:
+      default: {}
+      description:
+        type: string
+      name:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  disk.Status:
     properties:
       base_path:
         type: string
@@ -689,51 +726,6 @@ definitions:
         type: integer
       ttl_minutes:
         type: integer
-    type: object
-  driver_asynq_worker.TaskMeta:
-    properties:
-      asynq_task:
-        type: string
-      description:
-        type: string
-      max_retry:
-        type: integer
-      name:
-        type: string
-      params:
-        items:
-          $ref: '#/definitions/driver_asynq_worker.TaskParam'
-        type: array
-      queue:
-        type: string
-      retryable:
-        description: 是否支持手动重试
-        type: boolean
-      supports_time:
-        type: boolean
-      type:
-        type: string
-    type: object
-  driver_asynq_worker.TaskParam:
-    properties:
-      description:
-        description: 描述
-        type: string
-      label:
-        description: 显示名称
-        type: string
-      name:
-        description: 参数键名
-        type: string
-      placeholder:
-        description: 占位符
-        type: string
-      required:
-        description: 是否必填
-        type: boolean
-      type:
-        description: 类型：string, text, number, boolean
-        type: string
     type: object
   handler.batchDownloadRequest:
     properties:
@@ -1018,6 +1010,27 @@ definitions:
         example: ""
         type: string
     type: object
+  time.Duration:
+    enum:
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
 info:
   contact:
     name: Wavelet
@@ -1174,7 +1187,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/diskcache.Status'
+                  $ref: '#/definitions/disk.Status'
               type: object
         "401":
           description: 未登录
@@ -2305,7 +2318,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/driver_asynq_worker.TaskMeta'
+                    $ref: '#/definitions/contracts.TaskMetaDTO'
                   type: array
               type: object
         "401":

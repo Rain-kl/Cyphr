@@ -7,8 +7,9 @@ package cmd
 import (
 	"log"
 
-	"Wavelet/core"
 	"github.com/spf13/cobra"
+
+	"Wavelet/core"
 )
 
 var allCmd = &cobra.Command{

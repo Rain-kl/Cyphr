@@ -8,10 +8,11 @@ import (
 	"context"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/upload/models"
-	database "Wavelet/plugins/infra/database"
-	"gorm.io/gorm"
+	"Wavelet/plugins/domain/upload/shared"
 )
 
 // UploadListFilter filters paginated upload queries.
@@ -26,7 +27,7 @@ type UploadListFilter struct {
 
 // ListUploads returns paginated upload records matching the filter.
 func ListUploads(ctx context.Context, filter UploadListFilter) (int64, []models.Upload, error) {
-	query := database.DB(ctx).Model(&models.Upload{}).
+	query := shared.GetDB(ctx).Model(&models.Upload{}).
 		Where("status != ?", models.UploadStatusDeleted)
 
 	if filter.UserID != 0 {
@@ -58,7 +59,7 @@ func ListUploads(ctx context.Context, filter UploadListFilter) (int64, []models.
 // GetActiveUploadByID loads a non-deleted upload by ID.
 func GetActiveUploadByID(ctx context.Context, id uint64) (models.Upload, error) {
 	var upload models.Upload
-	if err := database.DB(ctx).Where("id = ? AND status != ?", id, models.UploadStatusDeleted).First(&upload).Error; err != nil {
+	if err := shared.GetDB(ctx).Where("id = ? AND status != ?", id, models.UploadStatusDeleted).First(&upload).Error; err != nil {
 		return models.Upload{}, err
 	}
 	return upload, nil
@@ -66,7 +67,7 @@ func GetActiveUploadByID(ctx context.Context, id uint64) (models.Upload, error) 
 
 // SoftDeleteUpload marks an upload as deleted.
 func SoftDeleteUpload(ctx context.Context, upload *models.Upload) error {
-	return SoftDeleteUploadTx(database.DB(ctx), upload)
+	return SoftDeleteUploadTx(shared.GetDB(ctx), upload)
 }
 
 // SoftDeleteUploadTx marks an upload as deleted within an existing transaction.
@@ -79,13 +80,13 @@ func UpdateUpload(ctx context.Context, upload *models.Upload, updates map[string
 	if len(updates) == 0 {
 		return nil
 	}
-	return database.DB(ctx).Model(upload).Updates(updates).Error
+	return shared.GetDB(ctx).Model(upload).Updates(updates).Error
 }
 
 // ListDistinctUploadTypes returns all distinct non-empty upload business types.
 func ListDistinctUploadTypes(ctx context.Context) ([]string, error) {
 	var types []string
-	if err := database.DB(ctx).Model(&models.Upload{}).
+	if err := shared.GetDB(ctx).Model(&models.Upload{}).
 		Where("type IS NOT NULL AND type != ''").
 		Distinct().
 		Pluck("type", &types).Error; err != nil {
@@ -97,7 +98,7 @@ func ListDistinctUploadTypes(ctx context.Context) ([]string, error) {
 // FindReusableUploadByHash finds an existing upload with the same hash and size.
 func FindReusableUploadByHash(ctx context.Context, hash string, size int64) (models.Upload, error) {
 	var existing models.Upload
-	err := database.DB(ctx).
+	err := shared.GetDB(ctx).
 		Where("hash = ? AND file_size = ? AND status IN (?, ?)", hash, size, models.UploadStatusPending, models.UploadStatusUsed).
 		First(&existing).Error
 	return existing, err
@@ -105,7 +106,7 @@ func FindReusableUploadByHash(ctx context.Context, hash string, size int64) (mod
 
 // CreateUpload persists a new upload record.
 func CreateUpload(ctx context.Context, upload *models.Upload) error {
-	return CreateUploadTx(database.DB(ctx), upload)
+	return CreateUploadTx(shared.GetDB(ctx), upload)
 }
 
 // CreateUploadTx persists a new upload record within an existing transaction.
@@ -116,7 +117,7 @@ func CreateUploadTx(tx *gorm.DB, upload *models.Upload) error {
 // ListUploadsByIDs returns active uploads matching the given IDs.
 func ListUploadsByIDs(ctx context.Context, ids []uint64) ([]models.Upload, error) {
 	var uploads []models.Upload
-	if err := database.DB(ctx).
+	if err := shared.GetDB(ctx).
 		Where("id IN ? AND status IN (?, ?)", ids, models.UploadStatusPending, models.UploadStatusUsed).
 		Find(&uploads).Error; err != nil {
 		return nil, err
@@ -126,13 +127,13 @@ func ListUploadsByIDs(ctx context.Context, ids []uint64) ([]models.Upload, error
 
 // UploadQuery returns a scoped GORM query for uploads.
 func UploadQuery(ctx context.Context) *gorm.DB {
-	return database.DB(ctx).Model(&models.Upload{})
+	return shared.GetDB(ctx).Model(&models.Upload{})
 }
 
 // ListUploadStats returns all upload statistics rows.
 func ListUploadStats(ctx context.Context) ([]models.UploadStat, error) {
 	var stats []models.UploadStat
-	if err := database.DB(ctx).Find(&stats).Error; err != nil {
+	if err := shared.GetDB(ctx).Find(&stats).Error; err != nil {
 		return nil, err
 	}
 	return stats, nil

@@ -12,9 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	tele "gopkg.in/telebot.v4"
+
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/message_gateway"
-	tele "gopkg.in/telebot.v4"
 )
 
 // Adapter is a Telegram private-chat channel.
