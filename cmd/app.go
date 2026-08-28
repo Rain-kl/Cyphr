@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -23,10 +25,11 @@ import (
 	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_asynq_worker"
 	"github.com/Rain-kl/Wavelet/plugins/drivers/driver_http"
 	"github.com/Rain-kl/Wavelet/plugins/infra/cache"
-	"github.com/Rain-kl/Wavelet/plugins/infra/database"
+	infradb "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/Rain-kl/Wavelet/plugins/infra/logger"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage"
 	"github.com/pressly/goose/v3"
+	goosedb "github.com/pressly/goose/v3/database"
 )
 
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.
@@ -40,7 +43,7 @@ func newWaveletApp(profile core.Profile) *core.App {
 
 	// 1. Register standard infrastructure plugins
 	app.Use(
-		database.New(),
+		infradb.New(),
 		cache.New(),
 		logger.New(),
 		storage.New(),
@@ -71,12 +74,119 @@ func newWaveletApp(profile core.Profile) *core.App {
 	return app
 }
 
+// ─── Schema Version Store ──────────────────────────────────────────────────────
+
+// sharedStore implements database.Store using a single w_schema_versions table.
+// All plugins share this table, with plugin_id as the discriminator.
+//
+// Schema:
+//
+//	w_schema_versions (
+//	    plugin_id   VARCHAR(64) NOT NULL,
+//	    version_id  BIGINT      NOT NULL,
+//	    applied_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+//	    PRIMARY KEY (plugin_id, version_id)
+//	)
+type sharedStore struct {
+	pluginID string
+	dialect  string // "postgres" or "sqlite3"
+}
+
+func (s *sharedStore) Tablename() string { return "w_schema_versions" }
+
+func (s *sharedStore) CreateVersionTable(ctx context.Context, db goosedb.DBTxConn) error {
+	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS w_schema_versions (
+		plugin_id   VARCHAR(64)  NOT NULL,
+		version_id  BIGINT       NOT NULL,
+		applied_at  TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (plugin_id, version_id)
+	)`)
+	return err
+}
+
+func (s *sharedStore) Insert(ctx context.Context, db goosedb.DBTxConn, req goosedb.InsertRequest) error {
+	p := s.placeholder
+	_, err := db.ExecContext(ctx,
+		fmt.Sprintf("INSERT INTO w_schema_versions (plugin_id, version_id) VALUES (%s, %s) ON CONFLICT (plugin_id, version_id) DO NOTHING", p(1), p(2)),
+		s.pluginID, req.Version)
+	return err
+}
+
+func (s *sharedStore) Delete(ctx context.Context, db goosedb.DBTxConn, version int64) error {
+	p := s.placeholder
+	_, err := db.ExecContext(ctx,
+		fmt.Sprintf("DELETE FROM w_schema_versions WHERE plugin_id = %s AND version_id = %s", p(1), p(2)),
+		s.pluginID, version)
+	return err
+}
+
+func (s *sharedStore) GetMigration(ctx context.Context, db goosedb.DBTxConn, version int64) (*goosedb.GetMigrationResult, error) {
+	p := s.placeholder
+	var t time.Time
+	err := db.QueryRowContext(ctx,
+		fmt.Sprintf("SELECT applied_at FROM w_schema_versions WHERE plugin_id = %s AND version_id = %s", p(1), p(2)),
+		s.pluginID, version).Scan(&t)
+	if err == sql.ErrNoRows {
+		return nil, goosedb.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &goosedb.GetMigrationResult{Timestamp: t, IsApplied: true}, nil
+}
+
+func (s *sharedStore) GetLatestVersion(ctx context.Context, db goosedb.DBTxConn) (int64, error) {
+	p := s.placeholder
+	var version int64
+	err := db.QueryRowContext(ctx,
+		fmt.Sprintf("SELECT COALESCE(MAX(version_id), 0) FROM w_schema_versions WHERE plugin_id = %s", p(1)),
+		s.pluginID).Scan(&version)
+	if err != nil {
+		return 0, err
+	}
+	return version, nil
+}
+
+func (s *sharedStore) ListMigrations(ctx context.Context, db goosedb.DBTxConn) ([]*goosedb.ListMigrationsResult, error) {
+	p := s.placeholder
+	rows, err := db.QueryContext(ctx,
+		fmt.Sprintf("SELECT version_id, TRUE FROM w_schema_versions WHERE plugin_id = %s ORDER BY version_id DESC", p(1)),
+		s.pluginID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []*goosedb.ListMigrationsResult
+	for rows.Next() {
+		var r goosedb.ListMigrationsResult
+		r.IsApplied = true
+		if err := rows.Scan(&r.Version); err != nil {
+			return nil, err
+		}
+		results = append(results, &r)
+	}
+	return results, rows.Err()
+}
+
+func (s *sharedStore) placeholder(n int) string {
+	if s.dialect == "postgres" {
+		return fmt.Sprintf("$%d", n)
+	}
+	return "?"
+}
+
+// ─── Migration Engine ──────────────────────────────────────────────────────────
+
 // gooseEngine implements core.MigrationEngine by iterating all plugin-registered
 // migration entries and applying each plugin's migrations against the shared DB.
 //
 // Each plugin owns its own `migrations/*.sql` directory, embedded via go:embed
-// and registered via ctx.Migrations().Register(pluginID, embedFS). The engine
-// resolves DBService from the IoC container and runs every entry in order.
+// and registered via ctx.Migrations().Register(pluginID, embedFS).
+//
+// Version tracking: all plugins share a single w_schema_versions table with
+// plugin_id as the discriminator column. Querying this table shows the current
+// migration version of every plugin at a glance.
 type gooseEngine struct{}
 
 func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) error {
@@ -99,37 +209,42 @@ func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) 
 
 	sqlDB, err := gormDB.DB()
 	if err != nil {
-		return fmt.Errorf("migration: get underlying %s from GORM: %w", dialectName(), err)
+		return fmt.Errorf("migration: get underlying DB from GORM: %w", err)
 	}
 
-	dialect := dialectName()
+	dialect := gooseDialect()
+	dialectStr := string(dialect)
+
 	for _, entry := range entries {
-		log.Printf("[migrate] applying %s migrations (%s)", entry.PluginID, entry.Dir)
-
-		goose.SetBaseFS(entry.FS)
-		if err := goose.SetDialect(dialect); err != nil {
-			return fmt.Errorf("migration %s: set dialect %q: %w", entry.PluginID, dialect, err)
+		store := &sharedStore{
+			pluginID: entry.PluginID,
+			dialect:  dialectStr,
 		}
 
-		dir := entry.Dir
-		if dir == "" {
-			dir = "migrations"
+		provider, err := goose.NewProvider(dialect, sqlDB, entry.FS, goose.WithStore(store))
+		if err != nil {
+			return fmt.Errorf("migration %s: create provider: %w", entry.PluginID, err)
 		}
 
-		if err := goose.Up(sqlDB, dir); err != nil {
+		results, err := provider.Up(context.Background())
+		if err != nil {
 			return fmt.Errorf("migration %s: apply %w", entry.PluginID, err)
 		}
 
-		log.Printf("[migrate] %s migrations applied", entry.PluginID)
+		if len(results) > 0 {
+			log.Printf("[migrate] %s: applied %d migration(s)", entry.PluginID, len(results))
+		} else {
+			log.Printf("[migrate] %s: up to date", entry.PluginID)
+		}
 	}
 
 	return nil
 }
 
-// dialectName returns the goose dialect based on the configured database engine.
-func dialectName() string {
+// gooseDialect returns the goose dialect based on the configured database engine.
+func gooseDialect() goose.Dialect {
 	if !config.Config.Database.Enabled {
-		return "sqlite3"
+		return goose.DialectSQLite3
 	}
-	return "postgres"
+	return goose.DialectPostgres
 }
