@@ -11,6 +11,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/util"
+	database "Wavelet/plugins/infra/database"
 	"gorm.io/gorm"
 )
 
@@ -39,7 +40,8 @@ func getDB(ctx context.Context) *gorm.DB {
 		return s.DB(ctx)
 	}
 
-	return nil
+	// Fallback for standalone CLI commands running without core.App
+	return database.DB(ctx)
 }
 
 // GetUserByID 通过 ID 获取用户

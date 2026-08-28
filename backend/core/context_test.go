@@ -532,4 +532,3 @@ func TestContext_ScopedExtpoints_RevertibleEffects(t *testing.T) {
 	assert.Equal(t, 0, len(root.Settings().Schemas()))
 	assert.Equal(t, 0, root.Events().Listeners("test:event"))
 }
-
