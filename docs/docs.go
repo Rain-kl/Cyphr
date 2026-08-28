@@ -57,7 +57,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Rain-kl_Wavelet_plugins_domain_cap.ChallengeResponse"
+                                            "$ref": "#/definitions/cap.ChallengeResponse"
                                         }
                                     }
                                 }
@@ -109,7 +109,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Rain-kl_Wavelet_plugins_domain_cap.RedeemResponse"
+                                            "$ref": "#/definitions/cap.RedeemResponse"
                                         }
                                     }
                                 }
@@ -2156,7 +2156,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/task.TaskMeta"
+                                                "$ref": "#/definitions/driver_asynq_worker.TaskMeta"
                                             }
                                         }
                                     }
@@ -4954,6 +4954,49 @@ const docTemplate = `{
                 }
             }
         },
+        "cap.ChallengeResponse": {
+            "type": "object",
+            "properties": {
+                "challenge": {
+                    "type": "object",
+                    "properties": {
+                        "c": {
+                            "type": "integer"
+                        },
+                        "d": {
+                            "type": "integer"
+                        },
+                        "s": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "expires": {
+                    "description": "ms timestamp",
+                    "type": "integer"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "cap.RedeemResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
         "cap.challengeRequest": {
             "type": "object",
             "properties": {
@@ -5006,45 +5049,67 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Rain-kl_Wavelet_plugins_domain_cap.ChallengeResponse": {
+        "driver_asynq_worker.TaskMeta": {
             "type": "object",
             "properties": {
-                "challenge": {
-                    "type": "object",
-                    "properties": {
-                        "c": {
-                            "type": "integer"
-                        },
-                        "d": {
-                            "type": "integer"
-                        },
-                        "s": {
-                            "type": "integer"
-                        }
-                    }
+                "asynq_task": {
+                    "type": "string"
                 },
-                "expires": {
-                    "description": "ms timestamp",
+                "description": {
+                    "type": "string"
+                },
+                "max_retry": {
                     "type": "integer"
                 },
-                "token": {
+                "name": {
+                    "type": "string"
+                },
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/driver_asynq_worker.TaskParam"
+                    }
+                },
+                "queue": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "description": "是否支持手动重试",
+                    "type": "boolean"
+                },
+                "supports_time": {
+                    "type": "boolean"
+                },
+                "type": {
                     "type": "string"
                 }
             }
         },
-        "github_com_Rain-kl_Wavelet_plugins_domain_cap.RedeemResponse": {
+        "driver_asynq_worker.TaskParam": {
             "type": "object",
             "properties": {
-                "error": {
+                "description": {
+                    "description": "描述",
                     "type": "string"
                 },
-                "expires": {
-                    "type": "integer"
+                "label": {
+                    "description": "显示名称",
+                    "type": "string"
                 },
-                "success": {
+                "name": {
+                    "description": "参数键名",
+                    "type": "string"
+                },
+                "placeholder": {
+                    "description": "占位符",
+                    "type": "string"
+                },
+                "required": {
+                    "description": "是否必填",
                     "type": "boolean"
                 },
-                "token": {
+                "type": {
+                    "description": "类型：string, text, number, boolean",
                     "type": "string"
                 }
             }
@@ -5468,71 +5533,6 @@ const docTemplate = `{
                 "error_msg": {
                     "type": "string",
                     "example": ""
-                }
-            }
-        },
-        "task.TaskMeta": {
-            "type": "object",
-            "properties": {
-                "asynq_task": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "max_retry": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "params": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/task.TaskParam"
-                    }
-                },
-                "queue": {
-                    "type": "string"
-                },
-                "retryable": {
-                    "description": "是否支持手动重试",
-                    "type": "boolean"
-                },
-                "supports_time": {
-                    "type": "boolean"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "task.TaskParam": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "description": "描述",
-                    "type": "string"
-                },
-                "label": {
-                    "description": "显示名称",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "参数键名",
-                    "type": "string"
-                },
-                "placeholder": {
-                    "description": "占位符",
-                    "type": "string"
-                },
-                "required": {
-                    "description": "是否必填",
-                    "type": "boolean"
-                },
-                "type": {
-                    "description": "类型：string, text, number, boolean",
-                    "type": "string"
                 }
             }
         }

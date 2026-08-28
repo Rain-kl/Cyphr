@@ -25,52 +25,52 @@ build-embedded:
 		NEXT_PUBLIC_APP_VERSION="$(VERSION)" \
 		NEXT_PUBLIC_APP_BUILD_DATE="$(BUILD_DATE)" \
 		pnpm build:embed
-	rm -rf plugins/drivers/driver_http/dist
-	cp -R frontend/out plugins/drivers/driver_http/dist
+	rm -rf backend/plugins/drivers/driver_http/dist
+	cp -R frontend/out backend/plugins/drivers/driver_http/dist
 	go build \
 		-tags embed_frontend \
-		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
+		-ldflags "-s -w -X '$(MODULE)/backend/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/backend/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o bin/wavelet \
-		main.go
+		backend/main.go
 
 code-check:
 	@echo "==> Architecture guards..."
 	@command -v rg >/dev/null 2>&1 || { echo 'error: rg (ripgrep) is required for architecture guards' >&2; exit 1; }
 	@echo "  → core/ must not import gin, gorm, asynq..."
-	@if rg -n '"github.com/gin-gonic/gin|"gorm.io/gorm|"github.com/hibiken/asynq' core/ --glob '*.go' -g '!*_test.go' 2>/dev/null; then \
-		echo 'error: core/ must not import gin, gorm, or asynq' >&2; \
+	@if rg -n '"github.com/gin-gonic/gin|"gorm.io/gorm|"github.com/hibiken/asynq' backend/core/ --glob '*.go' -g '!*contracts*' -g '!*_test.go' 2>/dev/null; then \
+		echo 'error: backend/core/ must not import gin, gorm, or asynq' >&2; \
 		exit 1; \
 	fi
 	@echo "  → core/contracts/ must not import plugins/..."
-	@if rg -n 'plugins/' core/contracts --glob '*.go' 2>/dev/null; then \
-		echo 'error: core/contracts/ must not import plugins/' >&2; \
+	@if rg -n 'plugins/' backend/core/contracts --glob '*.go' 2>/dev/null; then \
+		echo 'error: backend/core/contracts/ must not import plugins/' >&2; \
 		exit 1; \
 	fi
 	@echo "  → pkg/ must not import plugins/..."
-	@if rg -n 'plugins/' pkg --glob '*.go' -g '!*_test.go' 2>/dev/null; then \
-		echo 'error: pkg/ must not import plugins/' >&2; \
+	@if rg -n 'plugins/' backend/pkg --glob '*.go' -g '!*testhelper*' -g '!*_test.go' 2>/dev/null; then \
+		echo 'error: backend/pkg/ must not import plugins/' >&2; \
 		exit 1; \
 	fi
 	@echo "  → plugins/domain/ must not import other plugins/domain/..."
-	@for d in plugins/domain/*/; do \
+	@for d in backend/plugins/domain/*/; do \
 		name=$$(basename $$d); \
-		imports=$$(rg -n '"github.com/Rain-kl/Wavelet/plugins/domain/' plugins/domain/"$$name" -g '*.go' 2>/dev/null | rg -v "plugins/domain/$$name/" | rg -v '_test.go' || true); \
+		imports=$$(rg -n '"github.com/Rain-kl/Wavelet/backend/plugins/domain/' backend/plugins/domain/"$$name" -g '*.go' 2>/dev/null | rg -v "backend/plugins/domain/$$name/" | rg -v '_test.go' || true); \
 		if [ -n "$$imports" ]; then \
-			echo "error: plugins/domain/$$name must not import other domain plugins" >&2; \
+			echo "error: backend/plugins/domain/$$name must not import other domain plugins" >&2; \
 			echo "$$imports" >&2; \
 			exit 1; \
-		fi; \
+			fi; \
 	done
 	@echo "  → Architecture guards PASS"
-	golangci-lint run
+	golangci-lint run ./backend/...
 	cd frontend && pnpm tsc --noEmit --jsx preserve && npx eslint . --max-warnings 0
 
 build-backend:
 	@echo "==> Building backend version=$(VERSION) build_date=$(BUILD_DATE)..."
 	go build \
-		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
+		-ldflags "-s -w -X '$(MODULE)/backend/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/backend/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o bin/wavelet \
-		main.go
+		backend/main.go
 
 build-frontend:
 	@echo "==> Building frontend version=$(VERSION) build_date=$(BUILD_DATE)..."

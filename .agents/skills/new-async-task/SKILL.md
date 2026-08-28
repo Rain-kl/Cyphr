@@ -26,7 +26,7 @@ description: "Wavelet 项目专用：新增或修改基于 Cordis 插件的 Asyn
 
 ### 步骤 1：定义任务 Payload 结构与类型常量
 
-在插件内（如 `plugins/domain/order/tasks.go`）：
+在插件内（如 `backend/plugins/domain/order/tasks.go`）：
 
 ```go
 package order

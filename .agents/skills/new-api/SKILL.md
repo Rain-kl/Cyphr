@@ -14,10 +14,10 @@ description: "Wavelet 项目专用：当新增或修改业务 API、Handler、�
 在 Cordis 架构中，**业务 API 不再集中在旧的 `internal/router/` 或 `internal/apps/` 目录**。
 所有业务能力均封装为**高内聚、扁平自包含的插件 (Plugin)**。每个插件自主管理自身的路由声明、中间件挂载、服务逻辑、数据模型与迁移脚本。
 
-### 插件目录推荐结构 (`plugins/domain/<name>/` 或下游 `custom_plugins/<name>/`)
+### 插件目录推荐结构 (`backend/plugins/domain/<name>/` 或下游 `custom_plugins/<name>/`)
 
 ```text
-plugins/domain/order/
+backend/plugins/domain/order/
 ├── plugin.go        # 插件入口：实现 core.Plugin，通过 ctx.Router() 挂载路由
 ├── handlers.go      # HTTP 控制器：参数校验、上下文提取、调用 Service、信封响应
 ├── service.go       # 业务服务层：纯 Go 逻辑，仅依赖 context.Context
@@ -39,8 +39,8 @@ plugins/domain/order/
 package order
 
 import (
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/backend/core"
+	"github.com/Rain-kl/Wavelet/backend/core/contracts"
 )
 
 type Plugin struct {

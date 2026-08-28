@@ -6,7 +6,7 @@
 
 ## 1. 任务定义与 Handler 编写
 
-在对应的业务插件中（如 `plugins/domain/user/tasks.go`）：
+在对应的业务插件中（如 `backend/plugins/domain/user/tasks.go`）：
 
 ```go
 package user
@@ -61,8 +61,8 @@ package user
 import (
 	"time"
 
-	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/extpoints"
+	"github.com/Rain-kl/Wavelet/backend/core"
+	"github.com/Rain-kl/Wavelet/backend/core/extpoints"
 )
 
 func (p *Plugin) Apply(ctx *core.Context) error {

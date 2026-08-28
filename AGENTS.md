@@ -87,24 +87,24 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 严格遵循事项 (Guardrails)
 
 - 切勿删除 `frontend/node_modules`。
-- 保持 `pkg/util/` 绝对纯净，禁止导入 Gin、GORM、sessions 等 Web/数据库框架包。
+- 保持 `backend/pkg/util/` 绝对纯净，禁止导入 Gin、GORM、sessions 等 Web/数据库框架包。
 - 测试用例禁止硬编码相对路径创建临时目录，统一使用 Go 内置 `t.TempDir()`。
 - 修改 API Handler 后运行 `make swagger`，完成代码开发后必须依次运行 `make code-check` 与 `make format`。
 
 ### Cordis 架构核心防线与分层规范
-- **微内核 (`core/`)**：
+- **微内核 (`backend/core/`)**：
   - 上下文总线（`Context`）、泛型依赖注入（`Container`）、生命周期编排（`Lifecycle`）、扩展点定义（`extpoints/`）与领域事件总线（`EventBus`）。
   - **严禁**包含任何具体业务逻辑，**严禁** import `gin`、`gorm`、`asynq` 等具体运行时依赖。
-- **服务契约 (`core/contracts/`)**：
+- **服务契约 (`backend/core/contracts/`)**：
   - 跨插件通信的统一公开 Go Interface（如 `AuthService`、`UserService`、`CacheService`、`DBService`、`StorageService`）与公共 DTO。
   - **严禁**包含任何具体业务实现或 SQL 操作。
-- **自包含插件 (`plugins/`)**：
-  - 所有业务功能与驱动实现均以扁平自包含插件形式存在（`plugins/drivers/`、`plugins/infra/`、`plugins/domain/` 或下游 `custom_plugins/`）。
+- **自包含插件 (`backend/plugins/`)**：
+  - 所有业务功能与驱动实现均以扁平自包含插件形式存在（`backend/plugins/drivers/`、`backend/plugins/infra/`、`backend/plugins/domain/` 或下游 `backend/downstream/`）。
   - 每个插件实现 `core.Plugin`（`Name() string` 与 `Apply(ctx *core.Context) error`）。
   - 插件内部就近组织 Handler、Service、Model 与 Migration。
 - **插件通信与依赖隔离**：
   - **严禁跨包 import internal/私有实现**：插件之间严禁直接 import 对方具体实现包代码。
-  - **单向服务契约调用**：调用方仅面向 `core/contracts` 编程，在 `Apply` 中通过 `core.Provide[contracts.XxxService](ctx, svc)` 注册服务，通过 `core.Inject[contracts.XxxService](ctx)` 或 `ctx.Using(func(svc contracts.XxxService) { ... })` 声明式解析。
+  - **单向服务契约调用**：调用方仅面向 `backend/core/contracts` 编程，在 `Apply` 中通过 `core.Provide[contracts.XxxService](ctx, svc)` 注册服务，通过 `core.Inject[contracts.XxxService](ctx)` 或 `ctx.Using(func(svc contracts.XxxService) { ... })` 声明式解析。
   - **事件总线广播**：状态联动与解耦通信统一通过强类型事件 `ctx.Events().Emit()` 广播，由感兴趣的插件通过 `ctx.Events().On()` 订阅，消除双向依赖与循环引用。
 - **扩展点自包含注册**：
   - **HTTP 路由**：插件自包含在 `Apply` 中通过 `ctx.Router().Group(...)` 挂载路由与中间件，禁止跨插件散落注册。
@@ -124,18 +124,18 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ### API 响应规范
 - **统一信封**：`{ "error_msg": "", "data": ... }`
 - **成功**：HTTP 200，写出 `c.JSON(http.StatusOK, response.OK(data))` 或 `response.OKNil()`。
-- **失败**：使用 `internal/shared/response` 的 `Abort*` 系列函数（如 `AbortBadRequest`、`AbortUnauthorized`、`AbortNotFound`、`AbortInternal`）中断请求。
+- **失败**：使用 `backend/pkg/response` 的 `Abort*` 系列函数（如 `AbortBadRequest`、`AbortUnauthorized`、`AbortNotFound`、`AbortInternal`）中断请求。
 - **错误文案**：使用模块内 `errs.go` 中的 camelCase 字符串常量（如 `errBindParamsFailed`），禁止暴露底层数据库/系统错误细节给客户端。
 - **Service/Logics 分工**：业务逻辑层只接受 `context.Context`，返回 `(result, error)`，严禁依赖 `*gin.Context` 或调用 `c.JSON`/`Abort*`。
-- **错误日志**：底层错误在 Handler/Logic 边界用 `pkg/logger` 打印日志，禁止使用 `_ = ...` 静默吞掉关键错误。
+- **错误日志**：底层错误在 Handler/Logic 边界用 `backend/pkg/logger` 打印日志，禁止使用 `_ = ...` 静默吞掉关键错误。
 
 ### 数据库操作
 - 插件数据库表结构严禁使用 GORM AutoMigrate，统一编写 Goose SQL 迁移并嵌入二进制。
 - 不创建物理外键（显式建索引）；Go 模型零值需与数据库默认值匹配。
-- **SQL LIKE 查询防注入与转义**：所有含用户输入的模糊查询必须调用 `pkg/util.EscapeLike` 转义通配符，并显式指定 `ESCAPE '\\'` 语法（如 `Where("username LIKE ? ESCAPE '\\'", util.EscapeLike(keyword)+"%")`），同时兼容 PostgreSQL 与 SQLite 方言并杜绝通配符注入攻击。
+- **SQL LIKE 查询防注入与转义**：所有含用户输入的模糊查询必须调用 `backend/pkg/util.EscapeLike` 转义通配符，并显式指定 `ESCAPE '\\'` 语法（如 `Where("username LIKE ? ESCAPE '\\'", util.EscapeLike(keyword)+"%")`），同时兼容 PostgreSQL 与 SQLite 方言并杜绝通配符注入攻击。
 
 ### 并发与安全防护规范
-- **Goroutine 安全**：禁止直接使用裸 `go func()`；统一使用 `pkg/util.Go`，确保具备未捕获 panic 恢复和调用栈日志记录能力。
+- **Goroutine 安全**：禁止直接使用裸 `go func()`；统一使用 `backend/pkg/util.Go`，确保具备未捕获 panic 恢复和调用栈日志记录能力。
 - **Pub/Sub 监听并发安全**：启动 Redis Pub/Sub 订阅监听前，必须捕获局部客户端实例，禁止在 goroutine 闭包中直读可变全局变量；提供停止监听接口时必须维护 `done` 通道等待 goroutine 完整退出后再重置状态，消除数据竞争。
 - **Session 固定攻击防御**：用户登录/授权成功后，必须调用 Session 轮换逻辑，防止 Session 固定攻击。
 - **防账户枚举与时序攻击**：

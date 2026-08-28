@@ -15,7 +15,7 @@ description: "Wavelet 项目专用：当新增或修改数据库表结构、索�
 每个插件在自身包内维护专属的 `migrations/` 目录，通过 Go 语言内置 `//go:embed` 打包为嵌入式文件系统，并在 `Apply(ctx *core.Context)` 时通过微内核扩展点 `ctx.Migrations().Register(...)` 自主注入。
 
 ```
-plugins/domain/order/
+backend/plugins/domain/order/
 ├── plugin.go
 ├── models.go
 └── migrations/
@@ -33,7 +33,7 @@ package order
 
 import (
 	"embed"
-	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/backend/core"
 )
 
 //go:embed migrations/*.sql
@@ -183,6 +183,6 @@ go test ./plugins/...
 
 ```bash
 # 检查每个有 migrations/ 目录的插件是否同时有 go:embed + Register()
-grep -rn 'go:embed.*migrations' plugins/domain/*/plugin.go plugins/drivers/*/plugin.go
-grep -rn 'Migrations()\.Register' plugins/domain/*/plugin.go plugins/drivers/*/plugin.go
+grep -rn 'go:embed.*migrations' backend/plugins/domain/*/plugin.go backend/plugins/drivers/*/plugin.go
+grep -rn 'Migrations()\.Register' backend/plugins/domain/*/plugin.go backend/plugins/drivers/*/plugin.go
 ```
