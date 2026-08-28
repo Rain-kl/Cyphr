@@ -5,6 +5,7 @@ package logstore
 
 import (
 	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"fmt"
@@ -153,8 +154,8 @@ func buildUserAccessLogWhere(filter AccessLogFilter) (string, []any, bool) {
 		args = append(args, filter.UserIDs)
 	}
 	if trimmed := strings.TrimSpace(filter.Path); trimmed != "" {
-		parts = append(parts, "path LIKE ?")
-		args = append(args, "%"+trimmed+"%")
+		parts = append(parts, "path LIKE ? ESCAPE '\\'")
+		args = append(args, "%"+util.EscapeLike(trimmed)+"%")
 	}
 	if filter.StartTime != nil {
 		parts = append(parts, "created_at >= ?")

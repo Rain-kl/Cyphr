@@ -155,19 +155,41 @@ type accessLogsResponse struct {
 	List  []accessLogItem `json:"list"`
 }
 
+const userQueryMaxLimit = 100
+
+func findUserIDsByUsername(ctx context.Context, username string) ([]uint64, error) {
+	if userSvc := GetUserService(ctx); userSvc != nil {
+		users, _, err := userSvc.ListUsers(ctx, 1, userQueryMaxLimit, username)
+		if err != nil {
+			return nil, fmt.Errorf("查询用户信息失败: %w", err)
+		}
+		ids := make([]uint64, 0, len(users))
+		for _, u := range users {
+			ids = append(ids, u.ID)
+		}
+		return ids, nil
+	}
+	gormDB := GetDB(ctx)
+	if gormDB == nil {
+		return nil, nil
+	}
+	var ids []uint64
+	if err := gormDB.Table("w_users").
+		Where("username LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(username)+"%").
+		Pluck("id", &ids).Error; err != nil {
+		return nil, fmt.Errorf("查询用户信息失败: %w", err)
+	}
+	return ids, nil
+}
+
 func buildAccessLogFilter(ctx context.Context, c *gin.Context) (contracts.AccessLogFilterDTO, error) {
 	filter := contracts.AccessLogFilterDTO{}
 
 	username := c.Query("username")
 	if username != "" {
-		var userIDs []uint64
-		gormDB := GetDB(ctx)
-		if gormDB != nil {
-			if err := gormDB.Table("w_users").
-				Where("username LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(username)+"%").
-				Pluck("id", &userIDs).Error; err != nil {
-				return filter, fmt.Errorf("查询用户信息失败: %w", err)
-			}
+		userIDs, err := findUserIDsByUsername(ctx, username)
+		if err != nil {
+			return filter, err
 		}
 		filter.UserIDs = userIDs
 	}
@@ -214,13 +236,18 @@ func enrichAccessLogsWithUsers(ctx context.Context, list []accessLogItem) {
 	}
 
 	userMap := make(map[uint64]struct{ Username, Nickname string })
-	var users []struct {
-		ID       uint64
-		Username string
-		Nickname string
-	}
-	gormDB := GetDB(ctx)
-	if gormDB != nil {
+	if userSvc := GetUserService(ctx); userSvc != nil {
+		for _, uid := range userIDs {
+			if u, err := userSvc.GetUserByID(ctx, uid); err == nil && u != nil {
+				userMap[uid] = struct{ Username, Nickname string }{Username: u.Username, Nickname: u.Nickname}
+			}
+		}
+	} else if gormDB := GetDB(ctx); gormDB != nil {
+		var users []struct {
+			ID       uint64
+			Username string
+			Nickname string
+		}
 		if err := gormDB.Table("w_users").Where("id IN ?", userIDs).Find(&users).Error; err == nil {
 			for _, u := range users {
 				userMap[u.ID] = struct{ Username, Nickname string }{Username: u.Username, Nickname: u.Nickname}

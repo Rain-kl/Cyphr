@@ -93,7 +93,7 @@ func applyFilter(query *gorm.DB, filter AccessLogFilter) *gorm.DB {
 		query = query.Where("user_id IN ?", filter.UserIDs)
 	}
 	if filter.Path != "" {
-		query = query.Where("path LIKE ?", "%"+util.EscapeLike(filter.Path)+"%")
+		query = query.Where("path LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(filter.Path)+"%")
 	}
 	if filter.StartTime != nil {
 		query = query.Where("created_at >= ?", *filter.StartTime)

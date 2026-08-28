@@ -19,6 +19,8 @@ var (
 	cacheSvc contracts.CacheService
 	taskMu   sync.RWMutex
 	taskSvc  contracts.TaskService
+	userMu   sync.RWMutex
+	userSvc  contracts.UserService
 )
 
 // SetDBServiceForTest injects a DBService for tests. Production wiring must use Apply.
@@ -42,6 +44,12 @@ func setTaskService(s contracts.TaskService) {
 	taskMu.Lock()
 	defer taskMu.Unlock()
 	taskSvc = s
+}
+
+func setUserService(s contracts.UserService) {
+	userMu.Lock()
+	defer userMu.Unlock()
+	userSvc = s
 }
 
 func getDB(ctx context.Context) *gorm.DB {
@@ -75,4 +83,15 @@ func getTaskService() contracts.TaskService {
 	taskMu.RLock()
 	defer taskMu.RUnlock()
 	return taskSvc
+}
+
+func getUserService(ctx context.Context) contracts.UserService {
+	if c, ok := ctx.(*core.Context); ok && c != nil {
+		if s, err := core.Inject[contracts.UserService](c); err == nil && s != nil {
+			return s
+		}
+	}
+	userMu.RLock()
+	defer userMu.RUnlock()
+	return userSvc
 }

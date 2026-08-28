@@ -255,22 +255,45 @@ func listActivePushEventsByTaskType(ctx context.Context, taskType string) ([]Pus
 	return ListActivePushEventsByTaskTypeRecord(ctx, taskType)
 }
 
+func queryUser(ctx context.Context, fromService func(contracts.UserService) (*contracts.UserDTO, error), dbField string, dbVal any) (*contracts.UserDTO, error) {
+	if userSvc := getUserService(ctx); userSvc != nil {
+		return fromService(userSvc)
+	}
+	if db := getDB(ctx); db != nil {
+		var user contracts.UserDTO
+		if err := db.Table("w_users").Where(dbField+" = ?", dbVal).First(&user).Error; err == nil {
+			return &user, nil
+		}
+	}
+	return nil, errors.New("user not found")
+}
+
+func findUserByID(ctx context.Context, id uint64) (*contracts.UserDTO, error) {
+	return queryUser(ctx, func(s contracts.UserService) (*contracts.UserDTO, error) {
+		return s.GetUserByID(ctx, id)
+	}, "id", id)
+}
+
+func findUserByUsername(ctx context.Context, username string) (*contracts.UserDTO, error) {
+	return queryUser(ctx, func(s contracts.UserService) (*contracts.UserDTO, error) {
+		return s.GetUserByUsername(ctx, username)
+	}, "username", username)
+}
+
 func loadUserFromPayload(ctx context.Context, data map[string]any) any {
 	if u, exists := data["user"]; exists && u != nil {
 		return u
 	}
 
 	if userID, ok := extractUserID(data); ok && userID > 0 {
-		var user contracts.UserDTO
-		if err := getDB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err == nil {
-			return &user
+		if user, err := findUserByID(ctx, userID); err == nil && user != nil {
+			return user
 		}
 	}
 
 	if username := extractUsername(data); username != "" {
-		var user contracts.UserDTO
-		if err := getDB(ctx).Table("w_users").Where("username = ?", username).First(&user).Error; err == nil {
-			return &user
+		if user, err := findUserByUsername(ctx, username); err == nil && user != nil {
+			return user
 		}
 	}
 	return nil
@@ -369,24 +392,36 @@ func resolveDynamicKeyword(target string, flatBody map[string]any) string {
 }
 
 func resolveTargetUser(ctx context.Context, resolved, _ string) (contracts.UserDTO, bool) {
-	var user contracts.UserDTO
 	if id, err := strconv.ParseUint(resolved, 10, 64); err == nil {
-		if err := getDB(ctx).Table("w_users").Where("id = ?", id).First(&user).Error; err == nil {
-			return user, true
+		if u, err := findUserByID(ctx, id); err == nil && u != nil {
+			return *u, true
 		}
 	}
-	if err := getDB(ctx).Table("w_users").Where("username = ?", resolved).First(&user).Error; err == nil {
-		return user, true
+	if u, err := findUserByUsername(ctx, resolved); err == nil && u != nil {
+		return *u, true
 	}
-	return user, false
+	return contracts.UserDTO{}, false
+}
+
+func getFirstAdminUser(ctx context.Context) (*contracts.UserDTO, error) {
+	if userSvc := getUserService(ctx); userSvc != nil {
+		return userSvc.GetFirstAdminUser(ctx)
+	}
+	if db := getDB(ctx); db != nil {
+		var adminUser contracts.UserDTO
+		if err := db.Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err == nil {
+			return &adminUser, nil
+		}
+	}
+	return nil, errors.New("no admin user found")
 }
 
 func resolveSystemTarget(ctx context.Context, resolved, channel string) (string, bool) {
 	if resolved != "系统" && resolved != "system" && resolved != "0" {
 		return "", false
 	}
-	var adminUser contracts.UserDTO
-	if err := getDB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
+	adminUser, err := getFirstAdminUser(ctx)
+	if err != nil || adminUser == nil {
 		return resolved, true
 	}
 	if channel == channelEmail && adminUser.Email != "" {
@@ -423,9 +458,8 @@ func resolveSMTPConfig(ctx context.Context, url, token, other string) (string, s
 }
 
 func getSystemUser(ctx context.Context) *contracts.UserDTO {
-	var user contracts.UserDTO
-	if err := getDB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&user).Error; err == nil {
-		return &user
+	if adminUser, err := getFirstAdminUser(ctx); err == nil && adminUser != nil {
+		return adminUser
 	}
 	return &contracts.UserDTO{
 		Username: "system",

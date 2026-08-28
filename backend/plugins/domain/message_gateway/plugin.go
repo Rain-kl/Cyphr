@@ -79,7 +79,7 @@ type PushNotificationEvent struct {
 
 // Apply registers message_gateway migrations, routes, tasks, schedules, events, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
-	// 0. Bind DBService, CacheService, TaskService
+	// 0. Bind DBService, CacheService, TaskService, UserService
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
 		setDBService(db)
 	} else {
@@ -101,10 +101,18 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 			setTaskService(taskSvc)
 		})
 	}
+	if uSvc, err := core.Inject[contracts.UserService](ctx); err == nil && uSvc != nil {
+		setUserService(uSvc)
+	} else {
+		core.When[contracts.UserService](ctx, func(uSvc contracts.UserService) {
+			setUserService(uSvc)
+		})
+	}
 	ctx.OnDispose(func() error {
 		setDBService(nil)
 		setCacheService(nil)
 		setTaskService(nil)
+		setUserService(nil)
 		return nil
 	})
 
