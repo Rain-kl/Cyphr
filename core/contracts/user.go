@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package contracts defines unified service interfaces and DTOs for cross-plugin communication.
 package contracts
 
@@ -60,4 +63,22 @@ type UserService interface {
 
 	// SetUserAdmin sets the admin role status for a user.
 	SetUserAdmin(ctx context.Context, id uint64, admin bool) error
+
+	// VerifyAccessToken verifies an access token hash and returns the user DTO and isAdmin flag.
+	VerifyAccessToken(ctx context.Context, tokenHash string) (*UserDTO, bool, error)
+
+	// DeleteUser removes a user and related access tokens.
+	DeleteUser(ctx context.Context, id uint64) error
+
+	// CountUsers returns total user count.
+	CountUsers(ctx context.Context) (int64, error)
+
+	// CountActiveUsers returns active user count.
+	CountActiveUsers(ctx context.Context) (int64, error)
+
+	// GetFirstAdminUser returns the earliest admin user.
+	GetFirstAdminUser(ctx context.Context) (*UserDTO, error)
+
+	// UniqueUsername generates a unique username candidate based on base.
+	UniqueUsername(ctx context.Context, base string) (string, error)
 }

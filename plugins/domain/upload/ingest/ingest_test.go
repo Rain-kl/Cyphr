@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 func TestIngestPolicyCreateIncrementsStats(t *testing.T) {
@@ -67,7 +67,7 @@ func TestIngestPolicyResolveExistingSkipsStatsOnHit(t *testing.T) {
 	hash := sha256.Sum256(content)
 	hashStr := hex.EncodeToString(hash[:])
 
-	existing := model.Upload{
+	existing := models.Upload{
 		ID:        88001,
 		UserID:    42,
 		FileName:  "existing.png",
@@ -77,7 +77,7 @@ func TestIngestPolicyResolveExistingSkipsStatsOnHit(t *testing.T) {
 		Extension: "png",
 		Hash:      hashStr,
 		Type:      "pixez_mirror",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
 	if err := dbConn.Create(&existing).Error; err != nil {
@@ -175,7 +175,7 @@ func TestIngestPolicyDedupNewRecordCreatesSecondRecord(t *testing.T) {
 	}
 
 	var count int64
-	if err := dbConn.Model(&model.Upload{}).Where("hash = ?", hashStr).Count(&count).Error; err != nil {
+	if err := dbConn.Model(&models.Upload{}).Where("hash = ?", hashStr).Count(&count).Error; err != nil {
 		t.Fatalf("count uploads failed: %v", err)
 	}
 	if count != 2 {
@@ -188,7 +188,7 @@ func TestCreateUploadWithStatsRollsBackOnCreateFailure(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	existing := model.Upload{
+	existing := models.Upload{
 		ID:        99001,
 		UserID:    1001,
 		FileName:  "existing.png",
@@ -197,14 +197,14 @@ func TestCreateUploadWithStatsRollsBackOnCreateFailure(t *testing.T) {
 		MimeType:  "image/png",
 		Extension: "png",
 		Type:      "generic",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
 	if err := dbConn.Create(&existing).Error; err != nil {
 		t.Fatalf("seed upload failed: %v", err)
 	}
 
-	duplicate := &model.Upload{
+	duplicate := &models.Upload{
 		ID:        existing.ID,
 		UserID:    1002,
 		FileName:  "duplicate.png",
@@ -213,7 +213,7 @@ func TestCreateUploadWithStatsRollsBackOnCreateFailure(t *testing.T) {
 		MimeType:  "image/png",
 		Extension: "png",
 		Type:      "generic",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
 	if err := createUploadWithStats(ctx, duplicate); err == nil {
@@ -275,8 +275,8 @@ type totalStatsSnapshot struct {
 }
 
 func loadTotalStats(ctx context.Context) (totalStatsSnapshot, error) {
-	var rows []model.UploadStat
-	if err := db.DB(ctx).Where("dimension = ?", model.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
+	var rows []models.UploadStat
+	if err := db.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
 		return totalStatsSnapshot{}, err
 	}
 	if len(rows) == 0 {

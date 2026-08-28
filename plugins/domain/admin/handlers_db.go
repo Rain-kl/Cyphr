@@ -19,9 +19,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 )
 
 const (

@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package core provides the micro-kernel service bus, generic IoC container, and runtime extensions.
 package core
 

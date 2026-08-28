@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +22,7 @@ func init() {
 	})
 }
 
-func seedUpload(t *testing.T, dbConn *gorm.DB, upload model.Upload) {
+func seedUpload(t *testing.T, dbConn *gorm.DB, upload models.Upload) {
 	t.Helper()
 	if err := dbConn.Create(&upload).Error; err != nil {
 		t.Fatalf("create upload: %v", err)
@@ -35,7 +35,7 @@ func TestGetUploadByIDLoadsFromDBAndPopulatesCache(t *testing.T) {
 	ResetUploadMetaCacheForTest()
 
 	ctx := context.Background()
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         91001,
 		UserID:     1,
 		FileName:   "cached.png",
@@ -44,7 +44,7 @@ func TestGetUploadByIDLoadsFromDBAndPopulatesCache(t *testing.T) {
 		MimeType:   "image/png",
 		Extension:  "png",
 		Type:       "avatar",
-		Status:     model.UploadStatusUsed,
+		Status:     models.UploadStatusUsed,
 		AccessMode: 1,
 	}
 	seedUpload(t, dbConn, upload)
@@ -57,7 +57,7 @@ func TestGetUploadByIDLoadsFromDBAndPopulatesCache(t *testing.T) {
 		t.Fatalf("unexpected upload: %+v", got)
 	}
 
-	var redisUpload model.Upload
+	var redisUpload models.Upload
 	if err := db.GetJSON(ctx, uploadMetaRedisKey(upload.ID), &redisUpload); err != nil {
 		t.Fatalf("redis cache miss after DB load: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestGetUploadByIDLoadsFromDBAndPopulatesCache(t *testing.T) {
 		t.Fatalf("redis upload id mismatch: got=%d want=%d", redisUpload.ID, upload.ID)
 	}
 
-	if err := dbConn.Delete(&model.Upload{}, upload.ID).Error; err != nil {
+	if err := dbConn.Delete(&models.Upload{}, upload.ID).Error; err != nil {
 		t.Fatalf("delete upload from db: %v", err)
 	}
 
@@ -84,7 +84,7 @@ func TestGetUploadByIDReadsFromRedisWhenRAMEmpty(t *testing.T) {
 	ResetUploadMetaCacheForTest()
 
 	ctx := context.Background()
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         91002,
 		UserID:     1,
 		FileName:   "redis.png",
@@ -93,14 +93,14 @@ func TestGetUploadByIDReadsFromRedisWhenRAMEmpty(t *testing.T) {
 		MimeType:   "image/png",
 		Extension:  "png",
 		Type:       "avatar",
-		Status:     model.UploadStatusPending,
+		Status:     models.UploadStatusPending,
 		AccessMode: 0,
 	}
 	seedUpload(t, dbConn, upload)
 	SetUploadMetaCache(ctx, &upload)
 	ResetUploadMetaCacheForTest()
 
-	if err := dbConn.Delete(&model.Upload{}, upload.ID).Error; err != nil {
+	if err := dbConn.Delete(&models.Upload{}, upload.ID).Error; err != nil {
 		t.Fatalf("delete upload from db: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func TestInvalidateUploadMetaCacheClearsRAMAndRedis(t *testing.T) {
 	ResetUploadMetaCacheForTest()
 
 	ctx := context.Background()
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         91003,
 		UserID:     1,
 		FileName:   "invalidate.png",
@@ -128,7 +128,7 @@ func TestInvalidateUploadMetaCacheClearsRAMAndRedis(t *testing.T) {
 		MimeType:   "image/png",
 		Extension:  "png",
 		Type:       "avatar",
-		Status:     model.UploadStatusUsed,
+		Status:     models.UploadStatusUsed,
 		AccessMode: 1,
 	}
 	seedUpload(t, dbConn, upload)
@@ -136,7 +136,7 @@ func TestInvalidateUploadMetaCacheClearsRAMAndRedis(t *testing.T) {
 
 	InvalidateUploadMetaCache(ctx, upload.ID)
 
-	var redisUpload model.Upload
+	var redisUpload models.Upload
 	if err := db.GetJSON(ctx, uploadMetaRedisKey(upload.ID), &redisUpload); err == nil {
 		t.Fatal("expected redis cache to be invalidated")
 	}
@@ -159,7 +159,7 @@ func TestUploadMetaInvalidationPubSubClearsPeerRAM(t *testing.T) {
 	ResetUploadMetaCacheForTest()
 
 	ctx := context.Background()
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         91006,
 		UserID:     1,
 		FileName:   "pubsub.png",
@@ -168,7 +168,7 @@ func TestUploadMetaInvalidationPubSubClearsPeerRAM(t *testing.T) {
 		MimeType:   "image/png",
 		Extension:  "png",
 		Type:       "avatar",
-		Status:     model.UploadStatusUsed,
+		Status:     models.UploadStatusUsed,
 		AccessMode: 1,
 	}
 	seedUpload(t, dbConn, upload)
@@ -177,7 +177,7 @@ func TestUploadMetaInvalidationPubSubClearsPeerRAM(t *testing.T) {
 		t.Fatalf("GetUploadByID: %v", err)
 	}
 	time.Sleep(50 * time.Millisecond) // allow pub/sub listener to subscribe
-	if err := dbConn.Delete(&model.Upload{}, upload.ID).Error; err != nil {
+	if err := dbConn.Delete(&models.Upload{}, upload.ID).Error; err != nil {
 		t.Fatalf("delete upload from db: %v", err)
 	}
 	if _, err := GetUploadByID(ctx, upload.ID); err != nil {
@@ -219,7 +219,7 @@ func TestGetUploadByIDSkipsDeletedUploads(t *testing.T) {
 	ResetUploadMetaCacheForTest()
 
 	ctx := context.Background()
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         91004,
 		UserID:     1,
 		FileName:   "deleted.png",
@@ -228,7 +228,7 @@ func TestGetUploadByIDSkipsDeletedUploads(t *testing.T) {
 		MimeType:   "image/png",
 		Extension:  "png",
 		Type:       "avatar",
-		Status:     model.UploadStatusDeleted,
+		Status:     models.UploadStatusDeleted,
 		AccessMode: 1,
 	}
 	seedUpload(t, dbConn, upload)
@@ -251,7 +251,7 @@ func TestGetUploadByIDWorksWithRedisDisabled(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         91005,
 		UserID:     1,
 		FileName:   "ram-only.png",
@@ -260,7 +260,7 @@ func TestGetUploadByIDWorksWithRedisDisabled(t *testing.T) {
 		MimeType:   "image/png",
 		Extension:  "png",
 		Type:       "avatar",
-		Status:     model.UploadStatusUsed,
+		Status:     models.UploadStatusUsed,
 		AccessMode: 1,
 	}
 	seedUpload(t, dbConn, upload)
@@ -273,7 +273,7 @@ func TestGetUploadByIDWorksWithRedisDisabled(t *testing.T) {
 		t.Fatalf("unexpected upload: %+v", got)
 	}
 
-	if err := dbConn.Delete(&model.Upload{}, upload.ID).Error; err != nil {
+	if err := dbConn.Delete(&models.Upload{}, upload.ID).Error; err != nil {
 		t.Fatalf("delete upload from db: %v", err)
 	}
 

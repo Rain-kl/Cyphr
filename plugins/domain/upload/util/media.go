@@ -41,9 +41,10 @@ func IsDocumentExtension(ext string) bool {
 
 // NormalizeImageQuality normalizes the requested image quality query parameter.
 func NormalizeImageQuality(quality string) string {
-	switch strings.ToLower(quality) {
+	q := strings.TrimSpace(strings.ToLower(quality))
+	switch q {
 	case shared.ImageQualityLow, shared.ImageQualityMedium, shared.ImageQualityHigh:
-		return strings.ToLower(quality)
+		return q
 	default:
 		return shared.ImageQualityOrigin
 	}

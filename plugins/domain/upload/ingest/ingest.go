@@ -7,8 +7,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +36,7 @@ func Ingest(ctx context.Context, req Request) (Result, error) {
 }
 
 // FindByHash returns a reusable active upload with the same hash and size.
-func FindByHash(ctx context.Context, hash string, size int64) (model.Upload, error) {
+func FindByHash(ctx context.Context, hash string, size int64) (models.Upload, error) {
 	return repository.FindReusableUploadByHash(ctx, hash, size)
 }
 

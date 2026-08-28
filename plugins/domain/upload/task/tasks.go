@@ -12,10 +12,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/task"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 )
 
@@ -113,11 +113,11 @@ func (h *WarmImageCacheHandler) Execute(ctx context.Context, payload []byte) (*t
 			return nil, fmt.Errorf("image cache warmup canceled: %w", err)
 		}
 
-		var uploads []model.Upload
+		var uploads []models.Upload
 		if err := db.DB(ctx).
 			Where("id > ? AND status != ? AND (LOWER(mime_type) LIKE ? OR LOWER(extension) IN ?)",
 				lastID,
-				model.UploadStatusDeleted,
+				models.UploadStatusDeleted,
 				"image/%",
 				[]string{"jpg", "jpeg", "png", "webp", "gif"},
 			).

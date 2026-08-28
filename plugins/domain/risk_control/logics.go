@@ -8,16 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence/batchwriter"
-	"github.com/Rain-kl/Wavelet/internal/model/analytics"
-	"github.com/Rain-kl/Wavelet/internal/platform/lifecycle"
-	"github.com/Rain-kl/Wavelet/internal/repository/logstore"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+
+	"github.com/Rain-kl/Wavelet/pkg/persistence/batchwriter"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
 )
 
 var (
 	logWriterMu sync.RWMutex
-	logWriter   *batchwriter.Writer[*analytics.UserAccessLog]
+	logWriter   *batchwriter.Writer[*logstore.UserAccessLog]
 )
 
 // InitLogWriter initializes the access-log batch writer for the active log database.
@@ -29,8 +28,8 @@ func InitLogWriter(ctx context.Context) {
 	}
 
 	cfg := batchwriter.DefaultConfig()
-	writer, err := batchwriter.New[*analytics.UserAccessLog](cfg, func(ctx context.Context, items []*analytics.UserAccessLog) error {
-		rows := make([]analytics.UserAccessLog, 0, len(items))
+	writer, err := batchwriter.New[*logstore.UserAccessLog](cfg, func(ctx context.Context, items []*logstore.UserAccessLog) error {
+		rows := make([]logstore.UserAccessLog, 0, len(items))
 		for _, item := range items {
 			if item == nil {
 				continue
@@ -43,14 +42,14 @@ func InitLogWriter(ctx context.Context) {
 		}
 		return store.UserAccessLogs.BatchInsert(ctx, rows)
 	},
-		batchwriter.WithDropHandler[*analytics.UserAccessLog](func(item *analytics.UserAccessLog) {
+		batchwriter.WithDropHandler[*logstore.UserAccessLog](func(item *logstore.UserAccessLog) {
 			path := ""
 			if item != nil {
 				path = item.Path
 			}
 			logger.WarnF(context.Background(), "[RiskControl] Log queue full, dropping log item for path: %s", path)
 		}),
-		batchwriter.WithFlushErrorHandler[*analytics.UserAccessLog](func(ctx context.Context, items []*analytics.UserAccessLog, err error) {
+		batchwriter.WithFlushErrorHandler[*logstore.UserAccessLog](func(ctx context.Context, items []*logstore.UserAccessLog, err error) {
 			logger.ErrorF(ctx, "[RiskControl] flush access-log batch failed (batch=%d): %v", len(items), err)
 		}),
 	)
@@ -61,7 +60,6 @@ func InitLogWriter(ctx context.Context) {
 
 	writer.Start(ctx)
 	logWriter = writer
-	lifecycle.OnShutdown("risk_control_log_writer", StopLogWriter)
 }
 
 // StopLogWriter stops the ClickHouse access-log batch writer and drains pending logs.
@@ -83,7 +81,7 @@ func IsBufferFull() bool {
 }
 
 // QueueAccessLog enqueues an access log without blocking.
-func QueueAccessLog(logItem *analytics.UserAccessLog) {
+func QueueAccessLog(logItem *logstore.UserAccessLog) {
 	writer := currentLogWriter()
 	if writer == nil || logItem == nil {
 		return
@@ -92,7 +90,7 @@ func QueueAccessLog(logItem *analytics.UserAccessLog) {
 }
 
 // SetLogWriterForTest swaps the access-log writer for unit tests.
-func SetLogWriterForTest(writer *batchwriter.Writer[*analytics.UserAccessLog]) func() {
+func SetLogWriterForTest(writer *batchwriter.Writer[*logstore.UserAccessLog]) func() {
 	logWriterMu.Lock()
 	previous := logWriter
 	logWriter = writer
@@ -104,7 +102,7 @@ func SetLogWriterForTest(writer *batchwriter.Writer[*analytics.UserAccessLog]) f
 	}
 }
 
-func currentLogWriter() *batchwriter.Writer[*analytics.UserAccessLog] {
+func currentLogWriter() *batchwriter.Writer[*logstore.UserAccessLog] {
 	logWriterMu.RLock()
 	defer logWriterMu.RUnlock()
 	return logWriter

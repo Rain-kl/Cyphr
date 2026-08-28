@@ -10,10 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/diskcache"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
 )
 
 type updateCacheConfigRequest struct {
@@ -61,17 +59,17 @@ func UpdateCacheConfig(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
-	if err := saveOrUpdateCacheConfig(ctx, model.ConfigKeyDiskCacheMaxSizeMB, strconv.FormatInt(req.MaxSizeMB, 10)); err != nil {
+	if err := saveOrUpdateCacheConfig(ctx, ConfigKeyDiskCacheMaxSizeMB, strconv.FormatInt(req.MaxSizeMB, 10)); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
 
-	if err := saveOrUpdateCacheConfig(ctx, model.ConfigKeyDiskCacheTTLMinutes, strconv.FormatInt(req.TTLMinutes, 10)); err != nil {
+	if err := saveOrUpdateCacheConfig(ctx, ConfigKeyDiskCacheTTLMinutes, strconv.FormatInt(req.TTLMinutes, 10)); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
 
-	if err := saveOrUpdateCacheConfig(ctx, model.ConfigKeyDiskCacheLRUEnabled, strconv.FormatBool(req.LRUEnabled)); err != nil {
+	if err := saveOrUpdateCacheConfig(ctx, ConfigKeyDiskCacheLRUEnabled, strconv.FormatBool(req.LRUEnabled)); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
@@ -101,5 +99,5 @@ func ClearCache(c *gin.Context) {
 }
 
 func saveOrUpdateCacheConfig(ctx context.Context, key, value string) error {
-	return repository.SaveOrUpdateSystemConfig(ctx, key, value)
+	return SaveOrUpdateSystemConfig(ctx, key, value)
 }

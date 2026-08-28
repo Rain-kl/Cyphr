@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package storage provides the object storage and ingestion infrastructure plugin for Cordis.
 package storage
 
@@ -8,9 +11,9 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
+	uploadmodels "github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 // Option configures the storage plugin.
@@ -114,7 +117,7 @@ func (s *storageServiceImpl) Delete(ctx context.Context, key string) error {
 }
 
 func (s *storageServiceImpl) Ingest(ctx context.Context, reader io.Reader, opts contracts.IngestOptions) (*contracts.IngestResult, error) {
-	meta := model.UploadMetadata{
+	meta := uploadmodels.UploadMetadata{
 		Extra: opts.Metadata,
 	}
 

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
 
 func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
@@ -20,16 +20,16 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now()
 
-	uploads := []model.Upload{
+	uploads := []models.Upload{
 		{
 			UserID: 1001, FileName: "a.jpg", FilePath: "uploads/a.jpg",
 			FileSize: 100, MimeType: "image/jpeg", Extension: "jpg", Hash: "hash-a",
-			Type: "pixez_mirror", Status: model.UploadStatusUsed, CreatedAt: now,
+			Type: "pixez_mirror", Status: models.UploadStatusUsed, CreatedAt: now,
 		},
 		{
 			UserID: 1001, FileName: "b.png", FilePath: "uploads/b.png",
 			FileSize: 200, MimeType: "image/png", Extension: "png", Hash: "hash-b",
-			Type: "attachment", Status: model.UploadStatusUsed, CreatedAt: now,
+			Type: "attachment", Status: models.UploadStatusUsed, CreatedAt: now,
 		},
 	}
 	for i := range uploads {
@@ -39,8 +39,8 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 	}
 
 	// Corrupt stats to ensure rebuild recalculates from uploads.
-	if err := db.DB(ctx).Create(&model.UploadStat{
-		Dimension: model.UploadStatDimensionTotal,
+	if err := db.DB(ctx).Create(&models.UploadStat{
+		Dimension: models.UploadStatDimensionTotal,
 		StatKey:   "",
 		FileCount: 0,
 		FileSize:  0,
@@ -57,9 +57,9 @@ func TestRebuildUploadStatsHandler_Execute(t *testing.T) {
 		t.Fatalf("Execute() returned empty result: %+v", result)
 	}
 
-	var totalStat model.UploadStat
+	var totalStat models.UploadStat
 	if err := db.DB(ctx).
-		Where("dimension = ? AND stat_key = ?", model.UploadStatDimensionTotal, "").
+		Where("dimension = ? AND stat_key = ?", models.UploadStatDimensionTotal, "").
 		First(&totalStat).Error; err != nil {
 		t.Fatalf("load total stat failed: %v", err)
 	}

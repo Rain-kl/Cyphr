@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
+
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -147,7 +147,7 @@ func ListPushHistories(c *gin.Context) {
 		pageSize = 20
 	}
 
-	total, results, err := listPushHistories(c.Request.Context(), repository.PushHistoryListFilter{
+	total, results, err := listPushHistories(c.Request.Context(), PushHistoryListFilter{
 		EventKey: c.Query("event_key"),
 		Status:   c.Query("status"),
 		Page:     page,

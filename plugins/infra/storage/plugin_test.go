@@ -16,8 +16,8 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
 	"github.com/Rain-kl/Wavelet/plugins/infra/storage"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 type mockStorageBackend struct {

@@ -8,9 +8,9 @@ import (
 	"net/http"
 
 	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 
@@ -49,11 +49,12 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 2. Public config
 	ctx.Router().GET("/api/v1/config/public", func(c *gin.Context) {
-		configs, err := repository.ListVisibleSystemConfigs(c.Request.Context())
-		if err != nil {
-			response.AbortInternal(c, "获取公开配置失败")
-			return
+		type configItem struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
 		}
+		var configs []configItem
+		_ = db.DB(c.Request.Context()).Table("w_system_configs").Where("visibility = ?", "visible").Find(&configs).Error
 		c.JSON(http.StatusOK, response.OK(gin.H{
 			"configs": configs,
 			"app": gin.H{

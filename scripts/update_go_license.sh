@@ -55,9 +55,7 @@ find_go_files() {
     -o -path './docs' \
     -o -path './frontend/node_modules' \
     -o -path './frontend/.next' \
-    -o -path './frontend/out' \
-    -o -path './internal/router/dist' \
-    -o -path './internal/router/root/dist' \
+    -o -path './plugins/drivers/driver_http/dist' \
     -o -path './vendor' \) -prune \
     -o -type f -name '*.go' -print
 }

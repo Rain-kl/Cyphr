@@ -11,9 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -314,7 +313,7 @@ func TestPushChannel(c *gin.Context) {
 		url, token, other = resolveSMTPConfig(ctx, url, token, other)
 	}
 
-	tempChannel := model.PushChannel{
+	tempChannel := PushChannel{
 		Name:    "test_temp",
 		URL:     url,
 		Token:   token,

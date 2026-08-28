@@ -15,13 +15,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/task"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -173,8 +173,8 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*task.T
 
 func countStorageObjects(ctx context.Context) (int64, error) {
 	var count int64
-	err := db.DB(ctx).Model(&model.Upload{}).
-		Where("status != ?", model.UploadStatusDeleted).
+	err := db.DB(ctx).Model(&models.Upload{}).
+		Where("status != ?", models.UploadStatusDeleted).
 		Distinct("file_path").
 		Count(&count).Error
 	return count, err
@@ -185,7 +185,7 @@ func hasUnresolvedMigrationTask(ctx context.Context) (bool, error) {
 	if err != nil || !ok {
 		return false, err
 	}
-	return execution.Status == model.TaskExecutionStatusPending || execution.Status == model.TaskExecutionStatusRunning, nil
+	return execution.Status == task.TaskExecutionStatusPending || execution.Status == task.TaskExecutionStatusRunning, nil
 }
 
 type migrationObject struct {
@@ -214,9 +214,9 @@ func migrateObjects(
 		task.AppendLog(ctx, "正在查询待迁移对象批次，当前已完成迁移: %d/%d", atomic.LoadInt64(&migrated), total)
 
 		var objects []migrationObject
-		query := db.DB(ctx).Model(&model.Upload{}).
+		query := db.DB(ctx).Model(&models.Upload{}).
 			Select("file_path, MAX(file_size) AS file_size, MAX(mime_type) AS mime_type, MAX(hash) AS hash").
-			Where("status != ?", model.UploadStatusDeleted)
+			Where("status != ?", models.UploadStatusDeleted)
 		if lastFilePath != "" {
 			query = query.Where("file_path > ?", lastFilePath)
 		}
@@ -311,8 +311,8 @@ func migrateSingleObject(
 
 	if targetResult.Key != obj.FilePath {
 		task.AppendLog(ctx, "[更新数据库] 正在更新文件路径: %s -> %s", obj.FilePath, targetResult.Key)
-		if err := db.DB(ctx).Model(&model.Upload{}).
-			Where("file_path = ? AND status != ?", obj.FilePath, model.UploadStatusDeleted).
+		if err := db.DB(ctx).Model(&models.Upload{}).
+			Where("file_path = ? AND status != ?", obj.FilePath, models.UploadStatusDeleted).
 			Update("file_path", targetResult.Key).Error; err != nil {
 			return fmt.Errorf("update migrated object %q: %w", obj.FilePath, err)
 		}
@@ -344,15 +344,15 @@ func markMissingMigrationObjectDeleted(
 ) error {
 	task.AppendLog(ctx, "警告: 源存储中物理文件不存在，标记为已删除并跳过: %s (错误: %v)", filePath, sourceErr)
 
-	var affectedUploads []model.Upload
+	var affectedUploads []models.Upload
 	if err := db.DB(ctx).
-		Where("file_path = ? AND status != ?", filePath, model.UploadStatusDeleted).
+		Where("file_path = ? AND status != ?", filePath, models.UploadStatusDeleted).
 		Find(&affectedUploads).Error; err != nil {
 		return fmt.Errorf("load missing object uploads %q: %w", filePath, err)
 	}
-	if err := db.DB(ctx).Model(&model.Upload{}).
+	if err := db.DB(ctx).Model(&models.Upload{}).
 		Where("file_path = ?", filePath).
-		Update("status", model.UploadStatusDeleted).Error; err != nil {
+		Update("status", models.UploadStatusDeleted).Error; err != nil {
 		return fmt.Errorf("update missing object %q: %w", filePath, err)
 	}
 	for i := range affectedUploads {

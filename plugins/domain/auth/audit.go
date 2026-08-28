@@ -8,13 +8,13 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 
 // LogForAudit 将登录鉴权审计日志写入 Logger
-func LogForAudit(ctx context.Context, user *model.User, c *gin.Context) {
+func LogForAudit(ctx context.Context, user *contracts.UserDTO, c *gin.Context) {
 	if user == nil || c == nil {
 		return
 	}

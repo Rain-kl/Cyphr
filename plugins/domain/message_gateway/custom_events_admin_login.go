@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/listener"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 )
 
 // AdminLogin is the metadata definition for the admin login event.
@@ -22,7 +22,8 @@ var AdminLogin = EventMetadata{
 	Description: "当管理员成功登录系统时触发此通知",
 }
 
-func handleAdminLogin(ctx context.Context, event listener.AdminLoggedIn) {
+// HandleAdminLoggedIn 处理管理员登录事件并触发通知
+func HandleAdminLoggedIn(ctx context.Context, event contracts.AdminLoggedIn) {
 	if event.User == nil {
 		return
 	}
@@ -38,5 +39,4 @@ func handleAdminLogin(ctx context.Context, event listener.AdminLoggedIn) {
 // RegisterCustomEvents registers default domain push notification events.
 func RegisterCustomEvents() {
 	RegisterBuiltInEvent(AdminLogin)
-	listener.OnAdminLoggedIn(handleAdminLogin)
 }

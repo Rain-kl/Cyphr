@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package driver_http provides the Gin HTTP web server driver plugin for Cordis.
 package driver_http
 

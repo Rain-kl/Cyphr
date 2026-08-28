@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"gorm.io/gorm"
 )
 
@@ -19,13 +19,13 @@ func TestApplyUploadStatsDeltaTxWithinTransaction(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	upload := &model.Upload{
+	upload := &models.Upload{
 		ID:        42002,
 		FileSize:  256,
 		MimeType:  "image/jpeg",
 		Extension: "jpg",
 		Type:      "avatar",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
 
@@ -49,13 +49,13 @@ func TestApplyUploadStatsAddAndRemove(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 
-	upload := &model.Upload{
+	upload := &models.Upload{
 		ID:        42001,
 		FileSize:  128,
 		MimeType:  "image/png",
 		Extension: "png",
 		Type:      "avatar",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
 	if err := ApplyUploadStatsAdd(ctx, upload); err != nil {
@@ -89,8 +89,8 @@ type uploadStatsSnapshot struct {
 }
 
 func loadUploadStats(ctx context.Context) (uploadStatsSnapshot, error) {
-	var rows []model.UploadStat
-	if err := db.DB(ctx).Where("dimension = ?", model.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
+	var rows []models.UploadStat
+	if err := db.DB(ctx).Where("dimension = ?", models.UploadStatDimensionTotal).Find(&rows).Error; err != nil {
 		return uploadStatsSnapshot{}, err
 	}
 	if len(rows) == 0 {

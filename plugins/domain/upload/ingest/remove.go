@@ -6,44 +6,44 @@ package ingest
 import (
 	"context"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
 	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
 	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
 	"gorm.io/gorm"
 )
 
 // Remove soft-deletes an upload and decrements incremental stats.
-func Remove(ctx context.Context, uploadID uint64) (model.Upload, error) {
+func Remove(ctx context.Context, uploadID uint64) (models.Upload, error) {
 	upload, err := repository.GetActiveUploadByID(ctx, uploadID)
 	if err != nil {
-		return model.Upload{}, err
+		return models.Upload{}, err
 	}
 	if err := softDeleteUploadWithStats(ctx, &upload); err != nil {
-		return model.Upload{}, err
+		return models.Upload{}, err
 	}
-	upload.Status = model.UploadStatusDeleted
+	upload.Status = models.UploadStatusDeleted
 	return upload, nil
 }
 
 // RemoveOwned soft-deletes an upload owned by userID and decrements incremental stats.
-func RemoveOwned(ctx context.Context, userID, uploadID uint64) (model.Upload, error) {
+func RemoveOwned(ctx context.Context, userID, uploadID uint64) (models.Upload, error) {
 	upload, err := repository.GetActiveUploadByID(ctx, uploadID)
 	if err != nil {
-		return model.Upload{}, err
+		return models.Upload{}, err
 	}
 	if upload.UserID != userID {
-		return model.Upload{}, ErrForbidden
+		return models.Upload{}, ErrForbidden
 	}
 	if err := softDeleteUploadWithStats(ctx, &upload); err != nil {
-		return model.Upload{}, err
+		return models.Upload{}, err
 	}
-	upload.Status = model.UploadStatusDeleted
+	upload.Status = models.UploadStatusDeleted
 	return upload, nil
 }
 
-func softDeleteUploadWithStats(ctx context.Context, upload *model.Upload) error {
+func softDeleteUploadWithStats(ctx context.Context, upload *models.Upload) error {
 	statsSnapshot := *upload
 	if err := db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := repository.SoftDeleteUploadTx(tx, upload); err != nil {

@@ -15,8 +15,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/user"
 )
 
@@ -27,8 +26,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	require.NoError(t, testDB.AutoMigrate(
-		&model.User{},
-		&model.AccessToken{},
+		&user.User{},
+		&user.AccessToken{},
 	))
 
 	db.SetDB(testDB)

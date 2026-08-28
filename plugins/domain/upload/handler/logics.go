@@ -8,26 +8,27 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
 	"gorm.io/gorm"
+
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
 )
 
-func listUploadFiles(ctx context.Context, filter repository.UploadListFilter) (int64, []model.Upload, error) {
+func listUploadFiles(ctx context.Context, filter repository.UploadListFilter) (int64, []models.Upload, error) {
 	return repository.ListUploads(ctx, filter)
 }
 
-func listMyUploadFiles(ctx context.Context, userID uint64, filter repository.UploadListFilter) (int64, []model.Upload, error) {
+func listMyUploadFiles(ctx context.Context, userID uint64, filter repository.UploadListFilter) (int64, []models.Upload, error) {
 	filter.UserID = userID
 	return repository.ListUploads(ctx, filter)
 }
 
-func softDeleteUpload(ctx context.Context, uploadID uint64) (model.Upload, error) {
+func softDeleteUpload(ctx context.Context, uploadID uint64) (models.Upload, error) {
 	return ingest.Remove(ctx, uploadID)
 }
 
-func softDeleteOwnedUpload(ctx context.Context, userID, uploadID uint64) (model.Upload, error) {
+func softDeleteOwnedUpload(ctx context.Context, userID, uploadID uint64) (models.Upload, error) {
 	return ingest.RemoveOwned(ctx, userID, uploadID)
 }
 
@@ -45,13 +46,13 @@ type updateMyUploadInput struct {
 	AccessMode *int
 }
 
-func updateOwnedUpload(ctx context.Context, userID, uploadID uint64, input updateMyUploadInput) (model.Upload, error) {
-	upload, err := repository.GetActiveUploadByID(ctx, uploadID)
+func updateOwnedUpload(ctx context.Context, userID, uploadID uint64, input updateMyUploadInput) (models.Upload, error) {
+	u, err := repository.GetActiveUploadByID(ctx, uploadID)
 	if err != nil {
-		return model.Upload{}, err
+		return models.Upload{}, err
 	}
-	if upload.UserID != userID {
-		return model.Upload{}, ingest.ErrForbidden
+	if u.UserID != userID {
+		return models.Upload{}, ingest.ErrForbidden
 	}
 
 	updates := make(map[string]any)
@@ -61,23 +62,23 @@ func updateOwnedUpload(ctx context.Context, userID, uploadID uint64, input updat
 	if input.AccessMode != nil {
 		updates["access_mode"] = *input.AccessMode
 	}
-	if err := repository.UpdateUpload(ctx, &upload, updates); err != nil {
-		return model.Upload{}, err
+	if err := repository.UpdateUpload(ctx, &u, updates); err != nil {
+		return models.Upload{}, err
 	}
 	if name, ok := updates["file_name"].(string); ok {
-		upload.FileName = name
+		u.FileName = name
 	}
 	if mode, ok := updates["access_mode"].(int); ok {
-		upload.AccessMode = mode
+		u.AccessMode = mode
 	}
-	return upload, nil
+	return u, nil
 }
 
-func listUploadsForBatchDownload(ctx context.Context, ids []uint64) ([]model.Upload, error) {
+func listUploadsForBatchDownload(ctx context.Context, ids []uint64) ([]models.Upload, error) {
 	return repository.ListUploadsByIDs(ctx, ids)
 }
 
-func loadUploadStats(ctx context.Context) ([]model.UploadStat, error) {
+func loadUploadStats(ctx context.Context) ([]models.UploadStat, error) {
 	return repository.ListUploadStats(ctx)
 }
 

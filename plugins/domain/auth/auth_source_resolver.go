@@ -7,44 +7,58 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
 
 func isOIDCLoginEnabled(ctx context.Context) bool {
-	enabled, err := repository.GetBoolByKey(ctx, model.ConfigKeyOIDCLoginEnabled)
+	var val string
+	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "oidc_login_enabled").Pluck("value", &val).Error; err != nil || val == "" {
+		return true
+	}
+	b, err := strconv.ParseBool(val)
 	if err != nil {
 		return true
 	}
-	return enabled
+	return b
 }
 
-func resolveAuthSource(ctx context.Context, sourceName string) (*model.AuthSource, error) {
+func resolveAuthSource(ctx context.Context, sourceName string) (*AuthSource, error) {
 	name := strings.TrimSpace(strings.ToLower(sourceName))
 	if name == "" {
-		sources, err := repository.GetActiveAuthSourcesCached(ctx)
+		sources, err := GetActiveAuthSourcesCached(ctx)
 		if err != nil {
 			return nil, err
 		}
 		if len(sources) == 0 {
 			return nil, errors.New(errNoActiveAuthSource)
 		}
-		return repository.GetAuthSourceByNameCached(ctx, sources[0].Name)
+		src, err := GetAuthSourceByNameCached(ctx, sources[0].Name)
+		if err != nil {
+			return nil, err
+		}
+		return src, nil
 	}
-	return repository.GetAuthSourceByNameCached(ctx, name)
+	src, err := GetAuthSourceByNameCached(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return src, nil
 }
 
 func activeLoginSources(ctx context.Context) []AuthSourceView {
-	enabled, err := repository.GetBoolByKey(ctx, model.ConfigKeyOIDCLoginEnabled)
-	if err == nil && !enabled {
+	if !isOIDCLoginEnabled(ctx) {
 		return nil
 	}
 
-	dbSources, err := repository.GetActiveAuthSourcesCached(ctx)
+	dbSources, err := GetActiveAuthSourcesCached(ctx)
 	if err != nil {
 		return nil
 	}
@@ -64,14 +78,14 @@ func activeLoginSources(ctx context.Context) []AuthSourceView {
 }
 
 func getFrontendLoginRedirectURL(ctx context.Context) (string, error) {
-	sc, err := repository.GetSystemConfigByKey(ctx, model.ConfigKeyServerAddress)
-	if err != nil || strings.TrimSpace(sc.Value) == "" {
+	var val string
+	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || strings.TrimSpace(val) == "" {
 		return "", errors.New(errServerAddressMissing)
 	}
-	return strings.TrimRight(sc.Value, "/") + "/login", nil
+	return strings.TrimRight(val, "/") + "/login", nil
 }
 
-func buildOAuthConfig(ctx context.Context, source *model.AuthSource, redirectURL string) (*oauth2.Config, *oidc.IDTokenVerifier, error) {
+func buildOAuthConfig(ctx context.Context, source *AuthSource, redirectURL string) (*oauth2.Config, *oidc.IDTokenVerifier, error) {
 	if source == nil {
 		return nil, nil, errors.New(errAuthSourceRequired)
 	}
@@ -116,37 +130,7 @@ func containsScope(scopes []string, scope string) bool {
 	return false
 }
 
-func uniqueUsername(ctx context.Context, base string) (string, error) {
-	base = strings.TrimSpace(base)
-	if base == "" {
-		base = "user"
-	}
-
-	existingUsernames, err := repository.ListUsernamesMatchingBase(ctx, base)
-	if err != nil {
-		return "", err
-	}
-
-	exists := make(map[string]bool, len(existingUsernames))
-	for _, u := range existingUsernames {
-		exists[strings.ToLower(u)] = true
-	}
-
-	if !exists[strings.ToLower(base)] {
-		return base, nil
-	}
-
-	for i := 1; i <= 1000; i++ {
-		candidate := fmt.Sprintf("%s-%d", base, i)
-		if !exists[strings.ToLower(candidate)] {
-			return candidate, nil
-		}
-	}
-
-	return "", errors.New(errUsernameGenerateFailed)
-}
-
-func buildOAuthUserInfo(ctx context.Context, source *model.AuthSource, code string, nonce string, redirectURL string) (*model.OAuthUserInfo, error) {
+func buildOAuthUserInfo(ctx context.Context, source *AuthSource, code string, nonce string, redirectURL string) (*contracts.OAuthUserInfoDTO, error) {
 	authConfig, verifier, err := buildOAuthConfig(ctx, source, redirectURL)
 	if err != nil {
 		return nil, err
@@ -157,7 +141,7 @@ func buildOAuthUserInfo(ctx context.Context, source *model.AuthSource, code stri
 		return nil, err
 	}
 
-	userInfo := &model.OAuthUserInfo{Active: true}
+	userInfo := &contracts.OAuthUserInfoDTO{Active: true}
 	if verifier != nil {
 		if verifyErr := verifyIDToken(ctx, verifier, token, nonce, userInfo); verifyErr != nil {
 			return nil, verifyErr
@@ -180,7 +164,7 @@ func buildOAuthUserInfo(ctx context.Context, source *model.AuthSource, code stri
 	return userInfo, nil
 }
 
-func verifyIDToken(ctx context.Context, verifier *oidc.IDTokenVerifier, token *oauth2.Token, nonce string, userInfo *model.OAuthUserInfo) error {
+func verifyIDToken(ctx context.Context, verifier *oidc.IDTokenVerifier, token *oauth2.Token, nonce string, userInfo *contracts.OAuthUserInfoDTO) error {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
 		return nil
@@ -198,7 +182,7 @@ func verifyIDToken(ctx context.Context, verifier *oidc.IDTokenVerifier, token *o
 	return nil
 }
 
-func normalizeOAuthUserInfo(userInfo *model.OAuthUserInfo) error {
+func normalizeOAuthUserInfo(userInfo *contracts.OAuthUserInfoDTO) error {
 	userInfo.Username = strings.TrimSpace(userInfo.Username)
 	userInfo.PreferredUsername = strings.TrimSpace(userInfo.PreferredUsername)
 	userInfo.Email = strings.TrimSpace(userInfo.Email)
@@ -226,7 +210,7 @@ func normalizeOAuthUserInfo(userInfo *model.OAuthUserInfo) error {
 	return nil
 }
 
-func buildCallbackResult(user *model.User, status string) OAuthCallbackResult {
+func buildCallbackResult(user *contracts.UserDTO, status string) OAuthCallbackResult {
 	result := OAuthCallbackResult{Status: status}
 	if user != nil {
 		info := BuildBasicUserInfo(user, false)

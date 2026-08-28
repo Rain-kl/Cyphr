@@ -11,8 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 )
 
@@ -49,11 +49,10 @@ func TestTokenCache_GetSetInvalidate(t *testing.T) {
 	ctx := context.Background()
 
 	tokenHash := "test-token-hash"
-	token := &model.AccessToken{
-		ID:        123,
-		UserID:    456,
-		TokenHash: tokenHash,
-		Name:      "test-token",
+	token := &auth.CachedToken{
+		ID:      123,
+		UserID:  456,
+		IsAdmin: true,
 	}
 
 	// 1. Get from empty cache -> miss
@@ -70,7 +69,7 @@ func TestTokenCache_GetSetInvalidate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCachedToken() failed: %v", err)
 	}
-	if cached.ID != token.ID || cached.UserID != token.UserID {
+	if cached.ID != token.ID || cached.UserID != token.UserID || cached.IsAdmin != token.IsAdmin {
 		t.Fatalf("expected cached token %+v, got %+v", token, cached)
 	}
 
@@ -90,7 +89,7 @@ func TestUserCache_GetSetInvalidate(t *testing.T) {
 	ctx := context.Background()
 
 	userID := uint64(789)
-	user := &model.User{
+	user := &contracts.UserDTO{
 		ID:       userID,
 		Username: "testuser",
 		Email:    "test@example.com",

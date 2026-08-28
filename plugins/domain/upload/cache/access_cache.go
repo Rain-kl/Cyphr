@@ -11,13 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 const fileAccessInvalidationChannel = "upload:file_access_invalidation"
@@ -53,12 +51,13 @@ func ensureAccessCacheListener() {
 }
 
 func startAccessCacheInvalidationListener() {
-	if db.Redis == nil {
+	rdb := db.Redis
+	if rdb == nil {
 		return
 	}
 
 	util.Go(func() {
-		pubsub := db.Redis.Subscribe(
+		pubsub := rdb.Subscribe(
 			context.Background(),
 			objectstore.ConfigInvalidationChannel,
 			fileAccessInvalidationChannel,
@@ -114,7 +113,8 @@ func fetchFileAccessWhitelist(ctx context.Context) map[string]struct{} {
 }
 
 func parseFileAccessWhitelist(ctx context.Context) []string {
-	sc, err := repository.GetSystemConfigByKey(ctx, model.ConfigKeyFileAccessWhitelist)
+	var sc struct{ Value string }
+	err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error
 	if err != nil || sc.Value == "" {
 		return []string{shared.DefaultPublicUploadType}
 	}

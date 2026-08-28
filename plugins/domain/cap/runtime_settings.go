@@ -14,9 +14,8 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+
 	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
@@ -38,13 +37,25 @@ type RuntimeSettings struct {
 	TokenTTL            time.Duration
 }
 
+// CAP 动态配置键常量
+const (
+	ConfigKeyCapLoginEnabled        = "cap_login_enabled"
+	ConfigKeyCapChallengeCount      = "cap_challenge_count"
+	ConfigKeyCapChallengeSize       = "cap_challenge_size"
+	ConfigKeyCapChallengeDifficulty = "cap_challenge_difficulty"
+	ConfigKeyCapChallengeTTL        = "cap_challenge_ttl"
+	// ConfigKeyCapTokenTTL 验证码 Token 过期时间键
+	// #nosec G101
+	ConfigKeyCapTokenTTL = "cap_token_ttl"
+)
+
 var runtimeConfigKeys = []string{
-	model.ConfigKeyCapLoginEnabled,
-	model.ConfigKeyCapChallengeCount,
-	model.ConfigKeyCapChallengeSize,
-	model.ConfigKeyCapChallengeDifficulty,
-	model.ConfigKeyCapChallengeTTL,
-	model.ConfigKeyCapTokenTTL,
+	ConfigKeyCapLoginEnabled,
+	ConfigKeyCapChallengeCount,
+	ConfigKeyCapChallengeSize,
+	ConfigKeyCapChallengeDifficulty,
+	ConfigKeyCapChallengeTTL,
+	ConfigKeyCapTokenTTL,
 }
 
 var runtimeConfigKeySet = func() map[string]struct{} {
@@ -132,14 +143,22 @@ func (s *runtimeSettingsStore) current(ctx context.Context) (RuntimeSettings, er
 }
 
 func loadRuntimeSettings(ctx context.Context) (RuntimeSettings, error) {
-	configs, err := repository.ListSystemConfigsByKeys(ctx, runtimeConfigKeys)
-	if err != nil {
+	type configRecord struct {
+		Key   string `gorm:"column:key"`
+		Value string `gorm:"column:value"`
+	}
+	var records []configRecord
+	if err := db.DB(ctx).Table("w_system_configs").Where("key IN ?", runtimeConfigKeys).Find(&records).Error; err != nil {
 		return RuntimeSettings{}, err
+	}
+	configs := make(map[string]string, len(records))
+	for _, r := range records {
+		configs[r.Key] = r.Value
 	}
 	return parseRuntimeSettings(configs), nil
 }
 
-func parseRuntimeSettings(configs map[string]model.SystemConfig) RuntimeSettings {
+func parseRuntimeSettings(configs map[string]string) RuntimeSettings {
 	settings := RuntimeSettings{
 		ChallengeCount:      defaultChallengeCount,
 		ChallengeSize:       defaultChallengeSize,
@@ -148,33 +167,33 @@ func parseRuntimeSettings(configs map[string]model.SystemConfig) RuntimeSettings
 		TokenTTL:            defaultTokenTTL,
 	}
 
-	if sc, ok := configs[model.ConfigKeyCapLoginEnabled]; ok {
-		if enabled, err := strconv.ParseBool(sc.Value); err == nil {
+	if val, ok := configs[ConfigKeyCapLoginEnabled]; ok {
+		if enabled, err := strconv.ParseBool(val); err == nil {
 			settings.LoginEnabled = enabled
 		}
 	}
-	if sc, ok := configs[model.ConfigKeyCapChallengeCount]; ok {
-		if count, err := strconv.Atoi(sc.Value); err == nil && count > 0 {
+	if val, ok := configs[ConfigKeyCapChallengeCount]; ok {
+		if count, err := strconv.Atoi(val); err == nil && count > 0 {
 			settings.ChallengeCount = count
 		}
 	}
-	if sc, ok := configs[model.ConfigKeyCapChallengeSize]; ok {
-		if size, err := strconv.Atoi(sc.Value); err == nil && size > 0 {
+	if val, ok := configs[ConfigKeyCapChallengeSize]; ok {
+		if size, err := strconv.Atoi(val); err == nil && size > 0 {
 			settings.ChallengeSize = size
 		}
 	}
-	if sc, ok := configs[model.ConfigKeyCapChallengeDifficulty]; ok {
-		if difficulty, err := strconv.Atoi(sc.Value); err == nil && difficulty > 0 {
-			settings.ChallengeDifficulty = difficulty
+	if val, ok := configs[ConfigKeyCapChallengeDifficulty]; ok {
+		if diff, err := strconv.Atoi(val); err == nil && diff > 0 {
+			settings.ChallengeDifficulty = diff
 		}
 	}
-	if sc, ok := configs[model.ConfigKeyCapChallengeTTL]; ok {
-		if ttlSeconds, err := strconv.Atoi(sc.Value); err == nil && ttlSeconds > 0 {
+	if val, ok := configs[ConfigKeyCapChallengeTTL]; ok {
+		if ttlSeconds, err := strconv.Atoi(val); err == nil && ttlSeconds > 0 {
 			settings.ChallengeTTL = time.Duration(ttlSeconds) * time.Second
 		}
 	}
-	if sc, ok := configs[model.ConfigKeyCapTokenTTL]; ok {
-		if ttlSeconds, err := strconv.Atoi(sc.Value); err == nil && ttlSeconds > 0 {
+	if val, ok := configs[ConfigKeyCapTokenTTL]; ok {
+		if ttlSeconds, err := strconv.Atoi(val); err == nil && ttlSeconds > 0 {
 			settings.TokenTTL = time.Duration(ttlSeconds) * time.Second
 		}
 	}
@@ -186,13 +205,17 @@ func (s *runtimeSettingsStore) ensureInvalidationListener() {
 	s.listenerOnce.Do(startRuntimeSettingsInvalidationListener)
 }
 
+// SystemConfigInvalidationChannel 系统配置失效广播通道
+const SystemConfigInvalidationChannel = "system_config:invalidation"
+
 func startRuntimeSettingsInvalidationListener() {
-	if db.Redis == nil {
+	rdb := db.Redis
+	if rdb == nil {
 		return
 	}
 
 	util.Go(func() {
-		pubsub := db.Redis.Subscribe(context.Background(), repository.SystemConfigInvalidationChannel)
+		pubsub := rdb.Subscribe(context.Background(), SystemConfigInvalidationChannel)
 		defer func() {
 			_ = pubsub.Close()
 		}()

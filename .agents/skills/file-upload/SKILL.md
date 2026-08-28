@@ -84,7 +84,7 @@ import (
     "bytes"
 
     "github.com/Rain-kl/Wavelet/internal/apps/upload"
-    "github.com/Rain-kl/Wavelet/internal/model"
+    "github.com/Rain-kl/Wavelet/pkg/model"
 )
 
 func ingestMirrorFile(ctx context.Context, userID uint64, data []byte, hash, filename, mime, ext string) (model.Upload, error) {

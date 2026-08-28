@@ -4,7 +4,7 @@
 package upload
 
 import (
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
+	"github.com/Rain-kl/Wavelet/pkg/task"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/handler"

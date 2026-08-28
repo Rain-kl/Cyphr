@@ -4,9 +4,9 @@
 package admin
 
 import (
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-gonic/gin"
@@ -18,7 +18,7 @@ func LoginAdminRequired() gin.HandlerFunc {
 		ctx, span := otel_trace.Start(c.Request.Context(), "LoginAdminRequired")
 		defer span.End()
 
-		user, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
+		user, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 		if user == nil {
 			response.AbortNotFound(c, AdminRequired)
 			return

@@ -6,14 +6,15 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/shared"
 	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -33,32 +34,47 @@ func SetToContext[T any](c *gin.Context, key string, value T) {
 	c.Set(key, value)
 }
 
-func getUserByToken(ctx context.Context, tokenStr string) (*model.User, *model.AccessToken, error) {
-	tokenHash := model.HashToken(tokenStr)
+func hashToken(token string) string {
+	h := sha256.New()
+	h.Write([]byte(token))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func getUserByToken(ctx context.Context, tokenStr string) (*contracts.UserDTO, *CachedToken, error) {
+	tokenHash := hashToken(tokenStr)
 	tokenRecord, err := GetCachedToken(ctx, tokenHash)
-	if err != nil {
-		dbToken, err := repository.GetAccessTokenByHash(ctx, tokenHash)
-		if err != nil {
-			return nil, nil, err
+	if err == nil {
+		user, err := GetCachedUser(ctx, tokenRecord.UserID)
+		if err == nil && user != nil && user.IsActive {
+			return user, tokenRecord, nil
 		}
-		tokenRecord = &dbToken
-		SetCachedToken(ctx, tokenHash, tokenRecord)
 	}
 
-	user, err := GetCachedUser(ctx, tokenRecord.UserID)
-	if err != nil || !user.IsActive {
-		dbUser, err := repository.GetActiveUserByID(ctx, tokenRecord.UserID)
-		if err != nil {
-			return nil, nil, err
-		}
-		user = &dbUser
-		SetCachedUser(ctx, tokenRecord.UserID, user)
+	var tokenRow struct {
+		ID      uint64
+		UserID  uint64
+		IsAdmin bool
 	}
-	return user, tokenRecord, nil
+	if err := db.DB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
+		return nil, nil, err
+	}
+	tokenRecord = &CachedToken{
+		ID:      tokenRow.ID,
+		UserID:  tokenRow.UserID,
+		IsAdmin: tokenRow.IsAdmin,
+	}
+	SetCachedToken(ctx, tokenHash, tokenRecord)
+
+	var userRow contracts.UserDTO
+	if err := db.DB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRow.UserID, true).First(&userRow).Error; err != nil {
+		return nil, nil, err
+	}
+	SetCachedUser(ctx, userRow.ID, &userRow)
+	return &userRow, tokenRecord, nil
 }
 
 // GetUserFromRequest 校验 Access Token 或 Session 并返回用户对象，如果未登录或用户失效则返回 error
-func GetUserFromRequest(c *gin.Context) (*model.User, error) {
+func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 	ctx := c.Request.Context()
 
 	// Check token in headers
@@ -89,22 +105,13 @@ func GetUserFromRequest(c *gin.Context) (*model.User, error) {
 	}
 
 	user, err := GetCachedUser(ctx, userID)
-	if err != nil || !user.IsActive {
-		dbUser, loadErr := repository.GetActiveUserByID(ctx, userID)
-		if loadErr != nil {
-			return nil, loadErr
+	if err != nil || user == nil || !user.IsActive {
+		var dbUser contracts.UserDTO
+		if err := db.DB(ctx).Table("w_users").Where("id = ? AND is_active = ?", userID, true).First(&dbUser).Error; err != nil {
+			return nil, err
 		}
 		user = &dbUser
 		SetCachedUser(ctx, userID, user)
-	}
-
-	// 密码哈希校验：当用户存在本地密码时，要求 Session 中的密码哈希必须与当前数据库中一致
-	if user.Password != "" {
-		session := sessions.Default(c)
-		sessionHash, _ := session.Get(PasswordHashKey).(string)
-		if sessionHash != user.Password {
-			return nil, errors.New("session expired due to password change")
-		}
 	}
 
 	SetToContext(c, TokenAuthKey, false)

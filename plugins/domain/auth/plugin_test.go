@@ -5,8 +5,11 @@ package auth_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -15,10 +18,34 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 )
+
+type testUser struct {
+	ID          uint64 `gorm:"primaryKey"`
+	Username    string
+	IsActive    bool
+	LastLoginAt time.Time
+}
+
+func (testUser) TableName() string { return "w_users" }
+
+type testAccessToken struct {
+	ID        uint64 `gorm:"primaryKey"`
+	UserID    uint64
+	TokenHash string
+	Name      string
+	IsAdmin   bool
+}
+
+func (testAccessToken) TableName() string { return "w_access_tokens" }
+
+func hashToken(token string) string {
+	h := sha256.New()
+	h.Write([]byte(token))
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
@@ -27,10 +54,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	require.NoError(t, testDB.AutoMigrate(
-		&model.User{},
-		&model.AccessToken{},
-		&model.AuthSource{},
-		&model.ExternalAccount{},
+		&testUser{},
+		&testAccessToken{},
+		&auth.AuthSource{},
+		&auth.ExternalAccount{},
 	))
 
 	db.SetDB(testDB)
@@ -75,7 +102,7 @@ func TestAuthPluginUnit(t *testing.T) {
 	assert.Equal(t, "custom", prov.Name())
 
 	// Test User Token Verification with dummy token
-	user := model.User{
+	user := testUser{
 		ID:       101,
 		Username: "token_user",
 		IsActive: true,
@@ -83,8 +110,8 @@ func TestAuthPluginUnit(t *testing.T) {
 	require.NoError(t, testDB.Create(&user).Error)
 
 	tokenStr := "test-secret-token-123456"
-	tokenHash := model.HashToken(tokenStr)
-	tokenRecord := model.AccessToken{
+	tokenHash := hashToken(tokenStr)
+	tokenRecord := testAccessToken{
 		ID:        201,
 		UserID:    user.ID,
 		TokenHash: tokenHash,
@@ -106,7 +133,7 @@ func TestAuthPluginUnit(t *testing.T) {
 	require.NoError(t, authSvc.RevokeUserSessions(context.Background(), user.ID))
 
 	// GetCurrentUser from context
-	userCtx := context.WithValue(context.Background(), "user_obj", userDTO)
+	userCtx := context.WithValue(context.Background(), auth.UserObjKey, userDTO)
 	current, err := authSvc.GetCurrentUser(userCtx)
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, current.ID)

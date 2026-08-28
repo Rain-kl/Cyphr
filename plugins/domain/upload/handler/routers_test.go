@@ -19,15 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/gin-gonic/gin"
 )
 
@@ -36,7 +35,7 @@ type testResponse struct {
 	Data     json.RawMessage `json:"data"`
 }
 
-func setupTestRouter(authUser *model.User) *gin.Engine {
+func setupTestRouter(authUser *contracts.UserDTO) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(response.ErrorHandlerMiddleware())
@@ -106,7 +105,7 @@ func TestUploadFile(t *testing.T) {
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }() // Clean up local files created during tests
 
-	authUser := &model.User{ID: 1001, Username: "test_user"}
+	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
 	// Mock Storage Client
@@ -175,12 +174,12 @@ func TestUploadFile(t *testing.T) {
 		}
 
 		// Verify database record
-		var uploadRecord model.Upload
+		var uploadRecord models.Upload
 		if err := json.Unmarshal(resp.Data, &uploadRecord); err != nil {
 			t.Fatalf("failed to unmarshal upload record: %v", err)
 		}
 
-		var dbRecord model.Upload
+		var dbRecord models.Upload
 		if err := dbConn.First(&dbRecord, uploadRecord.ID).Error; err != nil {
 			t.Fatalf("failed to retrieve database record: %v", err)
 		}
@@ -258,7 +257,7 @@ func TestUploadFile(t *testing.T) {
 			t.Fatalf("second upload was unsuccessful: %s", resp2.ErrorMsg)
 		}
 
-		var uploadRecord2 model.Upload
+		var uploadRecord2 models.Upload
 		if err := json.Unmarshal(resp2.Data, &uploadRecord2); err != nil {
 			t.Fatalf("failed to unmarshal second upload record: %v", err)
 		}
@@ -269,7 +268,7 @@ func TestUploadFile(t *testing.T) {
 		}
 
 		// Check if database contains both records sharing the same FilePath
-		var records []model.Upload
+		var records []models.Upload
 		dbConn.Where("hash = ?", uploadRecord2.Hash).Find(&records)
 		if len(records) != 2 {
 			t.Errorf("expected 2 database records sharing the same hash, got %d", len(records))
@@ -289,12 +288,7 @@ func TestUploadFile(t *testing.T) {
 		objectstore.IsEnabledFunc = func() bool { return false }
 
 		// Seed allowed extensions configuration to allow txt files
-		var sc model.SystemConfig
-		dbConn.Where("key = ?", model.ConfigKeyUploadAllowedExtensions).First(&sc)
-		sc.Value = "jpg,png,webp,txt"
-		dbConn.Save(&sc)
-		_ = db.HSetJSON(context.Background(), repository.SystemConfigRedisHashKey, sc.Key, &sc)
-		repository.ResetSystemConfigRAMCacheForTest()
+		dbConn.Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Update("value", "jpg,png,webp,txt")
 
 		contentType, body := createMultipartRequest(t, "file", "doc.txt", []byte("hello world generic document file"), map[string]string{
 			"type": "document",
@@ -316,7 +310,7 @@ func TestUploadFile(t *testing.T) {
 			t.Fatalf("local upload failed: %s", resp.ErrorMsg)
 		}
 
-		var localRecord model.Upload
+		var localRecord models.Upload
 		if err := json.Unmarshal(resp.Data, &localRecord); err != nil {
 			t.Fatalf("failed to unmarshal local upload record: %v", err)
 		}
@@ -338,11 +332,11 @@ func TestDownloadFile(t *testing.T) {
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }()
 
-	authUser := &model.User{ID: 1001, Username: "test_user"}
+	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
 	// Seed upload records in DB
-	localUpload := model.Upload{
+	localUpload := models.Upload{
 		ID:        2001,
 		UserID:    1001,
 		FileName:  "中文文件名.txt",
@@ -350,7 +344,7 @@ func TestDownloadFile(t *testing.T) {
 		FileSize:  12,
 		MimeType:  "text/plain",
 		Extension: "txt",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 	}
 
 	// Create local file
@@ -405,10 +399,10 @@ func TestListFiles(t *testing.T) {
 	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
 	defer cleanup()
 
-	authUser := &model.User{ID: 1001, Username: "test_user"}
+	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
-	uploads := []model.Upload{
+	uploads := []models.Upload{
 		{
 			ID:        2101,
 			UserID:    authUser.ID,
@@ -417,7 +411,7 @@ func TestListFiles(t *testing.T) {
 			FileSize:  10,
 			MimeType:  "text/plain",
 			Extension: "txt",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        2102,
@@ -427,7 +421,7 @@ func TestListFiles(t *testing.T) {
 			FileSize:  20,
 			MimeType:  "image/png",
 			Extension: "png",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        2103,
@@ -437,7 +431,7 @@ func TestListFiles(t *testing.T) {
 			FileSize:  30,
 			MimeType:  "text/markdown",
 			Extension: "md",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        2104,
@@ -447,7 +441,7 @@ func TestListFiles(t *testing.T) {
 			FileSize:  40,
 			MimeType:  "text/plain",
 			Extension: "txt",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 	}
 	for i := range uploads {
@@ -546,7 +540,7 @@ func TestBatchDownloadFiles(t *testing.T) {
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }()
 
-	authUser := &model.User{ID: 1001, Username: "test_user"}
+	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
 	// Create and write files locally
@@ -560,7 +554,7 @@ func TestBatchDownloadFiles(t *testing.T) {
 	_ = os.WriteFile("uploads/f3.txt", []byte("duplicate name file content"), 0644)
 
 	// Seed upload records. Note f2 and f3 have the same FileName "file_a.txt" to trigger name collision resolution.
-	uploads := []model.Upload{
+	uploads := []models.Upload{
 		{
 			ID:        3001,
 			UserID:    1001,
@@ -569,7 +563,7 @@ func TestBatchDownloadFiles(t *testing.T) {
 			FileSize:  13,
 			MimeType:  "text/plain",
 			Extension: "txt",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        3002,
@@ -579,7 +573,7 @@ func TestBatchDownloadFiles(t *testing.T) {
 			FileSize:  13,
 			MimeType:  "text/plain",
 			Extension: "txt",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        3003,
@@ -589,7 +583,7 @@ func TestBatchDownloadFiles(t *testing.T) {
 			FileSize:  28,
 			MimeType:  "text/plain",
 			Extension: "txt",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 	}
 
@@ -658,8 +652,8 @@ func TestUploadAccessModeAccessControl(t *testing.T) {
 	defer cleanup()
 	defer func() { _ = os.RemoveAll("uploads") }()
 
-	user1 := &model.User{ID: 1001, Username: "user1"}
-	user2 := &model.User{ID: 1002, Username: "user2"}
+	user1 := &contracts.UserDTO{ID: 1001, Username: "user1"}
+	user2 := &contracts.UserDTO{ID: 1002, Username: "user2"}
 
 	// Seed user1
 	if err := dbConn.Create(user1).Error; err != nil {
@@ -689,7 +683,7 @@ func TestUploadAccessModeAccessControl(t *testing.T) {
 	t.Logf("Raw upload response: %s", w.Body.String())
 	var resp1 testResponse
 	_ = json.Unmarshal(w.Body.Bytes(), &resp1)
-	var upload1 model.Upload
+	var upload1 models.Upload
 	_ = json.Unmarshal(resp1.Data, &upload1)
 
 	if upload1.AccessMode != 0 {
@@ -707,7 +701,7 @@ func TestUploadAccessModeAccessControl(t *testing.T) {
 	router.ServeHTTP(w2, req2)
 	var resp2 testResponse
 	_ = json.Unmarshal(w2.Body.Bytes(), &resp2)
-	var upload2 model.Upload
+	var upload2 models.Upload
 	_ = json.Unmarshal(resp2.Data, &upload2)
 
 	if upload2.AccessMode != 1 {
@@ -744,11 +738,11 @@ func TestGetFileStats(t *testing.T) {
 	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
 	defer cleanup()
 
-	authUser := &model.User{ID: 1001, Username: "test_user"}
+	authUser := &contracts.UserDTO{ID: 1001, Username: "test_user"}
 	router := setupTestRouter(authUser)
 
 	// Insert some dummy uploads
-	uploads := []model.Upload{
+	uploads := []models.Upload{
 		{
 			ID:        3101,
 			UserID:    authUser.ID,
@@ -758,7 +752,7 @@ func TestGetFileStats(t *testing.T) {
 			MimeType:  "image/png",
 			Extension: "png",
 			Type:      "generic",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 			CreatedAt: time.Now(),
 		},
 		{
@@ -770,7 +764,7 @@ func TestGetFileStats(t *testing.T) {
 			MimeType:  "video/mp4",
 			Extension: "mp4",
 			Type:      "generic",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 			CreatedAt: time.Now().AddDate(0, 0, -2), // 2 days ago
 		},
 		{
@@ -782,7 +776,7 @@ func TestGetFileStats(t *testing.T) {
 			MimeType:  "application/pdf",
 			Extension: "pdf",
 			Type:      "avatar", // different type
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 			CreatedAt: time.Now().AddDate(0, 0, -10), // older than 7 days
 		},
 	}
@@ -854,8 +848,8 @@ func TestUserUploadManagement(t *testing.T) {
 	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
 	defer cleanup()
 
-	user1 := &model.User{ID: 1001, Username: "user1"}
-	user2 := &model.User{ID: 1002, Username: "user2"}
+	user1 := &contracts.UserDTO{ID: 1001, Username: "user1"}
+	user2 := &contracts.UserDTO{ID: 1002, Username: "user2"}
 
 	_ = dbConn.Create(user1)
 	_ = dbConn.Create(user2)
@@ -864,7 +858,7 @@ func TestUserUploadManagement(t *testing.T) {
 	router2 := setupTestRouter(user2)
 
 	// Seed upload records
-	upload1 := model.Upload{
+	upload1 := models.Upload{
 		ID:        4001,
 		UserID:    1001,
 		FileName:  "user1-file.txt",
@@ -872,10 +866,10 @@ func TestUserUploadManagement(t *testing.T) {
 		FileSize:  100,
 		MimeType:  "text/plain",
 		Extension: "txt",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
-	upload2 := model.Upload{
+	upload2 := models.Upload{
 		ID:        4002,
 		UserID:    1002,
 		FileName:  "user2-file.png",
@@ -883,7 +877,7 @@ func TestUserUploadManagement(t *testing.T) {
 		FileSize:  200,
 		MimeType:  "image/png",
 		Extension: "png",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 		CreatedAt: time.Now(),
 	}
 
@@ -927,7 +921,7 @@ func TestUserUploadManagement(t *testing.T) {
 			t.Fatalf("expected status 200, got %d. Body: %s", w.Code, w.Body.String())
 		}
 
-		var updated model.Upload
+		var updated models.Upload
 		dbConn.First(&updated, 4001)
 		if updated.FileName != "renamed.txt" {
 			t.Errorf("expected file name renamed.txt, got %s", updated.FileName)
@@ -970,9 +964,9 @@ func TestUserUploadManagement(t *testing.T) {
 			t.Fatalf("expected status 200, got %d", w.Code)
 		}
 
-		var deleted model.Upload
+		var deleted models.Upload
 		dbConn.First(&deleted, 4001)
-		if deleted.Status != model.UploadStatusDeleted {
+		if deleted.Status != models.UploadStatusDeleted {
 			t.Errorf("expected status deleted, got %s", deleted.Status)
 		}
 	})

@@ -18,8 +18,8 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
+
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/plugins/domain/admin"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
@@ -38,17 +38,17 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 
 	require.NoError(t, testDB.AutoMigrate(
-		&model.User{},
-		&model.AccessToken{},
-		&model.AuthSource{},
-		&model.ExternalAccount{},
-		&model.MessageChannel{},
-		&model.MessageBinding{},
-		&model.MessagePairingCode{},
-		&model.SystemConfig{},
-		&model.PushChannel{},
-		&model.PushEvent{},
-		&model.PushHistory{},
+		&user.User{},
+		&user.AccessToken{},
+		&auth.AuthSource{},
+		&auth.ExternalAccount{},
+		&message_gateway.MessageChannel{},
+		&message_gateway.MessageBinding{},
+		&message_gateway.MessagePairingCode{},
+		&admin.SystemConfig{},
+		&message_gateway.PushChannel{},
+		&message_gateway.PushEvent{},
+		&message_gateway.PushHistory{},
 	))
 
 	db.SetDB(testDB)

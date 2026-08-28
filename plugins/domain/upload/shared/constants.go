@@ -17,4 +17,9 @@ const (
 	FileStatsTrendDays      = 7
 	MaxS3KeyLength          = 1024
 	AccessCacheTTL          = 5 // seconds; multiplied by time.Second at use site
+
+	UploadStatDimensionTotal    = "total"
+	UploadStatDimensionType     = "type"
+	UploadStatDimensionCategory = "category"
+	UploadStatDimensionTrend    = "trend"
 )

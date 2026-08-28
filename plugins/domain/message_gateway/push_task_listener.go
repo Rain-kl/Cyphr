@@ -9,9 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/task"
 )
 
 // RegisterTaskListeners subscribes push notification handlers to task completion events.
@@ -19,7 +18,7 @@ func RegisterTaskListeners() {
 	task.OnTaskCompleted(handleTaskCompleted)
 }
 
-func handleTaskCompleted(ctx context.Context, execution *model.TaskExecution, result *task.TaskResult, execErr error) {
+func handleTaskCompleted(ctx context.Context, execution *task.TaskExecution, result *task.TaskResult, execErr error) {
 	events, err := listActivePushEventsByTaskType(ctx, execution.TaskType)
 	if err != nil {
 		logger.ErrorF(ctx, "push_task_completed_listener: failed to query push events for task type %s: %v", execution.TaskType, err)

@@ -16,12 +16,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/repository/logstore"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 )
 
 var startTime = time.Now()
@@ -200,16 +198,16 @@ func GetLogDatabaseStatus(c *gin.Context) {
 		ActiveDatabase: activeDB,
 		Migration:      migration,
 		RetentionDays: map[string]int{
-			logDBNamePostgres:   retentionOr(ctx, model.ConfigKeyLogRetentionDaysPostgres),
-			logDBNameSQLite:     retentionOr(ctx, model.ConfigKeyLogRetentionDaysSQLite),
-			logDBNameClickHouse: retentionOr(ctx, model.ConfigKeyLogRetentionDaysClickHouse),
+			logDBNamePostgres:   retentionOr(ctx, ConfigKeyLogRetentionDaysPostgres),
+			logDBNameSQLite:     retentionOr(ctx, ConfigKeyLogRetentionDaysSQLite),
+			logDBNameClickHouse: retentionOr(ctx, ConfigKeyLogRetentionDaysClickHouse),
 		},
 		AvailableTargets: availableLogTargets(activeDB),
 	}))
 }
 
 func retentionOr(ctx context.Context, key string) int {
-	v, err := repository.GetIntByKey(ctx, key)
+	v, err := GetIntByKey(ctx, key)
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.ErrorF(ctx, "读取日志保留天数配置失败 key=%s: %v", key, err)

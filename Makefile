@@ -25,19 +25,19 @@ build-embedded:
 		NEXT_PUBLIC_APP_VERSION="$(VERSION)" \
 		NEXT_PUBLIC_APP_BUILD_DATE="$(BUILD_DATE)" \
 		pnpm build:embed
-	rm -rf internal/router/root/dist
-	cp -R frontend/out internal/router/root/dist
+	rm -rf plugins/drivers/driver_http/dist
+	cp -R frontend/out plugins/drivers/driver_http/dist
 	go build \
 		-tags embed_frontend \
-		-ldflags "-s -w -X '$(MODULE)/internal/buildinfo.Version=$(VERSION)' -X '$(MODULE)/internal/buildinfo.BuildTime=$(BUILD_DATE)'" \
+		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o bin/wavelet \
 		main.go
 
 code-check:
 	@echo "==> Architecture guards..."
 	@command -v rg >/dev/null 2>&1 || { echo 'error: rg (ripgrep) is required for architecture guards' >&2; exit 1; }
-	@if rg -n 'db\.DB\(|db\.Redis' internal/model --glob '*.go' -g '!*_test.go' ; then \
-		echo 'error: internal/model must not access db.DB or db.Redis (non-test code)' >&2; \
+	@if [ -d pkg/model ] && rg -n 'db\.DB\(|db\.Redis' pkg/model --glob '*.go' -g '!*_test.go' ; then \
+		echo 'error: pkg/model must not access db.DB or db.Redis (non-test code)' >&2; \
 		exit 1; \
 	fi
 	golangci-lint run
@@ -46,7 +46,7 @@ code-check:
 build-backend:
 	@echo "==> Building backend version=$(VERSION) build_date=$(BUILD_DATE)..."
 	go build \
-		-ldflags "-s -w -X '$(MODULE)/internal/buildinfo.Version=$(VERSION)' -X '$(MODULE)/internal/buildinfo.BuildTime=$(BUILD_DATE)'" \
+		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o bin/wavelet \
 		main.go
 

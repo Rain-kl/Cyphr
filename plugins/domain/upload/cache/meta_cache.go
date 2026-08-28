@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/util"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
 
 const (
@@ -26,7 +26,7 @@ type uploadMetaInvalidationMessage struct {
 }
 
 var (
-	uploadMetaRAM            = ram.MustNew[uint64, model.Upload](ram.Options{MaximumSize: uploadMetaRAMMaximumSize})
+	uploadMetaRAM            = ram.MustNew[uint64, models.Upload](ram.Options{MaximumSize: uploadMetaRAMMaximumSize})
 	uploadMetaListenerOnce   sync.Once
 	uploadMetaListenerCtx    context.Context
 	uploadMetaListenerCancel context.CancelFunc
@@ -37,8 +37,8 @@ func uploadMetaRedisKey(id uint64) string {
 	return fmt.Sprintf("upload:meta:%d", id)
 }
 
-func cloneUpload(upload model.Upload) model.Upload {
-	return upload
+func cloneUpload(u models.Upload) models.Upload {
+	return u
 }
 
 func ensureUploadMetaCacheListener() {
@@ -88,45 +88,45 @@ func publishUploadMetaRAMInvalidation(ctx context.Context, id uint64) {
 }
 
 // GetUploadByID loads upload metadata from RAM, Redis, or the database.
-func GetUploadByID(ctx context.Context, id uint64) (model.Upload, error) {
+func GetUploadByID(ctx context.Context, id uint64) (models.Upload, error) {
 	ensureUploadMetaCacheListener()
 
-	if upload, ok := uploadMetaRAM.GetIfPresent(id); ok {
-		return cloneUpload(upload), nil
+	if u, ok := uploadMetaRAM.GetIfPresent(id); ok {
+		return cloneUpload(u), nil
 	}
 
 	key := uploadMetaRedisKey(id)
 	if db.Redis != nil {
-		var upload model.Upload
-		if err := db.GetJSON(ctx, key, &upload); err == nil {
-			uploadMetaRAM.Set(id, cloneUpload(upload))
-			return upload, nil
+		var u models.Upload
+		if err := db.GetJSON(ctx, key, &u); err == nil {
+			uploadMetaRAM.Set(id, cloneUpload(u))
+			return u, nil
 		}
 	}
 
-	var upload model.Upload
+	var u models.Upload
 	if err := db.DB(ctx).
-		Where("id = ? AND status IN (?, ?)", id, model.UploadStatusPending, model.UploadStatusUsed).
-		First(&upload).Error; err != nil {
-		return model.Upload{}, err
+		Where("id = ? AND status IN (?, ?)", id, models.UploadStatusPending, models.UploadStatusUsed).
+		First(&u).Error; err != nil {
+		return models.Upload{}, err
 	}
 
-	SetUploadMetaCache(ctx, &upload)
-	return upload, nil
+	SetUploadMetaCache(ctx, &u)
+	return u, nil
 }
 
 // SetUploadMetaCache populates RAM and Redis upload metadata caches.
-func SetUploadMetaCache(ctx context.Context, upload *model.Upload) {
+func SetUploadMetaCache(ctx context.Context, u *models.Upload) {
 	ensureUploadMetaCacheListener()
 
-	if upload == nil {
+	if u == nil {
 		return
 	}
 
-	cloned := cloneUpload(*upload)
-	uploadMetaRAM.Set(upload.ID, cloned)
+	cloned := cloneUpload(*u)
+	uploadMetaRAM.Set(u.ID, cloned)
 	if db.Redis != nil {
-		_ = db.SetJSON(ctx, uploadMetaRedisKey(upload.ID), cloned, uploadMetaRedisCacheTTL)
+		_ = db.SetJSON(ctx, uploadMetaRedisKey(u.ID), cloned, uploadMetaRedisCacheTTL)
 	}
 }
 

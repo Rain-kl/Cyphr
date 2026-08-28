@@ -13,13 +13,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/listener"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
+
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/shared"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -91,7 +94,7 @@ func GetLoginURL(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(OAuthAuthorizeResponse{AuthorizeURL: authorizeURL}))
 }
 
-func buildAuthorizeURL(ctx context.Context, source *model.AuthSource, state string) (string, error) {
+func buildAuthorizeURL(ctx context.Context, source *AuthSource, state string) (string, error) {
 	redirectURL, err := getFrontendLoginRedirectURL(ctx)
 	if err != nil {
 		return "", err
@@ -282,18 +285,18 @@ func Callback(c *gin.Context) {
 	handleCallbackLogin(ctx, c, source, userInfo)
 }
 
-func handleCallbackBind(ctx context.Context, c *gin.Context, source *model.AuthSource, userInfo *model.OAuthUserInfo) {
+func handleCallbackBind(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) {
 	userID := GetUserIDFromContext(c)
 	if userID == 0 {
 		response.AbortUnauthorized(c, shared.UnAuthorized)
 		return
 	}
-	user, err := repository.GetUserByID(ctx, userID)
-	if err != nil {
+	var user contracts.UserDTO
+	if err := db.DB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err != nil {
 		response.AbortInternal(c, err.Error())
 		return
 	}
-	if err := repository.BindExternalAccount(ctx, &model.ExternalAccount{
+	if err := BindExternalAccount(ctx, &ExternalAccount{
 		AuthSourceID:     source.ID,
 		UserID:           user.ID,
 		ExternalID:       userInfo.Sub,
@@ -304,22 +307,20 @@ func handleCallbackBind(ctx context.Context, c *gin.Context, source *model.AuthS
 		return
 	}
 	user.LastLoginAt = time.Now()
-	_ = repository.UpdateUserLastLoginAt(ctx, user.ID, user.LastLoginAt)
+	_ = db.DB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
 	c.JSON(http.StatusOK, response.OK(buildCallbackResult(&user, "bound")))
 }
 
-func handleCallbackLogin(ctx context.Context, c *gin.Context, source *model.AuthSource, userInfo *model.OAuthUserInfo) {
-	var user model.User
+func handleCallbackLogin(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) {
+	var user contracts.UserDTO
 
-	account, err := repository.FindExternalAccount(ctx, source.ID, userInfo.Sub)
+	account, err := FindExternalAccount(ctx, source.ID, userInfo.Sub)
 	switch {
 	case err == nil:
-		loaded, loadErr := repository.GetUserByID(ctx, account.UserID)
-		if loadErr != nil {
+		if loadErr := db.DB(ctx).Table("w_users").Where("id = ?", account.UserID).First(&user).Error; loadErr != nil {
 			response.AbortInternal(c, loadErr.Error())
 			return
 		}
-		user = loaded
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		newUser, ok := handleCallbackRegister(ctx, c, source, userInfo)
 		if !ok {
@@ -332,7 +333,7 @@ func handleCallbackLogin(ctx context.Context, c *gin.Context, source *model.Auth
 	}
 
 	user.LastLoginAt = time.Now()
-	_ = repository.UpdateUserLastLoginAt(ctx, user.ID, user.LastLoginAt)
+	_ = db.DB(ctx).Table("w_users").Where("id = ?", user.ID).Update("last_login_at", user.LastLoginAt).Error
 	if err := SetLoginSession(ctx, c, &user); err != nil {
 		response.AbortInternal(c, err.Error())
 		return
@@ -340,37 +341,81 @@ func handleCallbackLogin(ctx context.Context, c *gin.Context, source *model.Auth
 
 	SetCachedUser(ctx, user.ID, &user)
 
-	logger.InfoF(ctx, "[LoginAudit] successful OAuth login via source: %s, external ID: %s, user: %s, ID: %d, IP: %s", source.Name, userInfo.Sub, user.Username, user.ID, c.ClientIP())
-
-	listener.EmitAdminLoggedIn(ctx, &user, c.ClientIP())
-
 	c.JSON(http.StatusOK, response.OK(buildCallbackResult(&user, "logged_in")))
 }
 
-func handleCallbackRegister(ctx context.Context, c *gin.Context, source *model.AuthSource, userInfo *model.OAuthUserInfo) (model.User, bool) {
-	registrationEnabled, regErr := repository.GetBoolByKey(ctx, model.ConfigKeyRegistrationEnabled)
-	if regErr != nil {
-		registrationEnabled = false
+func uniqueUsername(ctx context.Context, base string) (string, error) {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "user"
+	}
+
+	var existingUsernames []string
+	if err := db.DB(ctx).Table("w_users").
+		Where("username = ? OR username LIKE ? ESCAPE '\\'", base, util.EscapeLike(base)+"-%").
+		Pluck("username", &existingUsernames).Error; err != nil {
+		return "", err
+	}
+
+	exists := make(map[string]bool, len(existingUsernames))
+	for _, u := range existingUsernames {
+		exists[strings.ToLower(u)] = true
+	}
+
+	if !exists[strings.ToLower(base)] {
+		return base, nil
+	}
+
+	for i := 1; i <= 1000; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		if !exists[strings.ToLower(candidate)] {
+			return candidate, nil
+		}
+	}
+
+	return "", errors.New(errUsernameGenerateFailed)
+}
+
+func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSource, userInfo *contracts.OAuthUserInfoDTO) (contracts.UserDTO, bool) {
+	registrationEnabled := true
+	var val string
+	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "registration_enabled").Pluck("value", &val).Error; err == nil && val != "" {
+		if b, err := strconv.ParseBool(val); err == nil {
+			registrationEnabled = b
+		}
 	}
 
 	if !registrationEnabled {
 		c.JSON(http.StatusOK, response.OK(buildCallbackResult(nil, "need_bind")))
-		return model.User{}, false
+		return contracts.UserDTO{}, false
 	}
 
 	username, uniqueErr := uniqueUsername(ctx, userInfo.Username)
 	if uniqueErr != nil {
 		response.AbortInternal(c, uniqueErr.Error())
-		return model.User{}, false
+		return contracts.UserDTO{}, false
 	}
 	userInfo.Username = username
 
-	var user model.User
-	if err := repository.CreateUserFromOAuth(ctx, &user, userInfo); err != nil {
-		response.AbortInternal(c, err.Error())
-		return model.User{}, false
+	now := time.Now()
+	user := contracts.UserDTO{
+		ID:          idgen.NextUint64ID(),
+		Username:    userInfo.Username,
+		Nickname:    userInfo.Name,
+		Email:       userInfo.Email,
+		AvatarURL:   userInfo.AvatarURL,
+		IsActive:    userInfo.Active,
+		LastLoginAt: now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
-	if err := repository.BindExternalAccount(ctx, &model.ExternalAccount{
+
+	if err := db.DB(ctx).Table("w_users").Create(&user).Error; err != nil {
+		response.AbortInternal(c, err.Error())
+		return contracts.UserDTO{}, false
+	}
+
+	if err := BindExternalAccount(ctx, &ExternalAccount{
 		AuthSourceID:     source.ID,
 		UserID:           user.ID,
 		ExternalID:       userInfo.Sub,
@@ -378,7 +423,7 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *model.A
 		Email:            userInfo.Email,
 	}); err != nil {
 		response.AbortBadRequest(c, err.Error())
-		return model.User{}, false
+		return contracts.UserDTO{}, false
 	}
 	logger.InfoF(ctx, "[LoginAudit] successful OAuth registration via source: %s, external ID: %s, user: %s, ID: %d, IP: %s", source.Name, userInfo.Sub, user.Username, user.ID, c.ClientIP())
 
@@ -387,7 +432,7 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *model.A
 
 // UserInfo 获取当前登录用户信息
 func UserInfo(c *gin.Context) {
-	user, _ := GetFromContext[*model.User](c, UserObjKey)
+	user, _ := GetFromContext[*contracts.UserDTO](c, UserObjKey)
 	session := sessions.Default(c)
 	needChange := session.Get("need_change_password") == true
 
@@ -420,7 +465,7 @@ func Logout(c *gin.Context) {
 // ListExternalAccounts 获取当前用户的外部帐号绑定列表
 func ListExternalAccounts(c *gin.Context) {
 	userID := GetUserIDFromContext(c)
-	accounts, err := repository.ListExternalAccountsByUserID(c.Request.Context(), userID)
+	accounts, err := ListExternalAccountsByUserID(c.Request.Context(), userID)
 	if err != nil {
 		response.AbortInternal(c, err.Error())
 		return
@@ -441,7 +486,7 @@ func DeleteExternalAccount(c *gin.Context) {
 		response.AbortBadRequest(c, errInvalidExternalAccountBindingID)
 		return
 	}
-	if err := repository.DeleteExternalAccountForUser(c.Request.Context(), id, userID); err != nil {
+	if err := UnbindExternalAccount(c.Request.Context(), id, userID); err != nil {
 		response.AbortBadRequest(c, err.Error())
 		return
 	}

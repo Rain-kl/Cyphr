@@ -8,11 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -66,7 +67,10 @@ func GetUserIDFromSession(s sessions.Session) uint64 {
 }
 
 // GetUserIDFromContext 从 Gin Context 的 Session 中提取用户 ID
-func GetUserIDFromContext(c *gin.Context) uint64 {
+func GetUserIDFromContext(c *gin.Context) (uid uint64) {
+	defer func() {
+		_ = recover()
+	}()
 	session := sessions.Default(c)
 	return GetUserIDFromSession(session)
 }
@@ -96,14 +100,13 @@ func rotateSessionID(s sessions.Session) {
 }
 
 // SetLoginSession writes the authenticated user into a freshly rotated session.
-func SetLoginSession(ctx context.Context, c *gin.Context, user *model.User, extras ...map[string]any) error {
+func SetLoginSession(ctx context.Context, c *gin.Context, user *contracts.UserDTO, extras ...map[string]any) error {
 	session := sessions.Default(c)
 	session.Clear()
 	rotateSessionID(session)
 
 	session.Set(UserIDKey, user.ID)
 	session.Set(UserNameKey, user.Username)
-	session.Set(PasswordHashKey, user.Password)
 	if len(extras) > 0 {
 		for key, value := range extras[0] {
 			session.Set(key, value)
@@ -114,16 +117,18 @@ func SetLoginSession(ctx context.Context, c *gin.Context, user *model.User, extr
 	maxAge := config.Config.App.SessionAge
 	isSessionCookie := false
 
-	ttlHours, err := repository.GetIntByKey(ctx, model.ConfigKeyLoginSessionTTLHours)
-	if err == nil {
-		switch {
-		case ttlHours == -1:
-			// 永不过期，设置为 10 年
-			maxAge = 10 * 365 * 24 * 3600
-		case ttlHours > 0:
-			maxAge = ttlHours * 3600
-		case ttlHours == 0:
-			isSessionCookie = true
+	var val string
+	if err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "login_session_ttl_hours").Pluck("value", &val).Error; err == nil && val != "" {
+		if ttlHours, err := strconv.Atoi(val); err == nil {
+			switch {
+			case ttlHours == -1:
+				// 永不过期，设置为 10 年
+				maxAge = 10 * 365 * 24 * 3600
+			case ttlHours > 0:
+				maxAge = ttlHours * 3600
+			case ttlHours == 0:
+				isSessionCookie = true
+			}
 		}
 	}
 	session.Options(GetSessionOptions(maxAge))

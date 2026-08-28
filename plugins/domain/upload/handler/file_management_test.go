@@ -9,19 +9,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
 	"github.com/gin-gonic/gin"
+
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
 
 func TestGetDistinctUploadTypes(t *testing.T) {
 	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
 	defer cleanup()
 
-	user := model.User{ID: 2222, Username: "test_user_2"}
-	dbConn.Create(&user)
+	user := contracts.UserDTO{ID: 2222, Username: "test_user_2"}
+	dbConn.Table("w_users").Create(&user)
 
-	customUpload := model.Upload{
+	customUpload := models.Upload{
 		ID:        9001,
 		UserID:    user.ID,
 		FileName:  "custom.txt",
@@ -30,7 +32,7 @@ func TestGetDistinctUploadTypes(t *testing.T) {
 		MimeType:  "text/plain",
 		Extension: "txt",
 		Type:      "custom_type_xyz",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 	}
 	dbConn.Create(&customUpload)
 

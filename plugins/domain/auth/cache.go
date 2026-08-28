@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/cache/ram"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
@@ -25,9 +25,16 @@ const (
 	oauthUserInvalidationChannel  = "oauth:user_invalidation"
 )
 
+// CachedToken represents the minimal cached representation of an access token.
+type CachedToken struct {
+	ID      uint64 `json:"id"`
+	UserID  uint64 `json:"user_id"`
+	IsAdmin bool   `json:"is_admin"`
+}
+
 var (
-	tokenRAM = ram.MustNew[string, *model.AccessToken](ram.Options{MaximumSize: 2048})
-	userRAM  = ram.MustNew[uint64, *model.User](ram.Options{MaximumSize: 2048})
+	tokenRAM = ram.MustNew[string, *CachedToken](ram.Options{MaximumSize: 2048})
+	userRAM  = ram.MustNew[uint64, *contracts.UserDTO](ram.Options{MaximumSize: 2048})
 
 	tokenListenerOnce   sync.Once
 	tokenListenerCtx    context.Context
@@ -136,8 +143,8 @@ func publishUserRAMInvalidation(ctx context.Context, userID uint64) {
 	_ = db.Redis.Publish(ctx, oauthUserInvalidationChannel, strconv.FormatUint(userID, 10)).Err()
 }
 
-// GetCachedToken 获取缓存的 AccessToken
-func GetCachedToken(ctx context.Context, tokenHash string) (*model.AccessToken, error) {
+// GetCachedToken 获取缓存的 Token
+func GetCachedToken(ctx context.Context, tokenHash string) (*CachedToken, error) {
 	ensureTokenCacheListener()
 
 	if val, ok := tokenRAM.GetIfPresent(tokenHash); ok {
@@ -145,7 +152,7 @@ func GetCachedToken(ctx context.Context, tokenHash string) (*model.AccessToken, 
 	}
 
 	if db.Redis != nil {
-		var token model.AccessToken
+		var token CachedToken
 		key := tokenCacheKey(tokenHash)
 		if err := db.GetJSON(ctx, key, &token); err == nil {
 			// Write back to local cache
@@ -156,8 +163,8 @@ func GetCachedToken(ctx context.Context, tokenHash string) (*model.AccessToken, 
 	return nil, fmt.Errorf("cache miss")
 }
 
-// SetCachedToken 设置 AccessToken 缓存
-func SetCachedToken(ctx context.Context, tokenHash string, token *model.AccessToken) {
+// SetCachedToken 设置 Token 缓存
+func SetCachedToken(ctx context.Context, tokenHash string, token *CachedToken) {
 	ensureTokenCacheListener()
 
 	tokenRAM.Set(tokenHash, token)
@@ -179,8 +186,8 @@ func InvalidateCachedToken(ctx context.Context, tokenHash string) {
 	}
 }
 
-// GetCachedUser 获取缓存的 User
-func GetCachedUser(ctx context.Context, userID uint64) (*model.User, error) {
+// GetCachedUser 获取缓存的 UserDTO
+func GetCachedUser(ctx context.Context, userID uint64) (*contracts.UserDTO, error) {
 	ensureUserCacheListener()
 
 	if val, ok := userRAM.GetIfPresent(userID); ok {
@@ -188,7 +195,7 @@ func GetCachedUser(ctx context.Context, userID uint64) (*model.User, error) {
 	}
 
 	if db.Redis != nil {
-		var u model.User
+		var u contracts.UserDTO
 		key := userCacheKey(userID)
 		if err := db.GetJSON(ctx, key, &u); err == nil {
 			// Write back to local cache
@@ -199,8 +206,8 @@ func GetCachedUser(ctx context.Context, userID uint64) (*model.User, error) {
 	return nil, fmt.Errorf("cache miss")
 }
 
-// SetCachedUser 设置 User 缓存
-func SetCachedUser(ctx context.Context, userID uint64, u *model.User) {
+// SetCachedUser 设置 UserDTO 缓存
+func SetCachedUser(ctx context.Context, userID uint64, u *contracts.UserDTO) {
 	ensureUserCacheListener()
 
 	userRAM.Set(userID, u)
@@ -210,7 +217,7 @@ func SetCachedUser(ctx context.Context, userID uint64, u *model.User) {
 	}
 }
 
-// InvalidateCachedUser 吊销/失效 User 缓存
+// InvalidateCachedUser 吊销/失效 UserDTO 缓存
 func InvalidateCachedUser(ctx context.Context, userID uint64) {
 	ensureUserCacheListener()
 

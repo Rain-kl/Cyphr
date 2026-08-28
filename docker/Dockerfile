@@ -40,12 +40,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-COPY --from=frontend-builder /workspace/frontend/out ./internal/router/root/dist
+COPY --from=frontend-builder /workspace/frontend/out ./plugins/drivers/driver_http/dist
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -tags embed_frontend \
     -trimpath \
-    -ldflags="-s -w -X github.com/Rain-kl/Wavelet/internal/buildinfo.Version=${VERSION} -X github.com/Rain-kl/Wavelet/internal/buildinfo.BuildTime=${BUILD_DATE}" \
+    -ldflags="-s -w -X github.com/Rain-kl/Wavelet/pkg/buildinfo.Version=${VERSION} -X github.com/Rain-kl/Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
     -o /out/wavelet \
     ./main.go
 

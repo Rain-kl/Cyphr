@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/model/analytics"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-gonic/gin"
 )
@@ -42,7 +42,7 @@ func RiskControlMiddleware() gin.HandlerFunc {
 		c.Next()
 
 		// 3. 后置身份检查：仅记录通过认证的请求
-		userObj, exists := auth.GetFromContext[*model.User](c, auth.UserObjKey)
+		userObj, exists := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 		if !exists || userObj == nil {
 			return
 		}
@@ -72,7 +72,7 @@ func RiskControlMiddleware() gin.HandlerFunc {
 			status = maxHTTPStatus
 		}
 
-		logItem := &analytics.UserAccessLog{
+		logItem := &logstore.UserAccessLog{
 			ID:        idgen.NextUint64ID(),
 			UserID:    userObj.ID, // 直接从 Context 获取已登录用户ID，避免数据库查询
 			Path:      c.Request.URL.Path,

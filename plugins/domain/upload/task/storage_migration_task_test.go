@@ -16,10 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 )
@@ -59,7 +59,7 @@ func TestMigrationHandlerExecute(t *testing.T) {
 		t.Fatalf("Marshal(storageMigrationPayload) returned error: %v", err)
 	}
 
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:        99101,
 		UserID:    1,
 		FileName:  "test.txt",
@@ -69,7 +69,7 @@ func TestMigrationHandlerExecute(t *testing.T) {
 		Extension: "txt",
 		Hash:      "hash",
 		Type:      "attachment",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 	}
 	if err := dbConn.Create(&upload).Error; err != nil {
 		t.Fatalf("Create(upload) returned error: %v", err)
@@ -101,7 +101,7 @@ func TestMigrationHandlerExecute(t *testing.T) {
 		t.Errorf("migrated content = %q, want %q", copied.String(), content)
 	}
 
-	var migrated model.Upload
+	var migrated models.Upload
 	if err := dbConn.First(&migrated, upload.ID).Error; err != nil {
 		t.Fatalf("First(upload) returned error: %v", err)
 	}
@@ -156,7 +156,7 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 	}
 
 	// Case 1: Incorrect Hash (should fail validation)
-	uploadIncorrect := model.Upload{
+	uploadIncorrect := models.Upload{
 		ID:        99102,
 		UserID:    1,
 		FileName:  "test-hash.txt",
@@ -166,7 +166,7 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 		Extension: "txt",
 		Hash:      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", // Invalid hash
 		Type:      "attachment",
-		Status:    model.UploadStatusUsed,
+		Status:    models.UploadStatusUsed,
 	}
 	if err := dbConn.Create(&uploadIncorrect).Error; err != nil {
 		t.Fatalf("Create(uploadIncorrect) returned error: %v", err)
@@ -202,7 +202,7 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 	}
 
 	// Case 2: Correct Hash (should succeed)
-	if err := dbConn.Model(&model.Upload{}).Where("id = ?", uploadIncorrect.ID).Update("hash", correctHash).Error; err != nil {
+	if err := dbConn.Model(&models.Upload{}).Where("id = ?", uploadIncorrect.ID).Update("hash", correctHash).Error; err != nil {
 		t.Fatalf("Update hash to correct value returned error: %v", err)
 	}
 
@@ -215,7 +215,7 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 		t.Fatal("Execute() result = nil, want non-nil")
 	}
 
-	var migrated model.Upload
+	var migrated models.Upload
 	if err := dbConn.First(&migrated, uploadIncorrect.ID).Error; err != nil {
 		t.Fatalf("First(upload) returned error: %v", err)
 	}

@@ -113,11 +113,40 @@ Wavelet 是面向未来 5 年生产级云原生与高并发业务中台的 **微
 
 ### 4.3 代码覆盖率与质量门禁指标 (Code Coverage & Quality Gates)
 
-- **`make code-check`**: **`0 issues` (100% 绿灯)**
+- **`make code-check`**: **`0 issues` (100% 绿灯，包含 Go 静态分析与前端 TypeScript/ESLint 检查)**
 - **`go test ./...`**: **`100% 全部 PASS`**
 - **`core/` (微内核核心)**: **`93.8%`**
 - **`core/extpoints/` (领域扩展点)**: **`96.2%`**
 - **`plugins/infra/*` (基础设施插件)**: **`98.5%`**
 - **`plugins/domain/*` (业务领域插件)**: **`96.8%`**
 - **`plugins/drivers/*` (运行时驱动插件)**: **`92.1%`**
+
+---
+
+## 5. 表单一所有者原则与集中式包清退演进报告 (Single Owner Principle & Zero-Centralized-Package Evolution)
+
+### 5.1 彻底根除集中式包 (Zero-Centralized-Package)
+在过去的传统单体架构中，集中式的 `internal/model/`、`internal/repository/` 以及 `internal/` 目录往往成为大杂烩，随着团队扩展导致模块边界失控与隐式耦合。在本次 Cordis 架构重构中，我们实施了彻底的物理清退：
+- **`internal/` 目录**：**100% 物理清除**。通用的无状态基础库平移至 `pkg/`，所有业务全部下沉至 `plugins/domain/`。
+- **`pkg/model/` 目录**：**100% 物理清除**。消灭集中式数据模型。
+- **`pkg/repository/` 目录**：**100% 物理清除**。消灭集中式仓储。
+- **`pkg/listener/` 目录**：**100% 物理清除**。全面切换至微内核强类型 `EventBus` 广播订阅。
+
+### 5.2 数据表单一所有者归属矩阵 (Single Owner Principle Matrix)
+
+| 数据表 | 唯一所有者插件 | 数据结构与仓储位置 | 跨插件交互方式 |
+| :--- | :--- | :--- | :--- |
+| `w_users`<br>`w_access_tokens` | `plugins/domain/user` | `models.go`<br>`repository.go` | `core/contracts.UserService`<br>`contracts.UserDTO` |
+| `w_auth_sources`<br>`w_external_accounts`<br>`w_passkeys`<br>`w_oauth_states` | `plugins/domain/auth` | `models.go`<br>`repository.go` | `core/contracts.AuthService`<br>`contracts.AuthRegistry` |
+| `w_uploads`<br>`w_upload_stats` | `plugins/domain/upload` | `models/models.go`<br>`repository/repository.go` | `core/contracts.StorageService`<br>`upload.Ingest` 流水线 |
+| `w_system_configs`<br>`w_templates` | `plugins/domain/admin` | `models.go`<br>`repository.go` | `ctx.Settings()` / `contracts.ConfigService`<br>Redis Pub/Sub 广播 |
+| `w_message_channels`<br>`w_message_bindings`<br>`w_message_pairing_codes`<br>`w_push_events`<br>`w_push_channels`<br>`w_push_histories` | `plugins/domain/message_gateway` | `models.go`<br>`repository.go` | `EventBus` 强类型事件广播订阅 |
+| `w_user_access_logs` (分析库/日志库) | `plugins/domain/risk_control` | 委托 `pkg/persistence/logstore` | `logstore.UserAccessLog` 抽象门面 |
+| `w_task_executions`<br>`w_schedules` | `pkg/task` & `plugins/drivers` | `pkg/task/types.go` | `ctx.Task()` 与 `ctx.Schedule()` 扩展点 |
+
+### 5.3 架构防线与单向依赖保障
+1. **测试脚手架绝对解耦**：底层通用的 `pkg/testhelper` 严禁反向引用任何上层业务插件。`testhelper` 维护轻量自包含的测试表脚手架，彻底杜绝包导入循环（Import Cycle）。
+2. **Pub/Sub 并发安全防线**：在启动 Redis Pub/Sub 监听协程前，严格捕获局部客户端实例，彻底消除测试或重启期间对可变全局客户端的数据竞争（Data Race Free）。
+3. **零旁路读写 (No Bypass)**：严禁插件 A 跨界旁路直接操作属于插件 B 的数据表，跨域调用一律面向 `core/contracts` 契约编程或发布事件。
+
 

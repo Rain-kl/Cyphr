@@ -8,10 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
 )
@@ -60,18 +57,9 @@ func TestResetAccessCachesRefreshesWhitelist(t *testing.T) {
 		t.Fatal("expected seeded avatar whitelist before reset")
 	}
 
-	var sc model.SystemConfig
-	if err := dbConn.Where("key = ?", model.ConfigKeyFileAccessWhitelist).First(&sc).Error; err != nil {
-		t.Fatalf("load whitelist config: %v", err)
+	if err := dbConn.Table("w_system_configs").Where("key = ?", "file_access_whitelist").Update("value", `["attachment"]`).Error; err != nil {
+		t.Fatalf("update whitelist config: %v", err)
 	}
-	sc.Value = `["attachment"]`
-	if err := dbConn.Save(&sc).Error; err != nil {
-		t.Fatalf("save whitelist config: %v", err)
-	}
-	if err := db.HSetJSON(ctx, repository.SystemConfigRedisHashKey, model.ConfigKeyFileAccessWhitelist, &sc); err != nil {
-		t.Fatalf("refresh whitelist redis cache: %v", err)
-	}
-	repository.ResetSystemConfigRAMCacheForTest()
 
 	ResetAccessCaches()
 	if !IsFilePublic(ctx, "attachment") {

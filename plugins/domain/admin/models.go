@@ -92,6 +92,9 @@ func (Template) TableName() string {
 	return "w_templates"
 }
 
+// TemplateTypeEmail 邮件模板类型
+const TemplateTypeEmail = "email"
+
 // Normalize 规范化模板字段
 func (t *Template) Normalize() {
 	t.Key = strings.TrimSpace(t.Key)
@@ -101,7 +104,7 @@ func (t *Template) Normalize() {
 	t.Content = strings.TrimSpace(t.Content)
 	t.Description = strings.TrimSpace(t.Description)
 	if t.Type == "" {
-		t.Type = "email"
+		t.Type = TemplateTypeEmail
 	}
 }
 
@@ -200,4 +203,20 @@ type TaskExecution struct {
 // TableName 表名
 func (TaskExecution) TableName() string {
 	return "w_task_executions"
+}
+
+// ListTaskExecutionsRequest 分页查询任务执行记录请求参数
+type ListTaskExecutionsRequest struct {
+	Page           int    `form:"page"`
+	PageSize       int    `form:"page_size"`
+	Status         string `form:"status"`
+	TaskType       string `form:"task_type"`
+	TaskTypes      string `form:"task_types"`
+	TaskTypePrefix string `form:"task_type_prefix"`
+}
+
+// TaskExecutionCleanupStats 任务日志清理结果统计
+type TaskExecutionCleanupStats struct {
+	HighFrequencyDeleted int64 `json:"high_frequency_deleted"`
+	LowFrequencyDeleted  int64 `json:"low_frequency_deleted"`
 }

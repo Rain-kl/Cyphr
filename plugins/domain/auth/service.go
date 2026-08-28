@@ -9,33 +9,9 @@ import (
 	"sync"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	"github.com/gin-gonic/gin"
 )
-
-func toUserDTO(u *model.User) *contracts.UserDTO {
-	if u == nil {
-		return nil
-	}
-	return &contracts.UserDTO{
-		ID:          u.ID,
-		Username:    u.Username,
-		Nickname:    u.Nickname,
-		Email:       u.Email,
-		AvatarURL:   u.AvatarURL,
-		IsActive:    u.IsActive,
-		IsAdmin:     u.IsAdmin,
-		Bio:         u.Bio,
-		Phone:       u.Phone,
-		Gender:      u.Gender,
-		Website:     u.Website,
-		Location:    u.Location,
-		LastLoginAt: u.LastLoginAt,
-		CreatedAt:   u.CreatedAt,
-		UpdatedAt:   u.UpdatedAt,
-	}
-}
 
 type authServiceImpl struct{}
 
@@ -53,15 +29,12 @@ func (s *authServiceImpl) RequireAdminMiddleware() any {
 
 func (s *authServiceImpl) GetCurrentUser(ctx context.Context) (*contracts.UserDTO, error) {
 	if ginCtx, ok := ctx.(*gin.Context); ok {
-		if u, ok := GetFromContext[*model.User](ginCtx, UserObjKey); ok && u != nil {
-			return toUserDTO(u), nil
+		if u, ok := GetFromContext[*contracts.UserDTO](ginCtx, UserObjKey); ok && u != nil {
+			return u, nil
 		}
 	}
 
 	if v := ctx.Value(UserObjKey); v != nil {
-		if u, ok := v.(*model.User); ok && u != nil {
-			return toUserDTO(u), nil
-		}
 		if u, ok := v.(*contracts.UserDTO); ok && u != nil {
 			return u, nil
 		}
@@ -75,21 +48,29 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 		return nil, errors.New("auth: empty token")
 	}
 
-	tokenHash := model.HashToken(token)
+	tokenHash := hashToken(token)
 	tokenRecord, err := GetCachedToken(ctx, tokenHash)
 	if err != nil {
-		dbToken, err := repository.GetAccessTokenByHash(ctx, tokenHash)
-		if err != nil {
+		var tokenRow struct {
+			ID      uint64
+			UserID  uint64
+			IsAdmin bool
+		}
+		if err := db.DB(ctx).Table("w_access_tokens").Where("token_hash = ?", tokenHash).First(&tokenRow).Error; err != nil {
 			return nil, err
 		}
-		tokenRecord = &dbToken
+		tokenRecord = &CachedToken{
+			ID:      tokenRow.ID,
+			UserID:  tokenRow.UserID,
+			IsAdmin: tokenRow.IsAdmin,
+		}
 		SetCachedToken(ctx, tokenHash, tokenRecord)
 	}
 
 	user, err := GetCachedUser(ctx, tokenRecord.UserID)
-	if err != nil || !user.IsActive {
-		dbUser, err := repository.GetActiveUserByID(ctx, tokenRecord.UserID)
-		if err != nil {
+	if err != nil || user == nil || !user.IsActive {
+		var dbUser contracts.UserDTO
+		if err := db.DB(ctx).Table("w_users").Where("id = ? AND is_active = ?", tokenRecord.UserID, true).First(&dbUser).Error; err != nil {
 			return nil, err
 		}
 		user = &dbUser
@@ -100,7 +81,7 @@ func (s *authServiceImpl) VerifyToken(ctx context.Context, token string) (*contr
 		return nil, errors.New("auth: system user token not allowed")
 	}
 
-	return toUserDTO(user), nil
+	return user, nil
 }
 
 func (s *authServiceImpl) CreateSession(_ context.Context, _ uint64, _ map[string]any) (string, error) {

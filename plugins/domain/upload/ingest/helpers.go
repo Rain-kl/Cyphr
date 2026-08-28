@@ -5,22 +5,23 @@ package ingest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence/idgen"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/idgen"
 	uploadcache "github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"gorm.io/gorm"
 )
 
@@ -33,7 +34,7 @@ func normalizeRequest(req *Request) {
 		req.Type = "generic"
 	}
 	if req.Status == "" {
-		req.Status = model.UploadStatusUsed
+		req.Status = models.UploadStatusUsed
 	}
 }
 
@@ -48,18 +49,30 @@ func resolveAccessMode(uploadType string, explicit *int) int {
 }
 
 func validateAllowedExtension(ctx context.Context, ext string) error {
-	sc, err := repository.GetSystemConfigByKey(ctx, model.ConfigKeyUploadAllowedExtensions)
+	var val string
+	err := db.DB(ctx).Table("w_system_configs").Where("key = ?", "upload_allowed_extensions").Pluck("value", &val).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
-		return err
+		logger.WarnF(ctx, "failed to query upload_allowed_extensions: %v", err)
+		return nil
 	}
-	if sc.Value == "" {
+	if val == "" {
 		return nil
 	}
 
-	allowedExts := strings.Split(strings.ToLower(sc.Value), ",")
+	var list []string
+	if err := json.Unmarshal([]byte(val), &list); err == nil {
+		for _, allowedExt := range list {
+			if strings.EqualFold(strings.TrimSpace(allowedExt), ext) {
+				return nil
+			}
+		}
+		return errors.New(shared.ErrUnsupportedFormat)
+	}
+
+	allowedExts := strings.Split(strings.ToLower(val), ",")
 	for _, allowedExt := range allowedExts {
 		if strings.TrimSpace(allowedExt) == ext {
 			return nil
@@ -79,7 +92,7 @@ func buildObjectKey(req Request, id uint64) string {
 	return defaultObjectKey(id, req.Extension)
 }
 
-func storeObject(ctx context.Context, objectKey string, reader io.Reader, size int64, mimeType string, meta *model.UploadMetadata) (string, error) {
+func storeObject(ctx context.Context, objectKey string, reader io.Reader, size int64, mimeType string, meta *models.UploadMetadata) (string, error) {
 	if uploadstorage.ReadOnly(ctx) {
 		return "", ErrStorageReadOnly
 	}
@@ -100,7 +113,7 @@ func storeObject(ctx context.Context, objectKey string, reader io.Reader, size i
 	return result.Key, nil
 }
 
-func persistUploadRecord(ctx context.Context, upload *model.Upload, objectKey string) error {
+func persistUploadRecord(ctx context.Context, upload *models.Upload, objectKey string) error {
 	if err := createUploadWithStats(ctx, upload); err != nil {
 		_, backend, backendErr := objectstore.Active(ctx)
 		if backendErr == nil {
@@ -114,7 +127,7 @@ func persistUploadRecord(ctx context.Context, upload *model.Upload, objectKey st
 	return nil
 }
 
-func createUploadWithStats(ctx context.Context, upload *model.Upload) error {
+func createUploadWithStats(ctx context.Context, upload *models.Upload) error {
 	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := repository.CreateUploadTx(tx, upload); err != nil {
 			return err
@@ -123,9 +136,9 @@ func createUploadWithStats(ctx context.Context, upload *model.Upload) error {
 	})
 }
 
-func createDedupRecord(ctx context.Context, existing model.Upload, req Request) (Result, error) {
+func createDedupRecord(ctx context.Context, existing models.Upload, req Request) (Result, error) {
 	accessMode := resolveAccessMode(req.Type, req.AccessMode)
-	newUpload := model.Upload{
+	newUpload := models.Upload{
 		ID:         idgen.NextUint64ID(),
 		UserID:     req.UserID,
 		FileName:   req.FileName,
@@ -172,7 +185,7 @@ func createNewUpload(ctx context.Context, req Request) (Result, error) {
 	}
 
 	accessMode := resolveAccessMode(req.Type, req.AccessMode)
-	upload := model.Upload{
+	upload := models.Upload{
 		ID:         id,
 		UserID:     req.UserID,
 		FileName:   req.FileName,

@@ -7,32 +7,32 @@ import (
 	"context"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 // ApplyUploadStatsAdd increments incremental stats for a newly active upload record.
-func ApplyUploadStatsAdd(ctx context.Context, upload *model.Upload) error {
+func ApplyUploadStatsAdd(ctx context.Context, upload *models.Upload) error {
 	return applyUploadStatsDelta(ctx, upload, 1)
 }
 
 // ApplyUploadStatsRemove decrements incremental stats for a removed active upload record.
-func ApplyUploadStatsRemove(ctx context.Context, upload *model.Upload) error {
+func ApplyUploadStatsRemove(ctx context.Context, upload *models.Upload) error {
 	return applyUploadStatsDelta(ctx, upload, -1)
 }
 
 // RebuildUploadStats rebuilds all incremental stats from current upload records.
 func RebuildUploadStats(ctx context.Context) error {
 	return db.DB(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("1 = 1").Delete(&model.UploadStat{}).Error; err != nil {
+		if err := tx.Where("1 = 1").Delete(&models.UploadStat{}).Error; err != nil {
 			return err
 		}
 
-		var uploads []model.Upload
-		if err := tx.Where("status != ?", model.UploadStatusDeleted).Find(&uploads).Error; err != nil {
+		var uploads []models.Upload
+		if err := tx.Where("status != ?", models.UploadStatusDeleted).Find(&uploads).Error; err != nil {
 			return err
 		}
 
@@ -45,7 +45,7 @@ func RebuildUploadStats(ctx context.Context) error {
 	})
 }
 
-func applyUploadStatsDelta(ctx context.Context, upload *model.Upload, sign int64) error {
+func applyUploadStatsDelta(ctx context.Context, upload *models.Upload, sign int64) error {
 	if upload == nil || !isActiveUploadStatus(upload.Status) {
 		return nil
 	}
@@ -55,7 +55,7 @@ func applyUploadStatsDelta(ctx context.Context, upload *model.Upload, sign int64
 }
 
 // ApplyUploadStatsDeltaTx applies incremental upload stats within an existing transaction.
-func ApplyUploadStatsDeltaTx(tx *gorm.DB, upload *model.Upload, sign int64) error {
+func ApplyUploadStatsDeltaTx(tx *gorm.DB, upload *models.Upload, sign int64) error {
 	if upload == nil || !isActiveUploadStatus(upload.Status) || sign == 0 {
 		return nil
 	}
@@ -71,10 +71,10 @@ func ApplyUploadStatsDeltaTx(tx *gorm.DB, upload *model.Upload, sign int64) erro
 		dimension string
 		key       string
 	}{
-		{model.UploadStatDimensionTotal, ""},
-		{model.UploadStatDimensionType, typeKey},
-		{model.UploadStatDimensionCategory, GetFileCategory(upload.MimeType, upload.Extension)},
-		{model.UploadStatDimensionTrend, upload.CreatedAt.Format("2006-01-02")},
+		{models.UploadStatDimensionTotal, ""},
+		{models.UploadStatDimensionType, typeKey},
+		{models.UploadStatDimensionCategory, GetFileCategory(upload.MimeType, upload.Extension)},
+		{models.UploadStatDimensionTrend, upload.CreatedAt.Format("2006-01-02")},
 	}
 
 	for _, entry := range entries {
@@ -104,7 +104,7 @@ func upsertUploadStatDelta(tx *gorm.DB, dimension, key string, countDelta, sizeD
 			),
 			"updated_at": time.Now(),
 		}),
-	}).Create(&model.UploadStat{
+	}).Create(&models.UploadStat{
 		Dimension: dimension,
 		StatKey:   key,
 		FileCount: countDelta,
@@ -113,19 +113,19 @@ func upsertUploadStatDelta(tx *gorm.DB, dimension, key string, countDelta, sizeD
 }
 
 // RecordUploadStatsAdd logs and applies upload stats increment.
-func RecordUploadStatsAdd(ctx context.Context, upload *model.Upload) {
+func RecordUploadStatsAdd(ctx context.Context, upload *models.Upload) {
 	if err := ApplyUploadStatsAdd(ctx, upload); err != nil {
 		logger.WarnF(ctx, "increment upload stats failed: %v", err)
 	}
 }
 
 // RecordUploadStatsRemove logs and applies upload stats decrement.
-func RecordUploadStatsRemove(ctx context.Context, upload *model.Upload) {
+func RecordUploadStatsRemove(ctx context.Context, upload *models.Upload) {
 	if err := ApplyUploadStatsRemove(ctx, upload); err != nil {
 		logger.WarnF(ctx, "decrement upload stats failed: %v", err)
 	}
 }
 
-func isActiveUploadStatus(status model.UploadStatus) bool {
-	return status == model.UploadStatusPending || status == model.UploadStatusUsed
+func isActiveUploadStatus(status models.UploadStatus) bool {
+	return status == models.UploadStatusPending || status == models.UploadStatusUsed
 }

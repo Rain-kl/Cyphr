@@ -11,10 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	persistence "github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	persistence "github.com/Rain-kl/Wavelet/pkg/persistence"
+
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -60,7 +59,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	user, err := repository.GetUserByUsername(c.Request.Context(), req.Username)
+	user, err := GetUserByUsername(c.Request.Context(), req.Username)
 	if err != nil {
 		response.AbortUnauthorized(c, errPasswordMismatch)
 		return
@@ -87,7 +86,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	newUser := &model.User{
+	newUser := &User{
 		Username: req.Username,
 		Email:    req.Email,
 		IsActive: true,
@@ -128,7 +127,7 @@ func ChangePassword(c *gin.Context) {
 	}
 
 	userID := auth.GetUserIDFromContext(c)
-	user, err := repository.GetUserByID(c.Request.Context(), userID)
+	user, err := GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		response.AbortNotFound(c, errUserNotFound)
 		return
@@ -160,7 +159,7 @@ func UpdateProfile(c *gin.Context) {
 	}
 
 	userID := auth.GetUserIDFromContext(c)
-	user, err := repository.GetUserByID(c.Request.Context(), userID)
+	user, err := GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		response.AbortNotFound(c, errUserNotFound)
 		return
@@ -184,7 +183,7 @@ func UpdateProfile(c *gin.Context) {
 // ListAccessTokens lists access tokens for the current user.
 func ListAccessTokens(c *gin.Context) {
 	userID := auth.GetUserIDFromContext(c)
-	var tokens []model.AccessToken
+	var tokens []AccessToken
 	gormDB := persistence.DB(c.Request.Context())
 	_ = gormDB.Where("user_id = ?", userID).Find(&tokens).Error
 	c.JSON(http.StatusOK, response.OK(tokens))
@@ -215,7 +214,7 @@ func CreateAccessToken(c *gin.Context) {
 		masked = rawToken[:4] + "..." + rawToken[len(rawToken)-4:]
 	}
 
-	token := model.AccessToken{
+	token := AccessToken{
 		UserID:      userID,
 		Name:        req.Name,
 		TokenHash:   tokenHash,
@@ -245,7 +244,7 @@ func DeleteAccessToken(c *gin.Context) {
 	}
 
 	userID := auth.GetUserIDFromContext(c)
-	var token model.AccessToken
+	var token AccessToken
 	gormDB := persistence.DB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
 		response.AbortNotFound(c, errTokenNotFound)
@@ -267,7 +266,7 @@ func RotateAccessToken(c *gin.Context) {
 	}
 
 	userID := auth.GetUserIDFromContext(c)
-	var token model.AccessToken
+	var token AccessToken
 	gormDB := persistence.DB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
 		response.AbortNotFound(c, errTokenNotFound)

@@ -24,11 +24,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/mod/semver"
 
-	"github.com/Rain-kl/Wavelet/internal/buildinfo"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 )
 
@@ -282,7 +280,7 @@ func (m *updaterManager) fetchRelease(ctx context.Context, repository string) (g
 }
 
 func loadRepository(ctx context.Context) (string, error) {
-	config, err := repository.GetSystemConfigByKey(ctx, model.ConfigKeyUpdateUpstreamRepository)
+	config, err := GetSystemConfigByKey(ctx, ConfigKeyUpdateUpstreamRepository)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", errInvalidRepository, err)
 	}

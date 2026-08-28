@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
 	pkgcap "github.com/Rain-kl/Wavelet/pkg/cap"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
 )
 
 const (

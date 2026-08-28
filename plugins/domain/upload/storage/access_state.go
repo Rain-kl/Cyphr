@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/pkg/task"
+
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 // MigrationAccessState captures cached migration maintenance state.
@@ -70,9 +71,9 @@ func buildMigrationAccessState(ctx context.Context) MigrationAccessState {
 	}
 
 	state := MigrationAccessState{
-		ReadOnly: execution.Status != model.TaskExecutionStatusSucceeded,
+		ReadOnly: execution.Status != task.TaskExecutionStatusSucceeded,
 	}
-	if execution.Status == model.TaskExecutionStatusSucceeded {
+	if execution.Status == task.TaskExecutionStatusSucceeded {
 		return state
 	}
 

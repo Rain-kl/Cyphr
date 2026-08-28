@@ -22,13 +22,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	appshared "github.com/Rain-kl/Wavelet/internal/shared"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	appshared "github.com/Rain-kl/Wavelet/pkg/shared"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
@@ -50,7 +51,7 @@ type batchDownloadRequest struct {
 // @Param type formData string false "业务分类 (例如: avatar, attachment, doc，默认为 generic)"
 // @Param metadata formData string false "额外的 JSON 格式元数据"
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=model.Upload} "上传成功"
+// @Success 200 {object} response.Any{data=models.Upload} "上传成功"
 // @Failure 400 {object} response.Any "请求参数错误或文件受限"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 500 {object} response.Any "内部错误"
@@ -63,7 +64,7 @@ func UploadFile(c *gin.Context) {
 
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, shared.MaxUploadSize)
 
-	currUser, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
+	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 	ctx := c.Request.Context()
 
 	header, err := c.FormFile("file")
@@ -310,8 +311,8 @@ func resolveUploadAccessMode(c *gin.Context, uploadType string) (int, string) {
 	return accessMode, ""
 }
 
-func parseUploadMetadata(c *gin.Context, mimeType string) (model.UploadMetadata, string) {
-	var meta model.UploadMetadata
+func parseUploadMetadata(c *gin.Context, mimeType string) (models.UploadMetadata, string) {
+	var meta models.UploadMetadata
 	metadataStr := c.DefaultPostForm("metadata", "")
 	if metadataStr != "" {
 		if err := json.Unmarshal([]byte(metadataStr), &meta); err != nil {

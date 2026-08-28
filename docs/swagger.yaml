@@ -1,65 +1,74 @@
 basePath: /
 definitions:
-  auth_source.AuthSourceRequest:
+  admin.CreateScheduleRequest:
     properties:
-      client_id:
-        type: string
-      client_secret:
-        type: string
-      display_name:
-        type: string
-      icon_url:
+      cron:
         type: string
       is_active:
         type: boolean
       name:
         type: string
-      openid_discovery_url:
+      payload:
         type: string
-      scopes:
+      task_type:
+        type: string
+    required:
+    - cron
+    - is_active
+    - name
+    - task_type
+    type: object
+  admin.CreateSystemConfigRequest:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      key:
+        maxLength: 64
         type: string
       type:
+        enum:
+        - system
+        - business
         type: string
-    type: object
-  auth_source.ToggleAuthSourceRequest:
-    properties:
-      is_active:
-        type: boolean
-    type: object
-  cache.updateCacheConfigRequest:
-    properties:
-      lru_enabled:
-        type: boolean
-      max_size_mb:
-        minimum: 1
-        type: integer
-      ttl_minutes:
-        minimum: 0
+      value:
+        type: string
+      visibility:
+        enum:
+        - 0
+        - 1
         type: integer
     required:
-    - max_size_mb
-    - ttl_minutes
+    - key
+    - type
+    - value
     type: object
-  cap.challengeRequest:
+  admin.CreateTemplateRequest:
     properties:
-      scope:
+      content:
         type: string
-    type: object
-  cap.redeemRequest:
-    properties:
-      scope:
+      description:
+        maxLength: 255
         type: string
-      solutions:
-        items:
-          type: integer
-        type: array
-      token:
+      key:
+        maxLength: 80
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      subject:
+        maxLength: 255
+        type: string
+      type:
+        maxLength: 20
         type: string
     required:
-    - solutions
-    - token
+    - content
+    - key
+    - name
+    - type
     type: object
-  db_manage.DBOverviewResponse:
+  admin.DBOverviewResponse:
     properties:
       connections:
         type: integer
@@ -74,14 +83,38 @@ definitions:
       version:
         type: string
     type: object
-  db_manage.ExecuteSQLRequest:
+  admin.DatabaseInfoResponse:
+    properties:
+      name:
+        type: string
+      type:
+        type: string
+      version:
+        type: string
+    type: object
+  admin.DispatchTaskRequest:
+    properties:
+      end_time:
+        type: string
+      payload:
+        type: string
+      start_time:
+        type: string
+      task_type:
+        type: string
+      user_id:
+        type: integer
+    required:
+    - task_type
+    type: object
+  admin.ExecuteSQLRequest:
     properties:
       sql:
         type: string
     required:
     - sql
     type: object
-  db_manage.ExecuteSQLResponse:
+  admin.ExecuteSQLResponse:
     properties:
       affected_rows:
         type: integer
@@ -100,510 +133,22 @@ definitions:
         description: '"select" 或 "exec"'
         type: string
     type: object
-  diskcache.Status:
+  admin.LogDatabaseStatus:
     properties:
-      base_path:
+      active_database:
         type: string
-      keys_count:
-        type: integer
-      lru_enabled:
-        type: boolean
-      max_size_mb:
-        type: integer
-      total_size:
-        type: integer
-      ttl_minutes:
-        type: integer
-    type: object
-  github_com_Rain-kl_Wavelet_internal_apps_cap.ChallengeResponse:
-    properties:
-      challenge:
-        properties:
-          c:
-            type: integer
-          d:
-            type: integer
-          s:
-            type: integer
+      available_targets:
+        items:
+          type: string
+        type: array
+      migration:
+        type: string
+      retention_days:
+        additionalProperties:
+          type: integer
         type: object
-      expires:
-        description: ms timestamp
-        type: integer
-      token:
-        type: string
     type: object
-  github_com_Rain-kl_Wavelet_internal_apps_cap.RedeemResponse:
-    properties:
-      error:
-        type: string
-      expires:
-        type: integer
-      success:
-        type: boolean
-      token:
-        type: string
-    type: object
-  handler.batchDownloadRequest:
-    properties:
-      ids:
-        items:
-          type: string
-        minItems: 1
-        type: array
-    required:
-    - ids
-    type: object
-  handler.distributionItem:
-    properties:
-      count:
-        type: integer
-      name:
-        type: string
-      size:
-        type: integer
-    type: object
-  handler.fileStatsResponse:
-    properties:
-      categories:
-        items:
-          $ref: '#/definitions/handler.distributionItem'
-        type: array
-      total_count:
-        type: integer
-      total_size:
-        type: integer
-      trend:
-        items:
-          $ref: '#/definitions/handler.trendItem'
-        type: array
-      types:
-        items:
-          $ref: '#/definitions/handler.distributionItem'
-        type: array
-    type: object
-  handler.listFilesResponse:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/model.Upload'
-        type: array
-      page:
-        type: integer
-      page_size:
-        type: integer
-      total:
-        type: integer
-    type: object
-  handler.listMyFilesResponse:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/model.Upload'
-        type: array
-      page:
-        type: integer
-      page_size:
-        type: integer
-      total:
-        type: integer
-    type: object
-  handler.trendItem:
-    properties:
-      count:
-        type: integer
-      date:
-        type: string
-      size:
-        type: integer
-    type: object
-  handler.updateMyFileRequest:
-    properties:
-      access_mode:
-        enum:
-        - 0
-        - 1
-        type: integer
-      file_name:
-        maxLength: 255
-        type: string
-    type: object
-  logger.LogEntry:
-    properties:
-      data:
-        description: 一行日志原文（含换行符）
-        type: string
-      index:
-        description: 全局递增序号
-        type: integer
-    type: object
-  logs.accessLogItem:
-    properties:
-      created_at:
-        type: string
-      headers:
-        type: string
-      id:
-        example: "0"
-        type: string
-      ip:
-        type: string
-      latency:
-        type: integer
-      method:
-        type: string
-      nickname:
-        type: string
-      path:
-        type: string
-      status:
-        type: integer
-      user_agent:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-      username:
-        type: string
-    type: object
-  logs.accessLogsResponse:
-    properties:
-      list:
-        items:
-          $ref: '#/definitions/logs.accessLogItem'
-        type: array
-      total:
-        type: integer
-    type: object
-  logs.browserItem:
-    properties:
-      browser:
-        type: string
-      count:
-        type: integer
-    type: object
-  logs.logsAnalyticsResponse:
-    properties:
-      browsers:
-        items:
-          $ref: '#/definitions/logs.browserItem'
-        type: array
-      top_users:
-        items:
-          $ref: '#/definitions/logs.topUserItem'
-        type: array
-      trend:
-        items:
-          $ref: '#/definitions/logs.trendItem'
-        type: array
-    type: object
-  logs.logsResponse:
-    properties:
-      has_more:
-        type: boolean
-      lines:
-        items:
-          $ref: '#/definitions/logger.LogEntry'
-        type: array
-      next_cursor:
-        description: 用于加载更早日志的 cursor
-        type: integer
-    type: object
-  logs.topUserItem:
-    properties:
-      count:
-        type: integer
-      nickname:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-      username:
-        type: string
-    type: object
-  logs.trendItem:
-    properties:
-      count:
-        type: integer
-      date:
-        type: string
-    type: object
-  message_gateway.BindRequest:
-    properties:
-      channel_id:
-        type: string
-      code:
-        type: string
-    type: object
-  message_gateway.BindingDTO:
-    properties:
-      channel_id:
-        example: "0"
-        type: string
-      channel_name:
-        type: string
-      channel_type:
-        type: string
-      created_at:
-        type: string
-      id:
-        example: "0"
-        type: string
-      platform_user_id:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-    type: object
-  message_gateway.ChannelDTO:
-    properties:
-      app_id:
-        type: string
-      app_secret:
-        type: string
-      base_url:
-        type: string
-      bot_token:
-        type: string
-      created_at:
-        type: string
-      enabled:
-        type: boolean
-      id:
-        example: "0"
-        type: string
-      name:
-        type: string
-      owner_scope:
-        type: string
-      portal_host:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  message_gateway.CreateChannelRequest:
-    properties:
-      app_id:
-        type: string
-      app_secret:
-        type: string
-      base_url:
-        type: string
-      bot_token:
-        type: string
-      enabled:
-        type: boolean
-      name:
-        type: string
-      portal_host:
-        type: string
-      sandbox:
-        type: string
-      type:
-        type: string
-    type: object
-  message_gateway.Definition:
-    properties:
-      fields:
-        items:
-          $ref: '#/definitions/message_gateway.Field'
-        type: array
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  message_gateway.Field:
-    properties:
-      key:
-        type: string
-      required:
-        type: boolean
-      type:
-        type: string
-    type: object
-  message_gateway.PublicChannelDTO:
-    properties:
-      id:
-        example: "0"
-        type: string
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  message_gateway.UpdateChannelRequest:
-    properties:
-      app_id:
-        type: string
-      app_secret:
-        type: string
-      base_url:
-        type: string
-      bot_token:
-        type: string
-      enabled:
-        type: boolean
-      name:
-        type: string
-      portal_host:
-        type: string
-      sandbox:
-        type: string
-    type: object
-  model.AccessToken:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: integer
-      is_admin:
-        type: boolean
-      masked_token:
-        type: string
-      name:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: integer
-    type: object
-  model.AuthSource:
-    properties:
-      client_id:
-        type: string
-      client_secret_configured:
-        type: boolean
-      created_at:
-        type: string
-      display_name:
-        type: string
-      icon_url:
-        type: string
-      id:
-        type: integer
-      is_active:
-        type: boolean
-      name:
-        type: string
-      openid_discovery_url:
-        type: string
-      scopes:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  model.ExternalAccountView:
-    properties:
-      auth_source_id:
-        type: integer
-      auth_source_label:
-        type: string
-      auth_source_name:
-        type: string
-      auth_source_type:
-        type: string
-      created_at:
-        type: string
-      email:
-        type: string
-      external_username:
-        type: string
-      id:
-        type: integer
-    type: object
-  model.PushChannel:
-    properties:
-      created_at:
-        type: string
-      description:
-        description: 备注
-        type: string
-      enabled:
-        description: 通道是否启用
-        type: boolean
-      id:
-        type: integer
-      name:
-        description: 通道名称，仅英文字母和下划线，唯一
-        type: string
-      other:
-        description: 请求体/SMTP 密码等
-        type: string
-      token:
-        description: 鉴权令牌或发信用户名等
-        type: string
-      type:
-        description: 通道类型：custom, lark, email
-        type: string
-      updated_at:
-        type: string
-      url:
-        description: 请求地址，HTTPS 协议或 SMTP 地址
-        type: string
-    type: object
-  model.PushEvent:
-    properties:
-      channels:
-        description: 推送渠道列表，如 ["lark"]
-        items:
-          type: string
-        type: array
-      created_at:
-        type: string
-      enabled:
-        description: 是否启用
-        type: boolean
-      event_key:
-        description: 如 admin_login
-        type: string
-      id:
-        type: integer
-      name:
-        description: 如 管理员登录
-        type: string
-      targets:
-        description: 推送目标用户/邮箱列表
-        items:
-          type: string
-        type: array
-      task_type:
-        description: 关联的异步任务类型
-        type: string
-      template:
-        description: 消息模板 JSON
-        type: string
-      updated_at:
-        type: string
-    type: object
-  model.PushHistory:
-    properties:
-      channel:
-        type: string
-      content:
-        type: string
-      created_at:
-        type: string
-      error_msg:
-        type: string
-      event_key:
-        type: string
-      id:
-        type: integer
-      level:
-        type: string
-      status:
-        description: success / failed
-        type: string
-      target:
-        type: string
-      title:
-        type: string
-    type: object
-  model.Schedule:
+  admin.Schedule:
     properties:
       created_at:
         type: string
@@ -623,7 +168,7 @@ definitions:
       updated_at:
         type: string
     type: object
-  model.SystemConfig:
+  admin.SystemConfig:
     properties:
       created_at:
         type: string
@@ -640,456 +185,7 @@ definitions:
       visibility:
         type: integer
     type: object
-  model.TaskExecution:
-    properties:
-      created_at:
-        type: string
-      duration:
-        type: integer
-      error_message:
-        type: string
-      finished_at:
-        type: string
-      id:
-        example: "0"
-        type: string
-      log:
-        type: string
-      max_retry:
-        type: integer
-      payload:
-        type: string
-      result:
-        type: string
-      retry_count:
-        type: integer
-      retryable:
-        type: boolean
-      started_at:
-        type: string
-      status:
-        $ref: '#/definitions/model.TaskExecutionStatus'
-      task_id:
-        type: string
-      task_name:
-        type: string
-      task_type:
-        type: string
-      triggered_by:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  model.TaskExecutionStatus:
-    enum:
-    - pending
-    - running
-    - succeeded
-    - failed
-    type: string
-    x-enum-varnames:
-    - TaskExecutionStatusPending
-    - TaskExecutionStatusRunning
-    - TaskExecutionStatusSucceeded
-    - TaskExecutionStatusFailed
-  model.Template:
-    properties:
-      content:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      id:
-        type: integer
-      is_system:
-        type: boolean
-      key:
-        type: string
-      name:
-        type: string
-      subject:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  model.Upload:
-    properties:
-      access_mode:
-        type: integer
-      created_at:
-        type: string
-      extension:
-        description: 文件后缀名 (不含点，如 png, pdf)
-        type: string
-      file_name:
-        description: '原始文件名 (例如: image.png)'
-        type: string
-      file_path:
-        description: 文件相对路径 / S3 Key
-        type: string
-      file_size:
-        description: 文件大小（字节）
-        type: integer
-      hash:
-        description: 文件哈希 (SHA-256/MD5，可用于排重)
-        type: string
-      id:
-        example: "0"
-        type: string
-      metadata:
-        allOf:
-        - $ref: '#/definitions/model.UploadMetadata'
-        description: 业务扩展元数据
-      mime_type:
-        description: 媒体类型 (MIME, 如 image/png)
-        type: string
-      status:
-        allOf:
-        - $ref: '#/definitions/model.UploadStatus'
-        description: 状态
-      type:
-        description: 业务标识类型 (如 avatar, doc, attachment)
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-    type: object
-  model.UploadMetadata:
-    properties:
-      bucket:
-        description: 存储桶名称 (适用于 S3 等)
-        type: string
-      client_ip:
-        description: 上传者 IP
-        type: string
-      duration:
-        description: 音视频时长 (s)
-        type: number
-      extra:
-        additionalProperties: {}
-        description: 其它任意业务自定义元数据
-        type: object
-      height:
-        description: 图像/视频高度 (px)
-        type: integer
-      original_mime:
-        description: 原始 MIME 类型
-        type: string
-      user_agent:
-        description: 上传者的 UA
-        type: string
-      width:
-        description: 图像/视频宽度 (px)
-        type: integer
-    type: object
-  model.UploadStatus:
-    enum:
-    - pending
-    - used
-    - deleted
-    type: string
-    x-enum-comments:
-      UploadStatusDeleted: 已删除
-      UploadStatusPending: 待使用
-      UploadStatusUsed: 已使用
-    x-enum-descriptions:
-    - 待使用
-    - 已使用
-    - 已删除
-    x-enum-varnames:
-    - UploadStatusPending
-    - UploadStatusUsed
-    - UploadStatusDeleted
-  oauth.AuthSourceView:
-    properties:
-      client_secret_configured:
-        type: boolean
-      display_name:
-        type: string
-      icon_url:
-        type: string
-      id:
-        type: integer
-      is_active:
-        type: boolean
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  oauth.BasicUserInfo:
-    properties:
-      avatar_url:
-        type: string
-      bio:
-        type: string
-      email:
-        type: string
-      gender:
-        type: string
-      id:
-        type: integer
-      is_admin:
-        type: boolean
-      location:
-        type: string
-      need_change_password:
-        type: boolean
-      nickname:
-        type: string
-      phone:
-        type: string
-      username:
-        type: string
-      website:
-        type: string
-    type: object
-  oauth.CallbackRequest:
-    properties:
-      code:
-        type: string
-      state:
-        type: string
-    required:
-    - code
-    - state
-    type: object
-  oauth.OAuthAuthorizeResponse:
-    properties:
-      authorize_url:
-        type: string
-    type: object
-  oauth.OAuthCallbackResult:
-    properties:
-      status:
-        type: string
-      user:
-        $ref: '#/definitions/oauth.BasicUserInfo'
-    type: object
-  push.Config:
-    properties:
-      channel:
-        description: 渠道名称，例如 "lark", "custom", "email" 等，唯一标识
-        type: string
-      ext:
-        additionalProperties: {}
-        description: 预留拓展 JSON 配置
-        type: object
-      key:
-        description: AppID 或 SMTP 用户名
-        type: string
-      secret:
-        description: 签名密钥或 SMTP 密码/Token
-        type: string
-      url:
-        description: Webhook 地址或 SMTP 地址
-        type: string
-    type: object
-  push.CreateChannelRequest:
-    properties:
-      description:
-        type: string
-      enabled:
-        type: boolean
-      name:
-        type: string
-      other:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      url:
-        type: string
-    required:
-    - name
-    - type
-    type: object
-  push.CreateEventRequest:
-    properties:
-      channels:
-        items:
-          type: string
-        type: array
-      enabled:
-        type: boolean
-      event_key:
-        type: string
-      targets:
-        items:
-          type: string
-        type: array
-      task_type:
-        description: 关联的异步任务类型
-        type: string
-      template:
-        type: string
-    type: object
-  push.Definition:
-    properties:
-      description:
-        description: short description
-        type: string
-      fields:
-        description: form fields
-        items:
-          $ref: '#/definitions/push.Field'
-        type: array
-      name:
-        description: display name
-        type: string
-      type:
-        description: channel type (e.g., custom, lark, email)
-        type: string
-    type: object
-  push.EventMetadata:
-    properties:
-      default_template:
-        $ref: '#/definitions/push.NotificationMessage'
-      description:
-        type: string
-      key:
-        type: string
-      name:
-        type: string
-    type: object
-  push.Field:
-    properties:
-      description:
-        description: field explanation/help text
-        type: string
-      key:
-        description: unique key for the field (e.g. url, token, other)
-        type: string
-      label:
-        description: human readable label (e.g. "Webhook 地址")
-        type: string
-      placeholder:
-        description: input placeholder
-        type: string
-      required:
-        description: whether this field is required
-        type: boolean
-      type:
-        description: 'input type: "text" | "password" | "textarea"'
-        type: string
-    type: object
-  push.NotificationMessage:
-    properties:
-      content:
-        type: string
-      ext:
-        additionalProperties: {}
-        type: object
-      level:
-        type: string
-      title:
-        type: string
-    type: object
-  push.TestChannelRequest:
-    properties:
-      name:
-        type: string
-      other:
-        type: string
-      target:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      url:
-        type: string
-    type: object
-  push.TestPushRequest:
-    properties:
-      config:
-        $ref: '#/definitions/push.Config'
-      target:
-        type: string
-    required:
-    - config
-    type: object
-  push.UpdateChannelRequest:
-    properties:
-      description:
-        type: string
-      enabled:
-        type: boolean
-      other:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      url:
-        type: string
-    required:
-    - type
-    type: object
-  push.UpdateEventRequest:
-    properties:
-      channels:
-        items:
-          type: string
-        type: array
-      enabled:
-        type: boolean
-      targets:
-        items:
-          type: string
-        type: array
-      template:
-        type: string
-    required:
-    - template
-    type: object
-  push.pushHistoriesResponse:
-    properties:
-      results:
-        items:
-          $ref: '#/definitions/model.PushHistory'
-        type: array
-      total:
-        type: integer
-    type: object
-  response.Any:
-    properties:
-      data: {}
-      error_msg:
-        example: ""
-        type: string
-    type: object
-  status.DatabaseInfoResponse:
-    properties:
-      name:
-        type: string
-      type:
-        type: string
-      version:
-        type: string
-    type: object
-  status.LogDatabaseStatus:
-    properties:
-      active_database:
-        type: string
-      available_targets:
-        items:
-          type: string
-        type: array
-      migration:
-        type: string
-      retention_days:
-        additionalProperties:
-          type: integer
-        type: object
-    type: object
-  status.SystemStatusResponse:
+  admin.SystemStatusResponse:
     properties:
       alloc:
         type: string
@@ -1148,32 +244,82 @@ definitions:
       uptime:
         type: string
     type: object
-  system_config.CreateSystemConfigRequest:
+  admin.TaskExecution:
     properties:
-      description:
-        maxLength: 255
+      created_at:
         type: string
+      duration:
+        type: integer
+      error_message:
+        type: string
+      finished_at:
+        type: string
+      id:
+        example: "0"
+        type: string
+      log:
+        type: string
+      max_retry:
+        type: integer
+      payload:
+        type: string
+      result:
+        type: string
+      retry_count:
+        type: integer
+      retryable:
+        type: boolean
+      started_at:
+        type: string
+      status:
+        $ref: '#/definitions/admin.TaskExecutionStatus'
+      task_id:
+        type: string
+      task_name:
+        type: string
+      task_type:
+        type: string
+      triggered_by:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  admin.TaskExecutionStatus:
+    enum:
+    - pending
+    - running
+    - succeeded
+    - failed
+    type: string
+    x-enum-varnames:
+    - TaskExecutionStatusPending
+    - TaskExecutionStatusRunning
+    - TaskExecutionStatusSucceeded
+    - TaskExecutionStatusFailed
+  admin.Template:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_system:
+        type: boolean
       key:
-        maxLength: 64
+        type: string
+      name:
+        type: string
+      subject:
         type: string
       type:
-        enum:
-        - system
-        - business
         type: string
-      value:
+      updated_at:
         type: string
-      visibility:
-        enum:
-        - 0
-        - 1
-        type: integer
-    required:
-    - key
-    - type
-    - value
     type: object
-  system_config.TestSMTPRequest:
+  admin.TestSMTPRequest:
     properties:
       smtp_host:
         maxLength: 255
@@ -1195,7 +341,7 @@ definitions:
     - smtp_username
     - to
     type: object
-  system_config.TestSMTPResponse:
+  admin.TestSMTPResponse:
     properties:
       error:
         type: string
@@ -1204,22 +350,7 @@ definitions:
       success:
         type: boolean
     type: object
-  system_config.UpdateSystemConfigRequest:
-    properties:
-      description:
-        maxLength: 255
-        type: string
-      value:
-        type: string
-      visibility:
-        enum:
-        - 0
-        - 1
-        type: integer
-    required:
-    - value
-    type: object
-  task.CreateScheduleRequest:
+  admin.UpdateScheduleRequest:
     properties:
       cron:
         type: string
@@ -1237,20 +368,610 @@ definitions:
     - name
     - task_type
     type: object
-  task.DispatchTaskRequest:
+  admin.UpdateSystemConfigRequest:
     properties:
-      end_time:
+      description:
+        maxLength: 255
         type: string
-      payload:
+      value:
         type: string
-      start_time:
-        type: string
-      task_type:
-        type: string
-      user_id:
+      visibility:
+        enum:
+        - 0
+        - 1
         type: integer
     required:
-    - task_type
+    - value
+    type: object
+  admin.UpdateTemplateRequest:
+    properties:
+      content:
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      subject:
+        maxLength: 255
+        type: string
+      type:
+        maxLength: 20
+        type: string
+    required:
+    - content
+    - name
+    - type
+    type: object
+  admin.UpdaterStatus:
+    properties:
+      asset_name:
+        type: string
+      build_time:
+        type: string
+      can_upgrade:
+        type: boolean
+      current_version:
+        type: string
+      latest_version:
+        type: string
+      platform:
+        type: string
+      prerelease:
+        type: boolean
+      published_at:
+        type: string
+      release_name:
+        type: string
+      release_notes:
+        type: string
+      release_url:
+        type: string
+      update_available:
+        type: boolean
+      upstream_repository:
+        type: string
+    type: object
+  admin.accessLogItem:
+    properties:
+      created_at:
+        type: string
+      headers:
+        type: string
+      id:
+        example: "0"
+        type: string
+      ip:
+        type: string
+      latency:
+        type: integer
+      method:
+        type: string
+      nickname:
+        type: string
+      path:
+        type: string
+      status:
+        type: integer
+      user_agent:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+      username:
+        type: string
+    type: object
+  admin.accessLogsResponse:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/admin.accessLogItem'
+        type: array
+      total:
+        type: integer
+    type: object
+  admin.browserItem:
+    properties:
+      browser:
+        type: string
+      count:
+        type: integer
+    type: object
+  admin.createUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      nickname:
+        maxLength: 64
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      username:
+        maxLength: 64
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  admin.listUsersResponse:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/admin.userResponse'
+        type: array
+    type: object
+  admin.logsAnalyticsResponse:
+    properties:
+      browsers:
+        items:
+          $ref: '#/definitions/admin.browserItem'
+        type: array
+      top_users:
+        items:
+          $ref: '#/definitions/admin.topUserItem'
+        type: array
+      trend:
+        items:
+          $ref: '#/definitions/admin.trendItem'
+        type: array
+    type: object
+  admin.logsResponse:
+    properties:
+      has_more:
+        type: boolean
+      lines:
+        items:
+          $ref: '#/definitions/logger.LogEntry'
+        type: array
+      next_cursor:
+        description: 用于加载更早日志的 cursor
+        type: integer
+    type: object
+  admin.topUserItem:
+    properties:
+      count:
+        type: integer
+      nickname:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+      username:
+        type: string
+    type: object
+  admin.trendItem:
+    properties:
+      count:
+        type: integer
+      date:
+        type: string
+    type: object
+  admin.updateCacheConfigRequest:
+    properties:
+      lru_enabled:
+        type: boolean
+      max_size_mb:
+        minimum: 1
+        type: integer
+      ttl_minutes:
+        minimum: 0
+        type: integer
+    required:
+    - max_size_mb
+    - ttl_minutes
+    type: object
+  admin.updateUserRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      is_admin:
+        type: boolean
+      nickname:
+        maxLength: 64
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+    required:
+    - email
+    type: object
+  admin.updateUserStatusRequest:
+    properties:
+      is_active:
+        type: boolean
+    type: object
+  admin.userResponse:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      id:
+        example: "0"
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      last_login_at:
+        type: string
+      location:
+        type: string
+      nickname:
+        type: string
+      phone:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+      website:
+        type: string
+    type: object
+  cap.challengeRequest:
+    properties:
+      scope:
+        type: string
+    type: object
+  cap.redeemRequest:
+    properties:
+      scope:
+        type: string
+      solutions:
+        items:
+          type: integer
+        type: array
+      token:
+        type: string
+    required:
+    - solutions
+    - token
+    type: object
+  diskcache.Status:
+    properties:
+      base_path:
+        type: string
+      keys_count:
+        type: integer
+      lru_enabled:
+        type: boolean
+      max_size_mb:
+        type: integer
+      total_size:
+        type: integer
+      ttl_minutes:
+        type: integer
+    type: object
+  github_com_Rain-kl_Wavelet_plugins_domain_cap.ChallengeResponse:
+    properties:
+      challenge:
+        properties:
+          c:
+            type: integer
+          d:
+            type: integer
+          s:
+            type: integer
+        type: object
+      expires:
+        description: ms timestamp
+        type: integer
+      token:
+        type: string
+    type: object
+  github_com_Rain-kl_Wavelet_plugins_domain_cap.RedeemResponse:
+    properties:
+      error:
+        type: string
+      expires:
+        type: integer
+      success:
+        type: boolean
+      token:
+        type: string
+    type: object
+  handler.batchDownloadRequest:
+    properties:
+      ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - ids
+    type: object
+  handler.distributionItem:
+    properties:
+      count:
+        type: integer
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
+  handler.fileStatsResponse:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/handler.distributionItem'
+        type: array
+      total_count:
+        type: integer
+      total_size:
+        type: integer
+      trend:
+        items:
+          $ref: '#/definitions/handler.trendItem'
+        type: array
+      types:
+        items:
+          $ref: '#/definitions/handler.distributionItem'
+        type: array
+    type: object
+  handler.listFilesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.Upload'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handler.listMyFilesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.Upload'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handler.trendItem:
+    properties:
+      count:
+        type: integer
+      date:
+        type: string
+      size:
+        type: integer
+    type: object
+  handler.updateMyFileRequest:
+    properties:
+      access_mode:
+        enum:
+        - 0
+        - 1
+        type: integer
+      file_name:
+        maxLength: 255
+        type: string
+    type: object
+  logger.LogEntry:
+    properties:
+      data:
+        description: 一行日志原文（含换行符）
+        type: string
+      index:
+        description: 全局递增序号
+        type: integer
+    type: object
+  message_gateway.BindRequest:
+    properties:
+      channel_id:
+        type: string
+      code:
+        type: string
+    type: object
+  message_gateway.BindingDTO:
+    properties:
+      channel_id:
+        example: "0"
+        type: string
+      channel_name:
+        type: string
+      channel_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        example: "0"
+        type: string
+      platform_user_id:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+    type: object
+  message_gateway.ChannelDTO:
+    properties:
+      credentials:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        type: boolean
+      extra:
+        additionalProperties:
+          type: string
+        type: object
+      id:
+        example: "0"
+        type: string
+      name:
+        type: string
+      owner_id:
+        example: "0"
+        type: string
+      owner_scope:
+        type: string
+      type:
+        type: string
+    type: object
+  message_gateway.CreateChannelRequest:
+    properties:
+      credentials:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        type: boolean
+      extra:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  message_gateway.Definition:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/message_gateway.Field'
+        type: array
+      type:
+        type: string
+    type: object
+  message_gateway.Field:
+    properties:
+      key:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  message_gateway.PublicChannelDTO:
+    properties:
+      id:
+        example: "0"
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  message_gateway.UpdateChannelRequest:
+    properties:
+      credentials:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        type: boolean
+      extra:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+    type: object
+  models.Upload:
+    properties:
+      access_mode:
+        type: integer
+      created_at:
+        type: string
+      extension:
+        type: string
+      file_name:
+        type: string
+      file_path:
+        type: string
+      file_size:
+        type: integer
+      hash:
+        type: string
+      id:
+        example: "0"
+        type: string
+      metadata:
+        $ref: '#/definitions/models.UploadMetadata'
+      mime_type:
+        type: string
+      status:
+        $ref: '#/definitions/models.UploadStatus'
+      type:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+    type: object
+  models.UploadMetadata:
+    properties:
+      bucket:
+        type: string
+      client_ip:
+        type: string
+      duration:
+        type: number
+      extra:
+        additionalProperties: {}
+        type: object
+      height:
+        type: integer
+      original_mime:
+        type: string
+      user_agent:
+        type: string
+      width:
+        type: integer
+    type: object
+  models.UploadStatus:
+    enum:
+    - pending
+    - used
+    - deleted
+    type: string
+    x-enum-comments:
+      UploadStatusDeleted: 已删除
+      UploadStatusPending: 待使用
+      UploadStatusUsed: 已使用
+    x-enum-descriptions:
+    - 待使用
+    - 已使用
+    - 已删除
+    x-enum-varnames:
+    - UploadStatusPending
+    - UploadStatusUsed
+    - UploadStatusDeleted
+  response.Any:
+    properties:
+      data: {}
+      error_msg:
+        example: ""
+        type: string
     type: object
   task.TaskMeta:
     properties:
@@ -1297,263 +1018,6 @@ definitions:
         description: 类型：string, text, number, boolean
         type: string
     type: object
-  task.UpdateScheduleRequest:
-    properties:
-      cron:
-        type: string
-      is_active:
-        type: boolean
-      name:
-        type: string
-      payload:
-        type: string
-      task_type:
-        type: string
-    required:
-    - cron
-    - is_active
-    - name
-    - task_type
-    type: object
-  template.CreateTemplateRequest:
-    properties:
-      content:
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      key:
-        maxLength: 80
-        type: string
-      name:
-        maxLength: 100
-        type: string
-      subject:
-        maxLength: 255
-        type: string
-      type:
-        maxLength: 20
-        type: string
-    required:
-    - content
-    - key
-    - name
-    - type
-    type: object
-  template.UpdateTemplateRequest:
-    properties:
-      content:
-        type: string
-      description:
-        maxLength: 255
-        type: string
-      name:
-        maxLength: 100
-        type: string
-      subject:
-        maxLength: 255
-        type: string
-      type:
-        maxLength: 20
-        type: string
-    required:
-    - content
-    - name
-    - type
-    type: object
-  updater.Status:
-    properties:
-      asset_name:
-        type: string
-      build_time:
-        type: string
-      can_upgrade:
-        type: boolean
-      current_version:
-        type: string
-      latest_version:
-        type: string
-      platform:
-        type: string
-      prerelease:
-        type: boolean
-      published_at:
-        type: string
-      release_name:
-        type: string
-      release_notes:
-        type: string
-      release_url:
-        type: string
-      update_available:
-        type: boolean
-      upstream_repository:
-        type: string
-    type: object
-  user.changePasswordRequest:
-    properties:
-      new_password:
-        type: string
-      old_password:
-        type: string
-    type: object
-  user.createTokenRequest:
-    properties:
-      is_admin:
-        type: boolean
-      name:
-        type: string
-    type: object
-  user.createUserRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      is_active:
-        type: boolean
-      is_admin:
-        type: boolean
-      nickname:
-        maxLength: 64
-        type: string
-      password:
-        maxLength: 64
-        minLength: 8
-        type: string
-      username:
-        maxLength: 64
-        minLength: 3
-        type: string
-    required:
-    - email
-    - password
-    - username
-    type: object
-  user.listUsersResponse:
-    properties:
-      total:
-        type: integer
-      users:
-        items:
-          $ref: '#/definitions/user.user'
-        type: array
-    type: object
-  user.loginRequest:
-    properties:
-      code:
-        type: string
-      password:
-        type: string
-      username:
-        type: string
-    type: object
-  user.registerRequest:
-    properties:
-      code:
-        type: string
-      display_name:
-        type: string
-      email:
-        type: string
-      nickname:
-        type: string
-      password:
-        type: string
-      username:
-        type: string
-    type: object
-  user.sendEmailCodeRequest:
-    properties:
-      email:
-        type: string
-      scene:
-        type: string
-    required:
-    - email
-    - scene
-    type: object
-  user.tokenResponse:
-    properties:
-      record:
-        $ref: '#/definitions/model.AccessToken'
-      token:
-        type: string
-    type: object
-  user.updateProfileRequest:
-    properties:
-      avatar_url:
-        type: string
-      bio:
-        type: string
-      email:
-        type: string
-      gender:
-        type: string
-      location:
-        type: string
-      nickname:
-        type: string
-      phone:
-        type: string
-      website:
-        type: string
-    type: object
-  user.updateUserRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      is_admin:
-        type: boolean
-      nickname:
-        maxLength: 64
-        type: string
-      password:
-        maxLength: 64
-        minLength: 8
-        type: string
-    required:
-    - email
-    type: object
-  user.updateUserStatusRequest:
-    properties:
-      is_active:
-        type: boolean
-    type: object
-  user.user:
-    properties:
-      avatar_url:
-        type: string
-      bio:
-        type: string
-      created_at:
-        type: string
-      email:
-        type: string
-      gender:
-        type: string
-      id:
-        example: "0"
-        type: string
-      is_active:
-        type: boolean
-      is_admin:
-        type: boolean
-      last_login_at:
-        type: string
-      location:
-        type: string
-      nickname:
-        type: string
-      phone:
-        type: string
-      updated_at:
-        type: string
-      username:
-        type: string
-      website:
-        type: string
-    type: object
 info:
   contact:
     name: Wavelet
@@ -1586,7 +1050,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_Rain-kl_Wavelet_internal_apps_cap.ChallengeResponse'
+                  $ref: '#/definitions/github_com_Rain-kl_Wavelet_plugins_domain_cap.ChallengeResponse'
               type: object
         "500":
           description: 内部服务错误
@@ -1617,7 +1081,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/github_com_Rain-kl_Wavelet_internal_apps_cap.RedeemResponse'
+                  $ref: '#/definitions/github_com_Rain-kl_Wavelet_plugins_domain_cap.RedeemResponse'
               type: object
         "400":
           description: 参数错误或核销失败
@@ -1630,234 +1094,6 @@ paths:
       summary: 校验人机验证解答
       tags:
       - cap
-  /api/health:
-    get:
-      description: 检查服务是否正常运行，可用于负载均衡存活探测
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 服务正常
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-      summary: 健康检查
-      tags:
-      - health
-  /api/v1/admin/auth-sources:
-    get:
-      description: 返回所有已配置的 OAuth/OIDC 认证源列表，包括已启用和未启用的，需要管理员权限
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 认证源列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.AuthSource'
-                  type: array
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: 内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取认证源列表
-      tags:
-      - admin
-    post:
-      consumes:
-      - application/json
-      description: 创建一个新的 OAuth/OIDC 认证源配置，认证源名称必须唯一且符合命名规范，需要管理员权限
-      parameters:
-      - description: 创建认证源参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth_source.AuthSourceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 创建成功，返回认证源信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.AuthSource'
-              type: object
-        "400":
-          description: 参数错误或验证失败
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 创建认证源
-      tags:
-      - admin
-  /api/v1/admin/auth-sources/{id}:
-    delete:
-      description: 删除指定认证源及其关联的所有外部帐号绑定记录，警告：删除后相关用户将无法通过该源登录，需要管理员权限
-      parameters:
-      - description: 认证源 ID 或名称
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 删除成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "400":
-          description: ID 无效或删除失败
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 删除认证源
-      tags:
-      - admin
-    put:
-      consumes:
-      - application/json
-      description: 更新指定 ID 的认证源配置。若 client_secret 字段为空，则保留原有密钥不变，需要管理员权限
-      parameters:
-      - description: 认证源 ID 或名称
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: 更新认证源参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth_source.AuthSourceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 更新成功，返回更新后的认证源信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.AuthSource'
-              type: object
-        "400":
-          description: 参数错误或验证失败
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: 内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 更新认证源
-      tags:
-      - admin
-  /api/v1/admin/auth-sources/{id}/toggle:
-    put:
-      consumes:
-      - application/json
-      description: 启用或禁用指定认证源。尝试启用时将验证 Client ID 和 Client Secret 是否已配置，需要管理员权限
-      parameters:
-      - description: 认证源 ID 或名称
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: 启用状态
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth_source.ToggleAuthSourceRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 切换成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "400":
-          description: 验证失败或认证源不存在
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 切换认证源启用状态
-      tags:
-      - admin
   /api/v1/admin/cache/clear:
     post:
       description: 清除系统磁盘缓存目录中的所有临时文件，并重置缓存容量和 Key 追踪数据
@@ -1896,7 +1132,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/cache.updateCacheConfigRequest'
+          $ref: '#/definitions/admin.updateCacheConfigRequest'
       produces:
       - application/json
       responses:
@@ -1997,7 +1233,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/status.DatabaseInfoResponse'
+                  $ref: '#/definitions/admin.DatabaseInfoResponse'
               type: object
         "401":
           description: 未登录
@@ -2025,7 +1261,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/db_manage.DBOverviewResponse'
+                  $ref: '#/definitions/admin.DBOverviewResponse'
               type: object
         "401":
           description: 未登录
@@ -2055,7 +1291,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/db_manage.ExecuteSQLRequest'
+          $ref: '#/definitions/admin.ExecuteSQLRequest'
       produces:
       - application/json
       responses:
@@ -2066,7 +1302,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/db_manage.ExecuteSQLResponse'
+                  $ref: '#/definitions/admin.ExecuteSQLResponse'
               type: object
         "400":
           description: SQL 语句错误
@@ -2147,7 +1383,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/logs.logsResponse'
+                  $ref: '#/definitions/admin.logsResponse'
               type: object
         "401":
           description: 未登录
@@ -2202,7 +1438,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/logs.accessLogsResponse'
+                  $ref: '#/definitions/admin.accessLogsResponse'
               type: object
         "400":
           description: 参数错误
@@ -2238,7 +1474,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/logs.logsAnalyticsResponse'
+                  $ref: '#/definitions/admin.logsAnalyticsResponse'
               type: object
         "401":
           description: 未登录
@@ -2435,381 +1671,6 @@ paths:
       summary: List message gateway channel definitions
       tags:
       - admin-message-gateway
-  /api/v1/admin/push/channels:
-    get:
-      description: 返回系统配置的所有消息通道列表，需要管理员权限
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 消息通道列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.PushChannel'
-                  type: array
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 获取所有消息通道
-      tags:
-      - admin-push
-    post:
-      consumes:
-      - application/json
-      description: 新建一个消息通道配置，需要管理员权限
-      parameters:
-      - description: 创建参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/push.CreateChannelRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 创建成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.PushChannel'
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 创建消息通道
-      tags:
-      - admin-push
-  /api/v1/admin/push/channels/{id}:
-    delete:
-      description: 根据ID删除消息通道，需要管理员权限
-      parameters:
-      - description: 通道ID
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 删除成功
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 删除消息通道
-      tags:
-      - admin-push
-    put:
-      consumes:
-      - application/json
-      description: 修改消息通道配置，需要管理员权限
-      parameters:
-      - description: 通道ID
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: 更新参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/push.UpdateChannelRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 更新成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.PushChannel'
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 更新消息通道
-      tags:
-      - admin-push
-  /api/v1/admin/push/channels/definitions:
-    get:
-      description: 返回系统支持的所有消息通道类型（如飞书、邮件、自定义、Telegram）的动态表单定义，需要管理员权限
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 通道配置定义列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/push.Definition'
-                  type: array
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 获取所有消息通道配置字段定义
-      tags:
-      - admin-push
-  /api/v1/admin/push/channels/test:
-    post:
-      consumes:
-      - application/json
-      description: 触发一次临时的或现有的通道连通性推送测试，需要管理员权限
-      parameters:
-      - description: 测试参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/push.TestChannelRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 测试触发成功
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 测试通道连通性
-      tags:
-      - admin-push
-  /api/v1/admin/push/events:
-    get:
-      description: 返回系统配置的通知事件列表，包括预置和自定义事件，需要管理员权限
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 通知事件列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.PushEvent'
-                  type: array
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 获取所有通知事件
-      tags:
-      - admin-push
-    post:
-      consumes:
-      - application/json
-      description: 绑定系统内置事件或异步任务、推送渠道、接收目标并创建通知事件配置，需要管理员权限
-      parameters:
-      - description: 创建参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/push.CreateEventRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 创建成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.PushEvent'
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 创建通知事件
-      tags:
-      - admin-push
-  /api/v1/admin/push/events/{id}:
-    delete:
-      description: 删除数据库中的特定通知事件配置，需要管理员权限
-      parameters:
-      - description: 事件 ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 删除成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 删除通知事件配置
-      tags:
-      - admin-push
-    put:
-      consumes:
-      - application/json
-      description: 更新已有通知事件的推送渠道、接收目标和内容模板，需要管理员权限
-      parameters:
-      - description: 事件 ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: 更新参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/push.UpdateEventRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 修改成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 更新通知事件
-      tags:
-      - admin-push
-  /api/v1/admin/push/events/{id}/toggle:
-    post:
-      description: 启用或禁用指定的通知事件
-      parameters:
-      - description: 事件 ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 切换成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 快捷切换通知事件启用状态
-      tags:
-      - admin-push
-  /api/v1/admin/push/events/builtin:
-    get:
-      description: 返回系统定义的所有内置通知事件元数据，供前端下拉框选择，需要管理员权限
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 内置通知事件列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/push.EventMetadata'
-                  type: array
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 获取所有内置通知事件
-      tags:
-      - admin-push
-  /api/v1/admin/push/histories:
-    get:
-      description: 返回分页的通知历史日志数据，需要管理员权限
-      parameters:
-      - description: 当前页码
-        in: query
-        name: page
-        type: integer
-      - description: 分页大小
-        in: query
-        name: page_size
-        type: integer
-      - description: 过滤事件名称
-        in: query
-        name: event_key
-        type: string
-      - description: 过滤发送状态
-        in: query
-        name: status
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 推送历史列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/push.pushHistoriesResponse'
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 分页获取通知推送历史
-      tags:
-      - admin-push
-  /api/v1/admin/push/test:
-    post:
-      consumes:
-      - application/json
-      description: 接收临时通知渠道配置并在本地同步调用 Pusher.Send 发送测试消息
-      parameters:
-      - description: 测试请求体
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/push.TestPushRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 测试成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-      security:
-      - SessionCookie: []
-      summary: 测试推送通道发送
-      tags:
-      - admin-push
   /api/v1/admin/status:
     get:
       description: 获取后端服务运行状态、Goroutine、内存指标等详细统计数据，需要管理员权限
@@ -2823,7 +1684,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/status.SystemStatusResponse'
+                  $ref: '#/definitions/admin.SystemStatusResponse'
               type: object
         "401":
           description: 未登录
@@ -2851,7 +1712,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/status.LogDatabaseStatus'
+                  $ref: '#/definitions/admin.LogDatabaseStatus'
               type: object
         "401":
           description: 未登录
@@ -2889,7 +1750,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.SystemConfig'
+                    $ref: '#/definitions/admin.SystemConfig'
                   type: array
               type: object
         "401":
@@ -2919,7 +1780,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/system_config.CreateSystemConfigRequest'
+          $ref: '#/definitions/admin.CreateSystemConfigRequest'
       produces:
       - application/json
       responses:
@@ -2972,7 +1833,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.SystemConfig'
+                  $ref: '#/definitions/admin.SystemConfig'
               type: object
         "401":
           description: 未登录
@@ -3010,7 +1871,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/system_config.UpdateSystemConfigRequest'
+          $ref: '#/definitions/admin.UpdateSystemConfigRequest'
       produces:
       - application/json
       responses:
@@ -3059,7 +1920,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/system_config.TestSMTPRequest'
+          $ref: '#/definitions/admin.TestSMTPRequest'
       produces:
       - application/json
       responses:
@@ -3070,7 +1931,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/system_config.TestSMTPResponse'
+                  $ref: '#/definitions/admin.TestSMTPResponse'
               type: object
         "400":
           description: 参数错误
@@ -3092,7 +1953,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/task.DispatchTaskRequest'
+          $ref: '#/definitions/admin.DispatchTaskRequest'
       produces:
       - application/json
       responses:
@@ -3192,7 +2053,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.TaskExecution'
+                  $ref: '#/definitions/admin.TaskExecution'
               type: object
         "400":
           description: 参数错误
@@ -3275,7 +2136,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.Schedule'
+                    $ref: '#/definitions/admin.Schedule'
                   type: array
               type: object
         "401":
@@ -3301,7 +2162,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/task.CreateScheduleRequest'
+          $ref: '#/definitions/admin.CreateScheduleRequest'
       produces:
       - application/json
       responses:
@@ -3312,7 +2173,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.Schedule'
+                  $ref: '#/definitions/admin.Schedule'
               type: object
         "400":
           description: Cron 表达式无效、异步任务类型不存在或参数错误
@@ -3392,7 +2253,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/task.UpdateScheduleRequest'
+          $ref: '#/definitions/admin.UpdateScheduleRequest'
       produces:
       - application/json
       responses:
@@ -3403,7 +2264,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.Schedule'
+                  $ref: '#/definitions/admin.Schedule'
               type: object
         "400":
           description: Cron 表达式无效、参数错误
@@ -3474,7 +2335,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.Template'
+                    $ref: '#/definitions/admin.Template'
                   type: array
               type: object
         "401":
@@ -3504,7 +2365,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/template.CreateTemplateRequest'
+          $ref: '#/definitions/admin.CreateTemplateRequest'
       produces:
       - application/json
       responses:
@@ -3602,7 +2463,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.Template'
+                  $ref: '#/definitions/admin.Template'
               type: object
         "401":
           description: 未登录
@@ -3640,7 +2501,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/template.UpdateTemplateRequest'
+          $ref: '#/definitions/admin.UpdateTemplateRequest'
       produces:
       - application/json
       responses:
@@ -3651,7 +2512,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.Template'
+                  $ref: '#/definitions/admin.Template'
               type: object
         "400":
           description: 参数错误
@@ -3691,7 +2552,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/updater.Status'
+                  $ref: '#/definitions/admin.UpdaterStatus'
               type: object
         "401":
           description: 未登录
@@ -3739,89 +2600,6 @@ paths:
       security:
       - SessionCookie: []
       summary: 下载并应用应用更新
-      tags:
-      - admin
-  /api/v1/admin/uploads:
-    get:
-      description: 分页获取系统上传的文件列表，支持文件名关键词、业务类型、扩展名、上传用户ID过滤
-      parameters:
-      - description: 页码（默认 1）
-        in: query
-        name: page
-        type: integer
-      - description: 每页数量（默认 20，最大 100）
-        in: query
-        name: page_size
-        type: integer
-      - description: 文件名关键词（模糊匹配）
-        in: query
-        name: keyword
-        type: string
-      - description: 业务分类过滤
-        in: query
-        name: type
-        type: string
-      - description: 扩展名过滤
-        in: query
-        name: extension
-        type: string
-      - description: 上传用户 ID
-        format: int64
-        in: query
-        name: user_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 查询成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/handler.listFilesResponse'
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取文件列表
-      tags:
-      - admin
-  /api/v1/admin/uploads/{id}:
-    delete:
-      description: 将文件状态置为 deleted（软删除），不会立即清理底层存储对象
-      parameters:
-      - description: 文件 ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 删除成功
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无权操作
-          schema:
-            $ref: '#/definitions/response.Any'
-        "404":
-          description: 文件不存在
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 删除文件
       tags:
       - admin
   /api/v1/admin/uploads/download/{id}:
@@ -3893,6 +2671,80 @@ paths:
       summary: 批量打包下载
       tags:
       - admin
+  /api/v1/admin/uploads/files:
+    get:
+      description: 分页获取系统上传的文件列表，支持文件名关键词、业务类型、扩展名、上传用户ID过滤
+      parameters:
+      - description: 页码（默认 1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量（默认 20，最大 100）
+        in: query
+        name: page_size
+        type: integer
+      - description: 文件名关键词（模糊匹配）
+        in: query
+        name: keyword
+        type: string
+      - description: 业务分类过滤
+        in: query
+        name: type
+        type: string
+      - description: 扩展名过滤
+        in: query
+        name: extension
+        type: string
+      - description: 上传用户 ID 过滤
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.listFilesResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取文件列表
+      tags:
+      - admin
+  /api/v1/admin/uploads/files/{id}:
+    delete:
+      description: 将指定 ID 的文件状态置为 deleted（软删除）
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/response.Any'
+        "404":
+          description: 文件不存在
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 删除文件
+      tags:
+      - admin
   /api/v1/admin/uploads/stats:
     get:
       description: 返回系统级的总文件数、占用大小、最近 7 天新增趋势、文件类型/格式分布等数据
@@ -3927,12 +2779,12 @@ paths:
       - admin
   /api/v1/admin/uploads/types:
     get:
-      description: 返回数据库中所有已上传文件实际拥有的业务类型列表
+      description: 查询系统内所有不重复的上传业务分类标识（如 avatar, doc 等）
       produces:
       - application/json
       responses:
         "200":
-          description: 业务类型列表
+          description: 查询成功
           schema:
             allOf:
             - $ref: '#/definitions/response.Any'
@@ -3942,21 +2794,9 @@ paths:
                     type: string
                   type: array
               type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "403":
-          description: 无管理员权限
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: 内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
       security:
       - SessionCookie: []
-      summary: 获取文件业务类型列表
+      summary: 获取业务分类列表
       tags:
       - admin
   /api/v1/admin/users:
@@ -3991,7 +2831,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/user.listUsersResponse'
+                  $ref: '#/definitions/admin.listUsersResponse'
               type: object
         "400":
           description: 参数错误
@@ -4024,7 +2864,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.createUserRequest'
+          $ref: '#/definitions/admin.createUserRequest'
       produces:
       - application/json
       responses:
@@ -4035,7 +2875,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/user.user'
+                  $ref: '#/definitions/admin.userResponse'
               type: object
         "400":
           description: 参数错误或用户名已存在
@@ -4122,7 +2962,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/user.user'
+                  $ref: '#/definitions/admin.userResponse'
               type: object
         "400":
           description: 参数错误
@@ -4164,7 +3004,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.updateUserRequest'
+          $ref: '#/definitions/admin.updateUserRequest'
       produces:
       - application/json
       responses:
@@ -4218,7 +3058,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/user.updateUserStatusRequest'
+          $ref: '#/definitions/admin.updateUserStatusRequest'
       produces:
       - application/json
       responses:
@@ -4271,24 +3111,6 @@ paths:
       summary: 获取公共配置
       tags:
       - config
-  /api/v1/custom/hello:
-    get:
-      description: Scaffold demo API; product APIs use semantic paths under apps/<domain>
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-      summary: Sample Hello API
-      tags:
-      - custom
   /api/v1/message-gateway/bindings:
     get:
       description: Returns the current user's bound messaging channels
@@ -4407,245 +3229,6 @@ paths:
       summary: List enabled messaging channels
       tags:
       - message-gateway
-  /api/v1/oauth/{source}/authorize:
-    get:
-      description: 根据指定认证源名称发起 OAuth 授权，支持 purpose 参数用于区分登录和账号绑定场景。认证源必须已启用。
-      parameters:
-      - description: 认证源名称
-        in: path
-        name: source
-        required: true
-        type: string
-      - description: 授权目的：login（登录）或 bind（绑定账号），默认 login
-        in: query
-        name: purpose
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 授权 URL
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.OAuthAuthorizeResponse'
-              type: object
-        "400":
-          description: 认证源不存在或未启用
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: Redis 异常或构造 URL 失败
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 发起指定认证源授权
-      tags:
-      - oauth
-  /api/v1/oauth/callback:
-    post:
-      consumes:
-      - application/json
-      description: 接收前端传回的 state 和 code，完成 OAuth/OIDC 认证并建立会话。支持登录（login）和账号绑定（bind）两种场景。
-      parameters:
-      - description: 回调请求参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/oauth.CallbackRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 登录或绑定成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.OAuthCallbackResult'
-              type: object
-        "400":
-          description: state 无效、参数错误或认证源错误
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 绑定场景未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: OAuth 认证失败或内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: OAuth 回调处理
-      tags:
-      - oauth
-  /api/v1/oauth/external-accounts:
-    get:
-      description: 返回当前登录用户已绑定的所有外部 OAuth 帐号信息，需要登录
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 外部帐号列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.ExternalAccountView'
-                  type: array
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: 内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取外部帐号列表
-      tags:
-      - oauth
-  /api/v1/oauth/external-accounts/{id}/delete:
-    post:
-      description: 解除当前登录用户与指定外部帐号的绑定关系，需要登录
-      parameters:
-      - description: 外部帐号绑定记录 ID
-        format: int64
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 解除绑定成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "400":
-          description: ID 无效或解除失败
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 解除外部帐号绑定
-      tags:
-      - oauth
-  /api/v1/oauth/login:
-    get:
-      description: 根据指定认证源生成 OAuth 授权 URL，前端跳转到该 URL 完成 OAuth 登录授权。source 参数为空时使用第一个启用的认证源。
-      parameters:
-      - description: 认证源名称，为空使用第一个启用的认证源
-        in: query
-        name: source
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 授权 URL
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.OAuthAuthorizeResponse'
-              type: object
-        "400":
-          description: 认证源不存在或未配置
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: Redis 异常 or 构造 URL 失败
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 获取登录授权地址
-      tags:
-      - oauth
-  /api/v1/oauth/logout:
-    get:
-      description: 清除当前用户的登录会话，完成退出。清除 Cookie 中的 Session 数据。
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 退出成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "500":
-          description: Session 清除失败
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 退出登录
-      tags:
-      - oauth
-  /api/v1/oauth/sources:
-    get:
-      description: 返回当前系统已启用的所有 OAuth 登录源，前端展示登录按钮列表时调用
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 登录源列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/oauth.AuthSourceView'
-                  type: array
-              type: object
-      summary: 获取可用登录源
-      tags:
-      - oauth
-  /api/v1/oauth/user-info:
-    get:
-      description: 返回当前登录用户的基本信息及余额数据，需要登录。包括用户 ID、用户名、信任等级、各类余额信息等。
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 用户信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.BasicUserInfo'
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取当前登录用户信息
-      tags:
-      - oauth
   /api/v1/upload:
     post:
       consumes:
@@ -4675,7 +3258,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.Upload'
+                  $ref: '#/definitions/models.Upload'
               type: object
         "400":
           description: 请求参数错误或文件受限
@@ -4749,7 +3332,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.Upload'
+                  $ref: '#/definitions/models.Upload'
               type: object
         "403":
           description: 无权操作
@@ -4809,362 +3392,6 @@ paths:
       summary: 获取我的文件列表
       tags:
       - upload
-  /api/v1/user-info:
-    get:
-      description: 返回当前登录用户的基本信息及余额数据，需要登录。包括用户 ID、用户名、信任等级、各类余额信息等。
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 用户信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.BasicUserInfo'
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取当前登录用户信息
-      tags:
-      - oauth
-  /api/v1/user/access-tokens:
-    get:
-      description: 返回当前登录用户的所有 active access tokens（脱敏后）
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 令牌列表
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.AccessToken'
-                  type: array
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取当前用户的 AccessToken 列表
-      tags:
-      - user
-    post:
-      consumes:
-      - application/json
-      description: 为当前用户新建一个 API 访问令牌，仅在此接口返回一次明文令牌值，请妥善保存。可通过 is_admin 字段赋予令牌管理员权限（仅管理员用户可设置）。
-      parameters:
-      - description: 令牌名称
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/user.createTokenRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 新建令牌成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/user.tokenResponse'
-              type: object
-        "400":
-          description: 参数错误或超限
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 创建一个新的 AccessToken
-      tags:
-      - user
-  /api/v1/user/access-tokens/{id}:
-    delete:
-      description: 撤销并删除一个属于当前用户的 API 访问令牌
-      parameters:
-      - description: 令牌ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 删除成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 删除一个 AccessToken
-      tags:
-      - user
-  /api/v1/user/access-tokens/{id}/rotate:
-    post:
-      description: 轮换（重新生成）一个属于当前用户的 API 访问令牌的密钥，旧令牌将立即失效
-      parameters:
-      - description: 令牌ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 令牌轮换成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/user.tokenResponse'
-              type: object
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 轮换一个 AccessToken
-      tags:
-      - user
-  /api/v1/user/change-password:
-    post:
-      consumes:
-      - application/json
-      description: 修改当前登录用户的密码。修改成功后，如果是首次明文登录的升级提示，则清除修改密码的提示状态。
-      parameters:
-      - description: 修改密码请求参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/user.changePasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 修改密码成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "400":
-          description: 原密码错误或新密码不符合要求
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 请先登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 修改用户密码
-      tags:
-      - user
-  /api/v1/user/login:
-    post:
-      consumes:
-      - application/json
-      description: 使用用户名和密码登录，登录成功后建立 Session。若管理员已关闭密码登录功能则返回错误。
-      parameters:
-      - description: 登录请求参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/user.loginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 登录成功，返回用户信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.BasicUserInfo'
-              type: object
-        "400":
-          description: 用户名或密码错误
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: 服务内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 用户密码登录
-      tags:
-      - user
-  /api/v1/user/logout:
-    get:
-      description: 清除用户登录 Session，完成退出
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 退出成功
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  type: string
-              type: object
-        "500":
-          description: Session 清除失败
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 用户退出登录
-      tags:
-      - user
-  /api/v1/user/profile:
-    put:
-      consumes:
-      - application/json
-      description: 修改当前登录用户的昵称、邮箱、头像、简介、电话、性别、个人网站和所在地。
-      parameters:
-      - description: 更新请求参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/user.updateProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 修改成功，返回更新后的用户信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.BasicUserInfo'
-              type: object
-        "400":
-          description: 邮箱已被占用或参数错误
-          schema:
-            $ref: '#/definitions/response.Any'
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 修改当前登录用户的个人资料
-      tags:
-      - user
-  /api/v1/user/register:
-    post:
-      consumes:
-      - application/json
-      description: 使用用户名和密码注册新账号，注册成功后自动登录并建立 Session。密码长度不能少于 8 位。
-      parameters:
-      - description: 注册请求参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/user.registerRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 注册并登录成功，返回用户信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.BasicUserInfo'
-              type: object
-        "400":
-          description: 参数错误、用户名已存在或注册已关闭
-          schema:
-            $ref: '#/definitions/response.Any'
-        "500":
-          description: 服务内部错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 用户注册
-      tags:
-      - user
-  /api/v1/user/self:
-    get:
-      description: 返回当前登录用户的基本信息及余额数据，需要登录。包括用户 ID、用户名、信任等级、各类余额信息等。
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 用户信息
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/oauth.BasicUserInfo'
-              type: object
-        "401":
-          description: 未登录
-          schema:
-            $ref: '#/definitions/response.Any'
-      security:
-      - SessionCookie: []
-      summary: 获取当前登录用户信息
-      tags:
-      - oauth
-  /api/v1/user/send-email-code:
-    post:
-      consumes:
-      - application/json
-      description: 向指定邮箱发送验证码（用于注册场景）
-      parameters:
-      - description: 发送验证码请求参数
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/user.sendEmailCodeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 发送成功
-          schema:
-            $ref: '#/definitions/response.Any'
-        "400":
-          description: 参数错误
-          schema:
-            $ref: '#/definitions/response.Any'
-      summary: 发送邮箱验证码
-      tags:
-      - user
   /f/{id}:
     get:
       description: 根据文件 ID 获取并提供已上传的临时或正式文件，若配置了缓存则优先走本地缓存，否则从 S3 等后端存储读取并流式返回

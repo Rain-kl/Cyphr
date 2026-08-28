@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package contracts defines unified service interfaces and DTOs for cross-plugin communication.
 package contracts
 
@@ -24,6 +27,11 @@ type UserDTO struct {
 	LastLoginAt        time.Time `json:"last_login_at"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// TableName returns w_users.
+func (UserDTO) TableName() string {
+	return "w_users"
 }
 
 // OAuthUserInfoDTO contains user identity claims obtained from an OAuth provider.

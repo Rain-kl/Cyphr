@@ -7,7 +7,7 @@ package ingest
 import (
 	"io"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 )
 
 // Policy controls how ingest handles hash collisions and record creation.
@@ -33,7 +33,7 @@ type Request struct {
 	Type   string
 
 	AccessMode *int
-	Status     model.UploadStatus
+	Status     models.UploadStatus
 
 	Reader    io.Reader
 	Size      int64
@@ -42,7 +42,7 @@ type Request struct {
 	Extension string
 	Hash      string
 
-	Metadata model.UploadMetadata
+	Metadata models.UploadMetadata
 	Policy   Policy
 
 	ObjectKeyFn ObjectKeyFn
@@ -53,7 +53,7 @@ type Request struct {
 
 // Result reports the outcome of an ingest operation.
 type Result struct {
-	Upload   model.Upload
+	Upload   models.Upload
 	Created  bool
 	Stored   bool
 	Resolved bool

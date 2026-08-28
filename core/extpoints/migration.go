@@ -1,3 +1,6 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
 // Package extpoints defines extension points for router, migrations, tasks, schedules, and settings.
 package extpoints
 

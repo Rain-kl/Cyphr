@@ -14,12 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/infra/task/scheduler"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/task"
+	"github.com/Rain-kl/Wavelet/pkg/task/scheduler"
 )
 
 // ListTaskTypes 获取支持的任务类型列表
@@ -107,7 +105,7 @@ func DispatchTask(c *gin.Context) {
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Router /api/v1/admin/tasks/executions [get]
 func ListTaskExecutions(c *gin.Context) {
-	var req model.ListTaskExecutionsRequest
+	var req ListTaskExecutionsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.AbortBadRequest(c, err.Error())
 		return
@@ -119,7 +117,7 @@ func ListTaskExecutions(c *gin.Context) {
 		}
 	}
 
-	executions, total, err := repository.ListTaskExecutions(c.Request.Context(), req)
+	executions, total, err := ListTaskExecutionRecords(c.Request.Context(), req)
 	if err != nil {
 		response.AbortInternal(c, err.Error())
 		return
@@ -140,7 +138,7 @@ func ListTaskExecutions(c *gin.Context) {
 // @Produce json
 // @Security SessionCookie
 // @Param id path int true "任务执行记录 ID"
-// @Success 200 {object} response.Any{data=model.TaskExecution} "任务执行详情"
+// @Success 200 {object} response.Any{data=TaskExecution} "任务执行详情"
 // @Failure 400 {object} response.Any "参数错误"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
@@ -153,7 +151,7 @@ func GetTaskExecution(c *gin.Context) {
 		return
 	}
 
-	execution, err := repository.GetTaskExecutionByID(c.Request.Context(), id)
+	execution, err := GetTaskExecutionByID(c.Request.Context(), id)
 	if err != nil {
 		response.AbortNotFound(c, TaskNotFound)
 		return
@@ -206,12 +204,12 @@ func RetryTask(c *gin.Context) {
 // @Tags admin
 // @Produce json
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=[]model.Schedule} "定时任务列表"
+// @Success 200 {object} response.Any{data=[]Schedule} "定时任务列表"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Router /api/v1/admin/tasks/schedules [get]
 func ListSchedules(c *gin.Context) {
-	schedules, err := repository.ListSchedules(c.Request.Context())
+	schedules, err := ListSchedulesRecord(c.Request.Context())
 	if err != nil {
 		response.AbortInternal(c, err.Error())
 		return
@@ -236,7 +234,7 @@ type CreateScheduleRequest struct {
 // @Produce json
 // @Security SessionCookie
 // @Param request body CreateScheduleRequest true "创建定时任务请求参数"
-// @Success 200 {object} response.Any{data=model.Schedule} "创建成功的定时任务信息"
+// @Success 200 {object} response.Any{data=Schedule} "创建成功的定时任务信息"
 // @Failure 400 {object} response.Any "Cron 表达式无效、异步任务类型不存在或参数错误"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
@@ -273,7 +271,7 @@ func CreateSchedule(c *gin.Context) {
 		return
 	}
 
-	schedule := &model.Schedule{
+	schedule := &Schedule{
 		Name:     req.Name,
 		TaskType: req.TaskType,
 		Cron:     req.Cron,
@@ -281,7 +279,7 @@ func CreateSchedule(c *gin.Context) {
 		IsActive: *req.IsActive,
 	}
 
-	if err := repository.CreateSchedule(c.Request.Context(), schedule); err != nil {
+	if err := CreateScheduleRecord(c.Request.Context(), schedule); err != nil {
 		response.AbortInternal(c, fmt.Sprintf("%s: %v", ScheduleSaveFailed, err))
 		return
 	}
@@ -312,7 +310,7 @@ type UpdateScheduleRequest struct {
 // @Security SessionCookie
 // @Param id path int true "定时任务 ID"
 // @Param request body UpdateScheduleRequest true "修改定时任务请求参数"
-// @Success 200 {object} response.Any{data=model.Schedule} "修改后的定时任务信息"
+// @Success 200 {object} response.Any{data=Schedule} "修改后的定时任务信息"
 // @Failure 400 {object} response.Any "Cron 表达式无效、参数错误"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
@@ -332,7 +330,7 @@ func UpdateSchedule(c *gin.Context) {
 		return
 	}
 
-	schedule, err := repository.GetScheduleByID(c.Request.Context(), id)
+	schedule, err := GetScheduleByID(c.Request.Context(), id)
 	if err != nil {
 		response.AbortNotFound(c, ScheduleNotFound)
 		return
@@ -368,7 +366,7 @@ func UpdateSchedule(c *gin.Context) {
 	schedule.Payload = string(validated)
 	schedule.IsActive = *req.IsActive
 
-	if err := repository.UpdateSchedule(c.Request.Context(), schedule); err != nil {
+	if err := UpdateScheduleRecord(c.Request.Context(), schedule); err != nil {
 		response.AbortInternal(c, fmt.Sprintf("%s: %v", ScheduleSaveFailed, err))
 		return
 	}
@@ -401,7 +399,7 @@ func DeleteSchedule(c *gin.Context) {
 		return
 	}
 
-	if err := repository.DeleteSchedule(c.Request.Context(), id); err != nil {
+	if err := DeleteScheduleRecord(c.Request.Context(), id); err != nil {
 		response.AbortInternal(c, fmt.Sprintf("%s: %v", ScheduleDeleteFailed, err))
 		return
 	}

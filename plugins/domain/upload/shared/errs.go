@@ -38,4 +38,6 @@ const (
 	ErrInvalidImageCacheWarmupQuality  = "图片质量仅支持 low、medium、high"
 	ErrParseImageCacheWarmupPayload    = "解析图片缓存预热参数失败: %w"
 	ErrQueryImagesForCacheWarmup       = "查询待预热图片失败: %w"
+	ErrQueryTypeListFailed             = "查询文件类型列表失败"
+	ErrUpdateFileFailed                = "更新文件失败"
 )

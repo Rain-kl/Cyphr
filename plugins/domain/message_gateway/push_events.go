@@ -9,10 +9,10 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+
 	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
+
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"gorm.io/gorm"
 )
@@ -102,7 +102,7 @@ func (t *EventTrigger) Trigger(ctx context.Context, meta EventMetadata, body map
 			body["user"] = getSystemUser(asyncCtx)
 		}
 
-		eventPtr, err := repository.GetActivePushEventByKey(asyncCtx, meta.Key)
+		eventPtr, err := GetActivePushEventByKey(asyncCtx, meta.Key)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return
@@ -121,7 +121,7 @@ func (t *EventTrigger) Trigger(ctx context.Context, meta EventMetadata, body map
 	})
 }
 
-func (t *EventTrigger) buildMessage(event *model.PushEvent, meta EventMetadata, flatBody map[string]any, body map[string]any) (NotificationMessage, string) {
+func (t *EventTrigger) buildMessage(event *PushEvent, meta EventMetadata, flatBody map[string]any, body map[string]any) (NotificationMessage, string) {
 	var msg NotificationMessage
 	renderedTemplate := ""
 
@@ -153,7 +153,7 @@ func (t *EventTrigger) buildMessage(event *model.PushEvent, meta EventMetadata, 
 	return msg, renderedTemplate
 }
 
-func (t *EventTrigger) parseCustomTemplate(event *model.PushEvent, templateSource string, flatBody map[string]any) (NotificationMessage, string, error) {
+func (t *EventTrigger) parseCustomTemplate(event *PushEvent, templateSource string, flatBody map[string]any) (NotificationMessage, string, error) {
 	var msg NotificationMessage
 	renderedTemplate := pkgpush.ParseTemplate(templateSource, flatBody)
 
@@ -206,9 +206,9 @@ func (t *EventTrigger) parseDefaultTemplate(meta EventMetadata, flatBody map[str
 	return msg
 }
 
-func (t *EventTrigger) enqueuePushTasks(ctx context.Context, meta EventMetadata, event *model.PushEvent, msg NotificationMessage, flatBody map[string]any) {
+func (t *EventTrigger) enqueuePushTasks(ctx context.Context, meta EventMetadata, event *PushEvent, msg NotificationMessage, flatBody map[string]any) {
 	for _, channelName := range event.Channels {
-		customChannel, err := repository.GetActivePushChannelByName(ctx, channelName)
+		customChannel, err := GetActivePushChannelByName(ctx, channelName)
 		if err == nil {
 			t.enqueueCustomPushChannelTasks(ctx, meta, event, customChannel, msg, flatBody)
 			continue
@@ -217,7 +217,7 @@ func (t *EventTrigger) enqueuePushTasks(ctx context.Context, meta EventMetadata,
 	}
 }
 
-func (t *EventTrigger) enqueueCustomPushChannelTasks(ctx context.Context, meta EventMetadata, event *model.PushEvent, channel *model.PushChannel, msg NotificationMessage, flatBody map[string]any) {
+func (t *EventTrigger) enqueueCustomPushChannelTasks(ctx context.Context, meta EventMetadata, event *PushEvent, channel *PushChannel, msg NotificationMessage, flatBody map[string]any) {
 	if len(event.Targets) == 0 {
 		t.enqueueSingleCustomPushChannelTask(ctx, meta, channel, "", msg)
 		return
@@ -229,7 +229,7 @@ func (t *EventTrigger) enqueueCustomPushChannelTasks(ctx context.Context, meta E
 	}
 }
 
-func (t *EventTrigger) enqueueSingleCustomPushChannelTask(ctx context.Context, meta EventMetadata, channel *model.PushChannel, target string, msg NotificationMessage) {
+func (t *EventTrigger) enqueueSingleCustomPushChannelTask(ctx context.Context, meta EventMetadata, channel *PushChannel, target string, msg NotificationMessage) {
 	var config pkgpush.Config
 	var renderedTemplate string
 

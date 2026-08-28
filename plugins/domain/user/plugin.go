@@ -44,15 +44,18 @@ func New(opts ...Option) *Plugin {
 	return p
 }
 
+// PluginName 用户插件唯一名称标识
+const PluginName = "user"
+
 // Name returns the unique identifier for the user domain plugin.
 func (p *Plugin) Name() string {
-	return "user"
+	return PluginName
 }
 
 // Manifest returns the plugin metadata.
 func (p *Plugin) Manifest() core.Manifest {
 	return core.Manifest{
-		Name:        "user",
+		Name:        PluginName,
 		Version:     "1.0.0",
 		Description: "User profiles, credentials, role management, and access token domain plugin",
 		Author:      "Wavelet Team",

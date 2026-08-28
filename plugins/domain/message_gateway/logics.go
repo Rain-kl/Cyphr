@@ -10,9 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
 	pkgmg "github.com/Rain-kl/Wavelet/pkg/message_gateway"
+
 	"gorm.io/gorm"
 )
 
@@ -42,7 +41,7 @@ func bindChannel(ctx context.Context, userID uint64, req BindRequest) (BindingDT
 	if code == "" {
 		return BindingDTO{}, errCodeInvalid
 	}
-	pairing, err := repository.GetPairingCode(ctx, code)
+	pairing, err := GetPairingCode(ctx, code)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return BindingDTO{}, errCodeInvalid
@@ -55,7 +54,7 @@ func bindChannel(ctx context.Context, userID uint64, req BindRequest) (BindingDT
 	if pairing.ChannelID != channelID {
 		return BindingDTO{}, errChannelMismatch
 	}
-	ch, err := repository.GetMessageChannel(ctx, channelID)
+	ch, err := GetMessageChannel(ctx, channelID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return BindingDTO{}, errCodeInvalid
@@ -66,7 +65,7 @@ func bindChannel(ctx context.Context, userID uint64, req BindRequest) (BindingDT
 		return BindingDTO{}, errChannelDisabled
 	}
 
-	existing, err := repository.GetBindingByChannelPlatform(ctx, channelID, pairing.PlatformUserID)
+	existing, err := GetBindingByChannelPlatform(ctx, channelID, pairing.PlatformUserID)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return BindingDTO{}, err
 	}
@@ -74,19 +73,19 @@ func bindChannel(ctx context.Context, userID uint64, req BindRequest) (BindingDT
 		if existing.UserID != userID {
 			return BindingDTO{}, errPlatformAlreadyBound
 		}
-		_ = repository.DeletePairingCode(ctx, pairing.Code)
+		_ = DeletePairingCode(ctx, pairing.Code)
 		return toBindingDTO(existing, ch), nil
 	}
 
-	row := &model.MessageBinding{
+	row := &MessageBinding{
 		UserID:         userID,
 		ChannelID:      channelID,
 		PlatformUserID: pairing.PlatformUserID,
 	}
-	if err := repository.CreateMessageBinding(ctx, row); err != nil {
+	if err := CreateMessageBinding(ctx, row); err != nil {
 		return BindingDTO{}, err
 	}
-	if err := repository.DeletePairingCode(ctx, pairing.Code); err != nil {
+	if err := DeletePairingCode(ctx, pairing.Code); err != nil {
 		return BindingDTO{}, err
 	}
 	return toBindingDTO(row, ch), nil
@@ -100,7 +99,7 @@ type PublicChannelDTO struct {
 }
 
 func listEnabledPublicChannels(ctx context.Context) ([]PublicChannelDTO, error) {
-	rows, err := repository.ListEnabledMessageChannels(ctx)
+	rows, err := ListEnabledMessageChannels(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -112,13 +111,13 @@ func listEnabledPublicChannels(ctx context.Context) ([]PublicChannelDTO, error) 
 }
 
 func listUserBindings(ctx context.Context, userID uint64) ([]BindingDTO, error) {
-	rows, err := repository.ListBindingsByUser(ctx, userID)
+	rows, err := ListBindingsByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]BindingDTO, 0, len(rows))
 	for i := range rows {
-		ch, err := repository.GetMessageChannel(ctx, rows[i].ChannelID)
+		ch, err := GetMessageChannel(ctx, rows[i].ChannelID)
 		if err != nil {
 			out = append(out, toBindingDTO(&rows[i], nil))
 			continue
@@ -129,7 +128,7 @@ func listUserBindings(ctx context.Context, userID uint64) ([]BindingDTO, error) 
 }
 
 func unbindChannel(ctx context.Context, userID, bindingID uint64) error {
-	row, err := repository.GetMessageBinding(ctx, bindingID)
+	row, err := GetMessageBinding(ctx, bindingID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errBindingNotFound
@@ -139,10 +138,10 @@ func unbindChannel(ctx context.Context, userID, bindingID uint64) error {
 	if row.UserID != userID {
 		return errBindingForbidden
 	}
-	return repository.DeleteMessageBinding(ctx, bindingID)
+	return DeleteMessageBinding(ctx, bindingID)
 }
 
-func toBindingDTO(row *model.MessageBinding, ch *model.MessageChannel) BindingDTO {
+func toBindingDTO(row *MessageBinding, ch *MessageChannel) BindingDTO {
 	dto := BindingDTO{
 		ID:             row.ID,
 		UserID:         row.UserID,

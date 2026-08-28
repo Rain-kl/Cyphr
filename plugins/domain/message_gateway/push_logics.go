@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
 	pkgpush "github.com/Rain-kl/Wavelet/pkg/push"
+	"github.com/Rain-kl/Wavelet/pkg/task"
 	"gorm.io/gorm"
 )
 
@@ -26,27 +26,28 @@ type smtpConfig struct {
 }
 
 func loadSMTPConfig(ctx context.Context) smtpConfig {
-	host, _ := repository.GetSystemConfigByKey(ctx, model.ConfigKeySMTPHost)
-	port, _ := repository.GetSystemConfigByKey(ctx, model.ConfigKeySMTPPort)
-	user, _ := repository.GetSystemConfigByKey(ctx, model.ConfigKeySMTPUsername)
-	pass, _ := repository.GetSystemConfigByKey(ctx, model.ConfigKeySMTPPassword)
-	return smtpConfig{
-		Host:     host.Value,
-		Port:     port.Value,
-		Username: user.Value,
-		Password: pass.Value,
-	}
+	var cfg smtpConfig
+	var host, port, user, pass string
+	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_host").Pluck("value", &host).Error
+	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_port").Pluck("value", &port).Error
+	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_username").Pluck("value", &user).Error
+	_ = db.DB(ctx).Table("w_system_configs").Where("key = ?", "smtp_password").Pluck("value", &pass).Error
+	cfg.Host = host
+	cfg.Port = port
+	cfg.Username = user
+	cfg.Password = pass
+	return cfg
 }
 
 func syncBuiltInEvents(ctx context.Context) error {
 	for _, meta := range GetBuiltInEvents() {
-		_, err := repository.GetPushEventByKey(ctx, meta.Key)
+		_, err := GetPushEventByKeyRecord(ctx, meta.Key)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			var defaultTemplateStr string
 			if defaultTemplateBytes, err := json.Marshal(meta.DefaultTemplate); err == nil {
 				defaultTemplateStr = string(defaultTemplateBytes)
 			}
-			event := model.PushEvent{
+			event := PushEvent{
 				EventKey: meta.Key,
 				Name:     meta.Name,
 				Channels: []string{},
@@ -54,7 +55,7 @@ func syncBuiltInEvents(ctx context.Context) error {
 				Template: defaultTemplateStr,
 				Enabled:  false,
 			}
-			if err := repository.CreatePushEvent(ctx, &event); err != nil {
+			if err := CreatePushEventRecord(ctx, &event); err != nil {
 				return err
 			}
 		} else if err != nil {
@@ -64,22 +65,22 @@ func syncBuiltInEvents(ctx context.Context) error {
 	return nil
 }
 
-func listPushEvents(ctx context.Context) ([]model.PushEvent, error) {
-	return repository.ListPushEvents(ctx)
+func listPushEvents(ctx context.Context) ([]PushEvent, error) {
+	return ListPushEventsRecord(ctx)
 }
 
-func createPushEvent(ctx context.Context, req CreatePushEventRequest) (model.PushEvent, error) {
+func createPushEvent(ctx context.Context, req CreatePushEventRequest) (PushEvent, error) {
 	eventKey, eventName, defaultTemplateBytes, err := getEventInfo(req)
 	if err != nil {
-		return model.PushEvent{}, err
+		return PushEvent{}, err
 	}
 
-	count, err := repository.CountPushEventsByKey(ctx, eventKey)
+	count, err := CountPushEventsByKeyRecord(ctx, eventKey)
 	if err != nil {
-		return model.PushEvent{}, err
+		return PushEvent{}, err
 	}
 	if count > 0 {
-		return model.PushEvent{}, errors.New("this notification event is already configured")
+		return PushEvent{}, errors.New("this notification event is already configured")
 	}
 
 	templateStr := strings.TrimSpace(req.Template)
@@ -88,7 +89,7 @@ func createPushEvent(ctx context.Context, req CreatePushEventRequest) (model.Pus
 	} else {
 		var tempMap map[string]any
 		if err := json.Unmarshal([]byte(templateStr), &tempMap); err != nil {
-			return model.PushEvent{}, errors.New("custom template is not a valid JSON format")
+			return PushEvent{}, errors.New("custom template is not a valid JSON format")
 		}
 	}
 
@@ -101,7 +102,7 @@ func createPushEvent(ctx context.Context, req CreatePushEventRequest) (model.Pus
 		targets = []string{}
 	}
 
-	event := model.PushEvent{
+	event := PushEvent{
 		EventKey: eventKey,
 		Name:     eventName,
 		TaskType: req.TaskType,
@@ -111,24 +112,24 @@ func createPushEvent(ctx context.Context, req CreatePushEventRequest) (model.Pus
 		Enabled:  req.Enabled,
 	}
 	if err := event.Validate(); err != nil {
-		return model.PushEvent{}, err
+		return PushEvent{}, err
 	}
-	if err := repository.CreatePushEvent(ctx, &event); err != nil {
-		return model.PushEvent{}, err
+	if err := CreatePushEventRecord(ctx, &event); err != nil {
+		return PushEvent{}, err
 	}
 	return event, nil
 }
 
 func deletePushEvent(ctx context.Context, id uint64) error {
-	event, err := repository.GetPushEventByID(ctx, id)
+	event, err := GetPushEventByIDRecord(ctx, id)
 	if err != nil {
 		return err
 	}
-	return repository.DeletePushEvent(ctx, &event)
+	return DeletePushEventRecord(ctx, &event)
 }
 
 func updatePushEvent(ctx context.Context, id uint64, req UpdatePushEventRequest) error {
-	event, err := repository.GetPushEventByID(ctx, id)
+	event, err := GetPushEventByIDRecord(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -140,11 +141,11 @@ func updatePushEvent(ctx context.Context, id uint64, req UpdatePushEventRequest)
 	if err := event.Validate(); err != nil {
 		return err
 	}
-	return repository.SavePushEvent(ctx, &event)
+	return SavePushEventRecord(ctx, &event)
 }
 
 func togglePushEvent(ctx context.Context, id uint64) (bool, error) {
-	event, err := repository.GetPushEventByID(ctx, id)
+	event, err := GetPushEventByIDRecord(ctx, id)
 	if err != nil {
 		return false, err
 	}
@@ -153,14 +154,14 @@ func togglePushEvent(ctx context.Context, id uint64) (bool, error) {
 	if enabled && len(event.Channels) == 0 {
 		return false, errors.New("cannot enable event without any push channels configured")
 	}
-	if err := repository.UpdatePushEventEnabled(ctx, &event, enabled); err != nil {
+	if err := UpdatePushEventEnabledRecord(ctx, &event, enabled); err != nil {
 		return false, err
 	}
 	return enabled, nil
 }
 
-func listPushHistories(ctx context.Context, filter repository.PushHistoryListFilter) (int64, []model.PushHistory, error) {
-	return repository.ListPushHistories(ctx, filter)
+func listPushHistories(ctx context.Context, filter PushHistoryListFilter) (int64, []PushHistory, error) {
+	return ListPushHistoriesRecord(ctx, filter)
 }
 
 func applySMTPFallbackToPushConfig(ctx context.Context, cfg *pkgpush.Config) {
@@ -180,20 +181,20 @@ func applySMTPFallbackToPushConfig(ctx context.Context, cfg *pkgpush.Config) {
 	cfg.Secret = smtp.Password
 }
 
-func listPushChannels(ctx context.Context) ([]model.PushChannel, error) {
-	return repository.ListPushChannels(ctx)
+func listPushChannels(ctx context.Context) ([]PushChannel, error) {
+	return ListPushChannelsRecord(ctx)
 }
 
-func createPushChannel(ctx context.Context, req CreatePushChannelRequest) (model.PushChannel, error) {
-	count, err := repository.CountPushChannelsByName(ctx, req.Name)
+func createPushChannel(ctx context.Context, req CreatePushChannelRequest) (PushChannel, error) {
+	count, err := CountPushChannelsByNameRecord(ctx, req.Name)
 	if err != nil {
-		return model.PushChannel{}, err
+		return PushChannel{}, err
 	}
 	if count > 0 {
-		return model.PushChannel{}, errors.New("channel name already exists")
+		return PushChannel{}, errors.New("channel name already exists")
 	}
 
-	channel := model.PushChannel{
+	channel := PushChannel{
 		Name:        req.Name,
 		Description: req.Description,
 		Type:        req.Type,
@@ -203,18 +204,18 @@ func createPushChannel(ctx context.Context, req CreatePushChannelRequest) (model
 		Enabled:     req.Enabled,
 	}
 	if err := channel.Validate(); err != nil {
-		return model.PushChannel{}, err
+		return PushChannel{}, err
 	}
-	if err := repository.CreatePushChannel(ctx, &channel); err != nil {
-		return model.PushChannel{}, err
+	if err := CreatePushChannelRecord(ctx, &channel); err != nil {
+		return PushChannel{}, err
 	}
 	return channel, nil
 }
 
-func updatePushChannel(ctx context.Context, id uint64, req UpdatePushChannelRequest) (model.PushChannel, error) {
-	channel, err := repository.GetPushChannelByID(ctx, id)
+func updatePushChannel(ctx context.Context, id uint64, req UpdatePushChannelRequest) (PushChannel, error) {
+	channel, err := GetPushChannelByIDRecord(ctx, id)
 	if err != nil {
-		return model.PushChannel{}, err
+		return PushChannel{}, err
 	}
 
 	channel.Description = req.Description
@@ -224,25 +225,25 @@ func updatePushChannel(ctx context.Context, id uint64, req UpdatePushChannelRequ
 	channel.Other = req.Other
 	channel.Enabled = req.Enabled
 	if err := channel.Validate(); err != nil {
-		return model.PushChannel{}, err
+		return PushChannel{}, err
 	}
-	if err := repository.SavePushChannel(ctx, &channel); err != nil {
-		return model.PushChannel{}, err
+	if err := SavePushChannelRecord(ctx, &channel); err != nil {
+		return PushChannel{}, err
 	}
 	return channel, nil
 }
 
 func deletePushChannel(ctx context.Context, id uint64) error {
-	channel, err := repository.GetPushChannelByID(ctx, id)
+	channel, err := GetPushChannelByIDRecord(ctx, id)
 	if err != nil {
 		return err
 	}
-	return repository.DeletePushChannel(ctx, &channel)
+	return DeletePushChannelRecord(ctx, &channel)
 }
 
 func loadChannelForTest(ctx context.Context, req TestPushChannelRequest) (string, string, string, string, error) {
 	if req.Name != "" {
-		channel, err := repository.GetPushChannelByName(ctx, req.Name)
+		channel, err := GetPushChannelByNameRecord(ctx, req.Name)
 		if err != nil {
 			return "", "", "", "", errors.New("channel not found")
 		}
@@ -251,8 +252,8 @@ func loadChannelForTest(ctx context.Context, req TestPushChannelRequest) (string
 	return req.URL, req.Token, req.Other, req.Type, nil
 }
 
-func listActivePushEventsByTaskType(ctx context.Context, taskType string) ([]model.PushEvent, error) {
-	return repository.ListActivePushEventsByTaskType(ctx, taskType)
+func listActivePushEventsByTaskType(ctx context.Context, taskType string) ([]PushEvent, error) {
+	return ListActivePushEventsByTaskTypeRecord(ctx, taskType)
 }
 
 func loadUserFromPayload(ctx context.Context, data map[string]any) any {
@@ -261,13 +262,15 @@ func loadUserFromPayload(ctx context.Context, data map[string]any) any {
 	}
 
 	if userID, ok := extractUserID(data); ok && userID > 0 {
-		if user, err := repository.GetUserByID(ctx, userID); err == nil {
+		var user contracts.UserDTO
+		if err := db.DB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err == nil {
 			return &user
 		}
 	}
 
 	if username := extractUsername(data); username != "" {
-		if user, err := repository.GetUserByUsername(ctx, username); err == nil {
+		var user contracts.UserDTO
+		if err := db.DB(ctx).Table("w_users").Where("username = ?", username).First(&user).Error; err == nil {
 			return &user
 		}
 	}
@@ -299,7 +302,7 @@ func recordPushHistory(ctx context.Context, req SendPayload, status, errMsg stri
 		}
 	}
 
-	history := model.PushHistory{
+	history := PushHistory{
 		EventKey: req.EventKey,
 		Channel:  req.Config.Channel,
 		Target:   target,
@@ -309,7 +312,7 @@ func recordPushHistory(ctx context.Context, req SendPayload, status, errMsg stri
 		Status:   status,
 		ErrorMsg: errMsg,
 	}
-	return repository.CreatePushHistory(ctx, &history)
+	return CreatePushHistoryRecord(ctx, &history)
 }
 
 func resolveTarget(ctx context.Context, target string, flatBody map[string]any, channel string) string {
@@ -366,31 +369,25 @@ func resolveDynamicKeyword(target string, flatBody map[string]any) string {
 	return target
 }
 
-func resolveTargetUser(ctx context.Context, resolved string, _ string) (model.User, bool) {
-	found := false
-	var user model.User
-
+func resolveTargetUser(ctx context.Context, resolved string, _ string) (contracts.UserDTO, bool) {
+	var user contracts.UserDTO
 	if id, err := strconv.ParseUint(resolved, 10, 64); err == nil {
-		if u, err := repository.GetUserByID(ctx, id); err == nil {
-			user = u
-			found = true
+		if err := db.DB(ctx).Table("w_users").Where("id = ?", id).First(&user).Error; err == nil {
+			return user, true
 		}
 	}
-	if !found {
-		if u, err := repository.GetUserByUsername(ctx, resolved); err == nil {
-			user = u
-			found = true
-		}
+	if err := db.DB(ctx).Table("w_users").Where("username = ?", resolved).First(&user).Error; err == nil {
+		return user, true
 	}
-	return user, found
+	return user, false
 }
 
 func resolveSystemTarget(ctx context.Context, resolved string, channel string) (string, bool) {
 	if resolved != "系统" && resolved != "system" && resolved != "0" {
 		return "", false
 	}
-	adminUser, err := repository.GetFirstAdminUser(ctx)
-	if err != nil {
+	var adminUser contracts.UserDTO
+	if err := db.DB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
 		return resolved, true
 	}
 	if channel == channelEmail && adminUser.Email != "" {
@@ -426,9 +423,15 @@ func resolveSMTPConfig(ctx context.Context, url, token, other string) (string, s
 	return url, token, other
 }
 
-func getSystemUser(ctx context.Context) *model.User {
-	user := repository.GetSystemUser(ctx)
-	return &user
+func getSystemUser(ctx context.Context) *contracts.UserDTO {
+	var user contracts.UserDTO
+	if err := db.DB(ctx).Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&user).Error; err == nil {
+		return &user
+	}
+	return &contracts.UserDTO{
+		Username: "system",
+		Nickname: "系统管理员",
+	}
 }
 
 func findBuiltInEvent(key string) (EventMetadata, bool) {

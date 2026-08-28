@@ -15,15 +15,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/diskcache"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	appshared "github.com/Rain-kl/Wavelet/internal/shared"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	appshared "github.com/Rain-kl/Wavelet/pkg/shared"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/util"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
 
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	"github.com/gin-gonic/gin"
@@ -85,7 +86,7 @@ func ServeFileByID(c *gin.Context) {
 }
 
 // GetUploadRecordByID 从请求路径参数中解析文件 ID 并从数据库中检索处于 Pending 或 Used 状态的上传记录。
-func GetUploadRecordByID(c *gin.Context) (*model.Upload, error) {
+func GetUploadRecordByID(c *gin.Context) (*models.Upload, error) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Security-Policy", "sandbox")
 
@@ -103,7 +104,7 @@ func GetUploadRecordByID(c *gin.Context) (*model.Upload, error) {
 	return &upload, nil
 }
 
-func getFileTypeCategory(upload *model.Upload) fileTypeCategory {
+func getFileTypeCategory(upload *models.Upload) fileTypeCategory {
 	mime := strings.ToLower(upload.MimeType)
 	ext := strings.ToLower(upload.Extension)
 
@@ -120,7 +121,7 @@ func getFileTypeCategory(upload *model.Upload) fileTypeCategory {
 }
 
 // ServeUpload 将已存在的文件内容读取并流式响应给客户端。
-func ServeUpload(c *gin.Context, upload *model.Upload) {
+func ServeUpload(c *gin.Context, upload *models.Upload) {
 	setCacheHeaders(c, upload)
 
 	category := getFileTypeCategory(upload)
@@ -138,7 +139,7 @@ func ServeUpload(c *gin.Context, upload *model.Upload) {
 	}
 }
 
-func setCacheHeaders(c *gin.Context, upload *model.Upload) {
+func setCacheHeaders(c *gin.Context, upload *models.Upload) {
 	if cache.IsFilePublic(c.Request.Context(), upload.Type) {
 		c.Header("Cache-Control", "public, max-age=31536000")
 	} else {
@@ -146,7 +147,7 @@ func setCacheHeaders(c *gin.Context, upload *model.Upload) {
 	}
 }
 
-func serveOriginalWithConditionalCheck(c *gin.Context, upload *model.Upload) {
+func serveOriginalWithConditionalCheck(c *gin.Context, upload *models.Upload) {
 	etag := fmt.Sprintf(`W/"%s"`, upload.Hash)
 	c.Header("ETag", etag)
 
@@ -158,7 +159,7 @@ func serveOriginalWithConditionalCheck(c *gin.Context, upload *model.Upload) {
 	serveOriginal(c, upload)
 }
 
-func serveCompressedImage(c *gin.Context, upload *model.Upload, quality string) {
+func serveCompressedImage(c *gin.Context, upload *models.Upload, quality string) {
 	etag := fmt.Sprintf(`W/"%s-%s"`, upload.Hash, quality)
 	c.Header("ETag", etag)
 
@@ -167,7 +168,12 @@ func serveCompressedImage(c *gin.Context, upload *model.Upload, quality string) 
 		return
 	}
 
-	webpBytes, _, err := EnsureCompressedImageCache(c.Request.Context(), upload, quality)
+	webpBytes, hit, err := EnsureCompressedImageCache(c.Request.Context(), upload, quality)
+	if hit {
+		c.Header("X-Cache", "HIT")
+	} else {
+		c.Header("X-Cache", "MISS")
+	}
 	if err != nil {
 		if len(webpBytes) > 0 {
 			logger.WarnF(c.Request.Context(), "failed to cache compressed image: %v", err)
@@ -185,7 +191,7 @@ func serveCompressedImage(c *gin.Context, upload *model.Upload, quality string) 
 // EnsureCompressedImageCache returns cached or freshly generated WebP bytes for an upload.
 func EnsureCompressedImageCache(
 	ctx context.Context,
-	upload *model.Upload,
+	upload *models.Upload,
 	quality string,
 ) ([]byte, bool, error) {
 	cacheStore := diskcache.GetGlobalCache()
@@ -211,7 +217,7 @@ func EnsureCompressedImageCache(
 
 func generateCompressedImageCache(
 	ctx context.Context,
-	upload *model.Upload,
+	upload *models.Upload,
 	quality string,
 	cacheKey string,
 ) (compressedImageCacheResult, error) {
@@ -246,7 +252,7 @@ func generateCompressedImageCache(
 }
 
 // ImageCompressionCacheKey returns the disk cache key for a compressed upload image.
-func ImageCompressionCacheKey(upload *model.Upload, quality string) string {
+func ImageCompressionCacheKey(upload *models.Upload, quality string) string {
 	return fmt.Sprintf(
 		"upload_webp_v1_%d_%d_%d_%s_%s",
 		upload.ID,
@@ -257,7 +263,7 @@ func ImageCompressionCacheKey(upload *model.Upload, quality string) string {
 	)
 }
 
-func serveOriginal(c *gin.Context, upload *model.Upload) {
+func serveOriginal(c *gin.Context, upload *models.Upload) {
 	obj, err := uploadstorage.OpenStoredObject(c.Request.Context(), upload)
 	if err != nil {
 		response.AbortNotFound(c, "文件未找到")
@@ -267,7 +273,7 @@ func serveOriginal(c *gin.Context, upload *model.Upload) {
 	c.DataFromReader(http.StatusOK, obj.ContentLength, obj.ContentType, obj.Body, nil)
 }
 
-func getOriginalFileBytes(ctx context.Context, upload *model.Upload) ([]byte, error) {
+func getOriginalFileBytes(ctx context.Context, upload *models.Upload) ([]byte, error) {
 	obj, err := uploadstorage.OpenStoredObject(ctx, upload)
 	if err != nil {
 		return nil, err
@@ -277,33 +283,36 @@ func getOriginalFileBytes(ctx context.Context, upload *model.Upload) ([]byte, er
 }
 
 func checkPrivateFileOwner(c *gin.Context, ownerID uint64) error {
-	var currUser *model.User
-	var err error
-	if u, ok := auth.GetFromContext[*model.User](c, auth.UserObjKey); ok && u != nil {
-		currUser = u
+	var currUserID uint64
+	var isAdmin bool
+	if u, ok := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey); ok && u != nil {
+		currUserID = u.ID
+		isAdmin = u.IsAdmin
 	} else {
-		currUser, err = auth.GetUserFromRequest(c)
+		u, err := auth.GetUserFromRequest(c)
 		if err != nil {
 			return err
 		}
+		currUserID = u.ID
+		isAdmin = u.IsAdmin
 	}
-	if currUser.IsAdmin {
+	if isAdmin {
 		return nil
 	}
-	if currUser.ID != ownerID {
+	if currUserID != ownerID {
 		return errors.New("forbidden: cross-user access denied")
 	}
 	return nil
 }
 
 // CheckFileAccessPermission 校验文件是否可以被当前请求访问
-func CheckFileAccessPermission(c *gin.Context, upload *model.Upload) error {
+func CheckFileAccessPermission(c *gin.Context, upload *models.Upload) error {
 	if upload.AccessMode == 0 {
 		return checkPrivateFileOwner(c, upload.UserID)
 	}
 
 	if !cache.IsFilePublic(c.Request.Context(), upload.Type) {
-		if _, ok := auth.GetFromContext[*model.User](c, auth.UserObjKey); !ok {
+		if _, ok := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey); !ok {
 			if _, err := auth.GetUserFromRequest(c); err != nil {
 				return err
 			}

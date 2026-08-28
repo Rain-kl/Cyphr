@@ -7,15 +7,16 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/gin-gonic/gin"
+
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstorage "github.com/Rain-kl/Wavelet/plugins/domain/upload/storage"
-
-	"github.com/gin-gonic/gin"
 )
 
 type listFilesRequest struct {
@@ -28,10 +29,10 @@ type listFilesRequest struct {
 }
 
 type listFilesResponse struct {
-	Total    int64          `json:"total"`
-	Page     int            `json:"page"`
-	PageSize int            `json:"page_size"`
-	Items    []model.Upload `json:"items"`
+	Total    int64           `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+	Items    []models.Upload `json:"items"`
 }
 
 // ListFiles 获取系统上传的文件列表
@@ -44,12 +45,11 @@ type listFilesResponse struct {
 // @Param keyword query string false "文件名关键词（模糊匹配）"
 // @Param type query string false "业务分类过滤"
 // @Param extension query string false "扩展名过滤"
-// @Param user_id query uint64 false "上传用户 ID"
+// @Param user_id query int false "上传用户 ID 过滤"
 // @Security SessionCookie
 // @Success 200 {object} response.Any{data=listFilesResponse} "查询成功"
-// @Failure 401 {object} response.Any "未登录"
-// @Failure 403 {object} response.Any "无管理员权限"
-// @Router /api/v1/admin/uploads [get]
+// @Failure 400 {object} response.Any "参数错误"
+// @Router /api/v1/admin/uploads/files [get]
 func ListFiles(c *gin.Context) {
 	ctx := c.Request.Context()
 
@@ -86,17 +86,16 @@ func ListFiles(c *gin.Context) {
 	}))
 }
 
-// DeleteFile 软删除文件记录
+// DeleteFile 软删除指定的文件记录
 // @Summary 删除文件
-// @Description 将文件状态置为 deleted（软删除），不会立即清理底层存储对象
+// @Description 将指定 ID 的文件状态置为 deleted（软删除）
 // @Tags admin
 // @Produce json
 // @Param id path string true "文件 ID"
 // @Security SessionCookie
 // @Success 200 {object} response.Any "删除成功"
-// @Failure 403 {object} response.Any "无权操作"
 // @Failure 404 {object} response.Any "文件不存在"
-// @Router /api/v1/admin/uploads/{id} [delete]
+// @Router /api/v1/admin/uploads/files/{id} [delete]
 func DeleteFile(c *gin.Context) {
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
@@ -121,21 +120,19 @@ func DeleteFile(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
-// GetDistinctUploadTypes 获取数据库中所有已存在的文件业务类型
-// @Summary 获取文件业务类型列表
-// @Description 返回数据库中所有已上传文件实际拥有的业务类型列表
+// GetDistinctUploadTypes 获取所有已存在的文件业务分类列表
+// @Summary 获取业务分类列表
+// @Description 查询系统内所有不重复的上传业务分类标识（如 avatar, doc 等）
 // @Tags admin
 // @Produce json
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=[]string} "业务类型列表"
-// @Failure 401 {object} response.Any "未登录"
-// @Failure 403 {object} response.Any "无管理员权限"
-// @Failure 500 {object} response.Any "内部错误"
+// @Success 200 {object} response.Any{data=[]string} "查询成功"
 // @Router /api/v1/admin/uploads/types [get]
 func GetDistinctUploadTypes(c *gin.Context) {
-	types, err := listDistinctUploadTypes(c.Request.Context())
+	ctx := c.Request.Context()
+	types, err := listDistinctUploadTypes(ctx)
 	if err != nil {
-		response.AbortInternal(c, err.Error())
+		response.AbortBadRequest(c, shared.ErrQueryTypeListFailed)
 		return
 	}
 	c.JSON(http.StatusOK, response.OK(types))
@@ -150,10 +147,10 @@ type listMyFilesRequest struct {
 }
 
 type listMyFilesResponse struct {
-	Total    int64          `json:"total"`
-	Page     int            `json:"page"`
-	PageSize int            `json:"page_size"`
-	Items    []model.Upload `json:"items"`
+	Total    int64           `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
+	Items    []models.Upload `json:"items"`
 }
 
 // ListMyFiles 获取当前用户上传的文件列表
@@ -171,7 +168,7 @@ type listMyFilesResponse struct {
 // @Failure 401 {object} response.Any "未登录"
 // @Router /api/v1/upload/my [get]
 func ListMyFiles(c *gin.Context) {
-	currUser, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
+	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 	ctx := c.Request.Context()
 
 	var req listMyFilesRequest
@@ -218,7 +215,7 @@ func ListMyFiles(c *gin.Context) {
 // @Failure 404 {object} response.Any "文件不存在"
 // @Router /api/v1/upload/{id} [delete]
 func DeleteMyFile(c *gin.Context) {
-	currUser, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
+	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
 		response.AbortConflict(c, shared.ErrStorageReadOnly)
@@ -260,12 +257,12 @@ type updateMyFileRequest struct {
 // @Param id path string true "文件 ID"
 // @Param request body updateMyFileRequest true "更新字段"
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=model.Upload} "更新成功"
+// @Success 200 {object} response.Any{data=models.Upload} "更新成功"
 // @Failure 403 {object} response.Any "无权操作"
 // @Failure 404 {object} response.Any "文件不存在"
 // @Router /api/v1/upload/{id} [put]
 func UpdateMyFile(c *gin.Context) {
-	currUser, _ := auth.GetFromContext[*model.User](c, auth.UserObjKey)
+	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
 		response.AbortConflict(c, shared.ErrStorageReadOnly)
@@ -284,7 +281,7 @@ func UpdateMyFile(c *gin.Context) {
 		return
 	}
 
-	upload, err := updateOwnedUpload(ctx, currUser.ID, uploadID, updateMyUploadInput(req))
+	updated, err := updateOwnedUpload(ctx, currUser.ID, uploadID, updateMyUploadInput(req))
 	if err != nil {
 		if isRecordNotFound(err) {
 			response.AbortNotFound(c, "文件记录未找到")
@@ -294,9 +291,9 @@ func UpdateMyFile(c *gin.Context) {
 			response.AbortForbidden(c, "无权操作")
 			return
 		}
-		response.AbortBadRequest(c, "更新文件记录失败")
+		response.AbortBadRequest(c, shared.ErrUpdateFileFailed)
 		return
 	}
 
-	c.JSON(http.StatusOK, response.OK(upload))
+	c.JSON(http.StatusOK, response.OK(updated))
 }

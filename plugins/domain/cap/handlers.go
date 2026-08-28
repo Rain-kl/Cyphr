@@ -6,9 +6,9 @@ package cap
 import (
 	"net/http"
 
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	pkgcap "github.com/Rain-kl/Wavelet/pkg/cap"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 

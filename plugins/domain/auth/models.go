@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 )
 
 var authSourceNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`)
@@ -162,8 +162,8 @@ type BasicUserInfo struct {
 	Location           string `json:"location"`
 }
 
-// BuildBasicUserInfo 将 User 模型转换为 BasicUserInfo
-func BuildBasicUserInfo(user *model.User, needChange bool) BasicUserInfo {
+// BuildBasicUserInfo 将 UserDTO 转换为 BasicUserInfo
+func BuildBasicUserInfo(user *contracts.UserDTO, needChange bool) BasicUserInfo {
 	if user == nil {
 		return BasicUserInfo{}
 	}

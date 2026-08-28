@@ -12,25 +12,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence/batchwriter"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/model/analytics"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/batchwriter"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestAccessLogWriter(t *testing.T, cfg batchwriter.Config) (*batchwriter.Writer[*analytics.UserAccessLog], func() []*analytics.UserAccessLog) {
+func newTestAccessLogWriter(t *testing.T, cfg batchwriter.Config) (*batchwriter.Writer[*logstore.UserAccessLog], func() []*logstore.UserAccessLog) {
 	t.Helper()
 
 	var (
 		mu       sync.Mutex
-		captured []*analytics.UserAccessLog
+		captured []*logstore.UserAccessLog
 	)
-	writer, err := batchwriter.New(cfg, func(_ context.Context, items []*analytics.UserAccessLog) error {
+	writer, err := batchwriter.New(cfg, func(_ context.Context, items []*logstore.UserAccessLog) error {
 		mu.Lock()
 		captured = append(captured, items...)
 		mu.Unlock()
@@ -49,14 +49,14 @@ func newTestAccessLogWriter(t *testing.T, cfg batchwriter.Config) (*batchwriter.
 		_ = writer.Stop(stopCtx)
 	})
 
-	return writer, func() []*analytics.UserAccessLog {
+	return writer, func() []*logstore.UserAccessLog {
 		mu.Lock()
 		defer mu.Unlock()
-		return append([]*analytics.UserAccessLog(nil), captured...)
+		return append([]*logstore.UserAccessLog(nil), captured...)
 	}
 }
 
-func drainAccessLogWriter(t *testing.T, writer *batchwriter.Writer[*analytics.UserAccessLog]) {
+func drainAccessLogWriter(t *testing.T, writer *batchwriter.Writer[*logstore.UserAccessLog]) {
 	t.Helper()
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -98,7 +98,7 @@ func TestRiskControlMiddleware(t *testing.T) {
 
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
-			user := &model.User{ID: 12345}
+			user := &contracts.UserDTO{ID: 12345}
 			auth.SetToContext(c, auth.UserObjKey, user)
 			c.Next()
 		})
@@ -167,13 +167,38 @@ func TestRiskControlMiddleware(t *testing.T) {
 
 		cfg := batchwriter.DefaultConfig()
 		cfg.QueueSize = 2
-		cfg.MaxBatchSize = 100
+		cfg.MaxBatchSize = 1
 		cfg.FlushInterval = time.Hour
 
-		writer, _ := newTestAccessLogWriter(t, cfg)
+		blockCh := make(chan struct{})
+		enteredCh := make(chan struct{})
 
+		writer, err := batchwriter.New(cfg, func(_ context.Context, items []*logstore.UserAccessLog) error {
+			select {
+			case enteredCh <- struct{}{}:
+			default:
+			}
+			<-blockCh
+			return nil
+		})
+		assert.NoError(t, err)
+		writer.Start(context.Background())
+		restore := risk_control.SetLogWriterForTest(writer)
+		defer func() {
+			close(blockCh)
+			restore()
+			stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = writer.Stop(stopCtx)
+		}()
+
+		// 1. 推入 1 个 item，worker 立即取走并触发 flush()，阻塞在 <-blockCh
+		writer.TryEnqueue(&logstore.UserAccessLog{})
+		<-enteredCh
+
+		// 2. 此时 worker 卡在 flush()，无法从 channel 取数据，推入 2 个 item 填满 channel
 		for range cfg.QueueSize {
-			writer.TryEnqueue(&analytics.UserAccessLog{})
+			writer.TryEnqueue(&logstore.UserAccessLog{})
 		}
 		if !risk_control.IsBufferFull() {
 			t.Fatal("IsBufferFull() = false, want true")
@@ -191,7 +216,7 @@ func TestRiskControlMiddleware(t *testing.T) {
 		assert.Equal(t, http.StatusTooManyRequests, w.Code)
 
 		var resp map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
 		assert.Contains(t, resp["error_msg"], "系统繁忙")
 	})

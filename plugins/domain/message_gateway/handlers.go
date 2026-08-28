@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-gonic/gin"
 )
 
-func currentUser(c *gin.Context) (*model.User, bool) {
-	return auth.GetFromContext[*model.User](c, auth.UserObjKey)
+func currentUser(c *gin.Context) (*contracts.UserDTO, bool) {
+	return auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
 }
 
 // ListChannels lists enabled channels a user can bind.

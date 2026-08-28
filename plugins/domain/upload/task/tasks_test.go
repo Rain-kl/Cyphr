@@ -17,15 +17,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/diskcache"
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/testhelper"
+	"github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/task"
+	"github.com/Rain-kl/Wavelet/pkg/testhelper"
+	msg "github.com/Rain-kl/Wavelet/plugins/domain/message_gateway"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/diskcache"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,39 +48,39 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 	objectstore.ResetCache()
 
 	ctx := context.Background()
-	err := db.DB(ctx).AutoMigrate(&model.PushHistory{})
+	err := db.DB(ctx).AutoMigrate(&msg.PushHistory{})
 	require.NoError(t, err)
 
 	// 准备测试数据：创建一些上传记录
 	now := time.Now()
 	twoHoursAgo := now.Add(-2 * time.Hour)
 
-	records := []*model.Upload{
+	records := []*models.Upload{
 		// 超过1小时且状态为 pending 的记录 —— 应被清理
 		{
 			UserID: 1001, FileName: "old_file_1.jpg", FilePath: "uploads/old_1.jpg",
 			FileSize: 1024, MimeType: "image/jpeg", Extension: "jpg", Hash: "hash1",
-			Type: "attachment", Status: model.UploadStatusPending,
+			Type: "attachment", Status: models.UploadStatusPending,
 			CreatedAt: twoHoursAgo,
 		},
 		{
 			UserID: 1001, FileName: "old_file_2.png", FilePath: "uploads/old_2.png",
 			FileSize: 2048, MimeType: "image/png", Extension: "png", Hash: "hash2",
-			Type: "attachment", Status: model.UploadStatusPending,
+			Type: "attachment", Status: models.UploadStatusPending,
 			CreatedAt: twoHoursAgo,
 		},
 		// 状态为 used 的记录 —— 不应被清理
 		{
 			UserID: 1001, FileName: "used_file.jpg", FilePath: "uploads/used.jpg",
 			FileSize: 512, MimeType: "image/jpeg", Extension: "jpg", Hash: "hash3",
-			Type: "attachment", Status: model.UploadStatusUsed,
+			Type: "attachment", Status: models.UploadStatusUsed,
 			CreatedAt: twoHoursAgo,
 		},
 		// 不到1小时的 pending 记录 —— 不应被清理
 		{
 			UserID: 1001, FileName: "recent_file.jpg", FilePath: "uploads/recent.jpg",
 			FileSize: 256, MimeType: "image/jpeg", Extension: "jpg", Hash: "hash4",
-			Type: "attachment", Status: model.UploadStatusPending,
+			Type: "attachment", Status: models.UploadStatusPending,
 			CreatedAt: now.Add(-10 * time.Minute),
 		},
 	}
@@ -90,7 +90,7 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 	}
 
 	// 准备推送历史测试数据：1个旧的（应删除），1个新的（应保留）
-	oldPush := &model.PushHistory{
+	oldPush := &msg.PushHistory{
 		EventKey:  "admin_login",
 		Channel:   "email",
 		Target:    "admin@test.com",
@@ -100,7 +100,7 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 		Status:    "success",
 		CreatedAt: now.AddDate(0, 0, -10),
 	}
-	newPush := &model.PushHistory{
+	newPush := &msg.PushHistory{
 		EventKey:  "admin_login",
 		Channel:   "lark",
 		Target:    "http://webhook.com",
@@ -115,16 +115,16 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 	err = db.DB(ctx).Create(newPush).Error
 	require.NoError(t, err)
 
-	oldTaskLog := &model.TaskExecution{
+	oldTaskLog := &task.TaskExecution{
 		TaskID:      "old_low_frequency_task_log",
 		TaskType:    "low:frequency",
 		TaskName:    "低频任务",
-		Status:      model.TaskExecutionStatusSucceeded,
+		Status:      task.TaskExecutionStatusSucceeded,
 		CreatedAt:   now.AddDate(0, 0, -31),
 		UpdatedAt:   now.AddDate(0, 0, -31),
 		TriggeredBy: "system",
 	}
-	err = repository.CreateTaskExecution(ctx, oldTaskLog)
+	err = task.CreateTaskExecution(ctx, oldTaskLog)
 	require.NoError(t, err)
 
 	// 执行 handler
@@ -138,29 +138,29 @@ func TestSystemCleanupHandler_Execute(t *testing.T) {
 
 	// 验证数据库状态：pending 且超过1小时的应被标记为 deleted
 	var pendingCount int64
-	db.DB(ctx).Model(&model.Upload{}).Where("status = ?", model.UploadStatusPending).Count(&pendingCount)
+	db.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusPending).Count(&pendingCount)
 	assert.Equal(t, int64(1), pendingCount, "应只剩1条 pending 记录（最近的文件）")
 
 	var deletedCount int64
-	db.DB(ctx).Model(&model.Upload{}).Where("status = ?", model.UploadStatusDeleted).Count(&deletedCount)
+	db.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusDeleted).Count(&deletedCount)
 	assert.Equal(t, int64(2), deletedCount, "应有2条被标记为 deleted")
 
 	var usedCount int64
-	db.DB(ctx).Model(&model.Upload{}).Where("status = ?", model.UploadStatusUsed).Count(&usedCount)
+	db.DB(ctx).Model(&models.Upload{}).Where("status = ?", models.UploadStatusUsed).Count(&usedCount)
 	assert.Equal(t, int64(1), usedCount, "used 状态的文件不应受影响")
 
 	// 验证推送历史数据状态：10天前的应被删除，今天的应保留
 	var pushCount int64
-	db.DB(ctx).Model(&model.PushHistory{}).Count(&pushCount)
+	db.DB(ctx).Model(&msg.PushHistory{}).Count(&pushCount)
 	assert.Equal(t, int64(1), pushCount, "应只剩1条推送历史记录")
 
-	var remainingPush model.PushHistory
+	var remainingPush msg.PushHistory
 	err = db.DB(ctx).First(&remainingPush).Error
 	require.NoError(t, err)
 	assert.Equal(t, "New Login", remainingPush.Title)
 
 	var taskLogCount int64
-	err = db.DB(ctx).Model(&model.TaskExecution{}).Where("task_id = ?", "old_low_frequency_task_log").Count(&taskLogCount).Error
+	err = db.DB(ctx).Model(&task.TaskExecution{}).Where("task_id = ?", "old_low_frequency_task_log").Count(&taskLogCount).Error
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), taskLogCount, "过期低频任务日志应被清理")
 }
@@ -180,7 +180,7 @@ func TestSystemCleanupHandler_ExecuteNoFiles(t *testing.T) {
 	defer storageMock()
 
 	ctx := context.Background()
-	err := db.DB(ctx).AutoMigrate(&model.PushHistory{})
+	err := db.DB(ctx).AutoMigrate(&msg.PushHistory{})
 	require.NoError(t, err)
 
 	// 没有任何上传记录
@@ -279,7 +279,7 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 	writeTaskTestPNG(t, firstPath, color.RGBA{R: 255, A: 255})
 	writeTaskTestPNG(t, secondPath, color.RGBA{G: 255, A: 255})
 
-	records := []model.Upload{
+	records := []models.Upload{
 		{
 			ID:        4101,
 			UserID:    1001,
@@ -287,7 +287,7 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			FilePath:  firstPath,
 			MimeType:  "image/png",
 			Extension: "png",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        4102,
@@ -296,7 +296,7 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			FilePath:  secondPath,
 			MimeType:  "application/octet-stream",
 			Extension: "jpg",
-			Status:    model.UploadStatusPending,
+			Status:    models.UploadStatusPending,
 		},
 		{
 			ID:        4103,
@@ -305,7 +305,7 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			FilePath:  filepath.Join(testDir, "notes.txt"),
 			MimeType:  "text/plain",
 			Extension: "txt",
-			Status:    model.UploadStatusUsed,
+			Status:    models.UploadStatusUsed,
 		},
 		{
 			ID:        4104,
@@ -314,7 +314,7 @@ func TestWarmImageCacheHandlerExecute(t *testing.T) {
 			FilePath:  firstPath,
 			MimeType:  "image/png",
 			Extension: "png",
-			Status:    model.UploadStatusDeleted,
+			Status:    models.UploadStatusDeleted,
 		},
 	}
 	for i := range records {

@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	"github.com/gin-gonic/gin"
+
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 )
 
 type trendItem struct {
@@ -79,22 +79,22 @@ func GetFileStats(c *gin.Context) {
 
 	for _, stat := range stats {
 		switch stat.Dimension {
-		case model.UploadStatDimensionTotal:
+		case shared.UploadStatDimensionTotal:
 			totalCount = stat.FileCount
 			totalSize = stat.FileSize
-		case model.UploadStatDimensionType:
+		case shared.UploadStatDimensionType:
 			types = append(types, distributionItem{
 				Name:  stat.StatKey,
 				Count: stat.FileCount,
 				Size:  stat.FileSize,
 			})
-		case model.UploadStatDimensionCategory:
+		case shared.UploadStatDimensionCategory:
 			if item, ok := categoryMap[stat.StatKey]; ok {
 				item.Count = stat.FileCount
 				item.Size = stat.FileSize
 				categoryMap[stat.StatKey] = item
 			}
-		case model.UploadStatDimensionTrend:
+		case shared.UploadStatDimensionTrend:
 			if _, ok := trendCountMap[stat.StatKey]; ok {
 				trendCountMap[stat.StatKey] = stat.FileCount
 				trendSizeMap[stat.StatKey] = stat.FileSize

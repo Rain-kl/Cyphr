@@ -11,9 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 )
 
 // CreateTemplateRequest 创建模板请求
@@ -88,7 +86,7 @@ func CreateTemplate(c *gin.Context) {
 // @Tags admin
 // @Produce json
 // @Security SessionCookie
-// @Success 200 {object} response.Any{data=[]model.Template} "模板列表"
+// @Success 200 {object} response.Any{data=[]Template} "模板列表"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Failure 500 {object} response.Any "内部错误"
@@ -110,7 +108,7 @@ func ListTemplates(c *gin.Context) {
 // @Produce json
 // @Security SessionCookie
 // @Param key path string true "模板标识符"
-// @Success 200 {object} response.Any{data=model.Template} "模板详情"
+// @Success 200 {object} response.Any{data=Template} "模板详情"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Failure 404 {object} response.Any "模板不存在"
@@ -134,7 +132,7 @@ func GetTemplate(c *gin.Context) {
 // @Security SessionCookie
 // @Param key path string true "模板标识符"
 // @Param request body UpdateTemplateRequest true "更新请求参数"
-// @Success 200 {object} response.Any{data=model.Template} "更新成功"
+// @Success 200 {object} response.Any{data=Template} "更新成功"
 // @Failure 400 {object} response.Any "参数错误"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
@@ -178,16 +176,16 @@ func DeleteTemplate(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
-func createTemplate(ctx context.Context, req CreateTemplateRequest) (model.Template, error) {
-	exists, err := repository.TemplateExistsByKey(ctx, req.Key)
+func createTemplate(ctx context.Context, req CreateTemplateRequest) (Template, error) {
+	exists, err := TemplateExistsByKey(ctx, req.Key)
 	if err != nil {
-		return model.Template{}, err
+		return Template{}, err
 	}
 	if exists {
-		return model.Template{}, errors.New(TemplateKeyExists)
+		return Template{}, errors.New(TemplateKeyExists)
 	}
 
-	tmpl := model.Template{
+	tmpl := Template{
 		Key:         req.Key,
 		Name:        req.Name,
 		Type:        req.Type,
@@ -197,26 +195,26 @@ func createTemplate(ctx context.Context, req CreateTemplateRequest) (model.Templ
 		IsSystem:    false,
 	}
 	if err := tmpl.Validate(); err != nil {
-		return model.Template{}, err
+		return Template{}, err
 	}
-	if err := repository.CreateTemplate(ctx, &tmpl); err != nil {
-		return model.Template{}, err
+	if err := CreateTemplateRecord(ctx, &tmpl); err != nil {
+		return Template{}, err
 	}
 	return tmpl, nil
 }
 
-func listTemplates(ctx context.Context) ([]model.Template, error) {
-	return repository.ListTemplates(ctx)
+func listTemplates(ctx context.Context) ([]Template, error) {
+	return ListTemplatesRecord(ctx)
 }
 
-func getTemplate(ctx context.Context, key string) (model.Template, error) {
-	return repository.GetTemplateByKey(ctx, key)
+func getTemplate(ctx context.Context, key string) (Template, error) {
+	return GetTemplateByKey(ctx, key)
 }
 
-func updateTemplate(ctx context.Context, key string, req UpdateTemplateRequest) (model.Template, error) {
-	tmpl, err := repository.GetTemplateByKey(ctx, key)
+func updateTemplate(ctx context.Context, key string, req UpdateTemplateRequest) (Template, error) {
+	tmpl, err := GetTemplateByKey(ctx, key)
 	if err != nil {
-		return model.Template{}, err
+		return Template{}, err
 	}
 
 	tmpl.Name = req.Name
@@ -225,21 +223,21 @@ func updateTemplate(ctx context.Context, key string, req UpdateTemplateRequest) 
 	tmpl.Content = req.Content
 	tmpl.Description = req.Description
 	if err := tmpl.Validate(); err != nil {
-		return model.Template{}, err
+		return Template{}, err
 	}
-	if err := repository.SaveTemplate(ctx, &tmpl); err != nil {
-		return model.Template{}, err
+	if err := SaveTemplateRecord(ctx, &tmpl); err != nil {
+		return Template{}, err
 	}
 	return tmpl, nil
 }
 
 func deleteTemplate(ctx context.Context, key string) error {
-	tmpl, err := repository.GetTemplateByKey(ctx, key)
+	tmpl, err := GetTemplateByKey(ctx, key)
 	if err != nil {
 		return err
 	}
 	if tmpl.IsSystem {
 		return errors.New(SystemTemplateCannotDelete)
 	}
-	return repository.DeleteTemplate(ctx, &tmpl)
+	return DeleteTemplateRecord(ctx, &tmpl)
 }

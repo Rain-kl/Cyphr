@@ -72,7 +72,7 @@ RUN go mod download
 COPY . .
 
 # Overlay the compiled frontend into the embed path
-COPY --from=frontend-builder /workspace/frontend/out ./internal/router/root/dist
+COPY --from=frontend-builder /workspace/frontend/out ./plugins/drivers/driver_http/dist
 
 # Build matrix: GOOS × GOARCH
 # CGO_ENABLED=0 — fully static, no libc dependency, required for cross-compilation.
@@ -96,7 +96,7 @@ RUN set -e; \
           go build \
             -tags embed_frontend \
             -trimpath \
-            -ldflags="-s -w -X github.com/Rain-kl/Wavelet/internal/buildinfo.Version=${VERSION} -X github.com/Rain-kl/Wavelet/internal/buildinfo.BuildTime=${BUILD_DATE}" \
+            -ldflags="-s -w -X github.com/Rain-kl/Wavelet/pkg/buildinfo.Version=${VERSION} -X github.com/Rain-kl/Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
             -o "${OUTPUT}" \
             ./main.go; \
       done; \

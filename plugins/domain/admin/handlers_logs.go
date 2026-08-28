@@ -15,13 +15,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/config"
-	"github.com/Rain-kl/Wavelet/internal/infra/task"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/repository/logstore"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/persistence/logstore"
+	"github.com/Rain-kl/Wavelet/pkg/response"
+	"github.com/Rain-kl/Wavelet/pkg/task"
 	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
 	"github.com/gin-gonic/gin"
@@ -164,8 +163,10 @@ func buildAccessLogFilter(ctx context.Context, c *gin.Context) (logstore.AccessL
 
 	username := c.Query("username")
 	if username != "" {
-		userIDs, err := repository.ListUserIDsByUsernameContains(ctx, username)
-		if err != nil {
+		var userIDs []uint64
+		if err := db.DB(ctx).Table("w_users").
+			Where("username LIKE ? ESCAPE '\\'", "%"+util.EscapeLike(username)+"%").
+			Pluck("id", &userIDs).Error; err != nil {
 			return filter, fmt.Errorf("查询用户信息失败: %w", err)
 		}
 		filter.UserIDs = userIDs
@@ -213,7 +214,12 @@ func enrichAccessLogsWithUsers(ctx context.Context, list []accessLogItem) {
 	}
 
 	userMap := make(map[uint64]struct{ Username, Nickname string })
-	if users, err := repository.ListUsersByIDs(ctx, userIDs); err == nil {
+	var users []struct {
+		ID       uint64
+		Username string
+		Nickname string
+	}
+	if err := db.DB(ctx).Table("w_users").Where("id IN ?", userIDs).Find(&users).Error; err == nil {
 		for _, u := range users {
 			userMap[u.ID] = struct{ Username, Nickname string }{Username: u.Username, Nickname: u.Nickname}
 		}
@@ -402,8 +408,12 @@ func GetLogsAnalytics(c *gin.Context) {
 			Username string
 			Nickname string
 		})
-		users, errProfile := repository.ListUsersByIDs(ctx, userIDs)
-		if errProfile == nil {
+		var users []struct {
+			ID       uint64
+			Username string
+			Nickname string
+		}
+		if errProfile := db.DB(ctx).Table("w_users").Where("id IN ?", userIDs).Find(&users).Error; errProfile == nil {
 			for _, u := range users {
 				userProfileMap[u.ID] = struct {
 					Username string
@@ -445,7 +455,7 @@ func getUpgrader() *websocket.Upgrader {
 
 			// 2. 检查配置的允许跨域 Origin (Check allowed origins in system config)
 			ctx := r.Context()
-			if sc, err := repository.GetSystemConfigByKey(ctx, model.ConfigKeyServerAddress); err == nil && sc.Value != "" {
+			if sc, err := GetSystemConfigByKey(ctx, ConfigKeyServerAddress); err == nil && sc.Value != "" {
 				originToCheck := strings.TrimRight(strings.TrimSpace(origin), "/")
 				allowedOrigins := strings.Split(sc.Value, ",")
 				for _, allowed := range allowedOrigins {
@@ -632,7 +642,7 @@ func validateSwitch(ctx context.Context, target string) error {
 }
 
 func currentLogDatabase(ctx context.Context) (string, error) {
-	cfg, err := repository.GetSystemConfigByKey(ctx, model.ConfigKeyLogDatabase)
+	cfg, err := GetSystemConfigByKey(ctx, ConfigKeyLogDatabase)
 	if err != nil {
 		return "", fmt.Errorf("读取日志主库失败: %w", err)
 	}
@@ -643,11 +653,11 @@ func currentLogDatabase(ctx context.Context) (string, error) {
 }
 
 func setMigrationFlag(ctx context.Context, v string) error {
-	return repository.SaveOrUpdateSystemConfig(ctx, model.ConfigKeyLogDBMigration, v)
+	return SaveOrUpdateSystemConfig(ctx, ConfigKeyLogDBMigration, v)
 }
 
 func flipLogDatabase(ctx context.Context, target string) error {
-	return repository.SaveOrUpdateSystemConfig(ctx, model.ConfigKeyLogDatabase, target)
+	return SaveOrUpdateSystemConfig(ctx, ConfigKeyLogDatabase, target)
 }
 
 func copyUserAccessLogs(ctx context.Context, src, dst *logstore.Store) error {

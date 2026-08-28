@@ -13,15 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	db "github.com/Rain-kl/Wavelet/internal/infra/persistence"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	mail "github.com/Rain-kl/Wavelet/pkg/mail"
+	db "github.com/Rain-kl/Wavelet/pkg/persistence"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/plugins/domain/cap"
-	"github.com/Rain-kl/Wavelet/plugins/domain/upload"
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -54,7 +51,7 @@ type UpdateSystemConfigRequest struct {
 // @Router /api/v1/config/public [get]
 func GetPublicConfig(c *gin.Context) {
 	ctx := c.Request.Context()
-	configs, err := repository.ListVisibleSystemConfigs(ctx)
+	configs, err := ListVisibleSystemConfigs(ctx)
 	if err != nil {
 		response.AbortInternal(c, err.Error())
 		return
@@ -77,7 +74,7 @@ func GetPublicConfig(c *gin.Context) {
 // @Router /robots.txt [get]
 func GetRobotsTXT(c *gin.Context) {
 	ctx := c.Request.Context()
-	enabled, err := repository.GetBoolByKey(ctx, model.ConfigKeySearchEngineIndexingEnabled)
+	enabled, err := GetBoolByKey(ctx, ConfigKeySearchEngineIndexingEnabled)
 	content := "User-Agent: *\nDisallow: /\n"
 	if err == nil && enabled {
 		content = "User-Agent: *\nAllow: /\n"
@@ -129,7 +126,7 @@ func CreateSystemConfig(c *gin.Context) {
 // @Produce json
 // @Security SessionCookie
 // @Param type query string false "配置类型（system/business）"
-// @Success 200 {object} response.Any{data=[]model.SystemConfig} "系统配置列表"
+// @Success 200 {object} response.Any{data=[]SystemConfig} "系统配置列表"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Failure 500 {object} response.Any "内部错误"
@@ -155,7 +152,7 @@ func ListSystemConfigs(c *gin.Context) {
 // @Produce json
 // @Security SessionCookie
 // @Param key path string true "配置键"
-// @Success 200 {object} response.Any{data=model.SystemConfig} "系统配置详情"
+// @Success 200 {object} response.Any{data=SystemConfig} "系统配置详情"
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 403 {object} response.Any "无管理员权限"
 // @Failure 404 {object} response.Any "配置不存在"
@@ -222,14 +219,14 @@ func UpdateSystemConfig(c *gin.Context) {
 }
 
 func isProtectedConfigKey(key string) bool {
-	return key == model.ConfigKeyLogDatabase || key == model.ConfigKeyLogDBMigration
+	return key == ConfigKeyLogDatabase || key == ConfigKeyLogDBMigration
 }
 
 func createSystemConfig(ctx context.Context, req CreateSystemConfigRequest) error {
 	if isProtectedConfigKey(req.Key) {
 		return errors.New(protectedConfigKeyMessage)
 	}
-	exists, err := repository.SystemConfigExists(ctx, req.Key)
+	exists, err := SystemConfigExists(ctx, req.Key)
 	if err != nil {
 		return err
 	}
@@ -237,43 +234,43 @@ func createSystemConfig(ctx context.Context, req CreateSystemConfigRequest) erro
 		return errors.New(ConfigKeyExists)
 	}
 
-	config := model.SystemConfig{
+	config := SystemConfig{
 		Key:         req.Key,
 		Value:       req.Value,
 		Type:        req.Type,
 		Visibility:  req.Visibility,
 		Description: req.Description,
 	}
-	if err := repository.CreateSystemConfig(ctx, &config); err != nil {
+	if err := CreateSystemConfigRecord(ctx, &config); err != nil {
 		return err
 	}
 
 	invalidateSystemConfigCaches(ctx, req.Key)
-	if err := repository.InvalidateVisibleSystemConfigsCache(ctx); err != nil {
+	if err := InvalidateVisibleSystemConfigsCache(ctx); err != nil {
 		logger.WarnF(ctx, "清理公共配置列表缓存失败: %v", err)
 	}
 	return nil
 }
 
-func listSystemConfigs(ctx context.Context, configType string) ([]model.SystemConfig, error) {
-	return repository.ListAdminSystemConfigs(ctx, configType)
+func listSystemConfigs(ctx context.Context, configType string) ([]SystemConfig, error) {
+	return ListAdminSystemConfigs(ctx, configType)
 }
 
-func getSystemConfig(ctx context.Context, key string) (model.SystemConfig, error) {
-	return repository.GetAdminSystemConfigByKey(ctx, key)
+func getSystemConfig(ctx context.Context, key string) (SystemConfig, error) {
+	return GetAdminSystemConfigByKey(ctx, key)
 }
 
 func updateSystemConfig(ctx context.Context, key string, req UpdateSystemConfigRequest) error {
 	if isProtectedConfigKey(key) {
 		return errors.New(protectedConfigKeyMessage)
 	}
-	config, err := repository.GetAdminSystemConfigByKey(ctx, key)
+	config, err := GetAdminSystemConfigByKey(ctx, key)
 	if err != nil {
 		return err
 	}
 
 	var originalDriver objectstore.Driver
-	if key == model.ConfigKeyStorageConfig {
+	if key == ConfigKeyStorageConfig {
 		var currentCfg objectstore.Config
 		if err := json.Unmarshal([]byte(config.Value), &currentCfg); err == nil {
 			originalDriver = currentCfg.Driver
@@ -294,7 +291,7 @@ func updateSystemConfig(ctx context.Context, key string, req UpdateSystemConfigR
 			updates["visibility"] = *req.Visibility
 			config.Visibility = *req.Visibility
 		}
-		if key != model.ConfigKeySMTPPassword || req.Value != maskedConfigValue {
+		if key != ConfigKeySMTPPassword || req.Value != maskedConfigValue {
 			updates["value"] = req.Value
 			config.Value = req.Value
 		}
@@ -318,7 +315,7 @@ func resolveStorageMigrationTasksOnDirectDriverUpdate(
 	originalDriver objectstore.Driver,
 	newValue string,
 ) {
-	if key != model.ConfigKeyStorageConfig || originalDriver == "" {
+	if key != ConfigKeyStorageConfig || originalDriver == "" {
 		return
 	}
 
@@ -330,7 +327,7 @@ func resolveStorageMigrationTasksOnDirectDriverUpdate(
 		return
 	}
 
-	if err := repository.MarkFailedTaskExecutionsSucceededTx(
+	if err := MarkFailedTaskExecutionsSucceededTx(
 		tx,
 		"storage:migrate",
 		"存储配置直接更新，故障迁移任务自动标记为已解决",
@@ -341,7 +338,7 @@ func resolveStorageMigrationTasksOnDirectDriverUpdate(
 }
 
 func invalidateSystemConfigCaches(ctx context.Context, key string) {
-	if err := repository.InvalidateSystemConfigCache(ctx, key); err != nil {
+	if err := InvalidateSystemConfigCache(ctx, key); err != nil {
 		logger.WarnF(ctx, "清理系统配置缓存失败: %v", err)
 	}
 	if cap.IsRuntimeConfigKey(key) {
@@ -352,18 +349,20 @@ func invalidateSystemConfigCaches(ctx context.Context, key string) {
 func invalidateCachesAfterConfigUpdate(ctx context.Context, key string) {
 	invalidateSystemConfigCaches(ctx, key)
 
-	if key == model.ConfigKeyStorageConfig {
-		upload.ResetAccessCaches()
-		upload.PublishAccessCacheInvalidation(ctx)
+	if key == ConfigKeyStorageConfig {
+		if db.Redis != nil {
+			_ = db.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
+		}
 		objectstore.ResetCache()
 		objectstore.PublishCacheInvalidation(ctx)
 	}
-	if key == model.ConfigKeyFileAccessWhitelist {
-		upload.ResetAccessCaches()
-		upload.PublishAccessCacheInvalidation(ctx)
+	if key == ConfigKeyFileAccessWhitelist {
+		if db.Redis != nil {
+			_ = db.Redis.Publish(ctx, "upload:access_cache:invalidate", "reset").Err()
+		}
 	}
 
-	if err := repository.InvalidateVisibleSystemConfigsCache(ctx); err != nil {
+	if err := InvalidateVisibleSystemConfigsCache(ctx); err != nil {
 		logger.WarnF(ctx, "清理公共配置列表缓存失败: %v", err)
 	}
 }
@@ -404,7 +403,7 @@ func TestSMTP(c *gin.Context) {
 
 	password := req.SMTPPassword
 	if password == maskedConfigValue {
-		if sc, err := repository.GetSystemConfigByKey(c.Request.Context(), model.ConfigKeySMTPPassword); err == nil {
+		if sc, err := GetSystemConfigByKey(c.Request.Context(), ConfigKeySMTPPassword); err == nil {
 			password = sc.Value
 		}
 	}
@@ -449,9 +448,9 @@ func maskSensitiveConfig(key, value string) string {
 		return value
 	}
 	switch key {
-	case model.ConfigKeySMTPPassword:
+	case ConfigKeySMTPPassword:
 		return maskedConfigValue
-	case model.ConfigKeyStorageConfig:
+	case ConfigKeyStorageConfig:
 		var cfg objectstore.Config
 		if err := json.Unmarshal([]byte(value), &cfg); err == nil {
 			masked := objectstore.MaskSecrets(cfg)
@@ -494,8 +493,8 @@ func validateAndMergeStorageConfig(ctx context.Context, value string, currentCon
 func validateMergedStorageConfig(ctx context.Context, currentCfg, newCfg, targetCfg objectstore.Config) error {
 	if newCfg.Driver != "" && newCfg.Driver != currentCfg.Driver {
 		var uploadCount int64
-		if err := db.DB(ctx).Model(&model.Upload{}).
-			Where("status != ?", model.UploadStatusDeleted).
+		if err := db.DB(ctx).Table("w_uploads").
+			Where("status != ?", "deleted").
 			Count(&uploadCount).Error; err != nil {
 			return fmt.Errorf("检查存量文件失败: %w", err)
 		}

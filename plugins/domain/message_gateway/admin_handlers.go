@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Rain-kl/Wavelet/internal/shared/response"
+	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,7 +20,7 @@ import (
 // @Success 200 {object} response.Any{data=[]Definition}
 // @Router /api/v1/admin/message-gateway/channels/definitions [get]
 func ListAdminChannelDefinitions(c *gin.Context) {
-	c.JSON(http.StatusOK, response.OK(channelDefinitions()))
+	c.JSON(http.StatusOK, response.OK(listDefinitions()))
 }
 
 // ListAdminChannels lists configured messaging channels with secrets masked.

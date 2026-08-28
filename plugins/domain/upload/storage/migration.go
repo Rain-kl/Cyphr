@@ -10,17 +10,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/internal/infra/objectstore"
-	"github.com/Rain-kl/Wavelet/internal/model"
-	"github.com/Rain-kl/Wavelet/internal/repository"
+	"github.com/Rain-kl/Wavelet/pkg/task"
+
+	"github.com/Rain-kl/Wavelet/plugins/infra/storage/objectstore"
 )
 
 // StorageMigrationTask is the Asynq task name for storage migration.
 const StorageMigrationTask = "storage:migrate"
 
 // LatestMigrationExecution returns the most recent storage migration task execution.
-func LatestMigrationExecution(ctx context.Context) (*model.TaskExecution, bool, error) {
-	return repository.GetLatestTaskExecutionByTaskType(ctx, StorageMigrationTask)
+func LatestMigrationExecution(ctx context.Context) (*task.TaskExecution, bool, error) {
+	return task.GetLatestTaskExecutionByTaskType(ctx, StorageMigrationTask)
 }
 
 // ParseMigrationTargetConfig parses and validates a storage migration target payload.
