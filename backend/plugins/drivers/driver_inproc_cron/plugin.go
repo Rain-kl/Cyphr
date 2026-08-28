@@ -56,8 +56,9 @@ func (p *Plugin) Type() core.DriverType {
 	return core.DriverTypeScheduler
 }
 
-// Start boots the in-process cron scheduler.
-func (p *Plugin) Start(_ context.Context) error {
+// Start boots the in-process cron scheduler. ctx is the app-lifetime context;
+// cron-dispatched tasks carry it so cancellation propagates on shutdown.
+func (p *Plugin) Start(ctx context.Context) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -66,7 +67,7 @@ func (p *Plugin) Start(_ context.Context) error {
 		p.scheduler = newInprocScheduler(p.coreCtx.Schedules(), p.coreCtx.Tasks(), taskSvc)
 	}
 
-	return p.scheduler.Start()
+	return p.scheduler.Start(ctx)
 }
 
 // Stop terminates the in-process cron scheduler.

@@ -119,8 +119,9 @@ func (p *Plugin) Type() core.DriverType {
 	return core.DriverTypeWorker
 }
 
-// Start initiates task consumption.
-func (p *Plugin) Start(_ context.Context) error {
+// Start initiates task consumption. ctx is the app-lifetime context handed to
+// task executions so shutdown cancellation propagates.
+func (p *Plugin) Start(ctx context.Context) error {
 	if p.queue == nil {
 		p.queue = NewInprocQueue(p.concurrency, p.queueCapacity, p.coreCtx.Tasks())
 	}
@@ -129,7 +130,7 @@ func (p *Plugin) Start(_ context.Context) error {
 	globalQueue = p.queue
 	globalMu.Unlock()
 
-	p.queue.Start()
+	p.queue.Start(ctx)
 	return nil
 }
 

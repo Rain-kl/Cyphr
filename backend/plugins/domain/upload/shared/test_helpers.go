@@ -120,7 +120,7 @@ func NewMockStorageService() *MockStorageService {
 }
 
 // Put uploads an object into mock storage.
-func (m *MockStorageService) Put(_ context.Context, key string, body io.Reader, _ int64, contentType string) (contracts.StoragePutResult, error) {
+func (m *MockStorageService) Put(_ context.Context, key string, body io.Reader, _ int64, _ string) (contracts.StoragePutResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	data, err := io.ReadAll(body)

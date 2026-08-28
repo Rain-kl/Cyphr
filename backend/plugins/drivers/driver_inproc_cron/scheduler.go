@@ -36,7 +36,11 @@ func newInprocScheduler(scheduleReg extpoints.ScheduleExtension, taskReg extpoin
 	}
 }
 
-func (s *inprocScheduler) Start() error {
+func (s *inprocScheduler) Start(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -46,7 +50,7 @@ func (s *inprocScheduler) Start() error {
 
 	if s.scheduleReg != nil {
 		for _, def := range s.scheduleReg.Schedules() {
-			s.registerJob(def)
+			s.registerJob(ctx, def)
 		}
 	}
 
@@ -70,7 +74,7 @@ func (s *inprocScheduler) Stop() {
 
 const standardCronFields = 5
 
-func (s *inprocScheduler) registerJob(def extpoints.ScheduleDefinition) {
+func (s *inprocScheduler) registerJob(ctx context.Context, def extpoints.ScheduleDefinition) {
 	spec := def.Spec
 	taskType := def.TaskType
 
@@ -94,8 +98,8 @@ func (s *inprocScheduler) registerJob(def extpoints.ScheduleDefinition) {
 
 	_, err := s.cronRunner.AddFunc(cronSpec, func() {
 		if s.taskSvc != nil {
-			if _, dispatchErr := s.taskSvc.Dispatch(context.Background(), taskType, payloadBytes, "inproc_cron"); dispatchErr != nil {
-				logger.ErrorF(context.Background(), "driver_inproc_cron: dispatch task %q failed: %v", taskType, dispatchErr)
+			if _, dispatchErr := s.taskSvc.Dispatch(ctx, taskType, payloadBytes, "inproc_cron"); dispatchErr != nil {
+				logger.ErrorF(ctx, "driver_inproc_cron: dispatch task %q failed: %v", taskType, dispatchErr)
 			}
 			return
 		}
@@ -107,15 +111,15 @@ func (s *inprocScheduler) registerJob(def extpoints.ScheduleDefinition) {
 					if timeout <= 0 {
 						timeout = 5 * time.Minute
 					}
-					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					runCtx, cancel := context.WithTimeout(ctx, timeout)
 					defer cancel()
-					_ = invokeHandler(ctx, td.Handler, payloadBytes)
+					_ = invokeHandler(runCtx, td.Handler, payloadBytes)
 				})
 			}
 		}
 	})
 	if err != nil {
-		logger.ErrorF(context.Background(), "driver_inproc_cron: invalid cron spec %q for task %q: %v", spec, taskType, err)
+		logger.ErrorF(ctx, "driver_inproc_cron: invalid cron spec %q for task %q: %v", spec, taskType, err)
 	}
 }
 

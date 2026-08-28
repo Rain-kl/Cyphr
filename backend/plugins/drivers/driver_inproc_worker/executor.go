@@ -35,6 +35,10 @@ type InprocQueue struct {
 	running     atomic.Bool
 	stopCh      chan struct{}
 	wg          sync.WaitGroup
+
+	// baseCtx is the app-lifetime context captured at Start; task handlers
+	// derive their timeouts from it so shutdown cancellation propagates.
+	baseCtx context.Context
 }
 
 // NewInprocQueue creates a new InprocQueue with a given concurrency and queue capacity.
@@ -83,12 +87,16 @@ func (q *InprocQueue) Enqueue(taskType string, payload []byte, source string) (s
 	}
 }
 
-// Start begins processing tasks with the worker pool.
-func (q *InprocQueue) Start() {
+// Start begins processing tasks with the worker pool. ctx is the app-lifetime
+// context used as the parent for per-task execution contexts.
+func (q *InprocQueue) Start(ctx context.Context) {
 	if !q.running.CompareAndSwap(false, true) {
 		return
 	}
 
+	if q.baseCtx == nil {
+		q.baseCtx = ctx
+	}
 	for i := 0; i < q.concurrency; i++ {
 		q.wg.Add(1)
 		util.Go(func() {
@@ -149,7 +157,7 @@ func (q *InprocQueue) executeTask(msg TaskMessage) {
 		timeout = 5 * time.Minute
 	}
 
-	taskCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	taskCtx, cancel := context.WithTimeout(q.baseCtx, timeout)
 	defer cancel()
 
 	err := invokeHandler(taskCtx, td.Handler, msg.Payload)
