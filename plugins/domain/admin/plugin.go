@@ -6,6 +6,7 @@ package admin
 
 import (
 	"context"
+	"embed"
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
@@ -13,6 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
+
+//go:embed migrations/*.sql
+var adminMigrations embed.FS
 
 // Option configures the admin plugin.
 type Option func(*Plugin)
@@ -55,6 +59,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
 	adminMW := authSvc.RequireAdminMiddleware().(gin.HandlerFunc)
+
+	// 0a. Register migrations
+	ctx.Migrations().Register("admin", adminMigrations)
 
 	// 1. Register Admin HTTP Routes
 	adminRouter := ctx.Router().Group("/api/v1/admin", loginMW, adminMW)

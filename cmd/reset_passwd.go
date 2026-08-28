@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Rain-kl/Wavelet/pkg/migrator"
 	userdomain "github.com/Rain-kl/Wavelet/plugins/domain/user"
 	"github.com/Rain-kl/Wavelet/plugins/infra/database"
 
@@ -46,11 +45,11 @@ func generateRandomPassword(length int) (string, error) {
 var resetPasswdCmd = &cobra.Command{
 	Use:   "reset-passwd",
 	Short: "重置指定账号密码",
-	PreRun: func(_ *cobra.Command, _ []string) {
-		migrator.Migrate()
-	},
 	Run: func(_ *cobra.Command, _ []string) {
 		ctx := context.Background()
+
+		// Ensure database is initialized
+		database.DB(ctx)
 
 		var username string
 		if usernameFlag != "" {

@@ -6,6 +6,7 @@ package upload
 
 import (
 	"context"
+	"embed"
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
@@ -16,6 +17,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
+
+//go:embed migrations/*.sql
+var uploadMigrations embed.FS
 
 // Plugin implements core.Plugin to provide file upload and media serving domain services.
 type Plugin struct{}
@@ -48,6 +52,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return err
 	}
 	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
+
+	// 0a. Register migrations
+	ctx.Migrations().Register("upload", uploadMigrations)
 
 	// 1. Register File Server Routes
 	ctx.Router().GET("/f/:id", filesrv.ServeFileByID)

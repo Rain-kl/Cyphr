@@ -6,6 +6,7 @@ package driver_asynq_worker
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"fmt"
 	"sync"
@@ -20,6 +21,9 @@ const (
 	defaultConcurrency     = 10
 	defaultShutdownTimeout = 10 * time.Second
 )
+
+//go:embed migrations/*.sql
+var workerMigrations embed.FS
 
 // Option configures the Asynq worker driver plugin.
 type Option func(*Plugin)
@@ -108,6 +112,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	p.mu.Lock()
 	p.coreCtx = ctx
 	p.mu.Unlock()
+
+	// Register migrations for w_task_executions table
+	ctx.Migrations().Register("driver_asynq_worker", workerMigrations)
 
 	ctx.OnDispose(func() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)

@@ -96,15 +96,17 @@ const (
 )
 
 // MigrationEngine is the interface for executing database migrations across registered plugins.
+// The ctx parameter is the root micro-kernel Context, allowing the engine to resolve
+// services from the IoC container via core.Inject or core.Using.
 type MigrationEngine interface {
-	Migrate(ctx context.Context, entries []MigrationEntry) error
+	Migrate(ctx *Context, entries []MigrationEntry) error
 }
 
 // MigrationRunner is a function adapter implementing MigrationEngine.
-type MigrationRunner func(ctx context.Context, entries []MigrationEntry) error
+type MigrationRunner func(ctx *Context, entries []MigrationEntry) error
 
 // Migrate calls the underlying migration function.
-func (fn MigrationRunner) Migrate(ctx context.Context, entries []MigrationEntry) error {
+func (fn MigrationRunner) Migrate(ctx *Context, entries []MigrationEntry) error {
 	return fn(ctx, entries)
 }
 

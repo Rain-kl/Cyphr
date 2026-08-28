@@ -212,7 +212,7 @@ func (a *App) ApplyPlugins() error {
 }
 
 // RunMigrations dispatches migration execution across all registered plugin migration entries.
-func (a *App) RunMigrations(ctx context.Context) error {
+func (a *App) RunMigrations() error {
 	entries := a.ctx.Migrations().Entries()
 	if len(entries) == 0 {
 		return nil
@@ -233,7 +233,7 @@ func (a *App) RunMigrations(ctx context.Context) error {
 		return nil
 	}
 
-	if err := engine.Migrate(ctx, entries); err != nil {
+	if err := engine.Migrate(a.ctx, entries); err != nil {
 		return fmt.Errorf("core: migration failed: %w", err)
 	}
 
@@ -275,7 +275,7 @@ func (a *App) Start(ctx ...context.Context) error {
 	}
 
 	// 2. Run migrations
-	if err := a.RunMigrations(baseCtx); err != nil {
+	if err := a.RunMigrations(); err != nil {
 		a.mu.Lock()
 		a.running = false
 		a.mu.Unlock()

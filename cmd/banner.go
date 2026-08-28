@@ -14,14 +14,11 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/migrator"
 )
 
 //nolint:unused // startup banner formatting utilities
 type startupState struct {
 	mode           string
-	relationalDB   migrator.Report
-	clickHouseDB   migrator.Report
 	listensForHTTP bool
 }
 
@@ -42,8 +39,6 @@ func formatStartupBanner(state startupState) string {
 		fmt.Sprintf(" Environment: %s", config.Config.App.Env),
 		fmt.Sprintf(" Runtime:     %s/%s (%s)", runtime.GOOS, runtime.GOARCH, runtime.Version()),
 		fmt.Sprintf(" Build time:  %s", buildTime()),
-		fmt.Sprintf(" Database:    %s", formatMigration(state.relationalDB)),
-		fmt.Sprintf(" Analytics:   %s", formatMigration(state.clickHouseDB)),
 	}
 	if state.listensForHTTP {
 		lines = append(lines, fmt.Sprintf(" Listening:   http://%s", config.Config.App.Addr))
@@ -57,15 +52,4 @@ func buildTime() string {
 		return "development build"
 	}
 	return buildinfo.BuildTime
-}
-
-func formatMigration(report migrator.Report) string {
-	if !report.Enabled {
-		return "disabled"
-	}
-	state := "up to date"
-	if report.Applied {
-		state = "upgraded"
-	}
-	return fmt.Sprintf("%s (version %d, %s)", report.Backend, report.Version, state)
 }

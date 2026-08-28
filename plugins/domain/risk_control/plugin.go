@@ -6,11 +6,15 @@ package risk_control
 
 import (
 	"context"
+	"embed"
 
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
 	"github.com/gin-gonic/gin"
 )
+
+//go:embed logstore/migrations/*.sql
+var riskControlMigrations embed.FS
 
 // Option configures the risk_control plugin.
 type Option func(*Plugin)
@@ -55,6 +59,9 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers risk control middlewares, settings, and cleanup hooks into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Register user access log table migrations
+	ctx.Migrations().Register("risk_control/logstore", riskControlMigrations)
+
 	// 1. Initialize LogWriter if needed
 	InitLogWriter(ctx.GoContext())
 

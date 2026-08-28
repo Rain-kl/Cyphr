@@ -9,7 +9,6 @@ import (
 
 	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
 	"github.com/Rain-kl/Wavelet/pkg/config"
-	"github.com/Rain-kl/Wavelet/pkg/migrator"
 )
 
 func TestFormatStartupBanner(t *testing.T) {
@@ -30,14 +29,7 @@ func TestFormatStartupBanner(t *testing.T) {
 	config.Config.App.Addr = ":3000"
 
 	banner := formatStartupBanner(startupState{
-		mode: "API",
-		relationalDB: migrator.Report{
-			Backend: "PostgreSQL",
-			Enabled: true,
-			Version: 202607150003,
-			Applied: true,
-		},
-		clickHouseDB:   migrator.Report{Backend: "ClickHouse"},
+		mode:           "API",
 		listensForHTTP: true,
 	})
 
@@ -45,8 +37,6 @@ func TestFormatStartupBanner(t *testing.T) {
 		"Wavelet v3.2.1",
 		"Environment: production",
 		"Build time:  2026-07-13T08:00:00Z",
-		"Database:    PostgreSQL (version 202607150003, upgraded)",
-		"Analytics:   disabled",
 		"Listening:   http://:3000",
 		"Mode:        API",
 	} {

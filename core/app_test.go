@@ -321,7 +321,7 @@ func TestAppStartDriverFailureRollback(t *testing.T) {
 
 func TestAppMigrationEngineExecution(t *testing.T) {
 	var migratedEntries []extpoints.MigrationEntry
-	runner := core.MigrationRunner(func(ctx context.Context, entries []extpoints.MigrationEntry) error {
+	runner := core.MigrationRunner(func(ctx *core.Context, entries []extpoints.MigrationEntry) error {
 		migratedEntries = entries
 		return nil
 	})
@@ -354,7 +354,7 @@ func TestAppMigrationEngineExecution(t *testing.T) {
 
 func TestAppMigrationEngineFromIoCContainer(t *testing.T) {
 	var executed bool
-	runner := core.MigrationRunner(func(ctx context.Context, entries []extpoints.MigrationEntry) error {
+	runner := core.MigrationRunner(func(ctx *core.Context, entries []extpoints.MigrationEntry) error {
 		executed = true
 		return nil
 	})
@@ -483,7 +483,7 @@ func TestAppIdempotencyAndErrorStates(t *testing.T) {
 	assert.False(t, app2.IsRunning())
 
 	// Migration failure
-	migFailRunner := core.MigrationRunner(func(ctx context.Context, entries []extpoints.MigrationEntry) error {
+	migFailRunner := core.MigrationRunner(func(ctx *core.Context, entries []extpoints.MigrationEntry) error {
 		return errors.New("sql migrate error")
 	})
 	sqlFS := fstest.MapFS{
