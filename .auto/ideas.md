@@ -1,0 +1,11 @@
+# Ideas Backlog
+- extpoints 四处同构 Register 代码用泛型 helper 收敛（migration/setting/schedule/task）
+- message_gateway admin_handlers/push_handlers/push_channels 三文件互为重复 → 提取共享构建函数
+- message_gateway/repository.go 222-240 ↔ 332-350 重复查询块
+- driver_asynq_worker/plugin.go 371-390 ↔ 420-439 重复
+- admin/repository.go:507 nilerr 真 bug → 读代码确认 + 回归测试
+- inproc 驱动 contextcheck 两处 → 传 ctx
+- gosec 权限修复（test_helpers.go 0755→0750/0600, postgres.go 49）
+- nestif 四处拆函数
+- 全库性能巡查：N+1 查询、循环内 compile/alloc、锁粒度、LIKE 无 EscapeLike、缺失索引
+- 包结构优化（upload/shared、message_gateway 文件命名混乱）
