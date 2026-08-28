@@ -4,13 +4,12 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
 )
 
 // ListAuthSources lists all configured authentication sources.

@@ -7,12 +7,11 @@
 package cmd
 
 import (
+	"Wavelet/pkg/buildinfo"
+	"Wavelet/pkg/config"
 	"fmt"
 	"runtime"
 	"strings"
-
-	"Wavelet/pkg/buildinfo"
-	"Wavelet/pkg/config"
 )
 
 //nolint:unused // startup banner formatting utilities

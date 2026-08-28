@@ -4,6 +4,9 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,10 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
 	mail "Wavelet/pkg/mail"
-	"Wavelet/pkg/response"
 )
 
 const maskedConfigValue = "******"
@@ -465,7 +465,7 @@ func maskSensitiveConfig(key, value string) string {
 
 // validateAndMergeStorageConfig parses, merges unmasked secrets, validates parameter values,
 // and tests connectivity of the new storage configuration.
-func validateAndMergeStorageConfig(ctx context.Context, value string, currentConfig string) (string, error) {
+func validateAndMergeStorageConfig(ctx context.Context, value, currentConfig string) (string, error) {
 	var currentCfg contracts.StorageConfigDTO
 	if err := json.Unmarshal([]byte(currentConfig), &currentCfg); err != nil {
 		return "", fmt.Errorf("解析当前存储配置失败: %w", err)

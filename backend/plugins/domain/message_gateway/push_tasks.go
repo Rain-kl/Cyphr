@@ -4,14 +4,13 @@
 package message_gateway
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/message_gateway/push"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
-	"Wavelet/plugins/domain/message_gateway/push"
 )
 
 const (
@@ -101,7 +100,7 @@ func (h *PushHandler) Execute(ctx context.Context, payload []byte) error {
 	return nil
 }
 
-func (h *PushHandler) recordHistory(ctx context.Context, req SendPayload, status string, errMsg string) {
+func (h *PushHandler) recordHistory(ctx context.Context, req SendPayload, status, errMsg string) {
 	if dbErr := recordPushHistory(ctx, req, status, errMsg); dbErr != nil {
 		logger.ErrorF(ctx, "[Push] 写入推送历史审计记录失败: %v", dbErr)
 	}

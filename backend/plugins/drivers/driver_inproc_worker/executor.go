@@ -4,16 +4,15 @@
 package driver_inproc_worker
 
 import (
+	"Wavelet/core/extpoints"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"Wavelet/core/extpoints"
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/util"
 )
 
 const defaultRetryBackoff = 500 * time.Millisecond
@@ -39,7 +38,7 @@ type InprocQueue struct {
 }
 
 // NewInprocQueue creates a new InprocQueue with a given concurrency and queue capacity.
-func NewInprocQueue(concurrency int, queueCap int, taskReg extpoints.TaskExtension) *InprocQueue {
+func NewInprocQueue(concurrency, queueCap int, taskReg extpoints.TaskExtension) *InprocQueue {
 	if concurrency <= 0 {
 		concurrency = 10
 	}

@@ -4,6 +4,10 @@
 package admin
 
 import (
+	"Wavelet/pkg/buildinfo"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
@@ -23,11 +27,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/mod/semver"
-
-	"Wavelet/pkg/buildinfo"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 )
 
 const (
@@ -391,7 +390,7 @@ func matchBinaryName(name string, candidates []string) bool {
 	return false
 }
 
-func getCandidateBinaryNames(executable string, repository string) []string {
+func getCandidateBinaryNames(executable, repository string) []string {
 	execName := filepath.Base(executable)
 	names := []string{execName}
 
@@ -435,7 +434,7 @@ func isLikelyBinary(name string, isDir bool, mode os.FileMode) bool {
 		return filepath.Ext(base) == ".exe"
 	}
 
-	return (mode.Perm()&0111 != 0) || (filepath.Ext(base) == "")
+	return (mode.Perm()&0o111 != 0) || (filepath.Ext(base) == "")
 }
 
 func findBinaryInTarGz(archivePath string, candidates []string) (string, error) {

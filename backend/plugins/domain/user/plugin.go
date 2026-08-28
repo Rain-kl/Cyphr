@@ -5,16 +5,15 @@
 package user
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
 	"context"
 	"embed"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/core/extpoints"
 )
 
 //go:embed migrations/*/*.sql

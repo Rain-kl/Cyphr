@@ -4,11 +4,10 @@
 package driver_inproc_worker
 
 import (
-	"context"
-	"fmt"
-
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"context"
+	"fmt"
 )
 
 type inprocTaskService struct {
@@ -73,7 +72,7 @@ func (s *inprocTaskService) ReloadScheduler() error {
 func (s *inprocTaskService) AppendLog(_ context.Context, _ string, _ ...any) {
 }
 
-func (s *inprocTaskService) ListExecutions(_ context.Context, _ string, _ string, _, _ int) ([]contracts.TaskExecutionDTO, int64, error) {
+func (s *inprocTaskService) ListExecutions(_ context.Context, _, _ string, _, _ int) ([]contracts.TaskExecutionDTO, int64, error) {
 	return []contracts.TaskExecutionDTO{}, 0, nil
 }
 

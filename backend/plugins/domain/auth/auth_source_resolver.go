@@ -4,13 +4,12 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
 	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-
-	"Wavelet/core/contracts"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -128,7 +127,7 @@ func containsScope(scopes []string, scope string) bool {
 	return false
 }
 
-func buildOAuthUserInfo(ctx context.Context, source *AuthSource, code string, nonce string, redirectURL string) (*contracts.OAuthUserInfoDTO, error) {
+func buildOAuthUserInfo(ctx context.Context, source *AuthSource, code, nonce, redirectURL string) (*contracts.OAuthUserInfoDTO, error) {
 	authConfig, verifier, err := buildOAuthConfig(ctx, source, redirectURL)
 	if err != nil {
 		return nil, err

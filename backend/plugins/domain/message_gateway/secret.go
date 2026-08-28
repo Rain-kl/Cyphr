@@ -4,12 +4,11 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/util"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/util"
 )
 
 // CredentialKey is AES-256 hex derived from the session secret.

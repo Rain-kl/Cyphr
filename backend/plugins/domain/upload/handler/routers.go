@@ -5,6 +5,14 @@
 package handler
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/domain/upload/filesrv"
+	"Wavelet/plugins/domain/upload/ingest"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
+	"Wavelet/plugins/domain/upload/util"
 	"archive/zip"
 	"bufio"
 	"bytes"
@@ -24,16 +32,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
 	pkgutil "Wavelet/pkg/util"
-	"Wavelet/plugins/domain/upload/filesrv"
-	"Wavelet/plugins/domain/upload/ingest"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
+
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
-	"Wavelet/plugins/domain/upload/util"
 )
 
 type batchDownloadRequest struct {

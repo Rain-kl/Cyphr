@@ -5,11 +5,10 @@
 package cap
 
 import (
-	"reflect"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"reflect"
 )
 
 // Plugin implements core.Plugin to provide CAPTCHA generation, validation, and route protection.

@@ -4,12 +4,10 @@
 package user
 
 import (
+	"Wavelet/pkg/util"
 	"errors"
-
 	"strings"
 	"time"
-
-	"Wavelet/pkg/util"
 )
 
 // AccessToken 个人访问令牌实体

@@ -4,11 +4,10 @@
 package cmd
 
 import (
-	"strings"
-	"testing"
-
 	"Wavelet/pkg/buildinfo"
 	"Wavelet/pkg/config"
+	"strings"
+	"testing"
 )
 
 func TestFormatStartupBanner(t *testing.T) {

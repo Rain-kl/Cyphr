@@ -4,6 +4,11 @@
 package task
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -18,11 +23,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )

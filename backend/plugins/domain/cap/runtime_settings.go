@@ -4,6 +4,8 @@
 package cap
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"errors"
 	"strconv"
@@ -13,9 +15,6 @@ import (
 
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 var (

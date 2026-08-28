@@ -4,6 +4,7 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/pkg/testhelper"
 	"context"
 	"errors"
 	"fmt"
@@ -19,8 +20,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/testhelper"
 )
 
 type mockDBService struct {

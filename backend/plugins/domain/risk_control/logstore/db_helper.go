@@ -4,14 +4,13 @@
 package logstore
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"sync"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 var (

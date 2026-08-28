@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"Wavelet/pkg/config"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,14 +16,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
 	"go.opentelemetry.io/otel/attribute"
-
-	"Wavelet/pkg/config"
 )
 
-var (
-	// Redis 全局 Redis 客户端实例
-	Redis redis.UniversalClient
-)
+// Redis 全局 Redis 客户端实例
+var Redis redis.UniversalClient
 
 // InitRedis 初始化全局/默认 Redis 客户端实例
 func InitRedis() (redis.UniversalClient, error) {

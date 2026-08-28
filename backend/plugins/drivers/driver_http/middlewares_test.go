@@ -4,6 +4,7 @@
 package driver_http
 
 import (
+	"Wavelet/pkg/testhelper"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/testhelper"
 )
 
 type mockDBService struct {

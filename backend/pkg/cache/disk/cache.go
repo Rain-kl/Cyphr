@@ -26,7 +26,7 @@ const (
 	headerSize        = 8 // 8 bytes metadata prefix for expiration UnixNano timestamp
 	defaultMaxSizeMB  = 100
 	defaultTTLMinutes = 60
-	cacheDirPerm      = 0750
+	cacheDirPerm      = 0o750
 
 	// DefaultExpiration applies the cache-wide default TTL.
 	DefaultExpiration time.Duration = 0
@@ -284,7 +284,7 @@ func (c *Cache) Status() Status {
 }
 
 // UpdatePolicy dynamically updates policies.
-func (c *Cache) UpdatePolicy(maxSizeMB int64, ttlMinutes int64, lruEnabled bool) {
+func (c *Cache) UpdatePolicy(maxSizeMB, ttlMinutes int64, lruEnabled bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -4,11 +4,10 @@
 package cmd
 
 import (
+	"Wavelet/core"
 	"log"
 
 	"github.com/spf13/cobra"
-
-	"Wavelet/core"
 )
 
 var workerCmd = &cobra.Command{

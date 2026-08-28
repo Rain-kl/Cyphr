@@ -4,6 +4,10 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"errors"
 	"net/http"
 	"strconv"
@@ -11,11 +15,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 )
 
 // listUsersRequest 用户列表查询请求
@@ -393,7 +392,6 @@ func UpdateUser(c *gin.Context) {
 		IsAdmin:  req.IsAdmin,
 		Password: req.Password,
 	})
-
 	if err != nil {
 		if abortUserLogicError(c, err, userNotFound, []string{cannotRevokeSelfAdmin}, []string{emailRequired, emailExists, passwordTooShort}) {
 			return

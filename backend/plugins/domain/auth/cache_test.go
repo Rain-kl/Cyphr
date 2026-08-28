@@ -4,14 +4,13 @@
 package auth_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/auth"
 	"context"
 	"encoding/json"
 	"testing"
 	"time"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/auth"
 )
 
 type mockCacheService struct {

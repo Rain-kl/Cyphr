@@ -4,6 +4,8 @@
 package admin
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/response"
 	"context"
 	"database/sql"
 	"fmt"
@@ -17,9 +19,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/response"
 )
 
 const (

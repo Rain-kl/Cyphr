@@ -4,6 +4,7 @@
 package core_test
 
 import (
+	"Wavelet/core"
 	"context"
 	"errors"
 	"fmt"
@@ -13,8 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
 )
 
 type UserRegisteredEvent struct {

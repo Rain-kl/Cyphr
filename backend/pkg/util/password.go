@@ -18,8 +18,10 @@ func HashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
-var dummyPasswordHashOnce sync.Once
-var dummyPasswordHash string
+var (
+	dummyPasswordHashOnce sync.Once
+	dummyPasswordHash     string
+)
 
 func dummyHash() string {
 	dummyPasswordHashOnce.Do(func() {

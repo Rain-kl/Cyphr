@@ -4,6 +4,11 @@
 package ingest
 
 import (
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/repository"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,12 +19,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/logger"
 	uploadcache "Wavelet/plugins/domain/upload/cache"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/repository"
-	"Wavelet/plugins/domain/upload/shared"
+
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )

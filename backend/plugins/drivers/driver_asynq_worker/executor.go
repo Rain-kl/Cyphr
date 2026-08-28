@@ -4,6 +4,9 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/util"
 	"context"
 	"encoding/json"
 	"errors"
@@ -18,10 +21,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/logger"
 	otel_trace "Wavelet/pkg/trace"
-	"Wavelet/pkg/util"
 )
 
 var (
@@ -76,8 +76,10 @@ func ValidateAndNormalizePayload(asynqTaskType string, payload []byte) ([]byte, 
 // contextKey 用于 context 存取 taskID
 type contextKey string
 
-const taskIDKey contextKey = "task_execution_task_id"
-const traceEnvelopeVersion = 1
+const (
+	taskIDKey            contextKey = "task_execution_task_id"
+	traceEnvelopeVersion            = 1
+)
 
 type traceEnvelope struct {
 	WaveletTraceEnvelope bool              `json:"_wavelet_trace_envelope"`
@@ -489,7 +491,7 @@ func handleSuccessfulTask(ctx context.Context, execution *TaskExecution, t *asyn
 }
 
 // generateTaskID 生成任务 ID
-func generateTaskID(taskType string, triggeredBy string) string {
+func generateTaskID(taskType, triggeredBy string) string {
 	return fmt.Sprintf("%s_%s_%d", triggeredBy, taskType, idgen.NextUint64ID())
 }
 

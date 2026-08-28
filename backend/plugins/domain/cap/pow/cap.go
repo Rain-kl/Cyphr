@@ -88,7 +88,7 @@ func RandomHex(byteLen int) string {
 	return hex.EncodeToString(bytes)
 }
 
-func jwtSign(payload []byte, secret []byte) string {
+func jwtSign(payload, secret []byte) string {
 	body := b64urlEncode(payload)
 	sigInput := jwtHeaderB64 + "." + body
 

@@ -4,14 +4,13 @@
 package cache
 
 import (
+	"Wavelet/pkg/testhelper"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"testing"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/testhelper"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 func init() {

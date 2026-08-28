@@ -5,13 +5,6 @@
 package upload
 
 import (
-	"context"
-	"embed"
-	"reflect"
-
-	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
@@ -19,6 +12,12 @@ import (
 	"Wavelet/plugins/domain/upload/handler"
 	"Wavelet/plugins/domain/upload/shared"
 	"Wavelet/plugins/domain/upload/task"
+	"context"
+	"embed"
+	"reflect"
+
+	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*/*.sql

@@ -4,13 +4,12 @@
 package cap
 
 import (
-	"net/http"
-
-	"github.com/gin-gonic/gin"
-
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/cap/pow"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 // ChallengeResponse is a local type alias for the pow.ChallengeResponse struct

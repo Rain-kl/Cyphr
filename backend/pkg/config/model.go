@@ -118,8 +118,7 @@ type logConfig struct {
 }
 
 // schedulerConfig 定时任务配置
-type schedulerConfig struct {
-}
+type schedulerConfig struct{}
 
 // workerConfig 工作配置
 type workerConfig struct {

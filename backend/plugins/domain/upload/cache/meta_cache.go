@@ -4,15 +4,14 @@
 package cache
 
 import (
+	"Wavelet/pkg/cache/ram"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"fmt"
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/cache/ram"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 const (
@@ -21,9 +20,7 @@ const (
 	uploadMetaInvalidationChan = "upload:meta_invalidation"
 )
 
-var (
-	uploadMetaRAM = ram.MustNew[uint64, models.Upload](ram.Options{MaximumSize: uploadMetaRAMMaximumSize})
-)
+var uploadMetaRAM = ram.MustNew[uint64, models.Upload](ram.Options{MaximumSize: uploadMetaRAMMaximumSize})
 
 func uploadMetaRedisKey(id uint64) string {
 	return fmt.Sprintf("upload:meta:%d", id)

@@ -5,15 +5,14 @@
 package system
 
 import (
-	"net/http"
-	"reflect"
-
-	"github.com/gin-gonic/gin"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
 	"Wavelet/pkg/response"
+	"net/http"
+	"reflect"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Plugin implements core.Plugin to provide system-level basic routes.

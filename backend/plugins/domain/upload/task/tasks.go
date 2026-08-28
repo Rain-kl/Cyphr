@@ -4,18 +4,17 @@
 package task
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/upload/filesrv"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"sync"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
-	"Wavelet/plugins/domain/upload/filesrv"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 const (

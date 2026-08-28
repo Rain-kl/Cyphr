@@ -38,12 +38,12 @@ func sanitizeHeaderValue(v string) string {
 }
 
 // SendMail sends an HTML email using the provided config and message details
-func SendMail(ctx context.Context, cfg Config, to string, subject, body string) error {
+func SendMail(ctx context.Context, cfg Config, to, subject, body string) error {
 	return SendMailHTML(ctx, cfg, to, subject, body)
 }
 
 // SendMailHTML sends an HTML format email
-func SendMailHTML(ctx context.Context, cfg Config, to string, subject, body string) error {
+func SendMailHTML(ctx context.Context, cfg Config, to, subject, body string) error {
 	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 
 	// Header & MIME settings for HTML email
@@ -124,9 +124,9 @@ func sendMailViaSSL(ctx context.Context, addr string, auth smtp.Auth, cfg Config
 }
 
 // SendMailWithLog sends a test email and records a detailed SMTP connection log
-func SendMailWithLog(ctx context.Context, cfg Config, to string, subject, body string) (string, error) {
+func SendMailWithLog(ctx context.Context, cfg Config, to, subject, body string) (string, error) {
 	var logBuf bytes.Buffer
-	logLine := func(dir string, format string, args ...interface{}) {
+	logLine := func(dir, format string, args ...interface{}) {
 		fmt.Fprintf(&logBuf, "[%s] %s\n", dir, fmt.Sprintf(format, args...))
 	}
 

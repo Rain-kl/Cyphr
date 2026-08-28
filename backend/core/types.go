@@ -4,11 +4,10 @@
 package core
 
 import (
+	"Wavelet/core/extpoints"
 	"context"
 	"errors"
 	"reflect"
-
-	"Wavelet/core/extpoints"
 )
 
 // Standard sentinel errors returned by core operations.

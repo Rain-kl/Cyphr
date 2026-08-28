@@ -4,6 +4,13 @@
 package infra_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/cache"
+	"Wavelet/plugins/infra/database"
+	"Wavelet/plugins/infra/logger"
+	"Wavelet/plugins/infra/storage"
+	"Wavelet/plugins/infra/storage/objectstore"
 	"bytes"
 	"context"
 	"io"
@@ -18,14 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/infra/cache"
-	"Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/logger"
-	"Wavelet/plugins/infra/storage"
-	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 type TestUser struct {

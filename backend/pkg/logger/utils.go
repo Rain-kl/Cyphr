@@ -17,7 +17,7 @@ import (
 )
 
 // logDirPerm 日志目录权限
-const logDirPerm = 0750
+const logDirPerm = 0o750
 
 func getLogWriterForConfig(cfg Config) (zapcore.WriteSyncer, error) {
 	if cfg.Output == "file" {

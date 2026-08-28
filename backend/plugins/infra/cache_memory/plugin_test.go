@@ -4,16 +4,15 @@
 package cache_memory_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/cache_memory"
 	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/infra/cache_memory"
 )
 
 func TestCacheMemoryPlugin(t *testing.T) {

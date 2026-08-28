@@ -4,6 +4,9 @@
 package admin
 
 import (
+	"Wavelet/pkg/cache/ram"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/util"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,10 +17,6 @@ import (
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/cache/ram"
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/util"
 )
 
 const (
@@ -62,7 +61,7 @@ func PreheatSystemConfigByKey(ctx context.Context, key string) (SystemConfig, er
 }
 
 // GetSystemConfigByGroup queries a configuration by Type and Key.
-func GetSystemConfigByGroup(ctx context.Context, configType string, key string) (SystemConfig, error) {
+func GetSystemConfigByGroup(ctx context.Context, configType, key string) (SystemConfig, error) {
 	ensureSystemConfigCacheListener()
 
 	if item, ok := ram.Get(configType, key); ok {
@@ -479,7 +478,7 @@ func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*Ta
 }
 
 // AppendTaskExecutionLog 将日志追加到缓冲，任务完成后再持久化到数据库。
-func AppendTaskExecutionLog(ctx context.Context, taskID string, logLine string) error {
+func AppendTaskExecutionLog(ctx context.Context, taskID, logLine string) error {
 	cacheSvc := GetCache(ctx)
 	if cacheSvc == nil {
 		return errors.New("cache service is not initialized")

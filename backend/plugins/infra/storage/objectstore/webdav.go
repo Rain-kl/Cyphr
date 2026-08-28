@@ -4,6 +4,7 @@
 package objectstore
 
 import (
+	"Wavelet/pkg/httppool"
 	"context"
 	"fmt"
 	"io"
@@ -12,8 +13,6 @@ import (
 	"strings"
 
 	"github.com/studio-b12/gowebdav"
-
-	"Wavelet/pkg/httppool"
 )
 
 type contextTransport struct {

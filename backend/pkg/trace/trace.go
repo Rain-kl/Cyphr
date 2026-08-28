@@ -12,8 +12,10 @@ import (
 )
 
 // Tracer 全局 OpenTelemetry Tracer 实例
-var Tracer trace.Tracer
-var shutdownFuncs []func(context.Context) error
+var (
+	Tracer        trace.Tracer
+	shutdownFuncs []func(context.Context) error
+)
 
 func init() {
 	// 初始化 Propagator

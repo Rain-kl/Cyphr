@@ -5,6 +5,8 @@
 package cap
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/plugins/domain/cap/pow"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -12,9 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"Wavelet/pkg/config"
-	"Wavelet/plugins/domain/cap/pow"
 )
 
 const (
@@ -116,7 +115,7 @@ func (m *Manager) Redeem(ctx context.Context, token string, solutions []int, sco
 }
 
 // VerifyToken validates and consumes the redeem token (single-use).
-func (m *Manager) VerifyToken(ctx context.Context, token string, expectedScope string) (bool, error) {
+func (m *Manager) VerifyToken(ctx context.Context, token, expectedScope string) (bool, error) {
 	if token == "" {
 		return false, nil
 	}

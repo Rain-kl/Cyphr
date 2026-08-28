@@ -4,15 +4,14 @@
 package message_gateway
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 )
 
 func currentUser(c *gin.Context) (*contracts.UserDTO, bool) {

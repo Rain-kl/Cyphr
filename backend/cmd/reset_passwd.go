@@ -4,6 +4,8 @@
 package cmd
 
 import (
+	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/infra/database"
 	"bufio"
 	"context"
 	"crypto/rand"
@@ -14,12 +16,9 @@ import (
 	"strings"
 
 	userdomain "Wavelet/plugins/domain/user"
-	"Wavelet/plugins/infra/database"
 
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
-
-	"Wavelet/plugins/domain/auth"
 )
 
 var (

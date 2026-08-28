@@ -7,8 +7,8 @@ package shared
 const (
 	MaxUploadSize           = 32 * 1024 * 1024 // 32MB
 	DetectContentBytes      = 512              // http.DetectContentType 需要的最小字节数
-	UploadDirPerm           = 0755             // 上传目录权限
-	UploadFilePerm          = 0644             // 上传文件权限
+	UploadDirPerm           = 0o755            // 上传目录权限
+	UploadFilePerm          = 0o644            // 上传文件权限
 	ImageQualityLow         = "low"
 	ImageQualityMedium      = "medium"
 	ImageQualityHigh        = "high"

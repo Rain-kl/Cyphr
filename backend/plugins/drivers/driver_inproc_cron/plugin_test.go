@@ -4,6 +4,8 @@
 package driver_inproc_cron_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/plugins/drivers/driver_inproc_cron"
 	"context"
 	"sync/atomic"
 	"testing"
@@ -11,9 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/plugins/drivers/driver_inproc_cron"
 )
 
 func TestInprocCronPlugin(t *testing.T) {

@@ -4,14 +4,13 @@
 package push
 
 import (
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"fmt"
 	"net"
 	"net/smtp"
 	"strings"
-
-	"Wavelet/pkg/util"
 )
 
 func init() {

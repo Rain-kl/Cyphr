@@ -4,14 +4,13 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"sync"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 var (

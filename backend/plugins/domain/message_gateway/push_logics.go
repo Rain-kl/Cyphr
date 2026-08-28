@@ -4,6 +4,7 @@
 package message_gateway
 
 import (
+	"Wavelet/core/contracts"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,7 +14,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"Wavelet/core/contracts"
 	pkgpush "Wavelet/plugins/domain/message_gateway/push"
 )
 
@@ -368,7 +368,7 @@ func resolveDynamicKeyword(target string, flatBody map[string]any) string {
 	return target
 }
 
-func resolveTargetUser(ctx context.Context, resolved string, _ string) (contracts.UserDTO, bool) {
+func resolveTargetUser(ctx context.Context, resolved, _ string) (contracts.UserDTO, bool) {
 	var user contracts.UserDTO
 	if id, err := strconv.ParseUint(resolved, 10, 64); err == nil {
 		if err := getDB(ctx).Table("w_users").Where("id = ?", id).First(&user).Error; err == nil {
@@ -381,7 +381,7 @@ func resolveTargetUser(ctx context.Context, resolved string, _ string) (contract
 	return user, false
 }
 
-func resolveSystemTarget(ctx context.Context, resolved string, channel string) (string, bool) {
+func resolveSystemTarget(ctx context.Context, resolved, channel string) (string, bool) {
 	if resolved != "系统" && resolved != "system" && resolved != "0" {
 		return "", false
 	}
@@ -507,7 +507,7 @@ func getFlatBody(body map[string]any) map[string]any {
 	return flatResult
 }
 
-func flattenMap(prefix string, m map[string]any, result map[string]any) {
+func flattenMap(prefix string, m, result map[string]any) {
 	for k, v := range m {
 		key := k
 		if prefix != "" {

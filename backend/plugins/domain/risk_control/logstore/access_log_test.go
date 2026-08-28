@@ -169,9 +169,9 @@ func (m *mockConn) Exec(_ context.Context, _ string, _ ...any) error { return ni
 
 func (m *mockConn) AsyncInsert(_ context.Context, _ string, _ bool, _ ...any) error { return nil }
 
-func (m *mockConn) InsertFormat(_ context.Context, _ string, _ string, _ io.Reader) error { return nil }
+func (m *mockConn) InsertFormat(_ context.Context, _, _ string, _ io.Reader) error { return nil }
 
-func (m *mockConn) QueryFormat(_ context.Context, _ string, _ string, _ ...any) (io.ReadCloser, error) {
+func (m *mockConn) QueryFormat(_ context.Context, _, _ string, _ ...any) (io.ReadCloser, error) {
 	return nil, nil
 }
 

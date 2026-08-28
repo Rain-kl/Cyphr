@@ -4,6 +4,7 @@
 package database
 
 import (
+	"Wavelet/pkg/config"
 	"context"
 	"fmt"
 	"log"
@@ -21,13 +22,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
 	"gorm.io/plugin/opentelemetry/tracing"
-
-	"Wavelet/pkg/config"
 )
 
-var (
-	db *gorm.DB
-)
+var db *gorm.DB
 
 // InitDB 初始化主数据库实例（支持 PostgreSQL / SQLite）
 func InitDB() (*gorm.DB, error) {
@@ -46,7 +43,7 @@ func initSQLite() (*gorm.DB, error) {
 
 	if sqlitePath != ":memory:" && !strings.HasPrefix(sqlitePath, "file:") {
 		if dir := filepath.Dir(sqlitePath); dir != "" && dir != "." {
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return nil, fmt.Errorf("create sqlite directory %q failed: %w", dir, err)
 			}
 		}

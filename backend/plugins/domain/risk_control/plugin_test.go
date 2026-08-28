@@ -4,15 +4,14 @@
 package risk_control_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/plugins/domain/risk_control"
 	"context"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/plugins/domain/risk_control"
 )
 
 func TestRiskControlPluginUnit(t *testing.T) {

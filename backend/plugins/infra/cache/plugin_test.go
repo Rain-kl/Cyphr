@@ -4,6 +4,9 @@
 package cache_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/cache"
 	"context"
 	"testing"
 	"time"
@@ -12,10 +15,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/infra/cache"
 )
 
 func TestCachePluginOperations(t *testing.T) {

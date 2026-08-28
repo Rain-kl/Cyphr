@@ -4,6 +4,7 @@
 package database
 
 import (
+	"Wavelet/pkg/logger"
 	"context"
 	"errors"
 	"fmt"
@@ -12,8 +13,6 @@ import (
 
 	"gorm.io/gorm"
 	gormLogger "gorm.io/gorm/logger"
-
-	"Wavelet/pkg/logger"
 )
 
 // nanoToMilli 纳秒转毫秒的除数

@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,9 +13,6 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 // StorageMigrationTask is the task name for storage migration.

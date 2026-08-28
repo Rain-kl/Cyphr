@@ -4,18 +4,16 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/util"
 	"context"
 	"encoding/json"
 	"errors"
 	"sync"
 
-	"Wavelet/pkg/logger"
-
 	pkgpush "Wavelet/plugins/domain/message_gateway/push"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/util"
 )
 
 // NotificationMessage represents the structured notification message payload.
@@ -122,7 +120,7 @@ func (t *EventTrigger) Trigger(ctx context.Context, meta EventMetadata, body map
 	})
 }
 
-func (t *EventTrigger) buildMessage(event *PushEvent, meta EventMetadata, flatBody map[string]any, body map[string]any) (NotificationMessage, string) {
+func (t *EventTrigger) buildMessage(event *PushEvent, meta EventMetadata, flatBody, body map[string]any) (NotificationMessage, string) {
 	var msg NotificationMessage
 	renderedTemplate := ""
 

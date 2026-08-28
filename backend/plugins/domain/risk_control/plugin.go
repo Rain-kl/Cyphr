@@ -5,16 +5,15 @@
 package risk_control
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
+	"Wavelet/plugins/domain/risk_control/logstore"
 	"context"
 	"embed"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/core/extpoints"
-	"Wavelet/plugins/domain/risk_control/logstore"
 )
 
 //go:embed logstore/migrations/*/*.sql

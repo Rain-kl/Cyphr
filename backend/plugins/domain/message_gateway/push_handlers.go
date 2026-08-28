@@ -4,6 +4,7 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/response"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,8 +14,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/response"
 )
 
 // UpdatePushEventRequest is the request body for updating a push event.

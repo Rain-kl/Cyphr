@@ -4,15 +4,14 @@
 package message_gateway_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/plugins/domain/message_gateway"
 	"context"
 	"io/fs"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/plugins/domain/message_gateway"
 )
 
 func TestMessageGatewayPluginUnit(t *testing.T) {

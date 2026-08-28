@@ -4,6 +4,7 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/pkg/idgen"
 	"context"
 	"errors"
 	"fmt"
@@ -11,8 +12,6 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-
-	"Wavelet/pkg/idgen"
 )
 
 const (
@@ -54,7 +53,7 @@ func getTaskExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecutio
 	return &execution, nil
 }
 
-func appendTaskExecutionLog(ctx context.Context, taskID string, logLine string) error {
+func appendTaskExecutionLog(ctx context.Context, taskID, logLine string) error {
 	rdb := getRedisClient()
 	if rdb == nil {
 		return errors.New("redis client is not initialized")

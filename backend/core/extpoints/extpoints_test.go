@@ -4,6 +4,8 @@
 package extpoints_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/extpoints"
 	"context"
 	"testing"
 	"testing/fstest"
@@ -11,9 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/extpoints"
 )
 
 func TestRouterExtension(t *testing.T) {

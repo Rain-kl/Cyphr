@@ -4,6 +4,8 @@
 package shared
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/testhelper"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -20,9 +22,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/testhelper"
 )
 
 // MockDBService is a mock implementation of contracts.DBService for unit testing.
@@ -130,8 +129,8 @@ func (m *MockStorageService) Put(_ context.Context, key string, body io.Reader, 
 	}
 	m.objects[key] = data
 	if strings.HasPrefix(key, "uploads/") {
-		_ = os.MkdirAll(filepath.Dir(key), 0755)
-		_ = os.WriteFile(key, data, 0644)
+		_ = os.MkdirAll(filepath.Dir(key), 0o755)
+		_ = os.WriteFile(key, data, 0o644)
 	}
 	return contracts.StoragePutResult{Key: key, Bucket: "test-bucket"}, nil
 }
@@ -234,7 +233,7 @@ func (a *MockAuthService) VerifyToken(_ context.Context, token string) (*contrac
 }
 
 // Authenticate verifies credentials.
-func (a *MockAuthService) Authenticate(_ context.Context, _ string, _ string) (*contracts.UserDTO, error) {
+func (a *MockAuthService) Authenticate(_ context.Context, _, _ string) (*contracts.UserDTO, error) {
 	return nil, nil
 }
 

@@ -4,6 +4,9 @@
 package driver_inproc_worker_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/extpoints"
+	"Wavelet/plugins/drivers/driver_inproc_worker"
 	"context"
 	"sync/atomic"
 	"testing"
@@ -11,10 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/extpoints"
-	"Wavelet/plugins/drivers/driver_inproc_worker"
 )
 
 func TestInprocWorkerPlugin(t *testing.T) {

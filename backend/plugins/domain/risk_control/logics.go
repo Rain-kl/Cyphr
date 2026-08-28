@@ -4,13 +4,12 @@
 package risk_control
 
 import (
-	"context"
-	"sync"
-	"time"
-
 	"Wavelet/pkg/batchwriter"
 	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/risk_control/logstore"
+	"context"
+	"sync"
+	"time"
 )
 
 var (

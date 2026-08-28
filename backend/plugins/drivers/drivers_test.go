@@ -4,6 +4,11 @@
 package drivers_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/extpoints"
+	"Wavelet/plugins/drivers/driver_asynq_cron"
+	"Wavelet/plugins/drivers/driver_asynq_worker"
+	"Wavelet/plugins/drivers/driver_http"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -19,12 +24,6 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/extpoints"
-	"Wavelet/plugins/drivers/driver_asynq_cron"
-	"Wavelet/plugins/drivers/driver_asynq_worker"
-	"Wavelet/plugins/drivers/driver_http"
 )
 
 func init() {

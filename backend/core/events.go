@@ -14,8 +14,10 @@ import (
 
 const maxHandlerParams = 2
 
-var ctxInterfaceType = reflect.TypeFor[context.Context]()
-var errInterfaceType = reflect.TypeFor[error]()
+var (
+	ctxInterfaceType = reflect.TypeFor[context.Context]()
+	errInterfaceType = reflect.TypeFor[error]()
+)
 
 type eventListener struct {
 	id         uint64
@@ -213,7 +215,6 @@ func (b *EventBus) Emit(ctx context.Context, topic string, payload any) error {
 			}
 			return resErr
 		}()
-
 		if err != nil {
 			errs = append(errs, err)
 		}

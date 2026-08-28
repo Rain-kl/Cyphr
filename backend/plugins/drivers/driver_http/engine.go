@@ -4,6 +4,9 @@
 package driver_http
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/trace"
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"log"
@@ -19,10 +22,6 @@ import (
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/trace"
-	"Wavelet/pkg/util"
 )
 
 // BuildEngine 构建并初始化 Gin 路由引擎及全部中间件和路由

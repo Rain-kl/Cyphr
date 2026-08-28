@@ -4,12 +4,11 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
 	"context"
 	"sync"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core/contracts"
 )
 
 var (

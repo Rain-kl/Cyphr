@@ -4,13 +4,12 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/pkg/config"
 	"sync"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"github.com/redis/go-redis/v9/maintnotifications"
-
-	"Wavelet/pkg/config"
 )
 
 type redisClientConnOpt struct {

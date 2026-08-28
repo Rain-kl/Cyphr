@@ -5,13 +5,12 @@
 package logger
 
 import (
-	"context"
-	"fmt"
-	"strings"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
+	"context"
+	"fmt"
+	"strings"
 )
 
 // Plugin implements core.Plugin to provide contracts.LoggerService.

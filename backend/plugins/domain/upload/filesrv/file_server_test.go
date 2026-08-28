@@ -4,6 +4,12 @@
 package filesrv
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/testhelper"
+	"Wavelet/plugins/domain/upload/cache"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -23,12 +29,6 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/testhelper"
-	"Wavelet/plugins/domain/upload/cache"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 	uploadutil "Wavelet/plugins/domain/upload/util"
 )
 
@@ -45,7 +45,7 @@ func (s *localTestStorageService) Put(_ context.Context, key string, body io.Rea
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	path := filepath.Join(s.root, key)
-	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	_ = os.MkdirAll(filepath.Dir(path), 0o755)
 	f, err := os.Create(path)
 	if err != nil {
 		return contracts.StoragePutResult{}, err
@@ -140,10 +140,10 @@ func TestServeFileByIDAccessControl(t *testing.T) {
 		AccessMode: 1,
 	}
 
-	if err := os.WriteFile(filepath.Join(tempDir, "avatar.png"), []byte("image"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, "avatar.png"), []byte("image"), 0o644); err != nil {
 		t.Fatalf("failed to write avatar file: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tempDir, "doc.pdf"), []byte("bytes"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tempDir, "doc.pdf"), []byte("bytes"), 0o644); err != nil {
 		t.Fatalf("failed to write attachment file: %v", err)
 	}
 
@@ -235,7 +235,7 @@ func TestServeFileByIDImageCompression(t *testing.T) {
 	}
 
 	filePath := filepath.Join(tempDir, "test_image.png")
-	if err := os.WriteFile(filePath, pngBuf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(filePath, pngBuf.Bytes(), 0o644); err != nil {
 		t.Fatalf("failed to write test png: %v", err)
 	}
 

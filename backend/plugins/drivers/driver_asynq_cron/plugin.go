@@ -5,6 +5,9 @@
 package driver_asynq_cron
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
 	"context"
 	"embed"
 	"encoding/json"
@@ -13,10 +16,6 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 )
 
 //go:embed migrations/*/*.sql

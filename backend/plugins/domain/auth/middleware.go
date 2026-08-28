@@ -4,17 +4,16 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/trace"
+	"Wavelet/pkg/util"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/trace"
-	"Wavelet/pkg/util"
 )
 
 func hashToken(token string) string {

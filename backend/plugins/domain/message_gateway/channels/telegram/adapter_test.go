@@ -4,12 +4,11 @@
 package telegram
 
 import (
+	"Wavelet/plugins/domain/message_gateway"
 	"context"
 	"testing"
 
 	tele "gopkg.in/telebot.v4"
-
-	"Wavelet/plugins/domain/message_gateway"
 )
 
 func TestHandleUpdate_DropsGroups(t *testing.T) {

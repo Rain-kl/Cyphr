@@ -4,15 +4,14 @@
 package logger_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/logger"
 	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/infra/logger"
 )
 
 func TestLoggerPluginOperations(t *testing.T) {

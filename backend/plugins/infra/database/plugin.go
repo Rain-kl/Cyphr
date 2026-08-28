@@ -5,12 +5,11 @@
 package database
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 // Option configures the database plugin.

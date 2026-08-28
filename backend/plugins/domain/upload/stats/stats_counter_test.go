@@ -4,15 +4,14 @@
 package stats
 
 import (
+	"Wavelet/pkg/testhelper"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/testhelper"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 type mockDBService struct {

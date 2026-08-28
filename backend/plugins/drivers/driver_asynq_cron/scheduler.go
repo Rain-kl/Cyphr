@@ -4,6 +4,8 @@
 package driver_asynq_cron
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"context"
 	"fmt"
 	"os/signal"
@@ -12,9 +14,6 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
 )
 
 var (
@@ -153,7 +152,7 @@ func ReloadScheduler() error {
 	return nil
 }
 
-func waitForStop(done <-chan struct{}, signals <-chan struct{}) bool {
+func waitForStop(done, signals <-chan struct{}) bool {
 	select {
 	case <-done:
 		return false

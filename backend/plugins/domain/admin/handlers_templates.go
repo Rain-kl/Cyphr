@@ -4,14 +4,13 @@
 package admin
 
 import (
+	"Wavelet/pkg/response"
 	"context"
 	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/response"
 )
 
 // CreateTemplateRequest 创建模板请求

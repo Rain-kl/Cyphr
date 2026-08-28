@@ -4,6 +4,16 @@
 package domain_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/admin"
+	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/risk_control"
+	"Wavelet/plugins/domain/user"
+	"Wavelet/plugins/infra/cache"
+	"Wavelet/plugins/infra/logger"
+	"Wavelet/plugins/infra/storage"
 	"context"
 	"io/fs"
 	"path/filepath"
@@ -16,17 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/admin"
-	"Wavelet/plugins/domain/auth"
-	"Wavelet/plugins/domain/message_gateway"
-	"Wavelet/plugins/domain/risk_control"
-	"Wavelet/plugins/domain/user"
-	"Wavelet/plugins/infra/cache"
 	db "Wavelet/plugins/infra/database"
-	"Wavelet/plugins/infra/logger"
-	"Wavelet/plugins/infra/storage"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {

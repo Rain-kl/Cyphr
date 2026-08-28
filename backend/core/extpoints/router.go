@@ -21,7 +21,7 @@ type RouteDefinition struct {
 type RouterExtension interface {
 	Use(middlewares ...any)
 	Group(prefix string, middlewares ...any) RouterExtension
-	Handle(method string, path string, handlers ...any) RouteDefinition
+	Handle(method, path string, handlers ...any) RouteDefinition
 	GET(path string, handlers ...any) RouteDefinition
 	POST(path string, handlers ...any) RouteDefinition
 	PUT(path string, handlers ...any) RouteDefinition

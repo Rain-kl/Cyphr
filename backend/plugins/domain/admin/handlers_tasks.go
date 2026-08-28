@@ -4,6 +4,9 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,10 +15,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
 )
 
 // ListTaskTypes 获取支持的任务类型列表

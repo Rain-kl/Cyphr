@@ -5,16 +5,15 @@
 package message_gateway
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
+	"Wavelet/pkg/util"
 	"context"
 	"embed"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/core/extpoints"
-	"Wavelet/pkg/util"
 )
 
 //go:embed migrations/*/*.sql

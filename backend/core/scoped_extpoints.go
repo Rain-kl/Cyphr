@@ -30,7 +30,7 @@ func (s *scopedRouterExtension) Group(prefix string, middlewares ...any) extpoin
 	return newScopedRouterExtension(s.ctx, subGroup)
 }
 
-func (s *scopedRouterExtension) Handle(method string, path string, handlers ...any) extpoints.RouteDefinition {
+func (s *scopedRouterExtension) Handle(method, path string, handlers ...any) extpoints.RouteDefinition {
 	rd := s.underlying.Handle(method, path, handlers...)
 	routeID := rd.ID
 	s.ctx.OnDispose(func() error {
@@ -141,7 +141,7 @@ func newScopedScheduleExtension(ctx *Context, underlying extpoints.ScheduleExten
 	}
 }
 
-func (s *scopedScheduleExtension) Register(spec string, taskType string, payload any, opts ...extpoints.ScheduleOption) {
+func (s *scopedScheduleExtension) Register(spec, taskType string, payload any, opts ...extpoints.ScheduleOption) {
 	s.underlying.Register(spec, taskType, payload, opts...)
 	s.ctx.OnDispose(func() error {
 		s.underlying.Unregister(taskType)
@@ -149,7 +149,7 @@ func (s *scopedScheduleExtension) Register(spec string, taskType string, payload
 	})
 }
 
-func (s *scopedScheduleExtension) RegisterCron(spec string, taskType string, payload any, opts ...extpoints.ScheduleOption) {
+func (s *scopedScheduleExtension) RegisterCron(spec, taskType string, payload any, opts ...extpoints.ScheduleOption) {
 	s.Register(spec, taskType, payload, opts...)
 }
 

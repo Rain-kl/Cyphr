@@ -4,6 +4,11 @@
 package handler
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"archive/zip"
 	"bytes"
 	"context"
@@ -22,11 +27,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 )
 
@@ -112,8 +112,8 @@ func (s *handlerTestStorage) Put(_ context.Context, key string, body io.Reader, 
 		*s.putCount++
 	}
 	if strings.HasPrefix(key, "uploads/") {
-		_ = os.MkdirAll(filepath.Dir(key), 0755)
-		_ = os.WriteFile(key, data, 0644)
+		_ = os.MkdirAll(filepath.Dir(key), 0o755)
+		_ = os.WriteFile(key, data, 0o644)
 	}
 	return contracts.StoragePutResult{Key: key, Bucket: "test-bucket"}, nil
 }
@@ -367,11 +367,11 @@ func TestDownloadFile(t *testing.T) {
 	}
 
 	// Create local file
-	err := os.MkdirAll("uploads", 0755)
+	err := os.MkdirAll("uploads", 0o755)
 	if err != nil {
 		t.Fatalf("failed to create directory: %v", err)
 	}
-	err = os.WriteFile(localUpload.FilePath, []byte("hello download"), 0644)
+	err = os.WriteFile(localUpload.FilePath, []byte("hello download"), 0o644)
 	if err != nil {
 		t.Fatalf("failed to write file: %v", err)
 	}
@@ -563,14 +563,14 @@ func TestBatchDownloadFiles(t *testing.T) {
 	router := setupTestRouter(authUser)
 
 	// Create and write files locally
-	err := os.MkdirAll("uploads", 0755)
+	err := os.MkdirAll("uploads", 0o755)
 	if err != nil {
 		t.Fatalf("failed to create local dir: %v", err)
 	}
 
-	_ = os.WriteFile("uploads/f1.txt", []byte("file1 content"), 0644)
-	_ = os.WriteFile("uploads/f2.txt", []byte("file2 content"), 0644)
-	_ = os.WriteFile("uploads/f3.txt", []byte("duplicate name file content"), 0644)
+	_ = os.WriteFile("uploads/f1.txt", []byte("file1 content"), 0o644)
+	_ = os.WriteFile("uploads/f2.txt", []byte("file2 content"), 0o644)
+	_ = os.WriteFile("uploads/f3.txt", []byte("duplicate name file content"), 0o644)
 
 	// Seed upload records. Note f2 and f3 have the same FileName "file_a.txt" to trigger name collision resolution.
 	uploads := []models.Upload{

@@ -4,15 +4,14 @@
 package user
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/util"
 	"context"
 	"strings"
 	"sync"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/util"
 )
 
 var (

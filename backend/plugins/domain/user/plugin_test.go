@@ -4,6 +4,9 @@
 package user_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/user"
 	"context"
 	"path/filepath"
 	"testing"
@@ -13,9 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/user"
 	database "Wavelet/plugins/infra/database"
 )
 

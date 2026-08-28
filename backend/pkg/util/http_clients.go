@@ -4,14 +4,13 @@
 package util
 
 import (
+	"Wavelet/pkg/httppool"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
-
-	"Wavelet/pkg/httppool"
 )
 
 // IsLocalhost 检查 URL 是否为 localhost

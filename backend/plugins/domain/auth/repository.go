@@ -4,13 +4,12 @@
 package auth
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"sync"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 var (
@@ -120,6 +119,6 @@ func ListExternalAccountsByUserID(ctx context.Context, userID uint64) ([]Externa
 }
 
 // UnbindExternalAccount 解绑外部账号
-func UnbindExternalAccount(ctx context.Context, id uint64, userID uint64) error {
+func UnbindExternalAccount(ctx context.Context, id, userID uint64) error {
 	return getDB(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&ExternalAccount{}).Error
 }

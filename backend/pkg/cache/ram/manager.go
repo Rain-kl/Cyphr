@@ -31,7 +31,7 @@ type CacheItem struct {
 // Loader is an interface that the cache client must implement to handle database retrieval.
 type Loader interface {
 	LoadAll(ctx context.Context, configType string) ([]CacheItem, error)
-	LoadOne(ctx context.Context, configType string, key string) (CacheItem, error)
+	LoadOne(ctx context.Context, configType, key string) (CacheItem, error)
 }
 
 type cacheEntry struct {
@@ -59,7 +59,7 @@ func getWriteLock(configType string) *sync.Mutex {
 
 // Get retrieves a cache item from the local cache store, checking for expiration.
 // Reads are completely lock-free because maps stored in Otter are immutable.
-func Get(configType string, key string) (CacheItem, bool) {
+func Get(configType, key string) (CacheItem, bool) {
 	m, ok := managerCache.GetIfPresent(configType)
 	if !ok {
 		return CacheItem{}, false
@@ -80,7 +80,7 @@ func Get(configType string, key string) (CacheItem, bool) {
 	return entry.item, true
 }
 
-func deleteKeyIfExpired(configType string, key string, expireAt time.Time) {
+func deleteKeyIfExpired(configType, key string, expireAt time.Time) {
 	lock := getWriteLock(configType)
 	lock.Lock()
 	defer lock.Unlock()
@@ -138,7 +138,7 @@ func Set(item CacheItem) {
 
 // Delete removes a single item from the local cache store.
 // Writes are protected by a fine-grained lock per configType.
-func Delete(configType string, key string) {
+func Delete(configType, key string) {
 	lock := getWriteLock(configType)
 	lock.Lock()
 	defer lock.Unlock()
@@ -196,7 +196,7 @@ func GetTypeItems(configType string) []CacheItem {
 }
 
 // Refresh reloads configuration cache from database via the Loader.
-func Refresh(ctx context.Context, configType string, key string, loader Loader) error {
+func Refresh(ctx context.Context, configType, key string, loader Loader) error {
 	if configType == "" {
 		return errors.New("type is required")
 	}

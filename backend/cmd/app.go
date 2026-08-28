@@ -4,17 +4,6 @@
 package cmd
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-	"io/fs"
-	"log"
-	"path/filepath"
-	"time"
-
-	"github.com/pressly/goose/v3"
-	goosedb "github.com/pressly/goose/v3/database"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/config"
@@ -33,9 +22,20 @@ import (
 	"Wavelet/plugins/drivers/driver_inproc_worker"
 	"Wavelet/plugins/infra/cache"
 	"Wavelet/plugins/infra/cache_memory"
-	infradb "Wavelet/plugins/infra/database"
 	"Wavelet/plugins/infra/logger"
 	"Wavelet/plugins/infra/storage"
+	"context"
+	"database/sql"
+	"fmt"
+	"io/fs"
+	"log"
+	"path/filepath"
+	"time"
+
+	"github.com/pressly/goose/v3"
+	goosedb "github.com/pressly/goose/v3/database"
+
+	infradb "Wavelet/plugins/infra/database"
 )
 
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.

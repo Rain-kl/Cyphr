@@ -5,6 +5,8 @@
 package telegram
 
 import (
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/message_gateway"
 	"context"
 	"fmt"
 	"os"
@@ -13,9 +15,6 @@ import (
 	"strings"
 
 	tele "gopkg.in/telebot.v4"
-
-	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/message_gateway"
 )
 
 // Adapter is a Telegram private-chat channel.

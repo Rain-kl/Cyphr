@@ -4,6 +4,13 @@
 package risk_control_test
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/batchwriter"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/testhelper"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/risk_control"
+	"Wavelet/plugins/domain/risk_control/logstore"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -14,14 +21,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/batchwriter"
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/testhelper"
-	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/risk_control"
-	"Wavelet/plugins/domain/risk_control/logstore"
 )
 
 func newTestAccessLogWriter(t *testing.T, cfg batchwriter.Config) (*batchwriter.Writer[*logstore.UserAccessLog], func() []*logstore.UserAccessLog) {

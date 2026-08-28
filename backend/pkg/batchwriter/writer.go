@@ -242,7 +242,7 @@ func (w *Writer[T]) run() {
 	}
 }
 
-func (w *Writer[T]) shouldFlushOnInterval(batchLen int, batchStartedAt time.Time, now time.Time) bool {
+func (w *Writer[T]) shouldFlushOnInterval(batchLen int, batchStartedAt, now time.Time) bool {
 	if batchLen == 0 {
 		return false
 	}

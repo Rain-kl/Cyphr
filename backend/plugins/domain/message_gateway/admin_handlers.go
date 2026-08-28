@@ -4,12 +4,11 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/response"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/pkg/response"
 )
 
 // ListAdminChannelDefinitions returns form schemas for supported channel types.

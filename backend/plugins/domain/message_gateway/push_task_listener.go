@@ -4,13 +4,12 @@
 package message_gateway
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"context"
 	"encoding/json"
 	"strconv"
 	"time"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
 )
 
 func handleTaskCompleted(ctx context.Context, e contracts.TaskCompletedEvent) {
@@ -59,7 +58,7 @@ func handleTaskCompleted(ctx context.Context, e contracts.TaskCompletedEvent) {
 	}
 }
 
-func extractUserFromMap(ctx context.Context, data map[string]any, body map[string]any) {
+func extractUserFromMap(ctx context.Context, data, body map[string]any) {
 	if u, exists := body["user"]; exists && u != nil {
 		return
 	}

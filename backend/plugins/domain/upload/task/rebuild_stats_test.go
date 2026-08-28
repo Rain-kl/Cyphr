@@ -4,12 +4,11 @@
 package task
 
 import (
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"testing"
 	"time"
-
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 func TestRebuildUploadStatsHandler_Execute(t *testing.T) {

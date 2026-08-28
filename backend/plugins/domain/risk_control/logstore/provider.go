@@ -4,14 +4,13 @@
 package logstore
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/logger"
 )
 
 const (

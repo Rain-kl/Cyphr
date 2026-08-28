@@ -5,6 +5,10 @@
 package task
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"errors"
 	"fmt"
@@ -12,11 +16,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/logger"
 	uploadcache "Wavelet/plugins/domain/upload/cache"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
+
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )

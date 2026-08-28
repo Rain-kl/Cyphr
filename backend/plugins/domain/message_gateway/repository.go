@@ -4,13 +4,12 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/idgen"
 	"context"
 	"errors"
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/idgen"
 )
 
 const (

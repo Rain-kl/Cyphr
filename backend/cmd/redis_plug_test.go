@@ -4,6 +4,10 @@
 package cmd
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
+	"Wavelet/pkg/config"
 	"context"
 	"fmt"
 	"sync/atomic"
@@ -12,11 +16,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/core/extpoints"
-	"Wavelet/pkg/config"
 )
 
 func TestRedisPluggability_Simulation(t *testing.T) {

@@ -4,6 +4,7 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/response"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"Wavelet/pkg/response"
 	pkgpush "Wavelet/plugins/domain/message_gateway/push"
 )
 

@@ -6,13 +6,12 @@
 package admin
 
 import (
+	"Wavelet/pkg/logger"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
-
-	"Wavelet/pkg/logger"
 )
 
 const installedBinaryMode = 0o755

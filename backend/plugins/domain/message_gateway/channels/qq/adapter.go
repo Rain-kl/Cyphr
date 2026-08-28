@@ -5,16 +5,14 @@
 package qq
 
 import (
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/message_gateway"
 	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
-
-	"Wavelet/pkg/util"
-
-	"Wavelet/pkg/logger"
-	"Wavelet/plugins/domain/message_gateway"
 
 	"github.com/tencent-connect/botgo"
 	"github.com/tencent-connect/botgo/dto"

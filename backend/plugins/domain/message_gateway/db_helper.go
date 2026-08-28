@@ -4,13 +4,12 @@
 package message_gateway
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"sync"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 var (

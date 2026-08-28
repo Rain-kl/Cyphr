@@ -5,6 +5,9 @@
 package driver_http
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"fmt"
@@ -14,10 +17,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/util"
 )
 
 const (

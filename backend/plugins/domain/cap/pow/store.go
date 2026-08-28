@@ -14,12 +14,12 @@ import (
 // Store defines the storage interface for challenge nonces and verification tokens
 type Store interface {
 	Get(ctx context.Context, key string) (string, bool, error)
-	Set(ctx context.Context, key string, val string, ttl time.Duration) error
+	Set(ctx context.Context, key, val string, ttl time.Duration) error
 	Delete(ctx context.Context, key string) error
 	// SetNX atomically sets key=val with the given TTL only when the key does not
 	// exist yet. It returns true when the key was actually written (i.e. this
 	// caller "won" the race), and false when the key already existed.
-	SetNX(ctx context.Context, key string, val string, ttl time.Duration) (bool, error)
+	SetNX(ctx context.Context, key, val string, ttl time.Duration) (bool, error)
 	// GetAndDelete atomically retrieves the value of key and removes it in a
 	// single operation. Returns ("", false, nil) when the key does not exist.
 	GetAndDelete(ctx context.Context, key string) (string, bool, error)
@@ -68,7 +68,7 @@ func (s *MemoryStore) getLocked(key string) (string, bool, error) {
 }
 
 // Set 向 MemoryStore 写入指定 key 的值
-func (s *MemoryStore) Set(_ context.Context, key string, val string, ttl time.Duration) error {
+func (s *MemoryStore) Set(_ context.Context, key, val string, ttl time.Duration) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.items[key] = memoryItem{
@@ -88,7 +88,7 @@ func (s *MemoryStore) Delete(_ context.Context, key string) error {
 
 // SetNX atomically sets key only when it is absent (or expired).
 // Returns true if the key was written by this call.
-func (s *MemoryStore) SetNX(_ context.Context, key string, val string, ttl time.Duration) (bool, error) {
+func (s *MemoryStore) SetNX(_ context.Context, key, val string, ttl time.Duration) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -159,7 +159,7 @@ func (s *RedisStore) Get(ctx context.Context, key string) (string, bool, error) 
 }
 
 // Set 向 RedisStore 写入指定 key 的值
-func (s *RedisStore) Set(ctx context.Context, key string, val string, ttl time.Duration) error {
+func (s *RedisStore) Set(ctx context.Context, key, val string, ttl time.Duration) error {
 	return s.client.Set(ctx, key, val, ttl).Err()
 }
 
@@ -169,7 +169,7 @@ func (s *RedisStore) Delete(ctx context.Context, key string) error {
 }
 
 // SetNX wraps Redis SET NX – returns true only when the key was newly created.
-func (s *RedisStore) SetNX(ctx context.Context, key string, val string, ttl time.Duration) (bool, error) {
+func (s *RedisStore) SetNX(ctx context.Context, key, val string, ttl time.Duration) (bool, error) {
 	return s.client.SetNX(ctx, key, val, ttl).Result()
 }
 

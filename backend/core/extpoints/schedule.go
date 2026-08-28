@@ -28,8 +28,8 @@ func WithScheduleOption(key string, val any) ScheduleOption {
 
 // ScheduleExtension defines the interface for registering and querying cron/scheduled tasks.
 type ScheduleExtension interface {
-	Register(spec string, taskType string, payload any, opts ...ScheduleOption)
-	RegisterCron(spec string, taskType string, payload any, opts ...ScheduleOption)
+	Register(spec, taskType string, payload any, opts ...ScheduleOption)
+	RegisterCron(spec, taskType string, payload any, opts ...ScheduleOption)
 	Schedules() []ScheduleDefinition
 	Get(taskType string) (ScheduleDefinition, bool)
 	Unregister(taskType string) bool
@@ -50,7 +50,7 @@ func NewScheduleRegistry() *ScheduleRegistry {
 }
 
 // Register adds a schedule definition.
-func (s *ScheduleRegistry) Register(spec string, taskType string, payload any, opts ...ScheduleOption) {
+func (s *ScheduleRegistry) Register(spec, taskType string, payload any, opts ...ScheduleOption) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -82,7 +82,7 @@ func (s *ScheduleRegistry) Register(spec string, taskType string, payload any, o
 }
 
 // RegisterCron is an alias for Register.
-func (s *ScheduleRegistry) RegisterCron(spec string, taskType string, payload any, opts ...ScheduleOption) {
+func (s *ScheduleRegistry) RegisterCron(spec, taskType string, payload any, opts ...ScheduleOption) {
 	s.Register(spec, taskType, payload, opts...)
 }
 

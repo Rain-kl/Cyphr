@@ -5,6 +5,9 @@
 package user
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
 	"context"
 	"errors"
 	"fmt"
@@ -12,10 +15,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/idgen"
 
 	pkgu "Wavelet/pkg/util"
 )

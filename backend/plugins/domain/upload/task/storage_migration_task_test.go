@@ -4,6 +4,9 @@
 package task
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,9 +16,6 @@ import (
 	"strings"
 	"testing"
 
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
 
@@ -25,11 +25,11 @@ func TestMigrationHandlerExecute(t *testing.T) {
 
 	sourceRoot := t.TempDir()
 	sourcePath := filepath.Join(sourceRoot, "uploads", "test.txt")
-	if err := os.MkdirAll(filepath.Dir(sourcePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
 		t.Fatalf("MkdirAll(%q) returned error: %v", sourcePath, err)
 	}
 	const content = "storage migration"
-	if err := os.WriteFile(sourcePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(sourcePath, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile(%q) returned error: %v", sourcePath, err)
 	}
 
@@ -100,11 +100,11 @@ func TestMigrationHandlerExecuteWithHashValidation(t *testing.T) {
 
 	sourceRoot := t.TempDir()
 	sourcePath := filepath.Join(sourceRoot, "uploads", "test-hash.txt")
-	if err := os.MkdirAll(filepath.Dir(sourcePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(sourcePath), 0o755); err != nil {
 		t.Fatalf("MkdirAll(%q) returned error: %v", sourcePath, err)
 	}
 	const content = "storage migration integrity check content"
-	if err := os.WriteFile(sourcePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(sourcePath, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile(%q) returned error: %v", sourcePath, err)
 	}
 

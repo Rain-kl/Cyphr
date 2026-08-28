@@ -4,11 +4,6 @@
 package handler
 
 import (
-	"net/http"
-	"strconv"
-
-	"github.com/gin-gonic/gin"
-
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/util"
@@ -16,6 +11,11 @@ import (
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/repository"
 	"Wavelet/plugins/domain/upload/shared"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
 

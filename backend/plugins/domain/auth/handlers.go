@@ -4,6 +4,11 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"fmt"
@@ -12,18 +17,11 @@ import (
 	"strings"
 	"time"
 
-	"Wavelet/core/contracts"
-
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 )
 
 // GetLoginSources 获取可用登录源列表

@@ -4,13 +4,12 @@
 package core
 
 import (
+	"Wavelet/core/extpoints"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
-
-	"Wavelet/core/extpoints"
 )
 
 // Context is the central micro-kernel service bus and runtime lifecycle container.
@@ -103,7 +102,7 @@ func (c *Context) GoContext() context.Context {
 }
 
 // Set stores an arbitrary key-value pair in this Context's local storage.
-func (c *Context) Set(key any, val any) {
+func (c *Context) Set(key, val any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.values == nil {

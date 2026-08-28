@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"Wavelet/pkg/response"
 	"context"
 	"net/http"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	pkgcache "Wavelet/pkg/cache/disk"
-	"Wavelet/pkg/response"
 )
 
 type updateCacheConfigRequest struct {

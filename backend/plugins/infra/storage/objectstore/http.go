@@ -4,13 +4,12 @@
 package objectstore
 
 import (
+	"Wavelet/pkg/httppool"
 	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
-
-	"Wavelet/pkg/httppool"
 )
 
 func getHTTPObject(ctx context.Context, baseURL, key string) (*Object, error) {

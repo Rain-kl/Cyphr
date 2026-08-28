@@ -4,6 +4,8 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,9 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	gsessions "github.com/gorilla/sessions"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 )
 
 // GetSessionOptions 根据配置构建 Session 选项

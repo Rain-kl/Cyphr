@@ -4,6 +4,7 @@
 package logstore
 
 import (
+	"Wavelet/pkg/idgen"
 	"context"
 	"errors"
 	"fmt"
@@ -12,8 +13,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/idgen"
 )
 
 const (

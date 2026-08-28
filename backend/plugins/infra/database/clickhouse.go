@@ -5,6 +5,7 @@
 package database
 
 import (
+	"Wavelet/pkg/config"
 	"context"
 	"fmt"
 	"log"
@@ -19,8 +20,6 @@ import (
 	clickhouseDriver "gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
 	"gorm.io/plugin/opentelemetry/tracing"
-
-	"Wavelet/pkg/config"
 )
 
 const (

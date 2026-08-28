@@ -4,13 +4,12 @@
 package cmd
 
 import (
+	"Wavelet/core"
+	"Wavelet/pkg/config"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/pkg/config"
 )
 
 func TestNewWaveletAppProfiles(t *testing.T) {

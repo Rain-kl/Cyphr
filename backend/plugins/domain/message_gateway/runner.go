@@ -4,10 +4,9 @@
 package message_gateway
 
 import (
+	"Wavelet/pkg/logger"
 	"context"
 	"sync"
-
-	"Wavelet/pkg/logger"
 )
 
 // Runner manages lifecycle for long-lived channel adapters (WebSocket, long-polling, etc.).

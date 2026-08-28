@@ -37,6 +37,7 @@ linters:
     dupl:
       threshold: 80
 
+
     cyclop:
       max-complexity: 20
       package-average: 10
@@ -53,6 +54,12 @@ linters:
         - argument
         - condition
         - return
+
+
+# 完整上报所有问题（取消 golangci 默认 50/3 截断，保证 code-check 与度量真实）
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 formatters:
   enable:

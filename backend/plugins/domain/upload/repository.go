@@ -4,14 +4,13 @@
 package upload
 
 import (
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"strings"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/idgen"
-	"Wavelet/pkg/util"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 // UploadListFilter filters paginated upload queries.

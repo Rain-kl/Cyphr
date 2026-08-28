@@ -5,20 +5,19 @@
 package util
 
 import (
+	"Wavelet/plugins/domain/upload/shared"
 	"bytes"
 	"errors"
 	"fmt"
-	"image"
-	_ "image/gif"  // Register GIF decoder for image.Decode
-	_ "image/jpeg" // Register JPEG decoder for image.Decode
-	_ "image/png"  // Register PNG decoder for image.Decode
+	"image"        // Register GIF decoder for image.Decode
+	_ "image/gif"  // Register JPEG decoder for image.Decode
+	_ "image/jpeg" // Register PNG decoder for image.Decode
+	_ "image/png"
 	"io"
 	"strings"
 
 	"github.com/deepteams/webp"
 	_ "golang.org/x/image/webp" // Register WebP decoder for image.Decode
-
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 // ValidateS3Key validates an S3 object key for safety.

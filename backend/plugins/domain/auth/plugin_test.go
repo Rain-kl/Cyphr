@@ -4,6 +4,9 @@
 package auth_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/auth"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,10 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/auth"
 )
 
 type mockDBService struct {
@@ -84,6 +83,7 @@ func (m *mockProvider) Name() string { return "custom" }
 func (m *mockProvider) GetAuthURL(state string) string {
 	return "https://custom.com/auth?state=" + state
 }
+
 func (m *mockProvider) ExchangeCode(ctx context.Context, code string) (*contracts.OAuthUserInfoDTO, error) {
 	return &contracts.OAuthUserInfoDTO{
 		ID:       555,

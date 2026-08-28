@@ -4,14 +4,13 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
 	"encoding/json"
 	"errors"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"Wavelet/core/contracts"
 )
 
 var authSourceNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`)

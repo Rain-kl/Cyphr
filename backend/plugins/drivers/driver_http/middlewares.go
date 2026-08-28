@@ -5,6 +5,9 @@
 package driver_http
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
 	"context"
 	"net/http"
 	"strconv"
@@ -15,9 +18,6 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
 	otel_trace "Wavelet/pkg/trace"
 )
 

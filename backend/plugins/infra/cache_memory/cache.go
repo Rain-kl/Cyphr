@@ -4,13 +4,12 @@
 package cache_memory
 
 import (
-	"context"
-	"encoding/json"
-	"time"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/cache/ram"
+	"context"
+	"encoding/json"
+	"time"
 )
 
 type ramEntry struct {

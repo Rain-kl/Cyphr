@@ -4,14 +4,13 @@
 package admin
 
 import (
+	"Wavelet/pkg/cache/ram"
 	"context"
 	"encoding/json"
 	"errors"
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/cache/ram"
 )
 
 const (
@@ -57,7 +56,7 @@ func (ConfigLoader) LoadAll(ctx context.Context, configType string) ([]ram.Cache
 }
 
 // LoadOne loads a single system config from database as CacheItem.
-func (ConfigLoader) LoadOne(ctx context.Context, configType string, key string) (ram.CacheItem, error) {
+func (ConfigLoader) LoadOne(ctx context.Context, configType, key string) (ram.CacheItem, error) {
 	cfg, err := GetSystemConfigByKey(ctx, key)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

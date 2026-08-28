@@ -99,7 +99,7 @@ func (r *LogRingBuffer) appendLine(line string) {
 // cursor=0 表示查询最新日志，cursor>0 表示查询 index < cursor 的更早日志
 // limit 为返回条数上限
 // 返回日志条目（按 index 升序）和是否有更早的日志
-func (r *LogRingBuffer) Query(cursor int, limit int) ([]LogEntry, bool) {
+func (r *LogRingBuffer) Query(cursor, limit int) ([]LogEntry, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

@@ -4,6 +4,9 @@
 package task
 
 import (
+	"Wavelet/plugins/domain/upload/filesrv"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,10 +20,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/plugins/domain/upload/filesrv"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 func TestSystemCleanupHandler_Execute(t *testing.T) {

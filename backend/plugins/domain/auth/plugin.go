@@ -5,13 +5,12 @@
 package auth
 
 import (
-	"context"
-	"embed"
-	"reflect"
-
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"context"
+	"embed"
+	"reflect"
 )
 
 //go:embed migrations/*/*.sql

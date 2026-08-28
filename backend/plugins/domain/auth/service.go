@@ -4,14 +4,13 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"sync"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/util"
 )
 
 type authServiceImpl struct{}

@@ -5,9 +5,8 @@
 package stats
 
 import (
-	"strings"
-
 	"Wavelet/plugins/domain/upload/util"
+	"strings"
 )
 
 const (

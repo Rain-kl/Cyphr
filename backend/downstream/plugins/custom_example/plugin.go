@@ -6,12 +6,11 @@
 package custom_example
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 // Plugin implements core.Plugin for the custom_example downstream plugin.

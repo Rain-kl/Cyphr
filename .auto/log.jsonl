@@ -1,0 +1,1 @@
+{"ts":"2026-08-28T00:00:00Z","iter":0,"type":"baseline","metrics":{"lint_issues":45,"dup_issues":15,"tests_passed":44},"description":"baseline: 45 golangci issues (15 dupl), all tests pass","asi":{"note":"quick wins queue: gofumpt(4)+revive(8); then goconst/mnd; gosec; nilerr bug; contextcheck; dupl batches; nestif"}}

@@ -4,6 +4,11 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,12 +21,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
-	"Wavelet/pkg/util"
 )
 
 const (

@@ -4,13 +4,12 @@
 package handler
 
 import (
+	"Wavelet/pkg/response"
+	"Wavelet/plugins/domain/upload/shared"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/pkg/response"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 type trendItem struct {

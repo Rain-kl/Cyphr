@@ -33,7 +33,7 @@ const (
 // signKey: 64 字符 hex 编码的密钥（对应 32 字节，用于 AES-256）
 // plaintext: 要加密的明文字符串
 // return: base64 编码的密文
-func Encrypt(signKey string, plaintext string) (string, error) {
+func Encrypt(signKey, plaintext string) (string, error) {
 	return encryptBytes(signKey, []byte(plaintext))
 }
 
@@ -41,7 +41,7 @@ func Encrypt(signKey string, plaintext string) (string, error) {
 // signKey: 64 字符 hex 编码的密钥（对应 32 字节，用于 AES-256）
 // ciphertext: base64 编码的密文
 // return: 解密后的明文字符串
-func Decrypt(signKey string, ciphertext string) (string, error) {
+func Decrypt(signKey, ciphertext string) (string, error) {
 	plaintext, err := decryptBytes(signKey, ciphertext)
 	if err != nil {
 		return "", err
@@ -86,7 +86,7 @@ func encryptBytes(signKey string, plaintext []byte) (string, error) {
 }
 
 // decryptBytes 解密函数，处理字节数据
-func decryptBytes(signKey string, ciphertext string) ([]byte, error) {
+func decryptBytes(signKey, ciphertext string) ([]byte, error) {
 	// 将 hex 编码的密钥转换为字节
 	key, err := hex.DecodeString(signKey)
 	if err != nil {

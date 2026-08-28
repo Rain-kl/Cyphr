@@ -4,12 +4,11 @@
 package auth
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/cache/ram"
 	"context"
 	"fmt"
 	"time"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/cache/ram"
 )
 
 const (

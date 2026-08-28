@@ -5,12 +5,11 @@
 package driver_inproc_worker
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"sync"
 	"time"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 const (

@@ -4,6 +4,9 @@
 package admin
 
 import (
+	"Wavelet/pkg/config"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
 	"context"
 	"errors"
 	"fmt"
@@ -14,10 +17,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/config"
-	"Wavelet/pkg/logger"
-	"Wavelet/pkg/response"
 )
 
 var startTime = time.Now()

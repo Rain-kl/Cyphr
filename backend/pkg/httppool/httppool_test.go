@@ -52,7 +52,7 @@ func TestNewTransportUsesConfiguredDirectDialer(t *testing.T) {
 	dialer := &net.Dialer{}
 	transport := NewTransport(TransportOptions{
 		Proxy: nil,
-		DialContext: func(ctx context.Context, network string, address string) (net.Conn, error) {
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 			dialedAddress = address
 			return dialer.DialContext(ctx, network, server.Listener.Addr().String())
 		},

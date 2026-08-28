@@ -5,6 +5,8 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"context"
 	"embed"
 	"errors"
@@ -14,9 +16,6 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
 )
 
 const (
@@ -345,7 +344,7 @@ func (s *taskServiceImpl) GetTaskMeta(taskType string) (contracts.TaskMetaDTO, b
 	}, true
 }
 
-func (s *taskServiceImpl) ListExecutions(ctx context.Context, taskType string, status string, page, pageSize int) ([]contracts.TaskExecutionDTO, int64, error) {
+func (s *taskServiceImpl) ListExecutions(ctx context.Context, taskType, status string, page, pageSize int) ([]contracts.TaskExecutionDTO, int64, error) {
 	db := getDB(ctx)
 	if db == nil {
 		return nil, 0, errors.New("db not initialized")

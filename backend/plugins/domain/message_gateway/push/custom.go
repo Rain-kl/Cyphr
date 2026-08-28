@@ -4,6 +4,7 @@
 package push
 
 import (
+	"Wavelet/pkg/httppool"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,8 +13,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
-	"Wavelet/pkg/httppool"
 )
 
 func init() {

@@ -4,16 +4,15 @@
 package handler
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 func TestGetDistinctUploadTypes(t *testing.T) {

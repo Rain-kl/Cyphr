@@ -4,6 +4,8 @@
 package user
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/response"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -14,9 +16,6 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/response"
 )
 
 type loginRequest struct {

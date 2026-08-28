@@ -4,10 +4,9 @@
 package qq
 
 import (
+	"Wavelet/plugins/domain/message_gateway"
 	"context"
 	"testing"
-
-	"Wavelet/plugins/domain/message_gateway"
 )
 
 func TestHandleEvent_DropsNonC2C(t *testing.T) {

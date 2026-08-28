@@ -4,6 +4,10 @@
 package storage_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/infra/storage"
+	"Wavelet/plugins/infra/storage/objectstore"
 	"bytes"
 	"context"
 	"errors"
@@ -13,11 +17,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/infra/storage"
-	"Wavelet/plugins/infra/storage/objectstore"
 )
 
 type mockStorageBackend struct {

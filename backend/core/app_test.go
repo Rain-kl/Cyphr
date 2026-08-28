@@ -4,6 +4,8 @@
 package core_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/extpoints"
 	"context"
 	"errors"
 	"sync"
@@ -13,9 +15,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/core/extpoints"
 )
 
 // appMockDriver is a test driver tracking its start/stop lifecycle.

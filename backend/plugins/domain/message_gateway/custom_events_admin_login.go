@@ -4,10 +4,9 @@
 package message_gateway
 
 import (
+	"Wavelet/core/contracts"
 	"context"
 	"time"
-
-	"Wavelet/core/contracts"
 )
 
 // AdminLogin is the metadata definition for the admin login event.

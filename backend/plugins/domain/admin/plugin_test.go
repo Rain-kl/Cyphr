@@ -4,14 +4,13 @@
 package admin_test
 
 import (
+	"Wavelet/core"
+	"Wavelet/plugins/domain/admin"
 	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"Wavelet/core"
-	"Wavelet/plugins/domain/admin"
 )
 
 func TestAdminPluginUnit(t *testing.T) {

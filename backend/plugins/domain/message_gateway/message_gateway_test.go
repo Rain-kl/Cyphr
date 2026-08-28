@@ -4,14 +4,13 @@
 package message_gateway_test
 
 import (
+	"Wavelet/pkg/testhelper"
+	"Wavelet/plugins/domain/message_gateway"
 	"context"
 	"testing"
 	"time"
 
 	"gorm.io/gorm"
-
-	"Wavelet/pkg/testhelper"
-	"Wavelet/plugins/domain/message_gateway"
 )
 
 type mockDBService struct {

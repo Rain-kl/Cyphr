@@ -4,6 +4,9 @@
 package ingest
 
 import (
+	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/upload/models"
+	"Wavelet/plugins/domain/upload/shared"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -12,10 +15,6 @@ import (
 	"os"
 	"sync"
 	"testing"
-
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/upload/models"
-	"Wavelet/plugins/domain/upload/shared"
 )
 
 type testStorageService struct {
@@ -64,7 +63,7 @@ func (s *testStorageService) Ingest(_ context.Context, _ io.Reader, _ contracts.
 	return nil, nil
 }
 
-func setupMockStorage(t *testing.T, putCount *int) (restore func(), disable func()) {
+func setupMockStorage(t *testing.T, putCount *int) (restore, disable func()) {
 	t.Helper()
 	mockSvc := &testStorageService{
 		mockFiles: make(map[string][]byte),
