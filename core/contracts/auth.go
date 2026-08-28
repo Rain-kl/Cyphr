@@ -64,14 +64,23 @@ type AuthService interface {
 	// GetCurrentUser retrieves the authenticated UserDTO from context.
 	GetCurrentUser(ctx context.Context) (*UserDTO, error)
 
+	// GetCurrentUserID retrieves the authenticated user ID from session/context.
+	GetCurrentUserID(ctx context.Context) (uint64, error)
+
 	// VerifyToken validates an access token and returns the associated user DTO.
 	VerifyToken(ctx context.Context, token string) (*UserDTO, error)
 
 	// CreateSession establishes an authenticated session for the given user ID.
 	CreateSession(ctx context.Context, userID uint64, extras map[string]any) (string, error)
 
+	// RevokeToken invalidates a specific access token by its hash.
+	RevokeToken(ctx context.Context, tokenHash string) error
+
 	// RevokeUserSessions revokes all active sessions and cached tokens for a user.
 	RevokeUserSessions(ctx context.Context, userID uint64) error
+
+	// DisallowTokenAuthMiddleware returns a middleware that rejects requests authenticated via access token.
+	DisallowTokenAuthMiddleware() any
 }
 
 // AuthRegistry allows downstream and domain plugins to register custom authentication providers.
@@ -80,3 +89,12 @@ type AuthRegistry interface {
 	GetOAuthProvider(name string) (OAuthProvider, bool)
 	ListOAuthProviders() []string
 }
+
+// Auth context keys — stored in Gin context by auth middleware, consumed by domain plugins.
+const (
+	AuthUserIDKey    = "user_id"
+	AuthUserNameKey  = "username"
+	AuthUserObjKey   = "user_obj"
+	AuthTokenAuthKey = "token_auth"  // marks if request uses access token auth
+	AuthTokenAdminKey = "token_admin" // whether the access token has admin privileges
+)

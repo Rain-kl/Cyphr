@@ -17,6 +17,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/response"
+	pkgutil "github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/cache"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
@@ -284,7 +285,7 @@ func getOriginalFileBytes(ctx context.Context, upload *models.Upload) ([]byte, e
 func checkPrivateFileOwner(c *gin.Context, ownerID uint64) error {
 	var currUserID uint64
 	var isAdmin bool
-	if u, ok := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey); ok && u != nil {
+	if u, ok := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); ok && u != nil {
 		currUserID = u.ID
 		isAdmin = u.IsAdmin
 	} else {
@@ -311,7 +312,7 @@ func CheckFileAccessPermission(c *gin.Context, upload *models.Upload) error {
 	}
 
 	if !cache.IsFilePublic(c.Request.Context(), upload.Type) {
-		if _, ok := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey); !ok {
+		if _, ok := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); !ok {
 			if _, err := auth.GetUserFromRequest(c); err != nil {
 				return err
 			}

@@ -8,11 +8,12 @@ import (
 	"context"
 
 	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/handler"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/task"
+	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
 
@@ -41,11 +42,18 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers upload routes, tasks, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	var authSvc contracts.AuthService
+	if err := core.Using[contracts.AuthService](ctx, func(svc contracts.AuthService) { authSvc = svc }); err != nil {
+		return err
+	}
+	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
+
 	// 1. Register File Server Routes
 	ctx.Router().GET("/f/:id", filesrv.ServeFileByID)
 
 	// 2. Register User/Admin Upload HTTP Routes
-	uploadGroup := ctx.Router().Group("/api/v1/upload", auth.LoginRequired())
+	uploadGroup := ctx.Router().Group("/api/v1/upload", loginMW)
 	{
 		uploadGroup.POST("", handler.UploadFile)
 		uploadGroup.GET("", handler.ListFiles)
@@ -53,7 +61,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		uploadGroup.POST("/batch-download", handler.BatchDownloadFiles)
 	}
 
-	adminUploadGroup := ctx.Router().Group("/api/v1/admin/uploads", auth.LoginRequired())
+	adminUploadGroup := ctx.Router().Group("/api/v1/admin/uploads", loginMW)
 	{
 		adminUploadGroup.GET("", handler.ListFiles)
 		adminUploadGroup.GET("/stats", handler.GetFileStats)

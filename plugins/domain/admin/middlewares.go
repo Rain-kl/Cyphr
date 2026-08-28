@@ -7,26 +7,26 @@ import (
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/pkg/trace"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/gin-gonic/gin"
 )
 
 // LoginAdminRequired 返回管理员权限校验中间件
 func LoginAdminRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, span := otel_trace.Start(c.Request.Context(), "LoginAdminRequired")
+		ctx, span := trace.Start(c.Request.Context(), "LoginAdminRequired")
 		defer span.End()
 
-		user, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+		user, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 		if user == nil {
 			response.AbortNotFound(c, AdminRequired)
 			return
 		}
 
 		// 如果是通过 Access Token 鉴权，需要检查令牌本身是否具有管理员权限
-		if tokenAuth, _ := auth.GetFromContext[bool](c, auth.TokenAuthKey); tokenAuth {
-			tokenAdmin, _ := auth.GetFromContext[bool](c, auth.TokenAdminKey)
+		if tokenAuth, _ := util.GetFromContext[bool](c, contracts.AuthTokenAuthKey); tokenAuth {
+			tokenAdmin, _ := util.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
 			if !tokenAdmin {
 				response.AbortNotFound(c, TokenAdminRequired)
 				return

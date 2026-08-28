@@ -9,8 +9,9 @@ import (
 	"embed"
 
 	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
 
@@ -70,11 +71,19 @@ type PushNotificationEvent struct {
 
 // Apply registers message_gateway migrations, routes, tasks, schedules, events, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	var authSvc contracts.AuthService
+	if err := core.Using[contracts.AuthService](ctx, func(svc contracts.AuthService) { authSvc = svc }); err != nil {
+		return err
+	}
+	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
+	adminMW := authSvc.RequireAdminMiddleware().(gin.HandlerFunc)
+
 	// 1. Register migrations
 	ctx.Migrations().Register("message_gateway", mgMigrations)
 
 	// 2. Register User HTTP Routes
-	mgGroup := ctx.Router().Group("/api/v1/message-gateway", auth.LoginRequired())
+	mgGroup := ctx.Router().Group("/api/v1/message-gateway", loginMW)
 	{
 		mgGroup.GET("/channels", ListChannels)
 		mgGroup.GET("/bindings", ListBindings)
@@ -83,7 +92,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	// 3. Register Admin Message Gateway HTTP Routes
-	adminMgGroup := ctx.Router().Group("/api/v1/admin/message-gateway", auth.LoginRequired(), auth.LoginAdminRequired())
+	adminMgGroup := ctx.Router().Group("/api/v1/admin/message-gateway", loginMW, adminMW)
 	{
 		adminMgGroup.GET("/channels/definitions", ListAdminChannelDefinitions)
 		adminMgGroup.GET("/channels", ListAdminChannels)
@@ -94,7 +103,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	// 4. Register Admin Push HTTP Routes
-	adminPushGroup := ctx.Router().Group("/api/v1/admin/push", auth.LoginRequired(), auth.LoginAdminRequired())
+	adminPushGroup := ctx.Router().Group("/api/v1/admin/push", loginMW, adminMW)
 	{
 		events := adminPushGroup.Group("/events")
 		{

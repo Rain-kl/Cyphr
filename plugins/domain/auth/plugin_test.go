@@ -133,7 +133,7 @@ func TestAuthPluginUnit(t *testing.T) {
 	require.NoError(t, authSvc.RevokeUserSessions(context.Background(), user.ID))
 
 	// GetCurrentUser from context
-	userCtx := context.WithValue(context.Background(), auth.UserObjKey, userDTO)
+	userCtx := context.WithValue(context.Background(), contracts.AuthUserObjKey, userDTO)
 	current, err := authSvc.GetCurrentUser(userCtx)
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, current.ID)

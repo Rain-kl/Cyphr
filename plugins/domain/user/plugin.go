@@ -11,7 +11,7 @@ import (
 	"github.com/Rain-kl/Wavelet/core"
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
 
@@ -64,6 +64,14 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers user migrations, services, routes, tasks, schedules, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	var authSvc contracts.AuthService
+	if err := core.Using[contracts.AuthService](ctx, func(svc contracts.AuthService) { authSvc = svc }); err != nil {
+		return err
+	}
+	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
+	noTokenMW := authSvc.DisallowTokenAuthMiddleware().(gin.HandlerFunc)
+
 	// 1. Register migrations
 	ctx.Migrations().Register("user", userMigrations)
 
@@ -80,11 +88,11 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		userGroup.POST("/register", Register)
 		userGroup.GET("/logout", Logout)
 		userGroup.POST("/send-email-code", SendEmailCode)
-		userGroup.POST("/change-password", auth.LoginRequired(), ChangePassword)
-		userGroup.PUT("/profile", auth.LoginRequired(), UpdateProfile)
+		userGroup.POST("/change-password", loginMW, ChangePassword)
+		userGroup.PUT("/profile", loginMW, UpdateProfile)
 
 		// Access Tokens
-		tokensGroup := userGroup.Group("/access-tokens", auth.LoginRequired(), auth.DisallowTokenAuth())
+		tokensGroup := userGroup.Group("/access-tokens", loginMW, noTokenMW)
 		{
 			tokensGroup.GET("", ListAccessTokens)
 			tokensGroup.POST("", CreateAccessToken)

@@ -12,26 +12,11 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	otel_trace "github.com/Rain-kl/Wavelet/pkg/trace"
+	"github.com/Rain-kl/Wavelet/pkg/trace"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
-
-// GetFromContext 从 Gin 请求上下文获取指定类型的值。
-func GetFromContext[T any](c *gin.Context, key string) (T, bool) {
-	value, exists := c.Get(key)
-	if !exists {
-		var zero T
-		return zero, false
-	}
-	typed, ok := value.(T)
-	return typed, ok
-}
-
-// SetToContext 设置值到 Gin 请求上下文。
-func SetToContext[T any](c *gin.Context, key string, value T) {
-	c.Set(key, value)
-}
 
 func hashToken(token string) string {
 	h := sha256.New()
@@ -91,8 +76,8 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 			if user.Username == SystemUsername {
 				return nil, errors.New("system user is not allowed to login")
 			}
-			SetToContext(c, TokenAuthKey, true)
-			SetToContext(c, TokenAdminKey, tokenRecord.IsAdmin)
+			util.SetToContext(c, contracts.AuthTokenAuthKey, true)
+			util.SetToContext(c, contracts.AuthTokenAdminKey, tokenRecord.IsAdmin)
 			return user, nil
 		}
 	}
@@ -113,8 +98,8 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 		SetCachedUser(ctx, userID, user)
 	}
 
-	SetToContext(c, TokenAuthKey, false)
-	SetToContext(c, TokenAdminKey, false)
+	util.SetToContext(c, contracts.AuthTokenAuthKey, false)
+	util.SetToContext(c, contracts.AuthTokenAdminKey, false)
 
 	if user.Username == "system" {
 		return nil, errors.New("system user is not allowed to login")
@@ -126,7 +111,7 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 // LoginRequired 返回登录鉴权中间件，校验 Access Token 或 Session
 func LoginRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, span := otel_trace.Start(c.Request.Context(), "LoginRequired")
+		_, span := trace.Start(c.Request.Context(), "LoginRequired")
 		defer span.End()
 
 		user, err := GetUserFromRequest(c)
@@ -135,8 +120,8 @@ func LoginRequired() gin.HandlerFunc {
 			return
 		}
 
-		LogForAudit(ctx, user, c)
-		SetToContext(c, UserObjKey, user)
+		LogForAudit(c.Request.Context(), user, c)
+		util.SetToContext(c, contracts.AuthUserObjKey, user)
 		c.Next()
 	}
 }
@@ -144,7 +129,7 @@ func LoginRequired() gin.HandlerFunc {
 // AdminRequired 校验管理员权限（支持 Session 和 Token 鉴权）
 func AdminRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx, span := otel_trace.Start(c.Request.Context(), "AdminRequired")
+		_, span := trace.Start(c.Request.Context(), "AdminRequired")
 		defer span.End()
 
 		user, err := GetUserFromRequest(c)
@@ -153,8 +138,8 @@ func AdminRequired() gin.HandlerFunc {
 			return
 		}
 
-		isTokenAuth, _ := GetFromContext[bool](c, TokenAuthKey)
-		isTokenAdmin, _ := GetFromContext[bool](c, TokenAdminKey)
+		isTokenAuth, _ := util.GetFromContext[bool](c, contracts.AuthTokenAuthKey)
+		isTokenAdmin, _ := util.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
 
 		// 如果是通过 Token 鉴权，要求该 Token 具备管理员权限或者用户本身为管理员
 		if isTokenAuth && !isTokenAdmin && !user.IsAdmin {
@@ -168,8 +153,8 @@ func AdminRequired() gin.HandlerFunc {
 			return
 		}
 
-		LogForAudit(ctx, user, c)
-		SetToContext(c, UserObjKey, user)
+		LogForAudit(c.Request.Context(), user, c)
+		util.SetToContext(c, contracts.AuthUserObjKey, user)
 		c.Next()
 	}
 }
@@ -182,7 +167,7 @@ func LoginAdminRequired() gin.HandlerFunc {
 // DisallowTokenAuth 拒绝使用 Access Token 进行身份验证的请求访问该端点
 func DisallowTokenAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if tokenAuth, _ := GetFromContext[bool](c, TokenAuthKey); tokenAuth {
+		if tokenAuth, _ := util.GetFromContext[bool](c, contracts.AuthTokenAuthKey); tokenAuth {
 			response.AbortForbidden(c, ErrTokenAuthNotAllowed)
 			return
 		}

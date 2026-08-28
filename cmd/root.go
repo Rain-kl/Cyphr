@@ -12,7 +12,6 @@ import (
 	"github.com/Rain-kl/Wavelet/pkg/buildinfo"
 	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
-	"github.com/Rain-kl/Wavelet/pkg/migrator"
 	"github.com/Rain-kl/Wavelet/pkg/trace"
 	"github.com/spf13/cobra"
 )
@@ -38,9 +37,6 @@ var rootCmd = &cobra.Command{
 			TracerName:   config.Config.Otel.TracerName,
 		})
 	},
-	PreRun: func(_ *cobra.Command, _ []string) {
-		runMigrations()
-	},
 	PersistentPostRun: func(_ *cobra.Command, _ []string) {
 		shutdownTraceProvider()
 	},
@@ -48,16 +44,6 @@ var rootCmd = &cobra.Command{
 		// 无参数时默认以融合模式启动所有服务
 		allCmd.Run(allCmd, args)
 	},
-}
-
-var latestMigrationState struct {
-	relationalDB migrator.Report
-	clickHouseDB migrator.Report
-}
-
-func runMigrations() {
-	latestMigrationState.relationalDB = migrator.Migrate()
-	latestMigrationState.clickHouseDB = migrator.MigrateClickHouse()
 }
 
 func shutdownTraceProvider() {
@@ -70,16 +56,7 @@ func init() {
 	rootCmd.Version = buildinfo.Version
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 
-	// 1. 为需要迁移的子命令动态绑定原先 rootCmd.PreRun 拥有的数据库迁移行为
-	migratePreRun := func(_ *cobra.Command, _ []string) {
-		runMigrations()
-	}
-	allCmd.PreRun = migratePreRun
-	apiCmd.PreRun = migratePreRun
-	workerCmd.PreRun = migratePreRun
-	schedulerCmd.PreRun = migratePreRun
-
-	// 2. 集中将这些命令注册为真正的子命令，以解决 Cobra 的 unknown command 校验限制
+	// 集中将子命令注册到根命令，以解决 Cobra 的 unknown command 校验限制
 	rootCmd.AddCommand(allCmd, apiCmd, workerCmd, schedulerCmd)
 }
 

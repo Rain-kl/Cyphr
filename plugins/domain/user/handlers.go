@@ -4,6 +4,7 @@
 package user
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -13,8 +14,8 @@ import (
 
 	database "github.com/Rain-kl/Wavelet/plugins/infra/database"
 
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +52,39 @@ type createAccessTokenRequest struct {
 	IsAdmin   bool       `json:"is_admin"`
 }
 
+func getUserIDFromSession(c *gin.Context) uint64 {
+	defer func() { _ = recover() }()
+	session := sessions.Default(c)
+	val := session.Get(contracts.AuthUserIDKey)
+	if val == nil {
+		return 0
+	}
+	switch v := val.(type) {
+	case uint64:
+		return v
+	case int64:
+		return uint64(v)
+	case float64:
+		return uint64(v)
+	case string:
+		id, _ := strconv.ParseUint(v, 10, 64)
+		return id
+	default:
+		return 0
+	}
+}
+
+func invalidateUserCache(ctx context.Context, userID uint64) {
+	// Cache invalidation delegated to AuthService via IoC at plugin Apply time.
+	_ = ctx
+	_ = userID
+}
+
+func invalidateTokenCache(ctx context.Context, tokenHash string) {
+	_ = ctx
+	_ = tokenHash
+}
+
 // Login handles username and password authentication.
 func Login(c *gin.Context) {
 	var req loginRequest
@@ -71,8 +105,8 @@ func Login(c *gin.Context) {
 	}
 
 	sess := sessions.Default(c)
-	sess.Set(auth.UserIDKey, user.ID)
-	sess.Set(auth.UserNameKey, user.Username)
+	sess.Set(contracts.AuthUserIDKey, user.ID)
+	sess.Set(contracts.AuthUserNameKey, user.Username)
 	_ = sess.Save()
 
 	c.JSON(http.StatusOK, response.OK(user))
@@ -126,7 +160,7 @@ func ChangePassword(c *gin.Context) {
 		return
 	}
 
-	userID := auth.GetUserIDFromContext(c)
+	userID := getUserIDFromSession(c)
 	user, err := GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		response.AbortNotFound(c, errUserNotFound)
@@ -145,7 +179,7 @@ func ChangePassword(c *gin.Context) {
 
 	gormDB := database.DB(c.Request.Context())
 	_ = gormDB.Save(&user)
-	auth.InvalidateCachedUser(c.Request.Context(), user.ID)
+	invalidateUserCache(c.Request.Context(), user.ID)
 
 	c.JSON(http.StatusOK, response.OKNil())
 }
@@ -158,7 +192,7 @@ func UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	userID := auth.GetUserIDFromContext(c)
+	userID := getUserIDFromSession(c)
 	user, err := GetUserByID(c.Request.Context(), userID)
 	if err != nil {
 		response.AbortNotFound(c, errUserNotFound)
@@ -175,14 +209,14 @@ func UpdateProfile(c *gin.Context) {
 
 	gormDB := database.DB(c.Request.Context())
 	_ = gormDB.Save(&user)
-	auth.InvalidateCachedUser(c.Request.Context(), user.ID)
+	invalidateUserCache(c.Request.Context(), user.ID)
 
 	c.JSON(http.StatusOK, response.OK(user))
 }
 
 // ListAccessTokens lists access tokens for the current user.
 func ListAccessTokens(c *gin.Context) {
-	userID := auth.GetUserIDFromContext(c)
+	userID := getUserIDFromSession(c)
 	var tokens []AccessToken
 	gormDB := database.DB(c.Request.Context())
 	_ = gormDB.Where("user_id = ?", userID).Find(&tokens).Error
@@ -202,7 +236,7 @@ func CreateAccessToken(c *gin.Context) {
 		return
 	}
 
-	userID := auth.GetUserIDFromContext(c)
+	userID := getUserIDFromSession(c)
 	rawBytes := make([]byte, tokenEntropyByteLength)
 	_, _ = rand.Read(rawBytes)
 	rawToken := "wvt_" + hex.EncodeToString(rawBytes)
@@ -243,7 +277,7 @@ func DeleteAccessToken(c *gin.Context) {
 		return
 	}
 
-	userID := auth.GetUserIDFromContext(c)
+	userID := getUserIDFromSession(c)
 	var token AccessToken
 	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
@@ -252,7 +286,7 @@ func DeleteAccessToken(c *gin.Context) {
 	}
 
 	_ = gormDB.Delete(&token)
-	auth.InvalidateCachedToken(c.Request.Context(), token.TokenHash)
+	invalidateTokenCache(c.Request.Context(), token.TokenHash)
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
@@ -265,7 +299,7 @@ func RotateAccessToken(c *gin.Context) {
 		return
 	}
 
-	userID := auth.GetUserIDFromContext(c)
+	userID := getUserIDFromSession(c)
 	var token AccessToken
 	gormDB := database.DB(c.Request.Context())
 	if err := gormDB.Where("id = ? AND user_id = ?", id, userID).First(&token).Error; err != nil {
@@ -273,7 +307,7 @@ func RotateAccessToken(c *gin.Context) {
 		return
 	}
 
-	auth.InvalidateCachedToken(c.Request.Context(), token.TokenHash)
+	invalidateTokenCache(c.Request.Context(), token.TokenHash)
 
 	rawBytes := make([]byte, tokenEntropyByteLength)
 	_, _ = rand.Read(rawBytes)

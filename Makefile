@@ -36,10 +36,32 @@ build-embedded:
 code-check:
 	@echo "==> Architecture guards..."
 	@command -v rg >/dev/null 2>&1 || { echo 'error: rg (ripgrep) is required for architecture guards' >&2; exit 1; }
-	@if [ -d pkg/model ] && rg -n 'database\.DB\(|cachepkg\.Redis' pkg/model --glob '*.go' -g '!*_test.go' ; then \
-		echo 'error: pkg/model must not access database.DB or cachepkg.Redis (non-test code)' >&2; \
+	@echo "  → core/ must not import gin, gorm, asynq..."
+	@if rg -n '"github.com/gin-gonic/gin|"gorm.io/gorm|"github.com/hibiken/asynq' core/ --glob '*.go' -g '!*_test.go' 2>/dev/null; then \
+		echo 'error: core/ must not import gin, gorm, or asynq' >&2; \
 		exit 1; \
 	fi
+	@echo "  → core/contracts/ must not import plugins/..."
+	@if rg -n 'plugins/' core/contracts --glob '*.go' 2>/dev/null; then \
+		echo 'error: core/contracts/ must not import plugins/' >&2; \
+		exit 1; \
+	fi
+	@echo "  → pkg/ must not import plugins/..."
+	@if rg -n 'plugins/' pkg --glob '*.go' -g '!*_test.go' 2>/dev/null; then \
+		echo 'error: pkg/ must not import plugins/' >&2; \
+		exit 1; \
+	fi
+	@echo "  → plugins/domain/ must not import other plugins/domain/..."
+	@for d in plugins/domain/*/; do \
+		name=$$(basename $$d); \
+		imports=$$(rg -n '"github.com/Rain-kl/Wavelet/plugins/domain/' plugins/domain/"$$name" -g '*.go' 2>/dev/null | rg -v "plugins/domain/$$name/" | rg -v '_test.go' || true); \
+		if [ -n "$$imports" ]; then \
+			echo "error: plugins/domain/$$name must not import other domain plugins" >&2; \
+			echo "$$imports" >&2; \
+			exit 1; \
+		fi; \
+	done
+	@echo "  → Architecture guards PASS"
 	golangci-lint run
 	cd frontend && pnpm tsc --noEmit --jsx preserve && npx eslint . --max-warnings 0
 

@@ -8,8 +8,9 @@ import (
 	"context"
 
 	"github.com/Rain-kl/Wavelet/core"
+	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/core/extpoints"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 )
 
@@ -47,8 +48,16 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers admin routes, tasks, schedules, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	// 0. Resolve auth service for middleware (via IoC, not direct import)
+	var authSvc contracts.AuthService
+	if err := core.Using[contracts.AuthService](ctx, func(svc contracts.AuthService) { authSvc = svc }); err != nil {
+		return err
+	}
+	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
+	adminMW := authSvc.RequireAdminMiddleware().(gin.HandlerFunc)
+
 	// 1. Register Admin HTTP Routes
-	adminRouter := ctx.Router().Group("/api/v1/admin", auth.LoginRequired(), LoginAdminRequired())
+	adminRouter := ctx.Router().Group("/api/v1/admin", loginMW, adminMW)
 	{
 		// Status & Diagnostics
 		adminRouter.GET("/status", GetSystemStatus)

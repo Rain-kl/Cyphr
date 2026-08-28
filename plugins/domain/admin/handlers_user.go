@@ -247,7 +247,7 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
-	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	if currUser == nil {
 		response.AbortUnauthorized(c, AdminRequired)
 		return
@@ -338,7 +338,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	if currUser == nil {
 		response.AbortUnauthorized(c, AdminRequired)
 		return

@@ -25,7 +25,7 @@ import (
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/logger"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	pkgutil "github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/filesrv"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
@@ -63,7 +63,7 @@ func UploadFile(c *gin.Context) {
 
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, shared.MaxUploadSize)
 
-	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+	currUser, _ := pkgutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 
 	header, err := c.FormFile("file")

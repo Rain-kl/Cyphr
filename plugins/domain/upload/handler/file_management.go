@@ -11,7 +11,7 @@ import (
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/response"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/ingest"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/repository"
@@ -168,7 +168,7 @@ type listMyFilesResponse struct {
 // @Failure 401 {object} response.Any "未登录"
 // @Router /api/v1/upload/my [get]
 func ListMyFiles(c *gin.Context) {
-	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 
 	var req listMyFilesRequest
@@ -215,7 +215,7 @@ func ListMyFiles(c *gin.Context) {
 // @Failure 404 {object} response.Any "文件不存在"
 // @Router /api/v1/upload/{id} [delete]
 func DeleteMyFile(c *gin.Context) {
-	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
 		response.AbortConflict(c, shared.ErrStorageReadOnly)
@@ -262,7 +262,7 @@ type updateMyFileRequest struct {
 // @Failure 404 {object} response.Any "文件不存在"
 // @Router /api/v1/upload/{id} [put]
 func UpdateMyFile(c *gin.Context) {
-	currUser, _ := auth.GetFromContext[*contracts.UserDTO](c, auth.UserObjKey)
+	currUser, _ := util.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	ctx := c.Request.Context()
 	if uploadstorage.ReadOnly(ctx) {
 		response.AbortConflict(c, shared.ErrStorageReadOnly)

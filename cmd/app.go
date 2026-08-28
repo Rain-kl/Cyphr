@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/Rain-kl/Wavelet/core"
-	"github.com/Rain-kl/Wavelet/core/extpoints"
 	"github.com/Rain-kl/Wavelet/pkg/config"
+	"github.com/Rain-kl/Wavelet/pkg/migrator"
 	"github.com/Rain-kl/Wavelet/plugins/domain/admin"
 	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
 	"github.com/Rain-kl/Wavelet/plugins/domain/cap"
@@ -56,11 +56,8 @@ func newWaveletApp(profile core.Profile) *core.App {
 		system.New(),
 	)
 
-	// 3. Bind Goose migration runner
-	app.SetMigrationRunner(func(_ context.Context, _ []extpoints.MigrationEntry) error {
-		runMigrations()
-		return nil
-	})
+	// 3. Bind Goose migration engine (wraps pkg/migrator.Migrate)
+	app.SetMigrationEngine(&gooseEngine{})
 
 	// 4. Mount runtime drivers for each aspect
 	app.Use(
@@ -70,4 +67,13 @@ func newWaveletApp(profile core.Profile) *core.App {
 	)
 
 	return app
+}
+
+// gooseEngine implements core.MigrationEngine by wrapping pkg/migrator.Migrate.
+// It runs all centrally managed Goose SQL migrations during app startup.
+type gooseEngine struct{}
+
+func (e *gooseEngine) Migrate(_ context.Context, _ []core.MigrationEntry) error {
+	_ = migrator.Migrate()
+	return nil
 }

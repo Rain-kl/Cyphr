@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/Rain-kl/Wavelet/core/contracts"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	db "github.com/Rain-kl/Wavelet/plugins/infra/database"
 	"github.com/gin-gonic/gin"
 )
@@ -29,12 +30,12 @@ func (s *authServiceImpl) RequireAdminMiddleware() any {
 
 func (s *authServiceImpl) GetCurrentUser(ctx context.Context) (*contracts.UserDTO, error) {
 	if ginCtx, ok := ctx.(*gin.Context); ok {
-		if u, ok := GetFromContext[*contracts.UserDTO](ginCtx, UserObjKey); ok && u != nil {
+		if u, ok := util.GetFromContext[*contracts.UserDTO](ginCtx, contracts.AuthUserObjKey); ok && u != nil {
 			return u, nil
 		}
 	}
 
-	if v := ctx.Value(UserObjKey); v != nil {
+	if v := ctx.Value(contracts.AuthUserObjKey); v != nil {
 		if u, ok := v.(*contracts.UserDTO); ok && u != nil {
 			return u, nil
 		}
@@ -91,6 +92,22 @@ func (s *authServiceImpl) CreateSession(_ context.Context, _ uint64, _ map[strin
 func (s *authServiceImpl) RevokeUserSessions(ctx context.Context, userID uint64) error {
 	InvalidateCachedUser(ctx, userID)
 	return nil
+}
+
+func (s *authServiceImpl) GetCurrentUserID(ctx context.Context) (uint64, error) {
+	if ginCtx, ok := ctx.(*gin.Context); ok {
+		return GetUserIDFromContext(ginCtx), nil
+	}
+	return 0, errors.New("auth: user not found in context")
+}
+
+func (s *authServiceImpl) RevokeToken(ctx context.Context, tokenHash string) error {
+	InvalidateCachedToken(ctx, tokenHash)
+	return nil
+}
+
+func (s *authServiceImpl) DisallowTokenAuthMiddleware() any {
+	return DisallowTokenAuth()
 }
 
 type authRegistryImpl struct {

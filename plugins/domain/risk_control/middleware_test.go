@@ -16,7 +16,7 @@ import (
 	"github.com/Rain-kl/Wavelet/pkg/batchwriter"
 	"github.com/Rain-kl/Wavelet/pkg/config"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control"
 	"github.com/Rain-kl/Wavelet/plugins/domain/risk_control/logstore"
 	"github.com/gin-gonic/gin"
@@ -99,7 +99,7 @@ func TestRiskControlMiddleware(t *testing.T) {
 		r := gin.New()
 		r.Use(func(c *gin.Context) {
 			user := &contracts.UserDTO{ID: 12345}
-			auth.SetToContext(c, auth.UserObjKey, user)
+			util.SetToContext[*contracts.UserDTO](c, contracts.AuthUserObjKey, user)
 			c.Next()
 		})
 		r.Use(risk_control.RiskControlMiddleware())

@@ -22,7 +22,7 @@ import (
 	"github.com/Rain-kl/Wavelet/core/contracts"
 	"github.com/Rain-kl/Wavelet/pkg/response"
 	"github.com/Rain-kl/Wavelet/pkg/testhelper"
-	"github.com/Rain-kl/Wavelet/plugins/domain/auth"
+	"github.com/Rain-kl/Wavelet/pkg/util"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/models"
 	"github.com/Rain-kl/Wavelet/plugins/domain/upload/shared"
 	uploadstats "github.com/Rain-kl/Wavelet/plugins/domain/upload/stats"
@@ -42,7 +42,7 @@ func setupTestRouter(authUser *contracts.UserDTO) *gin.Engine {
 
 	authMiddleware := func(c *gin.Context) {
 		if authUser != nil {
-			auth.SetToContext(c, auth.UserObjKey, authUser)
+			util.SetToContext[*contracts.UserDTO](c, contracts.AuthUserObjKey, authUser)
 		}
 		c.Next()
 	}
