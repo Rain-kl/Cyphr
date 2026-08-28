@@ -37,7 +37,6 @@ linters:
     dupl:
       threshold: 80
 
-
     cyclop:
       max-complexity: 20
       package-average: 10
@@ -60,10 +59,3 @@ linters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-
-formatters:
-  enable:
-    - gofumpt
-  settings:
-    gofumpt:
-      extra-rules: true

@@ -39,9 +39,9 @@ var StorageMigrationMeta = contracts.TaskMetaDTO{
 	Name:        StorageMigrationTask,
 	DisplayName: "迁移文件存储",
 	Description: "将活动存储中的文件迁移到待切换的目标存储，迁移期间文件系统保持只读",
-	Category:    "upload",
+	Category:    taskCategoryUpload,
 	MaxRetry:    3,
-	Queue:       "default",
+	Queue:       taskQueueDefault,
 	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "target",

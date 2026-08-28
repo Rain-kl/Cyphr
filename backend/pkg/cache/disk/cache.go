@@ -91,13 +91,16 @@ func New(basePath string) *Cache {
 var (
 	defaultCache     *Cache
 	defaultCacheOnce sync.Once
+
+	// defaultCleanupInterval 全局磁盘缓存默认的过期清理巡检周期
+	defaultCleanupInterval = 10 * time.Minute
 )
 
 // Default returns the default global disk cache instance.
 func Default() *Cache {
 	defaultCacheOnce.Do(func() {
 		defaultCache = New("uploads/diskcache")
-		go defaultCache.StartCleanupWorker(10 * time.Minute)
+		go defaultCache.StartCleanupWorker(defaultCleanupInterval)
 	})
 	return defaultCache
 }

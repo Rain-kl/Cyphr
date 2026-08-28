@@ -17,6 +17,12 @@ import (
 	"sync"
 )
 
+// 上传域任务的通用元数据常量（TaskMetaDTO Category/Queue 复用）
+const (
+	taskCategoryUpload    = "upload"
+	taskQueueDefault      = "default"
+)
+
 const (
 	// WarmImageCacheTask 图片压缩缓存预热任务标识
 	WarmImageCacheTask = "upload:warm_image_cache"
@@ -31,9 +37,9 @@ var WarmImageCacheMeta = contracts.TaskMetaDTO{
 	Name:        WarmImageCacheTask,
 	DisplayName: "预热图片压缩缓存",
 	Description: "串行将文件管理中的图片转换为指定质量的 WebP 并写入永久缓存",
-	Category:    "upload",
+	Category:    taskCategoryUpload,
 	MaxRetry:    3,
-	Queue:       "default",
+	Queue:       taskQueueDefault,
 	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "quality",

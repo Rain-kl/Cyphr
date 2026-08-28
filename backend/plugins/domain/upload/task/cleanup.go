@@ -36,7 +36,7 @@ var SystemCleanupMeta = contracts.TaskMetaDTO{
 	Description: "定期清理未使用上传文件、历史推送记录和过期任务执行日志",
 	Category:    "maintenance",
 	MaxRetry:    3,
-	Queue:       "default",
+	Queue:       taskQueueDefault,
 }
 
 // SystemCleanupHandler 系统定期垃圾清理异步任务处理器

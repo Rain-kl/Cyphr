@@ -175,7 +175,7 @@ type LogDatabaseStatus struct {
 // @Router /api/v1/admin/status/log-database [get]
 func GetLogDatabaseStatus(c *gin.Context) {
 	ctx := c.Request.Context()
-	activeDB := "sqlite"
+	activeDB := logDBNameSQLite
 	migration := "idle"
 	if rc := GetRiskControlService(); rc != nil {
 		activeDB = rc.ActiveLogEngine(ctx)

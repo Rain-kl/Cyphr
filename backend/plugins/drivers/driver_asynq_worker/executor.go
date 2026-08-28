@@ -77,8 +77,9 @@ func ValidateAndNormalizePayload(asynqTaskType string, payload []byte) ([]byte, 
 type contextKey string
 
 const (
-	taskIDKey            contextKey = "task_execution_task_id"
-	traceEnvelopeVersion            = 1
+	taskIDKey contextKey = "task_execution_task_id"
+
+	traceEnvelopeVersion = 1
 )
 
 type traceEnvelope struct {

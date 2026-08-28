@@ -146,7 +146,7 @@ func getSQLiteOverview(gormDB *gorm.DB) (DBOverviewResponse, error) {
 	}
 
 	return DBOverviewResponse{
-		Type:        "sqlite",
+		Type:        logDBNameSQLite,
 		Version:     version,
 		Name:        name,
 		Size:        sizeStr,
@@ -499,7 +499,7 @@ func ExecuteSQL(c *gin.Context) {
 
 func getSQLiteInfo(ctx context.Context) DatabaseInfoResponse {
 	info := DatabaseInfoResponse{
-		Type:    "sqlite",
+		Type:    logDBNameSQLite,
 		Name:    config.Config.Database.SQLitePath,
 		Version: "SQLite",
 	}
