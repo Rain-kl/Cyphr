@@ -27,6 +27,7 @@ build-embedded:
 		pnpm build:embed
 	rm -rf backend/plugins/drivers/driver_http/dist
 	cp -R frontend/out backend/plugins/drivers/driver_http/dist
+	test -f backend/plugins/drivers/driver_http/dist/index.html
 	cd backend && go build \
 		-tags embed_frontend \
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \

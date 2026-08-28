@@ -20,12 +20,13 @@ RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
 
 WORKDIR /workspace/frontend
 
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
 
-RUN pnpm build:embed
+# Assert index.html so a silent export failure cannot ship an API-only binary.
+RUN pnpm build:embed && test -f out/index.html
 
 FROM golang:${GO_VERSION}-alpine AS backend-builder
 
@@ -36,16 +37,24 @@ RUN apk add --no-cache ca-certificates git
 
 WORKDIR /workspace
 
-COPY go.mod go.sum ./
-RUN go mod download
+# Cache dependency layer
+COPY backend/go.mod backend/go.sum ./backend/
+RUN cd backend && go mod download
 
 COPY . .
-COPY --from=frontend-builder /workspace/frontend/out ./plugins/drivers/driver_http/dist
 
-RUN CGO_ENABLED=0 GOOS=linux go build \
+# Drop any stale bundle carried in the context, then overlay the fresh export so
+# `//go:embed all:dist` in driver_http picks up exactly this frontend build.
+RUN rm -rf backend/plugins/drivers/driver_http/dist
+COPY --from=frontend-builder /workspace/frontend/out backend/plugins/drivers/driver_http/dist
+
+WORKDIR /workspace/backend
+
+RUN test -f plugins/drivers/driver_http/dist/index.html && \
+    CGO_ENABLED=0 GOOS=linux go build \
     -tags embed_frontend \
     -trimpath \
-    -ldflags="-s -w -X github.com/Rain-kl/Wavelet/pkg/buildinfo.Version=${VERSION} -X github.com/Rain-kl/Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
+    -ldflags="-s -w -X Wavelet/pkg/buildinfo.Version=${VERSION} -X Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
     -o /out/wavelet \
     ./main.go
 

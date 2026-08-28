@@ -43,12 +43,13 @@ RUN corepack enable && corepack prepare pnpm@10.10.0 --activate
 WORKDIR /workspace/frontend
 
 # Cache dependency layer
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY frontend/ ./
 
-RUN pnpm build:embed
+# Assert index.html so a silent export failure cannot ship API-only binaries.
+RUN pnpm build:embed && test -f out/index.html
 
 # ── Stage 2: Cross-compile Go backend ──────────────────────────────────────
 FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} AS builder
@@ -66,13 +67,17 @@ RUN apk add --no-cache ca-certificates git
 WORKDIR /workspace
 
 # Cache dependency layer
-COPY go.mod go.sum ./
-RUN go mod download
+COPY backend/go.mod backend/go.sum ./backend/
+RUN cd backend && go mod download
 
 COPY . .
 
-# Overlay the compiled frontend into the embed path
-COPY --from=frontend-builder /workspace/frontend/out ./plugins/drivers/driver_http/dist
+# Drop any stale bundle carried in the context, then overlay the fresh export so
+# `//go:embed all:dist` in driver_http picks up exactly this frontend build.
+RUN rm -rf backend/plugins/drivers/driver_http/dist
+COPY --from=frontend-builder /workspace/frontend/out backend/plugins/drivers/driver_http/dist
+
+WORKDIR /workspace/backend
 
 # Build matrix: GOOS × GOARCH
 # CGO_ENABLED=0 — fully static, no libc dependency, required for cross-compilation.
@@ -81,6 +86,7 @@ COPY --from=frontend-builder /workspace/frontend/out ./plugins/drivers/driver_ht
 # -X           — stamp version string at link time.
 # TARGET_OS / TARGET_ARCH — when non-empty, skip non-matching combinations.
 RUN set -e; \
+    test -f plugins/drivers/driver_http/dist/index.html; \
     mkdir -p /out; \
     FILTER_OS="${TARGET_OS}"; \
     FILTER_ARCH="${TARGET_ARCH}"; \
@@ -96,7 +102,7 @@ RUN set -e; \
           go build \
             -tags embed_frontend \
             -trimpath \
-            -ldflags="-s -w -X github.com/Rain-kl/Wavelet/pkg/buildinfo.Version=${VERSION} -X github.com/Rain-kl/Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
+            -ldflags="-s -w -X Wavelet/pkg/buildinfo.Version=${VERSION} -X Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
             -o "${OUTPUT}" \
             ./main.go; \
       done; \

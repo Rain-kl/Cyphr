@@ -12,6 +12,7 @@ on:
 
 env:
   APP_NAME: wavelet
+  GO_DIR: backend
   GO_MAIN: ./main.go
   GO_BUILD_TAGS: embed_frontend
   GO_LDFLAGS: -s -w
@@ -20,7 +21,7 @@ env:
   FRONTEND_DIR: frontend
   FRONTEND_BUILD_COMMAND: pnpm build:embed
   FRONTEND_OUT_DIR: frontend/out
-  EMBED_DIST_DIR: internal/router/root/dist
+  EMBED_DIST_DIR: backend/plugins/drivers/driver_http/dist
   EXTRA_FILES: |
     LICENSE
     README.md
@@ -192,7 +193,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: ${{ env.GO_DIR }}/go.mod
           cache: true
 
       - name: Build binary
@@ -212,18 +213,21 @@ jobs:
             binary_name="${binary_name}.exe"
           fi
 
-          ldflags="$GO_LDFLAGS -X github.com/Rain-kl/Wavelet/internal/buildinfo.Version=$VERSION -X github.com/Rain-kl/Wavelet/internal/buildinfo.BuildTime=$BUILD_DATE"
+          # Assert the embedded UI is present so a release cannot ship an API-only binary.
+          test -f "$EMBED_DIST_DIR/index.html"
+
+          ldflags="$GO_LDFLAGS -X Wavelet/pkg/buildinfo.Version=$VERSION -X Wavelet/pkg/buildinfo.BuildTime=$BUILD_DATE"
           build_args=(
             -trimpath
             -ldflags "$ldflags"
-            -o "dist/$binary_name"
+            -o "$GITHUB_WORKSPACE/dist/$binary_name"
           )
 
           if [[ -n "$GO_BUILD_TAGS" ]]; then
             build_args=(-tags "$GO_BUILD_TAGS" "${build_args[@]}")
           fi
 
-          go build "${build_args[@]}" "$GO_MAIN"
+          (cd "$GO_DIR" && go build "${build_args[@]}" "$GO_MAIN")
 
       - name: Package artifact
         id: package
