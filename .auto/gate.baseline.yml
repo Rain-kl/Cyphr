@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  default: none
+  enable:
+    # 基础检查
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+
+    # 代码坏味道
+    - dupl          # 重复代码
+    - mnd           # 魔法数字
+    - goconst       # 不必要的字符串常量
+    - cyclop        # 包/函数复杂度
+    - nestif        # if 嵌套太深
+    - maintidx      # 维护性指数
+    - revive        # 风格/命名/坏味道
+    - gocritic      # 各类代码问题
+    - funlen        # 函数过长
+
+    - gosec         # 安全问题检查
+    - bodyclose     # HTTP response body 没有正确关闭
+    - noctx         # 没有传递 context.Context
+    - contextcheck  # 其他检查
+    - sqlclosecheck # SQL rows 没有正确关闭
+    - unconvert     # 不必要的类型转换
+    - nilerr        # 函数返回 nil 错误
+
+  settings:
+    dupl:
+      threshold: 80
+
+    cyclop:
+      max-complexity: 20
+      package-average: 10
+
+    nestif:
+      min-complexity: 5
+
+    funlen:
+      lines: 200
+      statements: 100
+
+    mnd:
+      checks:
+        - argument
+        - condition
+        - return
+
+
+# 完整上报所有问题（取消 golangci 默认 50/3 截断，保证 code-check 与度量真实）
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

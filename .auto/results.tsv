@@ -1,0 +1,2 @@
+iteration	commit	metric	delta	status	guard	description
+0	-	102	0.0	baseline	pass	initial measurement (pinned yardstick: repo gate + real-risk analyzers)

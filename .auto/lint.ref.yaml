@@ -1,0 +1,78 @@
+version: "2"
+
+# Pinned autoresearch yardstick. IMMUTABLE for the duration of a run.
+# Snapshot of the committed .golangci.yml plus the extra analyzers that report
+# genuine defects (correctness / panics / dead code) rather than cosmetics.
+# Keeping this separate from .golangci.yml means strengthening the project gate
+# can never silently lower the measured debt.
+
+run:
+  timeout: 5m
+  tests: false
+
+linters:
+  default: none
+  enable:
+    # --- from the committed project gate ---
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - dupl
+    - mnd
+    - goconst
+    - cyclop
+    - nestif
+    - maintidx
+    - revive
+    - gocritic
+    - funlen
+    - gosec
+    - bodyclose
+    - noctx
+    - contextcheck
+    - sqlclosecheck
+    - unconvert
+    - nilerr
+    # --- extra real-risk analyzers (defects, not cosmetics) ---
+    - errorlint        # err == / %v instead of errors.Is/As and %w
+    - forcetypeassert  # unchecked type assertions can panic
+    - nilnil           # (value, nil) breaks the nil-check contract
+    - predeclared      # shadowing builtins
+    - unparam          # dead params/results
+    - wastedassign     # dead stores
+    - exhaustive       # enum switches missing cases
+    - makezero         # append to preallocated slice
+    - rowserrcheck     # sql.Rows error after iteration
+    - durationcheck    # multiplied time.Duration
+    - prealloc         # slice growth in loops
+    - copyloopvar      # loop-var capture
+    - nonamedreturns
+    - funcorder        # struct methods scattered across files
+    - nolintlint       # suppression audit (must stay 0)
+
+  settings:
+    dupl:
+      threshold: 80
+
+    cyclop:
+      max-complexity: 20
+      package-average: 10
+
+    nestif:
+      min-complexity: 5
+
+    funlen:
+      lines: 200
+      statements: 100
+
+    mnd:
+      checks:
+        - argument
+        - condition
+        - return
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
