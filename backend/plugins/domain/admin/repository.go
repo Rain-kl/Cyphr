@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/cache/ram"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/util"
@@ -502,7 +503,15 @@ func FlushTaskExecutionLog(ctx context.Context, taskID string) error {
 
 	key := taskExecutionLogRedisKey(taskID)
 	var logText string
-	if err := cacheSvc.Get(ctx, key, &logText); err != nil || logText == "" {
+	if err := cacheSvc.Get(ctx, key, &logText); err != nil {
+		// 缓存未命中属于正常情况（任务无输出），其余错误必须上抛，
+		// 否则缓冲日志会被静默丢弃并误报持久化成功。
+		if !errors.Is(err, contracts.ErrCacheMiss) {
+			return fmt.Errorf("load buffered task execution log: %w", err)
+		}
+		return nil
+	}
+	if logText == "" {
 		return nil
 	}
 
