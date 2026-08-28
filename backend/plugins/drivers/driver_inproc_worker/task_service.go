@@ -25,7 +25,7 @@ func (s *inprocTaskService) Dispatch(ctx context.Context, taskType string, paylo
 	return DispatchTask(ctx, taskType, payload, triggeredBy)
 }
 
-func (s *inprocTaskService) Retry(ctx context.Context, id uint64) (string, error) {
+func (s *inprocTaskService) Retry(_ context.Context, id uint64) (string, error) {
 	return fmt.Sprintf("inproc_retry_%d", id), nil
 }
 

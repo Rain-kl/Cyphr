@@ -6,12 +6,17 @@ package driver_inproc_cron
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sync"
+	"time"
 
+	"github.com/robfig/cron/v3"
+
+	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"Wavelet/pkg/logger"
-	"Wavelet/plugins/drivers/driver_inproc_worker"
-	"github.com/robfig/cron/v3"
+	"Wavelet/pkg/util"
 )
 
 type inprocScheduler struct {
@@ -19,14 +24,16 @@ type inprocScheduler struct {
 	cronRunner  *cron.Cron
 	scheduleReg extpoints.ScheduleExtension
 	taskReg     extpoints.TaskExtension
+	taskSvc     contracts.TaskService
 	running     bool
 }
 
-func newInprocScheduler(scheduleReg extpoints.ScheduleExtension, taskReg extpoints.TaskExtension) *inprocScheduler {
+func newInprocScheduler(scheduleReg extpoints.ScheduleExtension, taskReg extpoints.TaskExtension, taskSvc contracts.TaskService) *inprocScheduler {
 	return &inprocScheduler{
 		cronRunner:  cron.New(cron.WithSeconds()),
 		scheduleReg: scheduleReg,
 		taskReg:     taskReg,
+		taskSvc:     taskSvc,
 	}
 }
 
@@ -62,14 +69,15 @@ func (s *inprocScheduler) Stop() {
 	s.running = false
 }
 
+const standardCronFields = 5
+
 func (s *inprocScheduler) registerJob(def extpoints.ScheduleDefinition) {
 	spec := def.Spec
 	taskType := def.TaskType
 
-	// Support 5-field cron expression by prepending "0 " for 6-field seconds parser
 	fields := len(cronFields(spec))
 	cronSpec := spec
-	if fields == 5 {
+	if fields == standardCronFields {
 		cronSpec = "0 " + spec
 	}
 
@@ -86,13 +94,48 @@ func (s *inprocScheduler) registerJob(def extpoints.ScheduleDefinition) {
 	}
 
 	_, err := s.cronRunner.AddFunc(cronSpec, func() {
-		_, dispatchErr := driver_inproc_worker.DispatchTask(context.Background(), taskType, payloadBytes, "inproc_cron")
-		if dispatchErr != nil {
-			logger.ErrorF(context.Background(), "driver_inproc_cron: dispatch task %q failed: %v", taskType, dispatchErr)
+		if s.taskSvc != nil {
+			if _, dispatchErr := s.taskSvc.Dispatch(context.Background(), taskType, payloadBytes, "inproc_cron"); dispatchErr != nil {
+				logger.ErrorF(context.Background(), "driver_inproc_cron: dispatch task %q failed: %v", taskType, dispatchErr)
+			}
+			return
+		}
+
+		if s.taskReg != nil {
+			if td, ok := s.taskReg.Get(taskType); ok {
+				util.Go(func() {
+					timeout := td.Timeout
+					if timeout <= 0 {
+						timeout = 5 * time.Minute
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					defer cancel()
+					_ = invokeHandler(ctx, td.Handler, payloadBytes)
+				})
+			}
 		}
 	})
 	if err != nil {
 		logger.ErrorF(context.Background(), "driver_inproc_cron: invalid cron spec %q for task %q: %v", spec, taskType, err)
+	}
+}
+
+func invokeHandler(ctx context.Context, handler any, payload []byte) error {
+	if handler == nil {
+		return errors.New("nil task handler")
+	}
+
+	switch fn := handler.(type) {
+	case func(context.Context, []byte) error:
+		return fn(ctx, payload)
+	case func(context.Context) error:
+		return fn(ctx)
+	case func([]byte) error:
+		return fn(payload)
+	case func() error:
+		return fn()
+	default:
+		return fmt.Errorf("unsupported handler type: %T", handler)
 	}
 }
 

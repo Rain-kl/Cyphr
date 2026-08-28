@@ -16,6 +16,8 @@ import (
 	"Wavelet/pkg/util"
 )
 
+const defaultRetryBackoff = 500 * time.Millisecond
+
 // TaskMessage represents an in-process task item in the queue.
 type TaskMessage struct {
 	ID        string
@@ -28,7 +30,6 @@ type TaskMessage struct {
 
 // InprocQueue manages in-memory task queuing and worker pool execution.
 type InprocQueue struct {
-	mu          sync.RWMutex
 	concurrency int
 	queue       chan TaskMessage
 	taskReg     extpoints.TaskExtension
@@ -157,7 +158,7 @@ func (q *InprocQueue) executeTask(msg TaskMessage) {
 		msg.RetryLeft--
 		// Retry with backoff
 		util.Go(func() {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(defaultRetryBackoff)
 			if q.running.Load() {
 				select {
 				case q.queue <- msg:

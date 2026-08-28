@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 )
 
 // Plugin implements core.Plugin and core.Driver for in-process cron job scheduling.
@@ -62,7 +63,8 @@ func (p *Plugin) Start(_ context.Context) error {
 	defer p.mu.Unlock()
 
 	if p.scheduler == nil {
-		p.scheduler = newInprocScheduler(p.coreCtx.Schedules(), p.coreCtx.Tasks())
+		taskSvc, _ := core.Inject[contracts.TaskService](p.coreCtx)
+		p.scheduler = newInprocScheduler(p.coreCtx.Schedules(), p.coreCtx.Tasks(), taskSvc)
 	}
 
 	return p.scheduler.Start()

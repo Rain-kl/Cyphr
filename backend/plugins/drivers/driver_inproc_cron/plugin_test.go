@@ -14,16 +14,10 @@ import (
 
 	"Wavelet/core"
 	"Wavelet/plugins/drivers/driver_inproc_cron"
-	"Wavelet/plugins/drivers/driver_inproc_worker"
 )
 
 func TestInprocCronPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
-
-	workerPlugin := driver_inproc_worker.New()
-	require.NoError(t, workerPlugin.Apply(ctx))
-	require.NoError(t, workerPlugin.Start(context.Background()))
-	defer func() { _ = workerPlugin.Stop(context.Background()) }()
 
 	cronPlugin := driver_inproc_cron.New()
 	assert.Equal(t, "driver_inproc_cron", cronPlugin.Name())

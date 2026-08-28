@@ -37,7 +37,7 @@ func newMemoryCacheService(capacity int, events *core.EventBus) (*memoryCacheSer
 	}, nil
 }
 
-func (s *memoryCacheService) Get(ctx context.Context, key string, target any) error {
+func (s *memoryCacheService) Get(_ context.Context, key string, target any) error {
 	if entry, ok := s.ramCache.GetIfPresent(key); ok {
 		if entry.expireAt.IsZero() || time.Now().Before(entry.expireAt) {
 			return json.Unmarshal(entry.data, target)
@@ -48,7 +48,7 @@ func (s *memoryCacheService) Get(ctx context.Context, key string, target any) er
 	return contracts.ErrCacheMiss
 }
 
-func (s *memoryCacheService) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
+func (s *memoryCacheService) Set(_ context.Context, key string, value any, ttl time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
