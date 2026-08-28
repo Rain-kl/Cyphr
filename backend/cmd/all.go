@@ -16,6 +16,10 @@ var allCmd = &cobra.Command{
 	Use:   "all",
 	Short: "以融合模式同时启动 API、Worker 和 Scheduler",
 	Run: func(_ *cobra.Command, _ []string) {
+		printStartupBanner(startupState{
+			mode:           "all (API + Worker + Scheduler)",
+			listensForHTTP: true,
+		})
 		app := newWaveletApp(core.ProfileAll)
 		if err := app.Run(); err != nil {
 			log.Fatalf("[All] run failed: %v\n", err)

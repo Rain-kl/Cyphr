@@ -8,7 +8,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"strings"
 
@@ -23,7 +22,7 @@ type startupState struct {
 }
 
 func printStartupBanner(state startupState) {
-	log.Print(formatStartupBanner(state))
+	fmt.Println(formatStartupBanner(state))
 }
 
 func formatStartupBanner(state startupState) string {
