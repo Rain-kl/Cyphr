@@ -29,11 +29,6 @@ type UserDTO struct {
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
-// TableName returns w_users.
-func (UserDTO) TableName() string {
-	return "w_users"
-}
-
 // OAuthUserInfoDTO contains user identity claims obtained from an OAuth provider.
 type OAuthUserInfoDTO struct {
 	ID                uint64 `json:"id"`

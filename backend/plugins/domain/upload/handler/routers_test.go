@@ -666,11 +666,11 @@ func TestUploadAccessModeAccessControl(t *testing.T) {
 	user2 := &contracts.UserDTO{ID: 1002, Username: "user2"}
 
 	// Seed user1
-	if err := dbConn.Create(user1).Error; err != nil {
+	if err := dbConn.Table("w_users").Create(user1).Error; err != nil {
 		t.Fatalf("create test user1 failed: %v", err)
 	}
 	// Seed user2
-	if err := dbConn.Create(user2).Error; err != nil {
+	if err := dbConn.Table("w_users").Create(user2).Error; err != nil {
 		t.Fatalf("create test user2 failed: %v", err)
 	}
 
@@ -861,8 +861,8 @@ func TestUserUploadManagement(t *testing.T) {
 	user1 := &contracts.UserDTO{ID: 1001, Username: "user1"}
 	user2 := &contracts.UserDTO{ID: 1002, Username: "user2"}
 
-	_ = dbConn.Create(user1)
-	_ = dbConn.Create(user2)
+	_ = dbConn.Table("w_users").Create(user1)
+	_ = dbConn.Table("w_users").Create(user2)
 
 	router1 := setupTestRouter(user1)
 	router2 := setupTestRouter(user2)
