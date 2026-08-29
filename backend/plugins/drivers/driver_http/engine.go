@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -33,36 +34,12 @@ func BuildEngineWithConfig(appCfg httpAppConfig, redisCfg httpRedisConfig) (*gin
 	r.Use(gin.Recovery())
 	r.Use(corsMiddleware())
 
-	addrs := redisCfg.Addrs
-	sessionAddr := "localhost:6379"
-	if len(addrs) > 0 {
-		sessionAddr = addrs[0]
-	}
-
 	sessionSecret := appCfg.SessionSecret
 	if sessionSecret == "" {
 		sessionSecret = "wavelet-default-session-secret"
 	}
 
-	sessionStore, err := redis.NewStoreWithDB(
-		redisCfg.MinIdleConn,
-		"tcp",
-		sessionAddr,
-		redisCfg.Username,
-		redisCfg.Password,
-		strconv.Itoa(redisCfg.DB),
-		[]byte(sessionSecret),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// 设置 Session Redis Key 前缀
-	if redisCfg.KeyPrefix != "" {
-		if err := redis.SetKeyPrefix(sessionStore, redisCfg.KeyPrefix+"session:"); err != nil {
-			log.Printf("[API] set session key prefix failed: %v\n", err)
-		}
-	}
+	sessionStore := initSessionStore(sessionSecret, redisCfg)
 
 	sessionCookieName := appCfg.SessionCookieName
 	if sessionCookieName == "" {
@@ -94,4 +71,33 @@ func BuildEngineWithConfig(appCfg httpAppConfig, redisCfg httpRedisConfig) (*gin
 	r.Use(otelgin.Middleware(appName), errorHandlerMiddleware(), loggerMiddleware())
 
 	return r, nil
+}
+
+func initSessionStore(sessionSecret string, redisCfg httpRedisConfig) sessions.Store {
+	if !redisCfg.Enabled || len(redisCfg.Addrs) == 0 {
+		return cookie.NewStore([]byte(sessionSecret))
+	}
+
+	sessionAddr := redisCfg.Addrs[0]
+	store, err := redis.NewStoreWithDB(
+		redisCfg.MinIdleConn,
+		"tcp",
+		sessionAddr,
+		redisCfg.Username,
+		redisCfg.Password,
+		strconv.Itoa(redisCfg.DB),
+		[]byte(sessionSecret),
+	)
+	if err != nil {
+		log.Printf("[driver_http] init redis session store failed, fallback to cookie store: %v\n", err)
+		return cookie.NewStore([]byte(sessionSecret))
+	}
+
+	if redisCfg.KeyPrefix != "" {
+		if err := redis.SetKeyPrefix(store, redisCfg.KeyPrefix+"session:"); err != nil {
+			log.Printf("[API] set session key prefix failed: %v\n", err)
+		}
+	}
+
+	return store
 }

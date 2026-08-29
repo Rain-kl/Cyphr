@@ -93,6 +93,18 @@ func (s *scopedRouterExtension) UnregisterByID(id uint64) bool {
 	return s.underlying.UnregisterByID(id)
 }
 
+func (s *scopedRouterExtension) RegisterWhitelist(patterns ...string) {
+	s.underlying.RegisterWhitelist(patterns...)
+}
+
+func (s *scopedRouterExtension) Whitelist() []string {
+	return s.underlying.Whitelist()
+}
+
+func (s *scopedRouterExtension) IsWhitelisted(path string) bool {
+	return s.underlying.IsWhitelisted(path)
+}
+
 // scopedTaskExtension wraps a TaskExtension to automatically register
 // teardown disposers on the associated Context when task handlers are declared.
 type scopedTaskExtension struct {

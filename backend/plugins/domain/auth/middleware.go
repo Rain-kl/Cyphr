@@ -5,6 +5,7 @@ package auth
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
 	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/response"
 	"Wavelet/pkg/trace"
@@ -12,9 +13,34 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
+
+var (
+	whitelistMu sync.RWMutex
+	whitelist   []string
+)
+
+// RegisterWhitelist registers route patterns that bypass mandatory authentication.
+func RegisterWhitelist(patterns ...string) {
+	whitelistMu.Lock()
+	defer whitelistMu.Unlock()
+	whitelist = append(whitelist, patterns...)
+}
+
+// IsWhitelisted checks if the specified path matches the auth whitelist.
+func IsWhitelisted(path string) bool {
+	whitelistMu.RLock()
+	defer whitelistMu.RUnlock()
+	for _, pattern := range whitelist {
+		if extpoints.MatchPathPattern(pattern, path) {
+			return true
+		}
+	}
+	return false
+}
 
 func hashToken(token string) string {
 	h := sha256.New()
@@ -112,6 +138,11 @@ func GetUserFromRequest(c *gin.Context) (*contracts.UserDTO, error) {
 // LoginRequired 返回登录鉴权中间件，校验 Access Token 或 Session
 func LoginRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if IsWhitelisted(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
 		_, span := trace.Start(c.Request.Context(), "LoginRequired")
 		defer span.End()
 

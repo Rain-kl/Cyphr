@@ -177,12 +177,13 @@ func (p *Plugin) Start(ctx context.Context) error {
 		var err error
 		p.engine, err = BuildEngineWithConfig(appCfg, redisCfg)
 		if err != nil {
-			p.engine = gin.New()
+			p.engine, _ = BuildEngine()
 		}
 	}
 
 	// Mount routes collected in Context RouterExtension
 	if p.coreCtx != nil && p.coreCtx.Router() != nil {
+		SetWhitelist(p.coreCtx.Router().Whitelist())
 		for _, rd := range p.coreCtx.Router().Routes() {
 			allHandlers := make([]gin.HandlerFunc, 0, len(rd.Middlewares)+len(rd.Handlers))
 

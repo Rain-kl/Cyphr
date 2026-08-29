@@ -120,6 +120,26 @@ func (p *Plugin) registerRoutes(ctx *core.Context) {
 }
 ```
 
+### 步骤 3：公开接口与白名单注册 (`RegisterWhitelist`)
+
+如果插件包含**无需登录**的公开端点（如登录、注册、人机校验、Webhooks、公开状态查询），必须在 `Apply` 中主动注册到白名单：
+
+```go
+func (p *Plugin) Apply(ctx *core.Context) error {
+	// 注册公开接口白名单（支持精确路径与通配符如 /api/v1/oauth/*）
+	ctx.Router().RegisterWhitelist(
+		"/api/v1/public/ping",
+		"/api/v1/public/webhook/*",
+	)
+
+	// 或在子路由组中相对注册：
+	publicGroup := ctx.Router().Group("/api/v1/public")
+	publicGroup.RegisterWhitelist("/status", "/docs/*")
+	...
+}
+```
+> 💡 **防线机制**：注册到白名单的路由在经过 `auth.RequireAuthMiddleware()` 时将自动放行，彻底消除全局/组级鉴权中间件引起的 401 Unauthorized 误拦截。
+
 ---
 
 ## 3. Handler 与 Service 职责划分

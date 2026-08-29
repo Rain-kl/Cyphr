@@ -79,7 +79,9 @@ func Login(c *gin.Context) {
 	sess := sessions.Default(c)
 	sess.Set(contracts.AuthUserIDKey, user.ID)
 	sess.Set(contracts.AuthUserNameKey, user.Username)
-	_ = sess.Save()
+	if err := sess.Save(); err != nil {
+		logger.ErrorF(c.Request.Context(), "save session failed on login: %v", err)
+	}
 
 	c.JSON(http.StatusOK, response.OK(user))
 }
@@ -107,14 +109,27 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	sess := sessions.Default(c)
+	sess.Set(contracts.AuthUserIDKey, newUser.ID)
+	sess.Set(contracts.AuthUserNameKey, newUser.Username)
+	if err := sess.Save(); err != nil {
+		logger.ErrorF(c.Request.Context(), "save session failed on register: %v", err)
+	}
+
 	c.JSON(http.StatusOK, response.OK(newUser))
 }
 
 // Logout logs out the current session.
 func Logout(c *gin.Context) {
 	sess := sessions.Default(c)
+	sess.Options(sessions.Options{
+		Path:   "/",
+		MaxAge: -1,
+	})
 	sess.Clear()
-	_ = sess.Save()
+	if err := sess.Save(); err != nil {
+		logger.ErrorF(c.Request.Context(), "clear session failed on logout: %v", err)
+	}
 	c.JSON(http.StatusOK, response.OKNil())
 }
 

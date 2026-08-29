@@ -109,7 +109,11 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
   - **单向服务契约调用**：调用方仅面向 `backend/core/contracts` 编程，在 `Apply` 中通过 `core.Provide[contracts.XxxService](ctx, svc)` 注册服务，通过 `core.Inject[contracts.XxxService](ctx)` 或 `ctx.Using(func(svc contracts.XxxService) { ... })` 声明式解析。
   - **事件总线广播**：状态联动与解耦通信统一通过强类型事件 `ctx.Events().Emit()` 广播，由感兴趣的插件通过 `ctx.Events().On()` 订阅，消除双向依赖与循环引用。
 - **扩展点自包含注册**：
-  - **HTTP 路由**：插件自包含在 `Apply` 中通过 `ctx.Router().Group(...)` 挂载路由与中间件，禁止跨插件散落注册。
+  - **HTTP 路由与白名单机制**：
+    - 插件自包含在 `Apply` 中通过 `ctx.Router().Group(...)` 挂载路由与中间件，禁止跨插件散落注册。
+    - **白名单机制**：`driver_http` 与微内核扩展点提供路由白名单支持（`ctx.Router().RegisterWhitelist(patterns...)`），支持精确路径与通配符（如 `/api/v1/oauth/*`）。
+    - **所有权主动声明**：认证域（`auth` 插件）与各业务插件必须在 `Apply` 中主动注册其公开/免鉴权接口（如 `/api/v1/user/login`、`/api/v1/oauth/callback`、`/api/v1/cap/*` 等）。
+    - **鉴权中间件放行防线**：`auth` 提供的登录鉴权中间件（`LoginRequired`）必须先执行白名单匹配并自动放行，彻底杜绝免鉴权接口被全局或组级鉴权中间件误拦截（返回 401 Unauthorized）。
   - **异步与定时任务**：插件自包含在 `Apply` 中通过 `ctx.Task().Register(...)` 与 `ctx.Schedule().RegisterCron(...)` 声明。
   - **静态启动配置**：插件自包含在 `Apply` 中通过 `ctx.Config().Bind("<prefix>", &cfg)` 读取**自己声明**的配置，字段以 tag 表达来源：`config`（yaml 路径）、`env`（覆盖变量名）、`default`、`autoEnable`（该变量存在即置真）、`secret`（导出脱敏）。需要在 `Apply` 之前被门禁求值的键，必须在 `DeclareConfig()` 中提前声明并实现 `core.ConfigGatedPlugin`。新增基础设施 key 保持顶层命名（`redis.*`），插件私有配置归 `plugins.<name>.*`。**严禁**再造全局配置单例或在 `backend/pkg/` 读取配置。
   - **动态设置**：插件自包含在 `Apply` 中通过 `ctx.Settings().Register(core.SettingSchema{...})` 声明可热更新的管理台设置模式（与上面的静态启动配置分属两层）。

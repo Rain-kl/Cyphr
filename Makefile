@@ -93,14 +93,14 @@ dev-f:
 
 dev-b:
 	@echo "==> Starting backend development server..."
-	go run main.go all
+	cd backend && go run main.go all
 
 dev:
 	@echo "==> Starting frontend and backend development servers in parallel..."
 	@PIDS=""; \
 	STATUS=0; \
 	( cd frontend && pnpm dev 2>&1 | sed 's/^/[frontend] /' ) & PIDS="$$PIDS $$!"; \
-	( go run main.go all 2>&1 | sed 's/^/[backend]  /' ) & PIDS="$$PIDS $$!"; \
+	( cd backend && go run main.go all 2>&1 | sed 's/^/[backend]  /' ) & PIDS="$$PIDS $$!"; \
 	for PID in $$PIDS; do \
 		wait $$PID || STATUS=1; \
 	done; \

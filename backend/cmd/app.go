@@ -40,7 +40,7 @@ import (
 
 const (
 	defaultShutdownTimeout = 15 * time.Second
-	defaultHTTPAddr        = "127.0.0.1:3000"
+	defaultHTTPAddr        = "127.0.0.1:8000"
 )
 
 // runProfileApp prepares and runs the application for a given profile.

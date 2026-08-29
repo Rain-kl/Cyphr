@@ -34,6 +34,9 @@ type RouterExtension interface {
 	Middlewares() []any
 	Unregister(method, path string) bool
 	UnregisterByID(id uint64) bool
+	RegisterWhitelist(patterns ...string)
+	Whitelist() []string
+	IsWhitelisted(path string) bool
 }
 
 // RouterRegistry implements RouterExtension as the root route and middleware collector.
@@ -42,6 +45,7 @@ type RouterRegistry struct {
 	nextID      uint64
 	routes      []RouteDefinition
 	middlewares []any
+	whitelist   []string
 }
 
 // NewRouterRegistry creates a new root router collector.
@@ -176,6 +180,40 @@ func (r *RouterRegistry) Routes() []RouteDefinition {
 	return res
 }
 
+// RegisterWhitelist adds path patterns to the whitelist.
+func (r *RouterRegistry) RegisterWhitelist(patterns ...string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, p := range patterns {
+		clean := cleanPath(p)
+		if clean != "" {
+			r.whitelist = append(r.whitelist, clean)
+		}
+	}
+}
+
+// Whitelist returns a copy of all registered whitelist path patterns.
+func (r *RouterRegistry) Whitelist() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	res := make([]string, len(r.whitelist))
+	copy(res, r.whitelist)
+	return res
+}
+
+// IsWhitelisted checks if the given path matches any registered whitelist pattern.
+func (r *RouterRegistry) IsWhitelisted(path string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	clean := cleanPath(path)
+	for _, pattern := range r.whitelist {
+		if MatchPathPattern(pattern, clean) {
+			return true
+		}
+	}
+	return false
+}
+
 // RouterGroup represents a scoped route group with a path prefix and group-level middlewares.
 type RouterGroup struct {
 	registry    *RouterRegistry
@@ -293,6 +331,23 @@ func (g *RouterGroup) Middlewares() []any {
 	return res
 }
 
+// RegisterWhitelist adds path patterns under this group prefix to the whitelist.
+func (g *RouterGroup) RegisterWhitelist(patterns ...string) {
+	for _, p := range patterns {
+		g.registry.RegisterWhitelist(joinPaths(g.prefix, p))
+	}
+}
+
+// Whitelist returns a copy of all registered whitelist path patterns.
+func (g *RouterGroup) Whitelist() []string {
+	return g.registry.Whitelist()
+}
+
+// IsWhitelisted checks if the given path matches any registered whitelist pattern.
+func (g *RouterGroup) IsWhitelisted(path string) bool {
+	return g.registry.IsWhitelisted(path)
+}
+
 func cleanPath(p string) string {
 	if p == "" {
 		return "/"
@@ -316,4 +371,43 @@ func joinPaths(base, relative string) string {
 	base = strings.TrimSuffix(base, "/")
 	relative = strings.TrimPrefix(relative, "/")
 	return cleanPath(base + "/" + relative)
+}
+
+// MatchPathPattern checks if a URL path matches a pattern (supports exact match and wildcards).
+func MatchPathPattern(pattern, path string) bool {
+	pattern = cleanPath(pattern)
+	path = cleanPath(path)
+
+	if pattern == path {
+		return true
+	}
+
+	// Suffix wildcard: /api/v1/oauth/* matches /api/v1/oauth and /api/v1/oauth/...
+	if strings.HasSuffix(pattern, "/*") {
+		prefix := strings.TrimSuffix(pattern, "/*")
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+
+	// Parameter wildcard: /api/v1/oauth/*/authorize or /api/v1/oauth/:source/authorize
+	patternParts := strings.Split(pattern, "/")
+	pathParts := strings.Split(path, "/")
+	if len(patternParts) == len(pathParts) {
+		matched := true
+		for i, part := range patternParts {
+			if part == "*" || strings.HasPrefix(part, ":") {
+				continue
+			}
+			if part != pathParts[i] {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+	}
+
+	return false
 }

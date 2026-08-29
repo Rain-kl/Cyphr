@@ -93,6 +93,40 @@ func TestRouterExtension(t *testing.T) {
 	assert.True(t, foundUserPut)
 }
 
+func TestRouterWhitelist(t *testing.T) {
+	r := extpoints.NewRouterRegistry()
+	require.NotNil(t, r)
+
+	r.RegisterWhitelist(
+		"/healthz",
+		"/api/v1/user/login",
+		"/api/v1/oauth/*",
+	)
+
+	api := r.Group("/api/v1")
+	api.RegisterWhitelist("/cap/challenge", "/cap/redeem")
+
+	whitelist := r.Whitelist()
+	assert.Contains(t, whitelist, "/healthz")
+	assert.Contains(t, whitelist, "/api/v1/user/login")
+	assert.Contains(t, whitelist, "/api/v1/oauth/*")
+	assert.Contains(t, whitelist, "/api/v1/cap/challenge")
+	assert.Contains(t, whitelist, "/api/v1/cap/redeem")
+
+	// Exact match
+	assert.True(t, r.IsWhitelisted("/healthz"))
+	assert.True(t, r.IsWhitelisted("/api/v1/user/login"))
+	assert.True(t, api.IsWhitelisted("/api/v1/cap/challenge"))
+
+	// Wildcard match
+	assert.True(t, r.IsWhitelisted("/api/v1/oauth/sources"))
+	assert.True(t, r.IsWhitelisted("/api/v1/oauth/github/authorize"))
+
+	// Non-whitelisted
+	assert.False(t, r.IsWhitelisted("/api/v1/orders"))
+	assert.False(t, r.IsWhitelisted("/api/v1/user/profile"))
+}
+
 func TestMigrationExtension(t *testing.T) {
 	m := extpoints.NewMigrationRegistry()
 	require.NotNil(t, m)

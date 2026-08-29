@@ -365,3 +365,37 @@ func TestLoginStateContextParityWithLegacyImplementation(t *testing.T) {
 		}
 	})
 }
+
+func TestAuthWhitelistMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := core.NewContext(context.Background())
+	p := auth.New()
+	require.NoError(t, p.Apply(ctx))
+
+	svc, err := core.Inject[contracts.AuthService](ctx)
+	require.NoError(t, err)
+
+	mw, ok := svc.RequireAuthMiddleware().(gin.HandlerFunc)
+	require.True(t, ok)
+
+	engine := newSessionEngine()
+	engine.Use(mw)
+	engine.POST("/api/v1/user/login", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.OK("login-ok"))
+	})
+	engine.GET("/api/v1/secret-profile", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.OK("profile-ok"))
+	})
+
+	// 1. Whitelisted route /api/v1/user/login passes through without auth
+	w1 := httptest.NewRecorder()
+	req1, _ := http.NewRequest(http.MethodPost, "/api/v1/user/login", nil)
+	engine.ServeHTTP(w1, req1)
+	assert.Equal(t, http.StatusOK, w1.Code)
+
+	// 2. Non-whitelisted route /api/v1/secret-profile gets 401 Unauthorized
+	w2 := httptest.NewRecorder()
+	req2, _ := http.NewRequest(http.MethodGet, "/api/v1/secret-profile", nil)
+	engine.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusUnauthorized, w2.Code)
+}

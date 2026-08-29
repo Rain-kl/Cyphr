@@ -8,10 +8,16 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/idgen"
 	"Wavelet/plugins/domain/user"
+	"bytes"
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -110,4 +116,45 @@ func TestUserPluginUnit(t *testing.T) {
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 	assert.NotEmpty(t, list)
+}
+
+func TestUserLoginHTTPHandler(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
+	testDB := setupTestDB(t)
+
+	dbPlugin := database.New(database.WithDB(testDB))
+	require.NoError(t, dbPlugin.Apply(ctx))
+
+	p := user.New()
+	require.NoError(t, p.Apply(ctx))
+
+	userSvc, err := core.Inject[contracts.UserService](ctx)
+	require.NoError(t, err)
+
+	_, err = userSvc.CreateUser(context.Background(), contracts.CreateUserRequest{
+		Username: "admin",
+		Password: "Password123!",
+		Email:    "admin@example.com",
+	})
+	require.NoError(t, err)
+
+	r := gin.New()
+	cookieStore := cookie.NewStore([]byte("test-session-secret"))
+	r.Use(sessions.Sessions("wavelet_session", cookieStore))
+	r.POST("/api/v1/user/login", user.Login)
+
+	reqBody := `{"username":"admin","password":"Password123!"}`
+	req, _ := http.NewRequest(http.MethodPost, "/api/v1/user/login", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"username":"admin"`)
+	setCookie := w.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, setCookie)
+	assert.Contains(t, setCookie, "wavelet_session=")
 }

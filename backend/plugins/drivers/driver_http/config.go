@@ -18,6 +18,7 @@ type httpAppConfig struct {
 }
 
 type httpRedisConfig struct {
+	Enabled     bool     `config:"enabled" env:"REDIS_ENABLED" default:"false"`
 	Addrs       []string `config:"addrs" env:"REDIS_ADDR"`
 	Username    string   `config:"username" env:"REDIS_USERNAME"`
 	Password    string   `config:"password" env:"REDIS_PASSWORD" secret:"true"`

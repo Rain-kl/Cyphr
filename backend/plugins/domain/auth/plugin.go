@@ -122,6 +122,24 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	core.Provide[contracts.AuthService](ctx, p.authSvc)
 	core.Provide[contracts.AuthRegistry](ctx, p.authRegistry)
 
+	// 2.1 Register Public / Auth Whitelist Endpoints
+	publicEndpoints := []string{
+		"/api/v1/oauth/sources",
+		"/api/v1/oauth/login",
+		"/api/v1/oauth/*/authorize",
+		"/api/v1/oauth/:source/authorize",
+		"/api/v1/oauth/callback",
+		"/api/v1/user/login",
+		"/api/v1/user/register",
+		"/api/v1/user/send-email-code",
+		"/api/v1/cap/challenge",
+		"/api/v1/cap/redeem",
+		"/healthz",
+		"/metrics",
+	}
+	RegisterWhitelist(publicEndpoints...)
+	ctx.Router().RegisterWhitelist(publicEndpoints...)
+
 	// 3. Register HTTP Routes
 	oauthGroup := ctx.Router().Group("/api/v1/oauth")
 	{

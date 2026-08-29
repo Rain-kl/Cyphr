@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -203,5 +204,42 @@ func TestCORSAllowedOriginReadsConfigOncePerCacheWindow(t *testing.T) {
 
 	if cache.loads != 1 {
 		t.Errorf("expected 1 config load across 3 requests, got %d", cache.loads)
+	}
+}
+
+func TestBuildEngineWithCookieFallback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	appCfg := httpAppConfig{
+		SessionSecret:     "test-secret",
+		SessionCookieName: "wavelet_session",
+		SessionAge:        3600,
+	}
+	redisCfg := httpRedisConfig{
+		Enabled: false,
+	}
+
+	engine, err := BuildEngineWithConfig(appCfg, redisCfg)
+	if err != nil {
+		t.Fatalf("expected nil error with cookie fallback, got: %v", err)
+	}
+
+	engine.GET("/set-session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("test_user_id", uint64(12345))
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/set-session", nil)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+
+	setCookie := w.Header().Get("Set-Cookie")
+	if setCookie == "" {
+		t.Fatal("expected Set-Cookie header in response, got none")
 	}
 }
