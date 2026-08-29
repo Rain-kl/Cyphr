@@ -27,6 +27,11 @@ CREATE INDEX IF NOT EXISTS idx_w_users_created_at ON w_users (created_at);
 INSERT INTO w_users (id, username, password, nickname, avatar_url, is_active, is_admin, last_login_at, created_at, updated_at)
 VALUES (999, 'system', '*', '系统', '', TRUE, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT (username) DO NOTHING;
+
+-- Seed default administrator user (username: admin, password: 12345678)
+INSERT INTO w_users (id, username, password, nickname, email, is_active, is_admin, last_login_at, created_at, updated_at)
+VALUES (1, 'admin', '$2a$12$oJ3wdlwSnBxjJHUdxDlWAOF/9JyWa1Ordk8XRcfcghmLI6v4VMA12', '管理员', 'admin@wavelet.local', TRUE, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (username) DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down
