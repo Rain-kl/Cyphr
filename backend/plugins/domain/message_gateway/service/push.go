@@ -186,7 +186,11 @@ func ApplySMTPFallbackToPushConfig(ctx context.Context, cfg *pkgpush.Config) {
 	if cfg.Channel != model.ChannelEmail || (cfg.URL != "" && cfg.Key != "") {
 		return
 	}
-	smtp := repository.LoadSMTPConfigRecord(ctx)
+	smtp, err := repository.LoadSMTPConfigRecord(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[Push] 读取 SMTP 系统配置失败: %v", err)
+		return
+	}
 	if smtp.Host == "" || smtp.Username == "" {
 		return
 	}
@@ -574,7 +578,11 @@ func ResolveSMTPConfig(ctx context.Context, url, token, other string) (string, s
 	if url != "" && token != "" {
 		return url, token, other
 	}
-	smtp := repository.LoadSMTPConfigRecord(ctx)
+	smtp, err := repository.LoadSMTPConfigRecord(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[Push] 读取 SMTP 系统配置失败: %v", err)
+		return url, token, other
+	}
 	if smtp.Host == "" || smtp.Username == "" {
 		return url, token, other
 	}

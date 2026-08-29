@@ -11,6 +11,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -68,5 +69,63 @@ func TestFindUserByFieldRecordRejectsUnlistedColumns(t *testing.T) {
 	var remaining int64
 	if err := db.Table("w_users").Count(&remaining).Error; err != nil || remaining != 1 {
 		t.Fatalf("w_users damaged by rejected lookups: count=%d err=%v", remaining, err)
+	}
+}
+
+// smtpTestValues are the four system-config rows the built-in email channel reads.
+var smtpTestValues = map[string]string{
+	"smtp_host":     "mail.example.test",
+	"smtp_port":     "465",
+	"smtp_username": "notify@example.test",
+	"smtp_password": "s3cret-value",
+}
+
+// TestLoadSMTPConfigRecordMapsEveryKey guards the single-query rewrite: every field
+// must still be filled from its own row.
+func TestLoadSMTPConfigRecordMapsEveryKey(t *testing.T) {
+	db, _, cleanup := testhelper.SetupTestEnvironment(t)
+	defer cleanup()
+
+	keys := make([]string, 0, len(smtpTestValues))
+	for key := range smtpTestValues {
+		keys = append(keys, key)
+	}
+	if err := db.Table("w_system_configs").Where("key IN ?", keys).Delete(map[string]any{}).Error; err != nil {
+		t.Fatalf("clear smtp rows: %v", err)
+	}
+	for _, key := range keys {
+		row := map[string]any{"key": key, "value": smtpTestValues[key], "type": "system"}
+		if err := db.Table("w_system_configs").Create(row).Error; err != nil {
+			t.Fatalf("seed %s: %v", key, err)
+		}
+	}
+
+	repository.SetDBServiceForTest(stubDBService{db: db})
+	t.Cleanup(func() { repository.SetDBServiceForTest(nil) })
+
+	cfg, err := repository.LoadSMTPConfigRecord(context.Background())
+	if err != nil {
+		t.Fatalf("LoadSMTPConfigRecord: %v", err)
+	}
+	if cfg.Host != smtpTestValues["smtp_host"] || cfg.Port != smtpTestValues["smtp_port"] ||
+		cfg.Username != smtpTestValues["smtp_username"] || cfg.Password != smtpTestValues["smtp_password"] {
+		t.Errorf("got %+v, want every SMTP field mapped from its own row", cfg)
+	}
+}
+
+// TestLoadSMTPConfigRecordSurfacesReadFailure pins the actual defect: a read that
+// fails used to be discarded, returning four blank strings that callers could only
+// interpret as "SMTP was never configured", so the notification was dropped silently.
+func TestLoadSMTPConfigRecordSurfacesReadFailure(t *testing.T) {
+	bare, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open bare sqlite: %v", err)
+	}
+
+	repository.SetDBServiceForTest(stubDBService{db: bare})
+	t.Cleanup(func() { repository.SetDBServiceForTest(nil) })
+
+	if _, err := repository.LoadSMTPConfigRecord(context.Background()); err == nil {
+		t.Fatal("LoadSMTPConfigRecord returned nil error although the config table cannot be read")
 	}
 }

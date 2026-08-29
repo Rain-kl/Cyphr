@@ -9,6 +9,8 @@ import (
 	"Wavelet/plugins/domain/message_gateway/errs"
 	"Wavelet/plugins/domain/message_gateway/model"
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -280,19 +282,46 @@ func PushHistoryQuery(ctx context.Context) *gorm.DB {
 	return GetDB(ctx).Model(&model.PushHistory{})
 }
 
-// LoadSMTPConfigRecord reads the SMTP settings owned by the system config table.
-func LoadSMTPConfigRecord(ctx context.Context) model.SMTPConfig {
+// smtpConfigKeys are the system-config rows backing the built-in email channel.
+var smtpConfigKeys = []string{"smtp_host", "smtp_port", "smtp_username", "smtp_password"}
+
+// LoadSMTPConfigRecord reads the SMTP settings in one query.
+//
+// A key that is simply absent leaves its field empty, which is how an unconfigured
+// mailer is represented. A read that fails is returned as an error, so callers
+// cannot mistake an unhealthy database for "no SMTP configured" and silently drop
+// the notification.
+func LoadSMTPConfigRecord(ctx context.Context) (model.SMTPConfig, error) {
+	db := GetDB(ctx)
+	if db == nil {
+		return model.SMTPConfig{}, errors.New("database not available")
+	}
+
+	var rows []struct {
+		Key   string
+		Value string
+	}
+	if err := db.Table("w_system_configs").
+		Select("key", "value").
+		Where("key IN ?", smtpConfigKeys).
+		Find(&rows).Error; err != nil {
+		return model.SMTPConfig{}, fmt.Errorf("read smtp system configs: %w", err)
+	}
+
 	var cfg model.SMTPConfig
-	var host, port, user, pass string
-	_ = GetDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_host").Pluck("value", &host).Error
-	_ = GetDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_port").Pluck("value", &port).Error
-	_ = GetDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_username").Pluck("value", &user).Error
-	_ = GetDB(ctx).Table("w_system_configs").Where("key = ?", "smtp_password").Pluck("value", &pass).Error
-	cfg.Host = host
-	cfg.Port = port
-	cfg.Username = user
-	cfg.Password = pass
-	return cfg
+	for _, row := range rows {
+		switch row.Key {
+		case "smtp_host":
+			cfg.Host = row.Value
+		case "smtp_port":
+			cfg.Port = row.Value
+		case "smtp_username":
+			cfg.Username = row.Value
+		case "smtp_password":
+			cfg.Password = row.Value
+		}
+	}
+	return cfg, nil
 }
 
 // userLookupColumns allow-lists the columns FindUserByFieldRecord may filter on.
