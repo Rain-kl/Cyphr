@@ -5,12 +5,17 @@
 package cache
 
 import (
+	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/upload/shared"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	"gorm.io/gorm"
 
 	uploadstorage "Wavelet/plugins/domain/upload/storage"
 )
@@ -65,41 +70,75 @@ func loadFileAccessWhitelist(ctx context.Context) map[string]struct{} {
 		return fileAccessWhitelistTypes
 	}
 
-	fileAccessWhitelistTypes = fetchFileAccessWhitelist(ctx)
+	types, err := fetchFileAccessWhitelist(ctx)
+	if err != nil {
+		logger.ErrorF(ctx, "[Upload] 读取公开访问白名单失败: %v", err)
+		if fileAccessWhitelistTypes != nil {
+			// A previously loaded list is still the best answer; keep it until its
+			// TTL rather than narrowing access because one read failed.
+			fileAccessWhitelistValid = true
+			fileAccessWhitelistCheckedAt = time.Now()
+			return fileAccessWhitelistTypes
+		}
+		// Nothing cached yet: serve the restricted default but stay invalid so the
+		// next request retries instead of pinning it for the whole TTL.
+		return fallbackFileAccessWhitelist()
+	}
+
+	fileAccessWhitelistTypes = types
 	fileAccessWhitelistValid = true
 	fileAccessWhitelistCheckedAt = time.Now()
-	return fileAccessWhitelistTypes
+	return types
 }
 
-func fetchFileAccessWhitelist(ctx context.Context) map[string]struct{} {
-	whitelist := parseFileAccessWhitelist(ctx)
+// fallbackFileAccessWhitelist is the restricted default used when nothing better is known.
+func fallbackFileAccessWhitelist() map[string]struct{} {
+	return map[string]struct{}{strings.ToLower(shared.DefaultPublicUploadType): {}}
+}
+
+func fetchFileAccessWhitelist(ctx context.Context) (map[string]struct{}, error) {
+	whitelist, err := parseFileAccessWhitelist(ctx)
+	if err != nil {
+		return nil, err
+	}
 	types := make(map[string]struct{}, len(whitelist))
 	for _, item := range whitelist {
 		types[strings.ToLower(item)] = struct{}{}
 	}
-	return types
+	return types, nil
 }
 
-func parseFileAccessWhitelist(ctx context.Context) []string {
+// parseFileAccessWhitelist reads the configured public access types.
+//
+// A missing row or an empty value is a real answer and yields the default; only a
+// read that actually fails is reported as an error, so a database outage is no
+// longer mistaken for "the admin never configured a whitelist".
+func parseFileAccessWhitelist(ctx context.Context) ([]string, error) {
 	var sc struct{ Value string }
 	db := shared.GetDB(ctx)
-	if db != nil {
-		_ = db.Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error
+	if db == nil {
+		return nil, errors.New("database not available")
+	}
+	if err := db.Table("w_system_configs").Where("key = ?", "file_access_whitelist").First(&sc).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return []string{shared.DefaultPublicUploadType}, nil
+		}
+		return nil, fmt.Errorf("read file_access_whitelist: %w", err)
 	}
 	if sc.Value == "" {
-		return []string{shared.DefaultPublicUploadType}
+		return []string{shared.DefaultPublicUploadType}, nil
 	}
 
 	var whitelist []string
 	if err := json.Unmarshal([]byte(sc.Value), &whitelist); err == nil && len(whitelist) > 0 {
-		return whitelist
+		return whitelist, nil
 	}
 
 	whitelist = parseCommaSeparatedWhitelist(sc.Value)
 	if len(whitelist) == 0 {
-		return []string{shared.DefaultPublicUploadType}
+		return []string{shared.DefaultPublicUploadType}, nil
 	}
-	return whitelist
+	return whitelist, nil
 }
 
 func parseCommaSeparatedWhitelist(value string) []string {
