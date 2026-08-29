@@ -138,12 +138,13 @@ type ConfigExtension interface {
 // ConfigRegistry implements ConfigExtension. Declarations are additive; values are
 // computed once by Resolve and reused by every later read.
 type ConfigRegistry struct {
-	mu      sync.RWMutex
-	src     ConfigSource
-	decls   map[string]*configDecl
-	order   []string
-	values  map[string]any
-	origins map[string]string
+	mu       sync.RWMutex
+	src      ConfigSource
+	decls    map[string]*configDecl
+	order    []string
+	values   map[string]any
+	origins  map[string]string
+	resolved bool
 }
 
 // NewConfigRegistry creates an empty configuration registry. A nil src is allowed so

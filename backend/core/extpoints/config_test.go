@@ -84,3 +84,83 @@ func TestDeclareAllowsIdenticalDuplicateAndRejectsConflictingMetadata(t *testing
 	assert.Contains(t, err.Error(), "cache")
 	assert.Contains(t, err.Error(), "driver_http")
 }
+
+// queueConfig is a composite element mirroring worker.queues in config.yaml.
+type queueConfig struct {
+	Name     string `config:"name"`
+	Priority int    `config:"priority"`
+}
+
+type workerConfig struct {
+	Concurrency int           `config:"concurrency" env:"WORKER_CONCURRENCY"`
+	Queues      []queueConfig `config:"queues"`
+}
+
+type sessionConfig struct {
+	Secret string `config:"session_secret" env:"APP_SESSION_SECRET" secret:"true"`
+	Age    int    `config:"session_age" env:"APP_SESSION_AGE" default:"86400"`
+}
+
+func TestResolveScalarDurationAndSlice(t *testing.T) {
+	src := newFakeSource()
+	src.values["redis.db"] = 1
+	src.values["redis.dial_timeout"] = "5s"
+	src.values["redis.addrs"] = []any{"127.0.0.1:6379"}
+	src.env["REDIS_KEY_PREFIX"] = "refresh:"
+
+	r := extpoints.NewConfigRegistry(src)
+	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+	require.NoError(t, r.Resolve())
+
+	var got redisConfig
+	require.NoError(t, r.Bind("redis", &got))
+	assert.Equal(t, redisConfig{
+		Addrs: []string{"127.0.0.1:6379"}, DB: 1, KeyPrefix: "refresh:", Dial: 5 * time.Second,
+	}, got)
+}
+
+func TestResolveFillsSliceFromScalarEnvironmentValue(t *testing.T) {
+	src := newFakeSource()
+	src.env["REDIS_ADDR"] = "redis:6379"
+
+	r := extpoints.NewConfigRegistry(src)
+	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+	require.NoError(t, r.Resolve())
+
+	var got redisConfig
+	require.NoError(t, r.Bind("redis", &got))
+	assert.Equal(t, []string{"redis:6379"}, got.Addrs)
+}
+
+func TestResolveCompositeSliceOfStructs(t *testing.T) {
+	src := newFakeSource()
+	src.values["worker.concurrency"] = 20
+	src.values["worker.queues"] = []any{
+		map[string]any{"name": "webhook", "priority": 10},
+		map[string]any{"name": "default", "priority": 3},
+	}
+
+	r := extpoints.NewConfigRegistry(src)
+	require.NoError(t, r.Declare("asynq_worker", extpoints.ConfigBinding{Prefix: "worker", Target: &workerConfig{}}))
+	require.NoError(t, r.Resolve())
+
+	var got workerConfig
+	require.NoError(t, r.Bind("worker", &got))
+	assert.Equal(t, workerConfig{
+		Concurrency: 20,
+		Queues:      []queueConfig{{Name: "webhook", Priority: 10}, {Name: "default", Priority: 3}},
+	}, got)
+}
+
+func TestResolveReportsTypeMismatchOnBadEnvironmentValue(t *testing.T) {
+	src := newFakeSource()
+	src.env["WORKER_CONCURRENCY"] = "many"
+
+	r := extpoints.NewConfigRegistry(src)
+	require.NoError(t, r.Declare("asynq_worker", extpoints.ConfigBinding{Prefix: "worker", Target: &workerConfig{}}))
+
+	err := r.Resolve()
+	require.ErrorIs(t, err, extpoints.ErrConfigType)
+	assert.Contains(t, err.Error(), "worker.concurrency")
+	assert.Contains(t, err.Error(), "WORKER_CONCURRENCY")
+}
