@@ -169,12 +169,7 @@ func UploadFile(c *gin.Context) {
 func DownloadFile(c *gin.Context) {
 	upload, err := filesrv.GetUploadRecordByID(c)
 	if err != nil {
-		if isRecordNotFound(err) {
-			response.AbortNotFound(c, shared.ErrFileRecordNotFound)
-			return
-		}
-		if _, ok := err.(*strconv.NumError); ok {
-			response.AbortBadRequest(c, shared.ErrInvalidFileID)
+		if filesrv.AbortUploadRecordError(c, err) {
 			return
 		}
 		response.AbortBadRequest(c, shared.ErrQueryUploadRecordFailed)

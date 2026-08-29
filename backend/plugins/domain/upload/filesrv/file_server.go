@@ -76,12 +76,7 @@ const (
 func ServeFileByID(c *gin.Context) {
 	upload, err := GetUploadRecordByID(c)
 	if err != nil {
-		if repository.IsRecordNotFound(err) {
-			response.AbortNotFound(c, shared.ErrFileRecordNotFound)
-			return
-		}
-		if _, ok := err.(*strconv.NumError); ok {
-			response.AbortBadRequest(c, shared.ErrInvalidUploadID)
+		if AbortUploadRecordError(c, err) {
 			return
 		}
 		response.AbortInternal(c, shared.ErrInternalServerError)
@@ -94,6 +89,23 @@ func ServeFileByID(c *gin.Context) {
 	}
 
 	ServeUpload(c, upload)
+}
+
+// AbortUploadRecordError maps an upload record lookup failure to its HTTP
+// response and reports whether it handled the error. A missing record is 404
+// and a malformed path ID is 400; anything else is left to the caller.
+func AbortUploadRecordError(c *gin.Context, err error) bool {
+	var numErr *strconv.NumError
+	switch {
+	case repository.IsRecordNotFound(err):
+		response.AbortNotFound(c, shared.ErrFileRecordNotFound)
+		return true
+	case errors.As(err, &numErr):
+		response.AbortBadRequest(c, shared.ErrInvalidFileID)
+		return true
+	default:
+		return false
+	}
 }
 
 // GetUploadRecordByID 从请求路径参数中解析文件 ID 并从数据库中检索处于 Pending 或 Used 状态的上传记录。

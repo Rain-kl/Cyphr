@@ -43,7 +43,6 @@ const (
 	ErrFileRecordNotFound              = "文件记录未找到"
 	ErrFileNotFound                    = "文件未找到"
 	ErrOperationForbidden              = "无权操作"
-	ErrInvalidUploadID                 = "无效的上传ID"
 	ErrInvalidAccessModeParam          = "无效的 access_mode 参数"
 	ErrInternalServerError             = "服务器内部错误"
 )
