@@ -43,3 +43,19 @@ func TestMessageGatewayPluginUnit(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 5, setting.Default)
 }
+
+// TestEveryScheduleHasTaskHandler 回归：RegisterCron 仅登记调度；若同名任务从未
+// Register，则每次触发都投递到无人处理的任务类型，清理逻辑静默失效。
+func TestEveryScheduleHasTaskHandler(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+	require.NoError(t, message_gateway.New().Apply(ctx))
+
+	schedules := ctx.Schedules().Schedules()
+	require.NotEmpty(t, schedules)
+
+	for _, sched := range schedules {
+		_, ok := ctx.Tasks().Get(sched.TaskType)
+		assert.Truef(t, ok, "schedule %q dispatches to task %q, which is never registered",
+			sched.Spec, sched.TaskType)
+	}
+}

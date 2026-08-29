@@ -154,6 +154,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
+	ctx.Task().Register("message_gateway:cleanup_pairing_codes", func(c context.Context, _ []byte) error {
+		return repository.DeleteExpiredPairingCodes(c)
+	}, extpoints.WithTaskRetry(defaultTaskRetry))
+
 	// 6. Register Cron Schedules
 	ctx.Schedule().RegisterCron("*/10 * * * *", "message_gateway:cleanup_pairing_codes", map[string]any{"action": "cleanup"})
 
