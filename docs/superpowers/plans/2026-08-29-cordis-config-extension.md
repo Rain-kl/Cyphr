@@ -1691,23 +1691,6 @@ func (a *App) prepareLocked() error {
 	}
 	a.prepared = true
 
-	return a.evaluateGatesLocked()
-}
-
-// evaluateGatesLocked skips every plugin whose configuration gate is closed.
-func (a *App) evaluateGatesLocked() error {
-	for _, f := range a.fibers {
-		if f.State() != FiberPending {
-			continue
-		}
-		gated, ok := f.plugin.(ConfigGatedPlugin)
-		if !ok || gated.ConfigEnabled(a.ctx.Config()) {
-			continue
-		}
-		if err := f.Skip(); err != nil {
-			return fmt.Errorf("core: skip gated plugin %q: %w", f.Name(), err)
-		}
-	}
 	return nil
 }
 
@@ -1728,6 +1711,8 @@ func (a *App) SetShutdownTimeout(timeout time.Duration) *App {
 	return a
 }
 ```
+
+> **门禁为什么在 `reconcileLocked` 内求值而不是 `Prepare` 里一次性遍历**：`App.Use` 可以在 `Prepare` 之后继续挂载插件（下游定制与动态装配）。只在 `Prepare` 求值会留下一批永不判定的门禁；放在调和循环里则任何时刻新挂载的插件都会被正确判定，且 `Fiber.Skip` 自带"仅 Pending 可跳过"守卫，重复遍历安全。
 
 `Use` 中，为每个成功登记的插件收集声明（放在 `a.pluginMap[name] = p` 之前）：
 
@@ -1766,27 +1751,52 @@ func (a *App) ApplyPlugins() error {
 }
 ```
 
-`reconcileLocked` 的加载循环中，在 `f.DependenciesSatisfied(a.ctx)` 判定之前加门禁守卫，确保未经 `Prepare` 的路径也不会激活门禁关闭的插件：
+把 `reconcileLocked` 的内层循环替换为带门禁判定的版本（其余保持不变）：
 
 ```go
+func (a *App) reconcileLocked() error {
+	if err := a.prepareLocked(); err != nil {
+		return err
+	}
+
+	view := a.ctx.Config()
+
+	for {
+		progress := false
 		for _, f := range a.fibers {
-			if f.State() == FiberSkipped {
+			if f.State() != FiberPending {
 				continue
 			}
-			if f.State() == FiberPending && f.DependenciesSatisfied(a.ctx) {
-```
 
-同时把 `unsatisfied` 收集循环改为跳过 `FiberSkipped`，避免把被门禁排除的插件误报为依赖缺失：
+			if gated, ok := f.plugin.(ConfigGatedPlugin); ok {
+				if !view.Resolved() {
+					continue
+				}
+				if !gated.ConfigEnabled(view) {
+					if err := f.Skip(); err != nil {
+						return fmt.Errorf("core: skip gated plugin %q: %w", f.Name(), err)
+					}
+					continue
+				}
+			}
 
-```go
-	for _, f := range a.fibers {
-		if f.State() == FiberPending {
-			unsatisfied = append(unsatisfied, fmt.Sprintf("%s (waiting for %v)", f.Name(), f.Dependencies()))
+			if f.DependenciesSatisfied(a.ctx) {
+				if err := f.Load(); err != nil {
+					return fmt.Errorf("core: load fiber %q failed: %w", f.Name(), err)
+				}
+				progress = true
+			}
+		}
+		if !progress {
+			break
 		}
 	}
+
+	// ...existing unsatisfied-dependency reporting unchanged
+}
 ```
 
-（`FiberPending` 判定已天然排除 `FiberSkipped`，无需改动。）
+`unsatisfied` 收集循环无需改动：它只统计 `FiberPending`，被门禁排除的插件已是 `FiberSkipped`。
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -2213,6 +2223,7 @@ type engineDatabaseConfig struct {
 	PreferSimpleProtocol   bool          `config:"prefer_simple_protocol" env:"DB_PREFER_SIMPLE_PROTOCOL"`
 	StatementCacheCapacity int           `config:"statement_cache_capacity" env:"DB_STATEMENT_CACHE_CAPACITY"`
 	DefaultQueryExecMode   string        `config:"default_query_exec_mode" env:"DB_DEFAULT_QUERY_EXEC_MODE"`
+	Replicas               []engineReplicaConfig `config:"replicas"`
 	SlowThreshold          time.Duration `config:"slow_threshold" env:"DB_SLOW_THRESHOLD"`
 }
 
@@ -2265,39 +2276,62 @@ type engineOtelConfig struct {
 	TracerName   string  `config:"tracer_name" env:"OTEL_TRACER_NAME" default:"github.com/Rain-kl/Wavelet"`
 }
 
+// engineReplicaConfig mirrors databaseReplicaConfig, a composite element of database.replicas.
+type engineReplicaConfig struct {
+	Host     string `config:"host"`
+	Port     int    `config:"port"`
+	Username string `config:"username"`
+	Password string `config:"password"`
+}
+
+// engineQueueConfig and engineWorkerConfig mirror the worker section, whose defaults
+// legitimately move to driver_asynq_worker in P3; the repository file declares them
+// explicitly, so parity is unaffected.
+type engineQueueConfig struct {
+	Name     string `config:"name"`
+	Priority int    `config:"priority"`
+}
+
+type engineWorkerConfig struct {
+	Concurrency    int                 `config:"concurrency" env:"WORKER_CONCURRENCY"`
+	StrictPriority bool                `config:"strict_priority" env:"WORKER_STRICT_PRIORITY"`
+	Queues         []engineQueueConfig `config:"queues"`
+}
+
 func repositoryConfig(t *testing.T) string {
 	t.Helper()
 
-	dir, err := os.Getwd()
-	require.NoError(t, err)
-
-	path := filepath.Join(dir, "..", "..", "config.yaml")
+	path := filepath.Join("..", "..", "config.yaml")
 	if _, statErr := os.Stat(path); statErr != nil {
 		t.Skip("repository root config.yaml is unavailable")
 	}
 	return path
 }
 
-// copyLike copies same-named, same-typed exported fields from src into dst recursively.
-func copyLike(dst, src reflect.Value) {
-	for i := 0; i < dst.NumField(); i++ {
-		dstField := dst.Type().Field(i)
-		if dstField.PkgPath != "" {
+// flatten exports a struct into dotted leaf paths rendered as text. Both sides of the
+// parity assertion use distinct Go types for the same shape, so values are compared
+// textually instead of handing cmp a cross-type diff.
+func flatten(prefix string, v reflect.Value, out map[string]string) {
+	t := v.Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.PkgPath != "" {
 			continue
 		}
-		srcField := src.FieldByName(dstField.Name)
-		if !srcField.IsValid() {
+
+		fv := v.Field(i)
+		path := prefix + "." + field.Name
+		if fv.Kind() == reflect.Struct && fv.Type() != durationType {
+			flatten(path, fv, out)
 			continue
 		}
-		if srcField.Kind() == reflect.Struct && srcField.Type() != reflect.TypeFor[time.Duration]() {
-			copyLike(dst.Field(i), srcField)
-			continue
-		}
-		if srcField.Type() == dst.Field(i).Type() {
-			dst.Field(i).Set(srcField)
-		}
+		out[path] = fmt.Sprint(fv.Interface())
 	}
 }
+
+// durationType mirrors the engine's own notion of a scalar duration field.
+var durationType = reflect.TypeFor[time.Duration]()
 
 func TestEngineParityWithLegacyLoader(t *testing.T) {
 	path := repositoryConfig(t)
@@ -2338,8 +2372,7 @@ func TestEngineParityWithLegacyLoader(t *testing.T) {
 
 			legacy := load(path, false)
 
-			src, err := config.NewSource(config.WithPath(path))
-			require.NoError(t, err)
+			src := newYAMLSource(t, path)
 
 			engine := extpoints.NewConfigRegistry(src)
 			require.NoError(t, engine.Declare("parity",
@@ -2349,6 +2382,7 @@ func TestEngineParityWithLegacyLoader(t *testing.T) {
 				extpoints.ConfigBinding{Prefix: "clickhouse", Target: &engineClickHouseConfig{}},
 				extpoints.ConfigBinding{Prefix: "log", Target: &engineLogConfig{}},
 				extpoints.ConfigBinding{Prefix: "otel", Target: &engineOtelConfig{}},
+				extpoints.ConfigBinding{Prefix: "worker", Target: &engineWorkerConfig{}},
 			))
 			require.NoError(t, engine.Resolve())
 
@@ -2358,15 +2392,19 @@ func TestEngineParityWithLegacyLoader(t *testing.T) {
 			var clickhouse engineClickHouseConfig
 			var log engineLogConfig
 			var otel engineOtelConfig
-			require.NoError(t, engine.Bind("app", &app))
-			require.NoError(t, engine.Bind("database", &database))
-			require.NoError(t, engine.Bind("redis", &redis))
-			require.NoError(t, engine.Bind("clickhouse", &clickhouse))
-			require.NoError(t, engine.Bind("log", &log))
-			require.NoError(t, engine.Bind("otel", &otel))
+			var worker engineWorkerConfig
+			for _, binding := range []struct {
+				prefix string
+				target any
+			}{
+				{"app", &app}, {"database", &database}, {"redis", &redis},
+				{"clickhouse", &clickhouse}, {"log", &log}, {"otel", &otel}, {"worker", &worker},
+			} {
+				require.NoError(t, engine.Bind(binding.prefix, binding.target))
+			}
 
-			// The legacy loader keeps one code-level default outside the tags; the
-			// engine expresses it as a declared default, so normalise before diffing.
+			// The legacy loader keeps two code-level defaults outside its tags; the engine
+			// expresses them as declared defaults, so normalise before diffing (spec C1).
 			if legacy.App.SessionAge <= 0 {
 				legacy.App.SessionAge = 86400
 			}
@@ -2374,25 +2412,31 @@ func TestEngineParityWithLegacyLoader(t *testing.T) {
 				legacy.Otel.TracerName = "github.com/Rain-kl/Wavelet"
 			}
 
-			copyLike(reflect.ValueOf(&app).Elem(), reflect.ValueOf(legacy.App).Elem())
-			copyLike(reflect.ValueOf(&database).Elem(), reflect.ValueOf(legacy.Database).Elem())
-			copyLike(reflect.ValueOf(&redis).Elem(), reflect.ValueOf(legacy.Redis).Elem())
-			copyLike(reflect.ValueOf(&clickhouse).Elem(), reflect.ValueOf(legacy.ClickHouse).Elem())
-			copyLike(reflect.ValueOf(&log).Elem(), reflect.ValueOf(legacy.Log).Elem())
-			copyLike(reflect.ValueOf(&otel).Elem(), reflect.ValueOf(legacy.Otel).Elem())
+			legacyFlat := map[string]string{}
+			flatten("app", reflect.ValueOf(legacy.App), legacyFlat)
+			flatten("database", reflect.ValueOf(legacy.Database), legacyFlat)
+			flatten("redis", reflect.ValueOf(legacy.Redis), legacyFlat)
+			flatten("clickhouse", reflect.ValueOf(legacy.ClickHouse), legacyFlat)
+			flatten("log", reflect.ValueOf(legacy.Log), legacyFlat)
+			flatten("otel", reflect.ValueOf(legacy.Otel), legacyFlat)
+			flatten("worker", reflect.ValueOf(legacy.Worker), legacyFlat)
 
-			assert.Empty(t, cmp.Diff(app, legacy.App), "app config drifted")
-			assert.Empty(t, cmp.Diff(database, legacy.Database), "database config drifted")
-			assert.Empty(t, cmp.Diff(redis, legacy.Redis), "redis config drifted")
-			assert.Empty(t, cmp.Diff(clickhouse, legacy.ClickHouse), "clickhouse config drifted")
-			assert.Empty(t, cmp.Diff(log, legacy.Log), "log config drifted")
-			assert.Empty(t, cmp.Diff(otel, legacy.Otel), "otel config drifted")
+			engineFlat := map[string]string{}
+			flatten("app", reflect.ValueOf(app), engineFlat)
+			flatten("database", reflect.ValueOf(database), engineFlat)
+			flatten("redis", reflect.ValueOf(redis), engineFlat)
+			flatten("clickhouse", reflect.ValueOf(clickhouse), engineFlat)
+			flatten("log", reflect.ValueOf(log), engineFlat)
+			flatten("otel", reflect.ValueOf(otel), engineFlat)
+			flatten("worker", reflect.ValueOf(worker), engineFlat)
+
+			assert.Empty(t, cmp.Diff(legacyFlat, engineFlat), "engine resolution drifted from legacy loader")
 		})
 	}
 }
 ```
 
-`require` 需从 testify 引入：在 import 块加 `"github.com/stretchr/testify/require"`。
+测试文件的 import 块必须包含：`fmt`、`os`、`path/filepath`、`reflect`、`testing`、`time`、`github.com/google/go-cmp/cmp`、`github.com/spf13/viper`、`github.com/stretchr/testify/assert`、`github.com/stretchr/testify/require`、`Wavelet/core/extpoints`。
 
 - [ ] **Step 4: 运行对拍确认等价**
 
@@ -2506,3 +2550,17 @@ git commit -m "docs(config): record the configuration extension point ownership 
 4. 同时挂载门禁谓词相反的两个插件时，恰好一个 `FiberActive`、一个 `FiberSkipped`，且被跳过者 `Apply` 从未执行。
 5. `core/` 不出现 viper/mapstructure import，且架构脚本能主动拦截该违规。
 6. 生产启动路径行为未变（仍由 `config.Config` 供值），业务插件与 `cmd` 零改动。
+
+---
+
+## 与 spec 的偏差（实施时须回写 spec）
+
+计划编写阶段的自审发现三处与本 spec 已批准版本不一致的实现，均属实现期发现的正确性问题。在 Task 10 落库时一并回写 `docs/superpowers/specs/2026-08-29-cordis-config-extension-design.md`：
+
+| # | spec 原述 | 本计划实现 | 理由 |
+| :--- | :--- | :--- | :--- |
+| S1 | §4.3 C1 与 §6 把 `app.session_age<=0` 的判定列为内核解析错误（`ErrConfigInvalid`） | 引擎不做值域校验；`ErrConfigInvalid` 保留为源级校验占位，值域由声明者在 `Bind` 之后自行校验（auth 校验 `SessionAge > 0` 并使 `Apply` 失败） | 引擎被设计成不认识任何业务 key 的语义，让它知道"session_age 必须为正"会破坏该不变式并把业务规则塞进内核 |
+| S2 | §3.2 `ConfigView` 含 `Source(key) string` | 更名 `Origin(key)`，并新增 `Value(key) (any, bool)`；`ConfigExtension` 新增 `SetSource(src)` 与 `Resolved()` | `Source` 与类型名 `ConfigSource` 在同文件内易混淆；`Value` 是 `core.ConfigGet[T]` 的支撑（Go 方法不能带类型参数）；`SetSource` 进接口以避免 `WithConfigSource` 里的运行时类型断言 |
+| S3 | §3.5 只给出 `WithShutdownTimeout` 与 `app.Prepare()` | 额外新增 `App.ShutdownTimeout()` 读取器与 `SetShutdownTimeout(d) *App`（链式，与既有 `WithProfile` 风格一致） | 组合根需要在 `Prepare()` 之后把已解析的预算写回内核，原先只有构造期选项，无法表达该顺序 |
+
+回写时同步修正 §7.3 的分期编号：本计划覆盖 P1 + P2，P3 + P4 由后续计划承接（`pkg/idgen` 解耦、27 个文件迁移、删除 `backend/pkg/config`）。
