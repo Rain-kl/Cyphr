@@ -7,3 +7,4 @@ iteration	commit	metric	delta	status	guard	description
 5	381c794	93	0.0	keep	pass	CORDIS: gate widened to catch bare "go call()" + 4 unprotected cleanup goroutines moved to util.Go (arch violations 4->0)
 6	ce33997	92	-1.0	keep	pass	BUGFIX admin logs: negative cursor was accepted (bool ignored by callers) -> error-only contract; proven via revert (compile-level) + contract test
 7	c66399e	89	-3.0	keep	pass	push channels share title/content/level extraction (3 dead inits gone, ~20 fewer lines)
+8	18820b1	89	0.0	keep	pass	BUGFIX push: synthesized notification content had random field order (map iteration); sorted keys, test observed failing pre-fix
