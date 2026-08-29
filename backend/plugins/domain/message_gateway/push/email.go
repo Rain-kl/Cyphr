@@ -37,22 +37,8 @@ func (p *EmailPusher) Send(ctx context.Context, cfg Config, target string, body 
 		return "", errors.New("email: target email address is required")
 	}
 
-	title := defaultTitle
-	if t, ok := body["title"].(string); ok && t != "" {
-		title = t
-	}
-
-	content := ""
-	if c, ok := body["content"].(string); ok && c != "" {
-		content = c
-	} else {
-		// 自动格式化 map
-		var parts []string
-		for k, v := range body {
-			parts = append(parts, fmt.Sprintf("<p><b>%s</b>: %v</p>", k, v))
-		}
-		content = strings.Join(parts, "")
-	}
+	title := bodyTitle(body)
+	content := bodyContent(body, "<p><b>%s</b>: %v</p>", "")
 
 	// 邮件头和体
 	from := cfg.Key

@@ -55,24 +55,9 @@ func (p *TelegramPusher) Send(ctx context.Context, cfg Config, target string, bo
 	}
 	baseURL = strings.TrimSuffix(baseURL, "/")
 
-	title := defaultTitle
-	if t, ok := body["title"].(string); ok && t != "" {
-		title = t
-	}
-	content := ""
-	if c, ok := body["content"].(string); ok && c != "" {
-		content = c
-	} else {
-		var parts []string
-		for k, v := range body {
-			parts = append(parts, fmt.Sprintf("<b>%s</b>: %v", k, v))
-		}
-		content = strings.Join(parts, "\n")
-	}
-	level := levelInfo
-	if l, ok := body["level"].(string); ok && l != "" {
-		level = strings.ToUpper(l)
-	}
+	title := bodyTitle(body)
+	content := bodyContent(body, "<b>%s</b>: %v", "\n")
+	level := bodyLevel(body)
 
 	var text string
 	if template != "" {

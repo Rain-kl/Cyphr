@@ -76,3 +76,32 @@ func formatValue(v any) string {
 		return fmt.Sprintf("%v", v)
 	}
 }
+
+// bodyTitle returns the notification title, falling back to the default.
+func bodyTitle(body map[string]any) string {
+	if t, ok := body["title"].(string); ok && t != "" {
+		return t
+	}
+	return defaultTitle
+}
+
+// bodyContent returns the notification body, rendering every entry with format
+// (a "%s … %v" pair) and joining them with sep when no content field is given.
+func bodyContent(body map[string]any, format, sep string) string {
+	if c, ok := body["content"].(string); ok && c != "" {
+		return c
+	}
+	parts := make([]string, 0, len(body))
+	for k, v := range body {
+		parts = append(parts, fmt.Sprintf(format, k, v))
+	}
+	return strings.Join(parts, sep)
+}
+
+// bodyLevel returns the upper-cased notification level, falling back to INFO.
+func bodyLevel(body map[string]any) string {
+	if l, ok := body["level"].(string); ok && l != "" {
+		return strings.ToUpper(l)
+	}
+	return levelInfo
+}

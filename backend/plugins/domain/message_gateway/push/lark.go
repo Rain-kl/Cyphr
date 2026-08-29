@@ -154,27 +154,9 @@ func (p *LarkPusher) Send(ctx context.Context, cfg Config, _ string, body map[st
 		}
 	} else {
 		// 2. 如果无模板，默认生成一个精美的飞书互动卡片
-		title := defaultTitle
-		if t, ok := body["title"].(string); ok && t != "" {
-			title = t
-		}
-
-		content := ""
-		if c, ok := body["content"].(string); ok && c != "" {
-			content = c
-		} else {
-			// 兜底：如果连 content 都没有，把 body 里的所有值拼成 markdown
-			var parts []string
-			for k, v := range body {
-				parts = append(parts, fmt.Sprintf("**%s**: %v", k, v))
-			}
-			content = strings.Join(parts, "\n")
-		}
-
-		level := levelInfo
-		if l, ok := body["level"].(string); ok && l != "" {
-			level = strings.ToUpper(l)
-		}
+		title := bodyTitle(body)
+		content := bodyContent(body, "**%s**: %v", "\n")
+		level := bodyLevel(body)
 
 		// 根据级别确定飞书卡片头部的背景色模板
 		headerColor := "blue"
