@@ -27,6 +27,10 @@ const (
 
 	// FiberDisposed indicates the plugin has been completely unmounted and its context disposed.
 	FiberDisposed FiberState = "DISPOSED"
+
+	// FiberSkipped indicates the plugin never activated because its configuration gate
+	// evaluated to false, so an alternative provider took over.
+	FiberSkipped FiberState = "SKIPPED"
 )
 
 // Fiber wraps a Plugin instance with a dedicated scoped Context and manages its
@@ -132,6 +136,26 @@ func (f *Fiber) Load() error {
 	f.state = FiberActive
 	f.mu.Unlock()
 	return nil
+}
+
+// Skip transitions a pending plugin to FiberSkipped and releases its scoped Context.
+// Active plugins are left untouched, which makes the call safe to replay on every
+// reconciliation pass, including for plugins mounted after the first gate evaluation.
+func (f *Fiber) Skip() error {
+	f.mu.Lock()
+	if f.state != FiberPending {
+		f.mu.Unlock()
+		return nil
+	}
+	f.state = FiberSkipped
+	f.mu.Unlock()
+
+	return f.ctx.Dispose()
+}
+
+// Skipped reports whether the plugin was excluded by its configuration gate.
+func (f *Fiber) Skipped() bool {
+	return f.State() == FiberSkipped
 }
 
 // Unload tears down the plugin: ACTIVE -> UNLOADING -> DISPOSED.

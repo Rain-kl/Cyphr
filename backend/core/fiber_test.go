@@ -5,6 +5,7 @@ package core_test
 
 import (
 	"Wavelet/core"
+	"Wavelet/core/extpoints"
 	"context"
 	"reflect"
 	"testing"
@@ -107,4 +108,57 @@ func TestFiber_UnsatisfiedDependencyReturnsError(t *testing.T) {
 	err := app.Start(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsatisfied dependencies")
+}
+
+// gateConfig is the configuration section consumed by gatedPlugin below.
+type gateConfig struct {
+	Enabled bool `config:"enabled" env:"GATE_ENABLED"`
+}
+
+// gatedPlugin implements core.ConfigGatedPlugin: two instances with opposite
+// expectations model the mutually exclusive cache / cache_memory driver pair.
+type gatedPlugin struct {
+	name    string
+	enabled bool
+	applied bool
+}
+
+func (g *gatedPlugin) Name() string { return g.name }
+
+func (g *gatedPlugin) Apply(_ *core.Context) error {
+	g.applied = true
+	return nil
+}
+
+func (g *gatedPlugin) DeclareConfig() []extpoints.ConfigBinding {
+	return []extpoints.ConfigBinding{{Prefix: "gate", Target: &gateConfig{}}}
+}
+
+func (g *gatedPlugin) ConfigEnabled(view extpoints.ConfigView) bool {
+	return view.Bool("gate.enabled", false) == g.enabled
+}
+
+func TestFiberSkipMovesToSkippedStateAndDisposesScope(t *testing.T) {
+	root := core.NewContext(nil)
+	plugin := &gatedPlugin{name: "cache", enabled: true}
+	f := core.NewFiber(root, plugin)
+	require.Equal(t, core.FiberPending, f.State())
+
+	require.NoError(t, f.Skip())
+
+	assert.Equal(t, core.FiberSkipped, f.State())
+	assert.True(t, f.Skipped())
+	assert.False(t, plugin.applied, "a skipped plugin must never reach Apply")
+	assert.NoError(t, f.Unload(), "unloading a skipped fiber is a no-op")
+}
+
+func TestFiberSkipIsInertForActiveFibers(t *testing.T) {
+	root := core.NewContext(nil)
+	f := core.NewFiber(root, &gatedPlugin{name: "cache", enabled: true})
+	require.NoError(t, f.Load())
+
+	require.NoError(t, f.Skip())
+
+	assert.Equal(t, core.FiberActive, f.State(), "Skip only applies to pending fibers")
+	assert.False(t, f.Skipped())
 }
