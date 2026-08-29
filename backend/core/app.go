@@ -583,9 +583,9 @@ func (a *App) Stop(ctx ...context.Context) error {
 }
 
 // Run starts the application and blocks until an OS signal (SIGINT, SIGTERM) or context cancellation is received,
-// then executes graceful shutdown.
+// then executes graceful shutdown. It forwards a sigCtx derived from the caller's context to Start.
 //
-//nolint:contextcheck // Run forwards a sigCtx derived from the caller's context to Start; the rule cannot follow the variadic parameter
+//nolint:contextcheck // the caller's ctx does reach Start via sigCtx; the rule cannot follow Run's variadic context parameter
 func (a *App) Run(ctx ...context.Context) error {
 	var parent context.Context
 	switch {

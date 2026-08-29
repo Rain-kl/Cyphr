@@ -64,8 +64,6 @@ func runProfileApp(profile core.Profile, mode string, listensForHTTP bool) {
 }
 
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.
-//
-//nolint:contextcheck
 func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
 	src, err := config.NewSource()
 	if err != nil {
