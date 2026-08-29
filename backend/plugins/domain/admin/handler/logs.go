@@ -11,6 +11,7 @@ import (
 	"Wavelet/plugins/domain/admin/model"
 	"Wavelet/plugins/domain/admin/service"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -47,11 +48,11 @@ func GetLogs(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "200")
 
 	var cursor, limit int
-	if _, err := parsePositiveInt(cursorStr, &cursor); err != nil {
+	if err := parsePositiveInt(cursorStr, &cursor); err != nil {
 		response.AbortWithError(c, http.StatusBadRequest, errs.InvalidCursorParam)
 		return
 	}
-	if _, err := parsePositiveInt(limitStr, &limit); err != nil || limit <= 0 {
+	if err := parsePositiveInt(limitStr, &limit); err != nil || limit <= 0 {
 		limit = defaultLimit
 	}
 	if limit > maxLimit {
@@ -183,15 +184,22 @@ func getUpgrader() *websocket.Upgrader {
 	}
 }
 
-func parsePositiveInt(s string, result *int) (bool, error) {
+// errNegativeParam 表示查询参数解析出了负数。
+var errNegativeParam = errors.New("parameter must not be negative")
+
+// parsePositiveInt 解析非负整数查询参数；返回错误时 result 保持调用前的值。
+func parsePositiveInt(s string, result *int) error {
 	if s == "" {
 		*result = 0
-		return true, nil
+		return nil
 	}
 	n, err := strconv.Atoi(s)
-	if err != nil || n < 0 {
-		return false, err
+	if err != nil {
+		return err
+	}
+	if n < 0 {
+		return errNegativeParam
 	}
 	*result = n
-	return true, nil
+	return nil
 }
