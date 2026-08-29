@@ -10,3 +10,4 @@ iteration	commit	metric	delta	status	guard	description
 8	18820b1	89	0.0	keep	pass	BUGFIX push: synthesized notification content had random field order (map iteration); sorted keys, test observed failing pre-fix
 9	22ecafd	87	-2.0	keep	pass	unparam: always-nil error returns dropped, 4 unreachable branches removed
 10	c4068ef	84	-3.0	keep	pass	errorlint cleared to 0: %%w at push test + telegram fallback, errors.As in config loader
+11	3d2038a	80	-4.0	keep	pass	nilnil: unimplemented auth mocks now return a sentinel instead of (nil,nil)
