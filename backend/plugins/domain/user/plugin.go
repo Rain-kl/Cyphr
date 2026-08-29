@@ -13,7 +13,6 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*/*.sql
@@ -128,13 +127,12 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	const defaultUserTaskRetry = 3
 
-	// 4. Register Asynq background tasks
-	ctx.Task().Register("user:send_email_code", func(_ context.Context, _ *asynq.Task) error {
-		// Asynq background task handler
+	// 4. Register background tasks
+	ctx.Task().Register("user:send_email_code", func(_ context.Context, _ []byte) error {
 		return nil
 	}, extpoints.WithTaskRetry(defaultUserTaskRetry))
 
-	ctx.Task().Register("user:cleanup_inactive", func(_ context.Context, _ *asynq.Task) error {
+	ctx.Task().Register("user:cleanup_inactive", func(_ context.Context, _ []byte) error {
 		return nil
 	})
 

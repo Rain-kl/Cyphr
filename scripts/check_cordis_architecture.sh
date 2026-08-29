@@ -198,6 +198,25 @@ else
 fi
 
 # ==============================================================================
+# 7. 插件驱动无关性 (Driver-Agnostic Plugins)
+# ==============================================================================
+log_check "7. 检查业务/基础设施插件的驱动无关性 (禁止绑定具体 Worker/调度器运行时类型)..."
+
+# 业务插件只能通过 ctx.Task() / ctx.Schedule() 扩展点声明工作，不得 import Worker
+# 驱动运行时类型：绑定 *asynq.Task 之类的签名只被 asynq 驱动满足，换用 in-process
+# Worker 后 invokeHandler 会以 "unsupported handler type" 直接拒绝，任务永不执行。
+RUNTIME_BOUND=$(rg -n '"github.com/hibiken/asynq"' \
+    "${BACKEND_DIR}/plugins/domain/" "${BACKEND_DIR}/plugins/infra/" \
+    --glob '*.go' -g '!*_test.go' 2>/dev/null || true)
+
+if [ -n "${RUNTIME_BOUND}" ]; then
+    log_fail "业务/基础设施插件严禁依赖具体 Worker/调度器运行时（必须面向 ctx.Task()/ctx.Schedule() 扩展点编程，否则更换驱动后任务无法执行）:"
+    echo "${RUNTIME_BOUND}" >&2
+else
+    log_pass "业务/基础设施插件保持驱动无关，可自由切换 Worker 驱动"
+fi
+
+# ==============================================================================
 # 总结与判定
 # ==============================================================================
 echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"

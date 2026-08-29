@@ -16,7 +16,6 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 // SystemConfig aliases model.SystemConfig for external compatibility.
@@ -154,7 +153,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	handler.RegisterRoutes(adminRouter)
 
 	// 2. Register Background Tasks
-	ctx.Task().Register("admin:system_cleanup", func(_ context.Context, _ *asynq.Task) error {
+	ctx.Task().Register("admin:system_cleanup", func(_ context.Context, _ []byte) error {
 		return nil
 	}, extpoints.WithTaskRetry(1))
 

@@ -17,7 +17,6 @@ import (
 	"reflect"
 
 	"github.com/gin-gonic/gin"
-	"github.com/hibiken/asynq"
 )
 
 //go:embed migrations/*/*.sql
@@ -145,28 +144,29 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		defaultSingleRetry  = 1
 	)
 
-	// 3. Register Asynq tasks
+	// 3. Register tasks. Handlers take raw payload bytes rather than a driver
+	// specific task type so they run under both the asynq and in-process workers.
 	cleanupHandler := &task.SystemCleanupHandler{}
-	ctx.Task().Register(task.SystemCleanupTask, func(c context.Context, t *asynq.Task) error {
-		_, err := cleanupHandler.Execute(c, t.Payload())
+	ctx.Task().Register(task.SystemCleanupTask, func(c context.Context, payload []byte) error {
+		_, err := cleanupHandler.Execute(c, payload)
 		return err
 	}, extpoints.WithTaskRetry(defaultCleanupRetry))
 
 	rebuildStatsHandler := &task.RebuildUploadStatsHandler{}
-	ctx.Task().Register(task.RebuildUploadStatsTask, func(c context.Context, t *asynq.Task) error {
-		_, err := rebuildStatsHandler.Execute(c, t.Payload())
+	ctx.Task().Register(task.RebuildUploadStatsTask, func(c context.Context, payload []byte) error {
+		_, err := rebuildStatsHandler.Execute(c, payload)
 		return err
 	}, extpoints.WithTaskRetry(defaultStatsRetry))
 
 	migrationHandler := &task.MigrationHandler{}
-	ctx.Task().Register(task.StorageMigrationTask, func(c context.Context, t *asynq.Task) error {
-		_, err := migrationHandler.Execute(c, t.Payload())
+	ctx.Task().Register(task.StorageMigrationTask, func(c context.Context, payload []byte) error {
+		_, err := migrationHandler.Execute(c, payload)
 		return err
 	}, extpoints.WithTaskRetry(defaultSingleRetry))
 
 	warmHandler := &task.WarmImageCacheHandler{}
-	ctx.Task().Register(task.WarmImageCacheTask, func(c context.Context, t *asynq.Task) error {
-		_, err := warmHandler.Execute(c, t.Payload())
+	ctx.Task().Register(task.WarmImageCacheTask, func(c context.Context, payload []byte) error {
+		_, err := warmHandler.Execute(c, payload)
 		return err
 	}, extpoints.WithTaskRetry(1))
 
