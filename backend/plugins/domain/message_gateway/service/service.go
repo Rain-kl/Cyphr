@@ -7,7 +7,6 @@ package service
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/message_gateway/errs"
@@ -101,12 +100,23 @@ func FormatCode(s string) string {
 	return s[:4] + "-" + s[4:]
 }
 
+var (
+	credentialSecretMu sync.RWMutex
+	credentialSecret   string
+)
+
+// SetCredentialSecret sets the secret used to derive CredentialKey.
+func SetCredentialSecret(secret string) {
+	credentialSecretMu.Lock()
+	defer credentialSecretMu.Unlock()
+	credentialSecret = secret
+}
+
 // CredentialKey is AES-256 hex derived from the session secret.
 func CredentialKey() string {
-	secret := ""
-	if config.Config != nil {
-		secret = config.Config.App.SessionSecret
-	}
+	credentialSecretMu.RLock()
+	secret := credentialSecret
+	credentialSecretMu.RUnlock()
 	sum := sha256.Sum256([]byte(secret))
 	return hex.EncodeToString(sum[:])
 }

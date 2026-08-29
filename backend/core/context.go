@@ -27,6 +27,7 @@ type Context struct {
 	tasks      extpoints.TaskExtension
 	schedules  extpoints.ScheduleExtension
 	settings   extpoints.SettingExtension
+	config     extpoints.ConfigExtension
 
 	mu        sync.RWMutex
 	children  []*Context
@@ -56,6 +57,7 @@ func NewContext(base context.Context) *Context {
 		tasks:      extpoints.NewTaskRegistry(),
 		schedules:  extpoints.NewScheduleRegistry(),
 		settings:   extpoints.NewSettingRegistry(),
+		config:     extpoints.NewConfigRegistry(nil),
 		values:     make(map[any]any),
 	}
 }
@@ -167,6 +169,7 @@ func (c *Context) ForkWithContext(base context.Context) *Context {
 		tasks:      c.tasks,
 		schedules:  c.schedules,
 		settings:   c.settings,
+		config:     c.config,
 		values:     make(map[any]any),
 	}
 
@@ -233,6 +236,13 @@ func (c *Context) Settings() extpoints.SettingExtension {
 // Setting is an alias for Settings().
 func (c *Context) Setting() extpoints.SettingExtension {
 	return c.Settings()
+}
+
+// Config returns the process-level configuration extension point. The registry is
+// shared by every fork because configuration declarations are global facts, and it
+// carries no per-scope disposers: values are resolved once before Apply runs.
+func (c *Context) Config() extpoints.ConfigExtension {
+	return c.config
 }
 
 // OnDispose registers a cleanup callback function to be executed when this Context is disposed.

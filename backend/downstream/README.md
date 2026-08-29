@@ -35,7 +35,7 @@ type Plugin interface {
        storage.New(),
        // ... platform domain plugins ...
        custom_hello.New(), // your downstream plugin
-       driver_http.New(driver_http.WithAddr(config.Config.App.Addr)),
+       driver_http.New(),
        driver_asynq_worker.New(),
        driver_asynq_cron.New(),
    )

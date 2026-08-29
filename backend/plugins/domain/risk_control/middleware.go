@@ -6,17 +6,29 @@ package risk_control
 
 import (
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/risk_control/logstore"
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+var accessLogEnabled atomic.Bool
+
+// SetAccessLogEnabled enables or disables access log collection.
+func SetAccessLogEnabled(enabled bool) {
+	accessLogEnabled.Store(enabled)
+}
+
+// IsAccessLogEnabled reports whether access log collection is enabled.
+func IsAccessLogEnabled() bool {
+	return accessLogEnabled.Load()
+}
 
 // Middleware is an alias for RiskControlMiddleware.
 var Middleware = RiskControlMiddleware
@@ -24,8 +36,8 @@ var Middleware = RiskControlMiddleware
 // RiskControlMiddleware 全局日志采集中间件
 func RiskControlMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 如果未启用 ClickHouse，直接放行
-		if config.Config == nil || !config.Config.ClickHouse.Enabled {
+		// 如果未启用日志采集，直接放行
+		if !IsAccessLogEnabled() {
 			c.Next()
 			return
 		}

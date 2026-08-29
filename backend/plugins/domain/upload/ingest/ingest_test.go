@@ -5,6 +5,7 @@ package ingest
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/shared"
 	"bytes"
@@ -16,6 +17,10 @@ import (
 	"sync"
 	"testing"
 )
+
+func init() {
+	_ = idgen.Init(1)
+}
 
 type testStorageService struct {
 	mu        sync.RWMutex

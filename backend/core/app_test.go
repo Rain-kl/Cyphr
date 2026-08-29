@@ -504,3 +504,93 @@ func TestAppIdempotencyAndErrorStates(t *testing.T) {
 	assert.Contains(t, err.Error(), "sql migrate error")
 	assert.False(t, app3.IsRunning())
 }
+
+// newGateSource builds a configuration source whose only key decides the test gates.
+func newGateSource(enabled bool) *mapSource {
+	return &mapSource{
+		values: map[string]any{"gate.enabled": enabled},
+		env:    map[string]string{},
+	}
+}
+
+func TestAppPrepareResolvesThenGatesDuringReconcile(t *testing.T) {
+	primary := &gatedPlugin{name: "cache", enabled: true}
+	fallback := &gatedPlugin{name: "cache_memory", enabled: false}
+
+	app := core.NewApp(core.WithConfigSource(newGateSource(true)))
+	app.Use(primary, fallback)
+	require.NoError(t, app.Prepare())
+
+	cacheFiber, ok := app.Fiber("cache")
+	require.True(t, ok)
+	require.Equal(t, core.FiberPending, cacheFiber.State(), "Prepare only builds the resolution barrier")
+	assert.True(t, app.Context().Config().Resolved())
+
+	require.NoError(t, app.Reconcile())
+
+	assert.Equal(t, core.FiberActive, cacheFiber.State())
+
+	memoryFiber, ok := app.Fiber("cache_memory")
+	require.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, memoryFiber.State())
+	assert.False(t, fallback.applied, "the gated-out provider must never reach Apply")
+}
+
+func TestAppGatesPluginsMountedAfterPrepare(t *testing.T) {
+	app := core.NewApp(core.WithConfigSource(newGateSource(true)))
+	require.NoError(t, app.Prepare())
+
+	late := &gatedPlugin{name: "cache_memory", enabled: false}
+	app.Use(late)
+	require.NoError(t, app.Reconcile())
+
+	fiber, ok := app.Fiber("cache_memory")
+	require.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, fiber.State(),
+		"plugins mounted after Prepare must still be gated")
+}
+
+func TestAppApplyPluginsGatesImplicitly(t *testing.T) {
+	app := core.NewApp(core.WithConfigSource(newGateSource(false)))
+	app.Use(&gatedPlugin{name: "cache", enabled: true})
+
+	require.NoError(t, app.ApplyPlugins())
+
+	fiber, ok := app.Fiber("cache")
+	require.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, fiber.State(),
+		"ApplyPlugins must resolve and gate without an explicit Prepare call")
+}
+
+func TestAppPrepareReportsConfigurationErrors(t *testing.T) {
+	src := &mapSource{
+		values: map[string]any{"gate.enabled": "yes"},
+		env:    map[string]string{},
+	}
+	app := core.NewApp(core.WithConfigSource(src))
+	app.Use(&gatedPlugin{name: "cache", enabled: true})
+
+	err := app.Prepare()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "gate.enabled")
+}
+
+func TestAppGatedPluginWithoutConfigSourceFailsFast(t *testing.T) {
+	app := core.NewApp()
+	app.Use(&gatedPlugin{name: "cache", enabled: true})
+
+	err := app.ApplyPlugins()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cache")
+	assert.Contains(t, err.Error(), "ConfigSource")
+}
+
+func TestAppSetShutdownTimeoutIgnoresNonPositive(t *testing.T) {
+	app := core.NewApp()
+
+	app.SetShutdownTimeout(0)
+	assert.Equal(t, 10*time.Second, app.ShutdownTimeout(), "zero must not shrink the kernel fallback")
+
+	app.SetShutdownTimeout(45 * time.Second)
+	assert.Equal(t, 45*time.Second, app.ShutdownTimeout())
+}

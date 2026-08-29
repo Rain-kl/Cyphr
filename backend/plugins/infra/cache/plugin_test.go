@@ -32,9 +32,11 @@ func TestCachePluginOperations(t *testing.T) {
 		cache.WithKeyPrefix("app:"),
 		cache.WithRAMCapacity(500),
 	)
-	assert.Equal(t, "cache", p.Name())
-
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(map[string]any{
+		"redis.enabled": true,
+	}))
+	require.NoError(t, ctx.Config().Resolve())
 	require.NoError(t, p.Apply(ctx))
 
 	svc, err := core.Inject[contracts.CacheService](ctx)

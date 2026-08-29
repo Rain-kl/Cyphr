@@ -7,7 +7,6 @@ package system
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"net/http"
@@ -48,6 +47,8 @@ func (p *Plugin) Manifest() core.Manifest {
 
 // Apply registers system routes.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	appName := ctx.Config().String("app.app_name", "Wavelet")
+
 	// 1. Health check
 	ctx.Router().GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -65,7 +66,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		c.JSON(http.StatusOK, response.OK(gin.H{
 			"configs": configs,
 			"app": gin.H{
-				"name": config.Config.App.AppName,
+				"name": appName,
 			},
 		}))
 	})

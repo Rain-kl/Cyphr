@@ -4,6 +4,7 @@
 package logstore
 
 import (
+	"Wavelet/pkg/idgen"
 	"context"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 func newTestUserAccessStore(t *testing.T) *userAccessLogGormStore {
 	t.Helper()
+	_ = idgen.Init(1)
 	gdb, err := gorm.Open(sqlite.Open("file:logstore-"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, gdb.AutoMigrate(&UserAccessLog{}))

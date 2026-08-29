@@ -6,6 +6,7 @@ package driver_inproc_worker_test
 import (
 	"Wavelet/core"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/idgen"
 	"Wavelet/plugins/drivers/driver_inproc_worker"
 	"context"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 )
 
 func TestInprocWorkerPlugin(t *testing.T) {
+	require.NoError(t, idgen.Init(1))
 	ctx := core.NewContext(context.Background())
 	p := driver_inproc_worker.New(
 		driver_inproc_worker.WithConcurrency(2),

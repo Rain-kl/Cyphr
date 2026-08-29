@@ -98,6 +98,22 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+type redisGateConfig struct {
+	Enabled bool `config:"enabled" env:"REDIS_ENABLED" default:"false" autoEnable:"REDIS_ADDR"`
+}
+
+// DeclareConfig declares the configuration bindings consumed by this plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "redis", Target: &redisGateConfig{}},
+	}
+}
+
+// ConfigEnabled gates plugin activation when Redis is disabled.
+func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
+	return !view.Bool("redis.enabled", false)
+}
+
 // Apply registers the worker driver and provides contracts.TaskService.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	p.coreCtx = ctx

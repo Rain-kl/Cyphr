@@ -73,8 +73,20 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+// DeclareConfig declares configuration bindings for the auth plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "app", Target: &SessionConfig{}},
+	}
+}
+
 // Apply registers the auth migrations, services, routes, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var cfg SessionConfig
+	if err := ctx.Config().Bind("app", &cfg); err == nil {
+		SetSessionConfig(cfg)
+	}
+
 	// 0. Bind DBService & CacheService from Context
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
 		setDBService(db)

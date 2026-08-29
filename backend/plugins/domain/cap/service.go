@@ -5,7 +5,6 @@
 package cap
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/plugins/domain/cap/pow"
 	"context"
 	"crypto/sha256"
@@ -161,23 +160,23 @@ func sGetAndDelete(ctx context.Context, store pow.Store, key string) (string, bo
 }
 
 var (
-	defaultManager *Manager
-	once           sync.Once
+	defaultManagerMu sync.RWMutex
+	defaultManager   *Manager
 )
+
+// SetSecret sets the shared secret used by the default manager.
+func SetSecret(secret []byte) {
+	defaultManagerMu.Lock()
+	defer defaultManagerMu.Unlock()
+	if len(secret) > 0 {
+		store := pow.NewMemoryStore(1 * time.Minute)
+		defaultManager = NewManager(secret, store)
+	}
+}
 
 // GetDefaultManager yields the global singleton CAPTCHA manager.
 func GetDefaultManager() *Manager {
-	once.Do(func() {
-		var secret []byte
-		if config.Config != nil && strings.TrimSpace(config.Config.App.SessionSecret) != "" {
-			secret = []byte(config.Config.App.SessionSecret)
-		}
-		if len(secret) == 0 {
-			return
-		}
-
-		store := pow.NewMemoryStore(1 * time.Minute)
-		defaultManager = NewManager(secret, store)
-	})
+	defaultManagerMu.RLock()
+	defer defaultManagerMu.RUnlock()
 	return defaultManager
 }

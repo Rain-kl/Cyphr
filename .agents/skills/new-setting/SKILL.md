@@ -22,18 +22,28 @@ Wavelet 提供两种维度的配置能力：
 
 ## 2. 插件内配置声明与绑定
 
-### 2.1 静态配置绑定 (`ctx.Config().Bind`)
+### 2.1 静态配置声明与绑定 (`DeclareConfig` 与 `ctx.Config().Bind`)
+
+静态启动配置遵循插件自包含声明与解耦规范：
 
 ```go
 type OrderStaticConfig struct {
-	PaymentGatewayURL string `yaml:"payment_gateway_url" json:"payment_gateway_url"`
-	TimeoutSeconds    int    `yaml:"timeout_seconds" json:"timeout_seconds"`
+	PaymentGatewayURL string `config:"payment_gateway_url" env:"ORDER_PAYMENT_URL" default:"https://pay.example.com"`
+	TimeoutSeconds    int    `config:"timeout_seconds" env:"ORDER_TIMEOUT" default:"30"`
+	ApiKey            string `config:"api_key" env:"ORDER_API_KEY" secret:"true"`
+}
+
+// 可选：实现 DeclareConfig 声明配置模式（若需门禁求值则实现 core.ConfigGatedPlugin）
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "plugins.order", Target: &OrderStaticConfig{}},
+	}
 }
 
 func (p *Plugin) Apply(ctx *core.Context) error {
 	var cfg OrderStaticConfig
-	// 从 config.yaml 中的 plugins.order 节点绑定配置
-	ctx.Config().Bind("plugins.order", &cfg)
+	// 从统一配置源绑定 plugins.order 节点配置（支持 YAML 与环境变量覆盖）
+	_ = ctx.Config().Bind("plugins.order", &cfg)
 	return nil
 }
 ```

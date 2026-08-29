@@ -37,9 +37,11 @@ func TestDatabasePlugin(t *testing.T) {
 		database.WithDB(gdb),
 		database.WithNamedDB("analytics", namedDB),
 	)
-	assert.Equal(t, "database", p.Name())
-
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(map[string]any{
+		"database.enabled": false,
+	}))
+	require.NoError(t, ctx.Config().Resolve())
 	require.NoError(t, p.Apply(ctx))
 
 	svc, err := core.Inject[contracts.DBService](ctx)

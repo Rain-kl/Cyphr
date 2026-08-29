@@ -4,7 +4,6 @@
 package logstore
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"context"
 	"errors"
@@ -34,12 +33,34 @@ const resolveCacheTTL = 1 * time.Second
 var (
 	configReader ConfigReader
 
+	defaultDBMu sync.RWMutex
+	defaultDB   = dbNameSQLite
+
 	storeMu         sync.RWMutex
 	active          *Store
 	activeDB        string
 	lastResolveDB   string
 	lastResolveTime time.Time
 )
+
+// SetDefaultDatabases configures the fallback database based on database and clickhouse enablement.
+func SetDefaultDatabases(dbEnabled, chEnabled bool) {
+	defaultDBMu.Lock()
+	defer defaultDBMu.Unlock()
+	defaultDB = dbNameSQLite
+	if dbEnabled {
+		defaultDB = dbNamePostgres
+	}
+	if chEnabled {
+		defaultDB = dbNameClickHouse
+	}
+}
+
+func getDefaultDatabase() string {
+	defaultDBMu.RLock()
+	defer defaultDBMu.RUnlock()
+	return defaultDB
+}
 
 // SetConfigReader 注入系统配置读取函数（bootstrap 调用，测试可注入内存实现）。
 func SetConfigReader(fn ConfigReader) { configReader = fn }
@@ -169,13 +190,7 @@ func resolveDatabase(ctx context.Context) (string, error) {
 
 	resolved := v
 	if resolved == "" {
-		resolved = dbNameSQLite
-		if config.Config.Database.Enabled {
-			resolved = dbNamePostgres
-		}
-		if config.Config.ClickHouse.Enabled {
-			resolved = dbNameClickHouse
-		}
+		resolved = getDefaultDatabase()
 	}
 
 	storeMu.Lock()

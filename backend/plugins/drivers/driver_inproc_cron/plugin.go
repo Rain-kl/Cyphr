@@ -38,6 +38,22 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+type redisGateConfig struct {
+	Enabled bool `config:"enabled" env:"REDIS_ENABLED" default:"false" autoEnable:"REDIS_ADDR"`
+}
+
+// DeclareConfig declares configuration bindings for driver_inproc_cron.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "redis", Target: &redisGateConfig{}},
+	}
+}
+
+// ConfigEnabled gates plugin activation when Redis is disabled.
+func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
+	return !view.Bool("redis.enabled", false)
+}
+
 // Apply registers the scheduler driver into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
 	p.mu.Lock()

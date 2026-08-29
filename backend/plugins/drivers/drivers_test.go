@@ -32,6 +32,8 @@ func init() {
 
 func TestHTTPDriverLifecycle(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 
 	var globalMiddlewareCalled atomic.Bool
 	var groupMiddlewareCalled atomic.Bool
@@ -264,6 +266,8 @@ func TestMultipleDriversInContext(t *testing.T) {
 	defer mr.Close()
 
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 
 	httpPlugin := driver_http.New(driver_http.WithAddr("127.0.0.1:0"))
 	workerPlugin := driver_asynq_worker.New(driver_asynq_worker.WithRedisOpt(asynq.RedisClientOpt{Addr: mr.Addr()}))

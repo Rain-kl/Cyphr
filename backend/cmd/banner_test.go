@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"Wavelet/pkg/buildinfo"
-	"Wavelet/pkg/config"
 	"strings"
 	"testing"
 )
@@ -13,23 +12,19 @@ import (
 func TestFormatStartupBanner(t *testing.T) {
 	previousVersion := buildinfo.Version
 	previousBuildTime := buildinfo.BuildTime
-	previousEnv := config.Config.App.Env
-	previousAddr := config.Config.App.Addr
 	t.Cleanup(func() {
 		buildinfo.Version = previousVersion
 		buildinfo.BuildTime = previousBuildTime
-		config.Config.App.Env = previousEnv
-		config.Config.App.Addr = previousAddr
 	})
 
 	buildinfo.Version = "v3.2.1"
 	buildinfo.BuildTime = "2026-07-13T08:00:00Z"
-	config.Config.App.Env = "production"
-	config.Config.App.Addr = ":3000"
 
 	banner := formatStartupBanner(startupState{
 		mode:           "API",
 		listensForHTTP: true,
+		env:            "production",
+		addr:           ":3000",
 	})
 
 	for _, want := range []string{

@@ -66,8 +66,24 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+// DeclareConfig declares configuration bindings consumed by the admin plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "database", Target: &model.DatabaseConfig{}},
+		{Prefix: "clickhouse", Target: &model.ClickHouseConfig{}},
+	}
+}
+
 // Apply registers admin routes, tasks, schedules, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var dbCfg model.DatabaseConfig
+	_ = ctx.Config().Bind("database", &dbCfg)
+	service.SetDBConfig(dbCfg)
+
+	var chCfg model.ClickHouseConfig
+	_ = ctx.Config().Bind("clickhouse", &chCfg)
+	service.SetClickHouseConfig(chCfg)
+
 	// 0. Bind Services reactively
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
 		service.SetDBService(db)

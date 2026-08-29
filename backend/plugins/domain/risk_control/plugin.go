@@ -68,8 +68,32 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+type rcClickHouseConfig struct {
+	Enabled bool `config:"enabled" env:"CLICKHOUSE_ENABLED" default:"false" autoEnable:"CLICKHOUSE_HOST"`
+}
+
+type rcDBConfig struct {
+	Enabled bool `config:"enabled" env:"DB_ENABLED" default:"false" autoEnable:"DB_HOST"`
+}
+
+// DeclareConfig declares configuration bindings for the risk_control plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "clickhouse", Target: &rcClickHouseConfig{}},
+		{Prefix: "database", Target: &rcDBConfig{}},
+	}
+}
+
 // Apply registers risk control middlewares, settings, and cleanup hooks into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var chCfg rcClickHouseConfig
+	_ = ctx.Config().Bind("clickhouse", &chCfg)
+	var dbCfg rcDBConfig
+	_ = ctx.Config().Bind("database", &dbCfg)
+
+	SetAccessLogEnabled(chCfg.Enabled)
+	logstore.SetDefaultDatabases(dbCfg.Enabled, chCfg.Enabled)
+
 	// 0. Bind DBService
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
 		logstore.SetDBService(db)

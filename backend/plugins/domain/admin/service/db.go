@@ -4,22 +4,57 @@
 package service
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/plugins/domain/admin/model"
 	"Wavelet/plugins/domain/admin/repository"
 	"context"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
+
+var (
+	dbConfigMu sync.RWMutex
+	dbConfig   model.DatabaseConfig
+	chConfig   model.ClickHouseConfig
+)
+
+// SetDBConfig sets the database configuration in service and repository.
+func SetDBConfig(cfg model.DatabaseConfig) {
+	dbConfigMu.Lock()
+	defer dbConfigMu.Unlock()
+	dbConfig = cfg
+	repository.SetDBConfig(cfg)
+}
+
+// GetDBConfig returns the database configuration.
+func GetDBConfig() model.DatabaseConfig {
+	dbConfigMu.RLock()
+	defer dbConfigMu.RUnlock()
+	return dbConfig
+}
+
+// SetClickHouseConfig sets the clickhouse configuration.
+func SetClickHouseConfig(cfg model.ClickHouseConfig) {
+	dbConfigMu.Lock()
+	defer dbConfigMu.Unlock()
+	chConfig = cfg
+}
+
+// GetClickHouseConfig returns the clickhouse configuration.
+func GetClickHouseConfig() model.ClickHouseConfig {
+	dbConfigMu.RLock()
+	defer dbConfigMu.RUnlock()
+	return chConfig
+}
 
 // selectSQLKeywords marks statements that return a result set instead of a row count.
 var selectSQLKeywords = []string{"select", "show", "explain", "describe", "pragma"}
 
 // DatabaseOverview collects the runtime overview of the active database.
 func DatabaseOverview(ctx context.Context) (model.DBOverviewResponse, error) {
-	if !config.Config.Database.Enabled {
+	if !GetDBConfig().Enabled {
 		return repository.GetSQLiteOverview(ctx)
 	}
 	return repository.GetPostgresOverview(ctx)
@@ -114,7 +149,7 @@ func isSelectStatement(trimmedSQL string) bool {
 
 // DatabaseInfo returns the active database type, name and version.
 func DatabaseInfo(ctx context.Context) model.DatabaseInfoResponse {
-	if !config.Config.Database.Enabled {
+	if !GetDBConfig().Enabled {
 		return repository.GetSQLiteInfo(ctx)
 	}
 	return repository.GetPostgresInfo(ctx)

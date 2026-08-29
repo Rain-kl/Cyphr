@@ -91,10 +91,31 @@ func (p *Plugin) Name() string {
 	return "driver_http"
 }
 
+// DeclareConfig declares configuration bindings for driver_http.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "app", Target: &httpAppConfig{}},
+		{Prefix: "redis", Target: &httpRedisConfig{}},
+	}
+}
+
 // Apply mounts the HTTP driver plugin into the micro-kernel Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var appCfg httpAppConfig
+	if err := ctx.Config().Bind("app", &appCfg); err != nil {
+		return err
+	}
+	var redisCfg httpRedisConfig
+	_ = ctx.Config().Bind("redis", &redisCfg)
+
 	p.mu.Lock()
 	p.coreCtx = ctx
+	if p.addr == defaultAddr && appCfg.Addr != "" {
+		p.addr = appCfg.Addr
+	}
+	if appCfg.GracefulShutdownTimeout > 0 {
+		p.shutdownTimeout = time.Duration(appCfg.GracefulShutdownTimeout) * time.Second
+	}
 	p.mu.Unlock()
 
 	// Bind DBService from Context
@@ -147,7 +168,17 @@ func (p *Plugin) Start(ctx context.Context) error {
 	}
 
 	if p.engine == nil {
-		p.engine = gin.New()
+		var appCfg httpAppConfig
+		var redisCfg httpRedisConfig
+		if p.coreCtx != nil {
+			_ = p.coreCtx.Config().Bind("app", &appCfg)
+			_ = p.coreCtx.Config().Bind("redis", &redisCfg)
+		}
+		var err error
+		p.engine, err = BuildEngineWithConfig(appCfg, redisCfg)
+		if err != nil {
+			p.engine = gin.New()
+		}
 	}
 
 	// Mount routes collected in Context RouterExtension

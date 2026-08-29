@@ -27,6 +27,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"Wavelet/pkg/idgen"
 	uploadstats "Wavelet/plugins/domain/upload/stats"
 )
 
@@ -36,6 +37,7 @@ type testResponse struct {
 }
 
 func setupTestRouter(authUser *contracts.UserDTO) *gin.Engine {
+	_ = idgen.Init(1)
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(response.ErrorHandlerMiddleware())

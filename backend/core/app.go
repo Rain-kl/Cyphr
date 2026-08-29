@@ -68,22 +68,54 @@ func WithShutdownTimeout(timeout time.Duration) AppOption {
 	}
 }
 
+// WithConfigSource installs the raw configuration source adapter, typically built by an
+// infrastructure package outside the kernel, before any plugin is applied.
+func WithConfigSource(src ConfigSource) AppOption {
+	return func(a *App) {
+		if src == nil {
+			return
+		}
+		// Installed during Prepare so the option order, including WithContext, is irrelevant.
+		a.configSource = src
+	}
+}
+
+// WithConfigDecl lets the composition root declare the configuration it reads itself,
+// so host-level values take part in conflict validation and the redacted report. The
+// bindings are registered during Prepare, so option order does not matter.
+func WithConfigDecl(pluginID string, bindings ...ConfigBinding) AppOption {
+	return func(a *App) {
+		if len(bindings) == 0 {
+			return
+		}
+		if a.hostDeclOwner == "" {
+			a.hostDeclOwner = pluginID
+		}
+		a.hostDeclBindings = append(a.hostDeclBindings, bindings...)
+	}
+}
+
 // App is the unified assembly entrypoint and runtime aspect dispatcher of the Cordis micro-kernel.
 // It manages plugin collection, dependency mounting, migration execution, profile-based driver startup,
 // and graceful signal-driven LIFO shutdown.
 type App struct {
-	mu              sync.RWMutex
-	ctx             *Context
-	profile         Profile
-	plugins         []Plugin
-	pluginMap       map[string]Plugin
-	fibers          []*Fiber
-	fiberMap        map[string]*Fiber
-	applied         bool
-	running         bool
-	startedDrivers  []Driver
-	migrationEngine MigrationEngine
-	shutdownTimeout time.Duration
+	mu               sync.RWMutex
+	ctx              *Context
+	profile          Profile
+	plugins          []Plugin
+	pluginMap        map[string]Plugin
+	fibers           []*Fiber
+	fiberMap         map[string]*Fiber
+	applied          bool
+	running          bool
+	startedDrivers   []Driver
+	migrationEngine  MigrationEngine
+	shutdownTimeout  time.Duration
+	configSource     ConfigSource
+	hostDeclOwner    string
+	hostDeclBindings []ConfigBinding
+	prepared         bool
+	applyErr         error
 }
 
 // NewApp creates a new Cordis application instance with default options.
@@ -162,6 +194,11 @@ func (a *App) Use(plugins ...Plugin) *App {
 			a.fiberMap[name] = f
 		}
 		a.pluginMap[name] = p
+
+		if gated, ok := p.(ConfigGatedPlugin); ok && a.applyErr == nil {
+			// Gates are evaluated before Apply, so their keys must be declared at mount time.
+			a.applyErr = a.ctx.Config().Declare(name, gated.DeclareConfig()...)
+		}
 	}
 
 	return a
@@ -227,10 +264,29 @@ func (a *App) Reconcile() error {
 }
 
 func (a *App) reconcileLocked() error {
+	if err := a.prepareLocked(); err != nil {
+		return err
+	}
+
 	for {
 		progress := false
 		for _, f := range a.fibers {
-			if f.State() == FiberPending && f.DependenciesSatisfied(a.ctx) {
+			if f.State() != FiberPending {
+				continue
+			}
+
+			gated, skip, err := a.evaluateGateLocked(f)
+			if err != nil {
+				return err
+			}
+			if gated && skip {
+				if err := f.Skip(); err != nil {
+					return fmt.Errorf("core: skip gated fiber %q failed: %w", f.Name(), err)
+				}
+				continue
+			}
+
+			if f.DependenciesSatisfied(a.ctx) {
 				if err := f.Load(); err != nil {
 					return fmt.Errorf("core: load fiber %q failed: %w", f.Name(), err)
 				}
@@ -255,6 +311,24 @@ func (a *App) reconcileLocked() error {
 	return nil
 }
 
+// evaluateGateLocked reports whether a configuration-gated plugin is excluded by the
+// resolved values. Plugins that do not implement the gate interface are never skipped.
+func (a *App) evaluateGateLocked(f *Fiber) (gated bool, skip bool, err error) {
+	gatedPlugin, ok := f.plugin.(ConfigGatedPlugin)
+	if !ok {
+		return false, false, nil
+	}
+
+	view := a.ctx.Config()
+	if !view.Resolved() {
+		return true, false, fmt.Errorf(
+			"core: plugin %q is configuration-gated but the App has no ConfigSource; "+
+				"pass core.WithConfigSource or remove DeclareConfig", f.Name())
+	}
+
+	return true, !gatedPlugin.ConfigEnabled(view), nil
+}
+
 // ApplyPlugins applies all registered plugins on the application Context via reactive reconciliation.
 // It is idempotent and only applies plugins once per App instance.
 func (a *App) ApplyPlugins() error {
@@ -264,9 +338,76 @@ func (a *App) ApplyPlugins() error {
 		return nil
 	}
 	a.applied = true
+
+	declaredErr, prepareErr := a.applyErr, a.prepareLocked()
 	a.mu.Unlock()
 
+	if declaredErr != nil {
+		return declaredErr
+	}
+	if prepareErr != nil {
+		return prepareErr
+	}
+
 	return a.Reconcile()
+}
+
+// Prepare resolves declared configuration and establishes the resolution barrier that
+// gates and plugin Bind calls depend on. It is idempotent and runs implicitly from
+// ApplyPlugins; callers that need resolved values earlier — for example to size a
+// shutdown budget — invoke it explicitly right after mounting plugins.
+func (a *App) Prepare() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.applyErr != nil {
+		return a.applyErr
+	}
+	return a.prepareLocked()
+}
+
+// prepareLocked installs the injected source, registers host declarations and resolves
+// every declared key once. An App without a ConfigSource leaves configuration unused,
+// so kernel-level usage stays opt-in for embedders that configure nothing.
+func (a *App) prepareLocked() error {
+	if a.prepared {
+		return nil
+	}
+	if a.configSource == nil {
+		a.prepared = true
+		return nil
+	}
+
+	config := a.ctx.Config()
+	config.SetSource(a.configSource)
+
+	if err := config.Declare(a.hostDeclOwner, a.hostDeclBindings...); err != nil {
+		return err
+	}
+	if err := config.Resolve(); err != nil {
+		return err
+	}
+	a.prepared = true
+
+	return nil
+}
+
+// ShutdownTimeout returns the graceful shutdown budget for the application.
+func (a *App) ShutdownTimeout() time.Duration {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.shutdownTimeout
+}
+
+// SetShutdownTimeout replaces the graceful shutdown budget, ignoring non-positive
+// values so a missing configuration key can never shrink the kernel fallback to zero.
+func (a *App) SetShutdownTimeout(timeout time.Duration) *App {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if timeout > 0 {
+		a.shutdownTimeout = timeout
+	}
+	return a
 }
 
 // RunMigrations dispatches migration execution across all registered plugin migration entries.

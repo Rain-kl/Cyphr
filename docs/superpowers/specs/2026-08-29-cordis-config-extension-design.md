@@ -344,3 +344,21 @@ app.Run() → Reconcile/Apply   # 插件内 Bind/Get 读取已解析值
 | domain/其他 | `plugins/domain/auth/session.go`、`plugins/domain/cap/service.go`、`plugins/domain/message_gateway/service/service.go`、`plugins/domain/system/plugin.go`、`plugins/domain/risk_control/middleware.go`、`plugins/domain/risk_control/middleware_test.go`、`plugins/domain/risk_control/logstore/provider.go` |
 
 > 注：`risk_control/middleware.go`、`cap/service.go`、`message_gateway/service/service.go` 等处以 `config.Config != nil` 做存在性判断的分支，在注入式配置模型下不再可能，迁移时一并消除。
+
+---
+
+## 8. 落地回写（P1 + P2 已实施）
+
+实施结果与本设计原述的差异，均已按下列口径落地：
+
+| # | 设计原述 | 落地结果 | 缘由 |
+| :--- | :--- | :--- | :--- |
+| R1 | §4.3 C1、§6 把 `app.session_age<=0` 列为内核解析错误 | 引擎不做值域校验，`ErrConfigInvalid` 保留但未在内核使用；值域由声明者在 `Bind` 之后校验（P3 由 auth 承担） | 引擎被设计成不认识任何业务 key 的语义，把业务规则塞进内核会破坏该不变式 |
+| R2 | §3.2 `ConfigView.Source(key)` | 更名 `Origin(key)`；新增 `Value(key) (any, bool)`；`ConfigExtension` 增加 `SetSource`、`Resolved` | `Source` 与类型名 `ConfigSource` 同文件易混淆；`Value` 支撑 `core.ConfigGet[T]`（Go 方法不能带类型参数）；`SetSource` 进接口以免运行时类型断言 |
+| R3 | §3.5 仅有 `WithShutdownTimeout` | 新增 `App.ShutdownTimeout()` 与 `SetShutdownTimeout(d) *App` | 组合根需在 `Prepare()` 之后把已解析预算写回内核，构造期选项无法表达该顺序 |
+| R4 | §4.2 时序图把门禁求值画在 `Prepare()` 内 | `Prepare()` 只建立解析屏障，门禁在 `reconcileLocked` 每轮调和中求值 | `App.Use` 可在 `Prepare()` 之后继续挂载插件；只在 `Prepare` 求值会留下一批永不判定的门禁 |
+| R5 | 未涉及 | `App` 未注入 `ConfigSource` 时配置能力视为未启用，解析屏障直接放行；实现了 `ConfigGatedPlugin` 却无配置源的插件 fail fast 点名原因 | 内核存在大量不使用配置的装配路径（既有测试与嵌入式用法），不能强制要求配置源；但门禁无数据可依时必须报错，而非静默全激活 |
+| R6 | §4.1 隐含"每个 key 都有 env 覆盖" | env 覆盖面完全由声明决定。旧装载器只对部分 key 提供 env（`slow_threshold`、`conn_max_lifetime` 等从未有 env 覆盖），对拍镜像必须精确复刻该覆盖面 | 否则对拍出现假漂移；放宽某 key 的 env 覆盖是 P3 的声明选择，不构成引擎行为变更 |
+| R7 | §4.1 "向上最多 5 层查找 `config.yaml`" | 该向上查找会**越出 git worktree 边界**：从 `backend/pkg/config` 出发第 5 层可命中父级检出的 `config.yaml` | 属既有行为、非本次引入，但在 worktree 中开发会静默使用另一份检出的配置。对拍测试已改为以入库的 `config.example.yaml` 所在目录为锚；`config.yaml` 本身被 gitignore，干净克隆中不存在 |
+
+分期口径：本设计 §7.3 的 P1 + P2 已实施完成；P3（27 个消费文件迁移、`pkg/idgen` 解耦）与 P4（删除 `backend/pkg/config`、移除对拍夹具）由后续计划承接。

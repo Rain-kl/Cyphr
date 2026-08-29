@@ -4,7 +4,6 @@
 package repository
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/plugins/domain/admin/errs"
 	"Wavelet/plugins/domain/admin/model"
 	"context"
@@ -14,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,9 +22,30 @@ const (
 	logDBNameSQLite     = "sqlite"
 )
 
+var (
+	dbConfigMu sync.RWMutex
+	dbConfig   = model.DatabaseConfig{
+		SQLitePath: defaultSQLiteDBPath,
+	}
+)
+
+// SetDBConfig sets the database configuration.
+func SetDBConfig(cfg model.DatabaseConfig) {
+	dbConfigMu.Lock()
+	defer dbConfigMu.Unlock()
+	dbConfig = cfg
+}
+
+// GetDBConfig gets the database configuration.
+func GetDBConfig() model.DatabaseConfig {
+	dbConfigMu.RLock()
+	defer dbConfigMu.RUnlock()
+	return dbConfig
+}
+
 // sqliteDatabasePath resolves the effective SQLite file path from configuration.
 func sqliteDatabasePath() string {
-	name := config.Config.Database.SQLitePath
+	name := GetDBConfig().SQLitePath
 	if name == "" {
 		name = defaultSQLiteDBPath
 	}
@@ -93,7 +114,7 @@ func GetPostgresOverview(ctx context.Context) (model.DBOverviewResponse, error) 
 		return model.DBOverviewResponse{}, errs.ErrDatabaseUninitialized
 	}
 
-	name := config.Config.Database.Database
+	name := GetDBConfig().Database
 
 	var version string
 	var ver string
@@ -152,7 +173,7 @@ func ListDatabaseTableNames(ctx context.Context) ([]string, error) {
 	var tables []string
 	var err error
 
-	if !config.Config.Database.Enabled {
+	if !GetDBConfig().Enabled {
 		err = gormDB.Raw("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").Scan(&tables).Error
 	} else {
 		err = gormDB.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema() ORDER BY table_name").Scan(&tables).Error
@@ -288,9 +309,10 @@ func scanRowAsMap(rows *sql.Rows, cols []string) (map[string]any, error) {
 
 // GetSQLiteInfo collects the SQLite type/name/version triple.
 func GetSQLiteInfo(ctx context.Context) model.DatabaseInfoResponse {
+	cfg := GetDBConfig()
 	info := model.DatabaseInfoResponse{
 		Type:    logDBNameSQLite,
-		Name:    config.Config.Database.SQLitePath,
+		Name:    cfg.SQLitePath,
 		Version: "SQLite",
 	}
 	if info.Name == "" {
@@ -309,9 +331,10 @@ func GetSQLiteInfo(ctx context.Context) model.DatabaseInfoResponse {
 
 // GetPostgresInfo collects the PostgreSQL type/name/version triple.
 func GetPostgresInfo(ctx context.Context) model.DatabaseInfoResponse {
+	cfg := GetDBConfig()
 	info := model.DatabaseInfoResponse{
 		Type:    "postgres",
-		Name:    config.Config.Database.Database,
+		Name:    cfg.Database,
 		Version: "PostgreSQL",
 	}
 	gormDB := GetDB(ctx)
@@ -343,7 +366,7 @@ func OpenSQLiteExportFile() (*os.File, os.FileInfo, error) {
 
 // NewPgDumpCommand builds the streaming pg_dump command for the active database.
 func NewPgDumpCommand(ctx context.Context) (*exec.Cmd, string, error) {
-	dbCfg := config.Config.Database
+	dbCfg := GetDBConfig()
 
 	pgDumpPath, err := exec.LookPath("pg_dump")
 	if err != nil {

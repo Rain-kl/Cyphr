@@ -4,7 +4,6 @@
 package service
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/admin/model"
 	"Wavelet/plugins/domain/admin/repository"
@@ -152,12 +151,12 @@ func retentionOr(ctx context.Context, key string) int {
 
 func availableLogTargets(active string) []string {
 	if active == logDBNameClickHouse {
-		if config.Config.Database.Enabled {
+		if GetDBConfig().Enabled {
 			return []string{logDBNamePostgres}
 		}
 		return []string{logDBNameSQLite}
 	}
-	if config.Config.ClickHouse.Enabled {
+	if GetClickHouseConfig().Enabled {
 		return []string{logDBNameClickHouse}
 	}
 	return []string{}
