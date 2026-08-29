@@ -3,3 +3,4 @@ iteration	commit	metric	delta	status	guard	description
 1	1c5731b	100	-2.0	keep	pass	core: Using2/Using3 now wrap dependency causes via errors.Join (proven: test fails on revert)
 2	37ad586	95	-5.0	keep	pass	sentinel == comparisons -> errors.Is across admin/upload/cap-pow (5 sites)
 3	686e3ef	93	-2.0	keep	pass	filesrv.AbortUploadRecordError dedups error mapping + errors.As (2 sites, drops dead ErrInvalidUploadID)
+4	7e6b9e7	93	0.0	keep	pass	PROVEN FIX: singleflight image generation no longer dies with the first caller canceled ctx (test fails on revert)
