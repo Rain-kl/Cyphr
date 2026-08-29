@@ -26,6 +26,48 @@ CREATE INDEX IF NOT EXISTS idx_w_templates_is_system ON w_templates (is_system);
 CREATE INDEX IF NOT EXISTS idx_w_templates_created_at ON w_templates (created_at);
 CREATE INDEX IF NOT EXISTS idx_w_templates_updated_at ON w_templates (updated_at);
 
+CREATE TABLE IF NOT EXISTS w_schedules (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    task_type VARCHAR(64) NOT NULL,
+    cron VARCHAR(64) NOT NULL,
+    payload TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_w_schedules_is_active ON w_schedules (is_active);
+
+-- Seed initial cleanup task
+INSERT INTO w_schedules (id, name, task_type, cron, payload, is_active, created_at, updated_at)
+VALUES (1, '系统定期垃圾清理', 'system_cleanup', '0 3 * * *', '{}', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS w_task_executions (
+    id BIGINT PRIMARY KEY,
+    task_id VARCHAR(128) NOT NULL UNIQUE,
+    task_type VARCHAR(64) NOT NULL,
+    task_name VARCHAR(128),
+    status VARCHAR(32) NOT NULL,
+    retryable BOOLEAN NOT NULL DEFAULT 0,
+    max_retry INTEGER NOT NULL DEFAULT 0,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    log TEXT,
+    error_message TEXT,
+    result TEXT,
+    started_at DATETIME,
+    finished_at DATETIME,
+    duration BIGINT,
+    payload TEXT,
+    triggered_by VARCHAR(32) NOT NULL DEFAULT 'system',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_w_task_executions_task_type ON w_task_executions (task_type);
+CREATE INDEX IF NOT EXISTS idx_w_task_executions_status ON w_task_executions (status);
+CREATE INDEX IF NOT EXISTS idx_w_task_executions_started_at ON w_task_executions (started_at);
+CREATE INDEX IF NOT EXISTS idx_w_task_executions_created_at ON w_task_executions (created_at);
+
 -- Seed system configs (all default platform configs)
 INSERT INTO w_system_configs (key, value, type, visibility, description, created_at, updated_at) VALUES
     ('cap_login_enabled', 'false', 'system', 1, '是否启用登录人机验证（true/false）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
@@ -82,6 +124,8 @@ DELETE FROM w_system_configs WHERE key IN (
     'storage_config', 'disk_cache_max_size_mb', 'disk_cache_ttl_minutes', 'disk_cache_lru_enabled',
     'file_access_whitelist', 'login_session_ttl_hours', 'log_database', 'log_db_migration'
 );
+DROP TABLE IF EXISTS w_task_executions;
+DROP TABLE IF EXISTS w_schedules;
 DROP TABLE IF EXISTS w_templates;
 DROP TABLE IF EXISTS w_system_configs;
 -- +goose StatementEnd

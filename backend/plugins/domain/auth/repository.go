@@ -8,7 +8,6 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/util"
 	"context"
-	"strings"
 	"sync"
 	"time"
 
@@ -80,40 +79,18 @@ func GetAccessTokenByHash(ctx context.Context, tokenHash string) (*CachedToken, 
 
 // GetActiveUserByID 读取仍处于启用状态的用户
 func GetActiveUserByID(ctx context.Context, userID uint64) (*contracts.UserDTO, error) {
-	var row struct {
-		contracts.UserDTO
-		Password string `gorm:"column:password"`
-	}
-	if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", userID, true).First(&row).Error; err != nil {
+	var user contracts.UserDTO
+	if err := getDB(ctx).Table("w_users").Where("id = ? AND is_active = ?", userID, true).First(&user).Error; err != nil {
 		return nil, err
-	}
-	user := row.UserDTO
-	if row.Password != "" &&
-		!strings.HasPrefix(row.Password, "$2a$") &&
-		!strings.HasPrefix(row.Password, "$2b$") &&
-		!strings.HasPrefix(row.Password, "$2y$") &&
-		!strings.HasPrefix(row.Password, "$2x$") {
-		user.NeedChangePassword = true
 	}
 	return &user, nil
 }
 
 // GetUserByID 按 ID 读取用户（不限制启用状态）
 func GetUserByID(ctx context.Context, userID uint64) (*contracts.UserDTO, error) {
-	var row struct {
-		contracts.UserDTO
-		Password string `gorm:"column:password"`
-	}
-	if err := getDB(ctx).Table("w_users").Where("id = ?", userID).First(&row).Error; err != nil {
+	var user contracts.UserDTO
+	if err := getDB(ctx).Table("w_users").Where("id = ?", userID).First(&user).Error; err != nil {
 		return nil, err
-	}
-	user := row.UserDTO
-	if row.Password != "" &&
-		!strings.HasPrefix(row.Password, "$2a$") &&
-		!strings.HasPrefix(row.Password, "$2b$") &&
-		!strings.HasPrefix(row.Password, "$2y$") &&
-		!strings.HasPrefix(row.Password, "$2x$") {
-		user.NeedChangePassword = true
 	}
 	return &user, nil
 }
