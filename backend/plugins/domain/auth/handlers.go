@@ -440,7 +440,7 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSou
 func UserInfo(c *gin.Context) {
 	user, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	session := sessions.Default(c)
-	needChange := session.Get("need_change_password") == true
+	needChange := session.Get("need_change_password") == true || (user != nil && user.NeedChangePassword)
 
 	c.JSON(
 		http.StatusOK,

@@ -79,6 +79,9 @@ func Login(c *gin.Context) {
 	sess := sessions.Default(c)
 	sess.Set(contracts.AuthUserIDKey, user.ID)
 	sess.Set(contracts.AuthUserNameKey, user.Username)
+	needChange := user.NeedChangePassword || user.IsPlaintextPassword()
+	user.NeedChangePassword = needChange
+	sess.Set("need_change_password", needChange)
 	if err := sess.Save(); err != nil {
 		logger.ErrorF(c.Request.Context(), "save session failed on login: %v", err)
 	}

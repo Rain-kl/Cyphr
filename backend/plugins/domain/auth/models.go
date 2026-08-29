@@ -172,7 +172,7 @@ func BuildBasicUserInfo(user *contracts.UserDTO, needChange bool) BasicUserInfo 
 		Email:              user.Email,
 		AvatarURL:          user.AvatarURL,
 		IsAdmin:            user.IsAdmin,
-		NeedChangePassword: needChange,
+		NeedChangePassword: needChange || user.NeedChangePassword,
 		Bio:                user.Bio,
 		Phone:              user.Phone,
 		Gender:             user.Gender,
