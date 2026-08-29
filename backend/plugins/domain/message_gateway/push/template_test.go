@@ -73,3 +73,24 @@ func TestParseTemplate(t *testing.T) {
 		})
 	}
 }
+
+// Synthesized content must render in a stable order, otherwise two identical
+// notifications produce different text on every send.
+func TestBodyContentFallbackIsDeterministic(t *testing.T) {
+	body := map[string]any{
+		"zebra":   1,
+		"alpha":   2,
+		"mike":    3,
+		"charlie": 4,
+		"yankee":  5,
+	}
+
+	first := bodyContent(body, "%s=%v", ",")
+	for i := 1; i <= 50; i++ {
+		if got := bodyContent(body, "%s=%v", ","); got != first {
+			t.Fatalf("bodyContent order changed on call %d: %q != %q", i, got, first)
+		}
+	}
+
+	assert.Equal(t, "alpha=2,charlie=4,mike=3,yankee=5,zebra=1", first)
+}

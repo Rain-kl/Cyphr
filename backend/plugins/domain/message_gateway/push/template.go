@@ -6,6 +6,8 @@ package push
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -87,13 +89,15 @@ func bodyTitle(body map[string]any) string {
 
 // bodyContent returns the notification body, rendering every entry with format
 // (a "%s … %v" pair) and joining them with sep when no content field is given.
+// Entries render in sorted key order so identical bodies always produce
+// identical text.
 func bodyContent(body map[string]any, format, sep string) string {
 	if c, ok := body["content"].(string); ok && c != "" {
 		return c
 	}
 	parts := make([]string, 0, len(body))
-	for k, v := range body {
-		parts = append(parts, fmt.Sprintf(format, k, v))
+	for _, k := range slices.Sorted(maps.Keys(body)) {
+		parts = append(parts, fmt.Sprintf(format, k, body[k]))
 	}
 	return strings.Join(parts, sep)
 }
