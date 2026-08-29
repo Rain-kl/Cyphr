@@ -5,6 +5,7 @@
 package telegram
 
 import (
+	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/message_gateway/model"
 	"Wavelet/plugins/domain/message_gateway/service"
@@ -129,12 +130,23 @@ func (a *Adapter) handleTeleMessage(ctx context.Context, m *tele.Message) {
 		msg.Text = m.Caption
 	}
 	if a.bot != nil {
-		msg.Attachments = a.downloadMedia(m)
+		dir, attachments := a.downloadMedia(m)
+		if dir != "" {
+			defer func() {
+				if err := os.RemoveAll(dir); err != nil {
+					logger.WarnF(ctx, "telegram: 清理临时媒体目录 %q 失败: %v", dir, err)
+				}
+			}()
+		}
+		msg.Attachments = attachments
 	}
 	_ = a.onInbound(ctx, msg)
 }
 
-func (a *Adapter) downloadMedia(m *tele.Message) []model.Attachment {
+// downloadMedia fetches message media into a scratch directory, returned so the
+// caller can remove it once the inbound handler no longer needs the paths.
+// An empty dir means nothing was downloaded.
+func (a *Adapter) downloadMedia(m *tele.Message) (string, []model.Attachment) {
 	var files []*tele.File
 	var names []string
 	if m.Photo != nil {
@@ -150,11 +162,11 @@ func (a *Adapter) downloadMedia(m *tele.Message) []model.Attachment {
 		names = append(names, name)
 	}
 	if len(files) == 0 {
-		return nil
+		return "", nil
 	}
 	dir, err := os.MkdirTemp("", "wg-tg-*")
 	if err != nil {
-		return []model.Attachment{{Error: err.Error()}}
+		return "", []model.Attachment{{Error: err.Error()}}
 	}
 	out := make([]model.Attachment, 0, len(files))
 	for i, f := range files {
@@ -165,5 +177,5 @@ func (a *Adapter) downloadMedia(m *tele.Message) []model.Attachment {
 		}
 		out = append(out, model.Attachment{Path: path, FileName: names[i]})
 	}
-	return out
+	return dir, out
 }
