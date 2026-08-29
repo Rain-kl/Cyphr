@@ -13,33 +13,22 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
-var (
-	whitelistMu sync.RWMutex
-	whitelist   []string
-)
+// whitelist holds the no-auth route patterns. They are registered during Apply and
+// matched on every request, so PathWhitelist parses them once up front.
+var whitelist = extpoints.NewPathWhitelist()
 
 // RegisterWhitelist registers route patterns that bypass mandatory authentication.
 func RegisterWhitelist(patterns ...string) {
-	whitelistMu.Lock()
-	defer whitelistMu.Unlock()
-	whitelist = append(whitelist, patterns...)
+	whitelist.Add(patterns...)
 }
 
 // IsWhitelisted checks if the specified path matches the auth whitelist.
 func IsWhitelisted(path string) bool {
-	whitelistMu.RLock()
-	defer whitelistMu.RUnlock()
-	for _, pattern := range whitelist {
-		if extpoints.MatchPathPattern(pattern, path) {
-			return true
-		}
-	}
-	return false
+	return whitelist.Match(path)
 }
 
 func hashToken(token string) string {

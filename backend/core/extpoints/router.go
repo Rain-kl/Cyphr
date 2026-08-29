@@ -45,7 +45,7 @@ type RouterRegistry struct {
 	nextID      uint64
 	routes      []RouteDefinition
 	middlewares []any
-	whitelist   []string
+	whitelist   PathWhitelist
 }
 
 // NewRouterRegistry creates a new root router collector.
@@ -182,36 +182,17 @@ func (r *RouterRegistry) Routes() []RouteDefinition {
 
 // RegisterWhitelist adds path patterns to the whitelist.
 func (r *RouterRegistry) RegisterWhitelist(patterns ...string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, p := range patterns {
-		clean := cleanPath(p)
-		if clean != "" {
-			r.whitelist = append(r.whitelist, clean)
-		}
-	}
+	r.whitelist.Add(patterns...)
 }
 
 // Whitelist returns a copy of all registered whitelist path patterns.
 func (r *RouterRegistry) Whitelist() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	res := make([]string, len(r.whitelist))
-	copy(res, r.whitelist)
-	return res
+	return r.whitelist.Patterns()
 }
 
 // IsWhitelisted checks if the given path matches any registered whitelist pattern.
 func (r *RouterRegistry) IsWhitelisted(path string) bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	clean := cleanPath(path)
-	for _, pattern := range r.whitelist {
-		if MatchPathPattern(pattern, clean) {
-			return true
-		}
-	}
-	return false
+	return r.whitelist.Match(path)
 }
 
 // RouterGroup represents a scoped route group with a path prefix and group-level middlewares.
@@ -410,4 +391,115 @@ func MatchPathPattern(pattern, path string) bool {
 	}
 
 	return false
+}
+
+// compiledPattern holds a whitelist pattern with its per-request work already done.
+type compiledPattern struct {
+	raw    string   // normalised pattern, reported back by Patterns
+	prefix string   // non-empty when the pattern ends in "/*"
+	parts  []string // normalised pattern split on "/"
+}
+
+// PathWhitelist matches request paths against a fixed set of patterns.
+//
+// Patterns are registered once during plugin Apply and never change afterwards, so
+// normalising and splitting them on every request is wasted work. PathWhitelist
+// does that once at registration instead. The zero value is ready to use.
+type PathWhitelist struct {
+	mu       sync.RWMutex
+	patterns []compiledPattern
+}
+
+// NewPathWhitelist returns a whitelist pre-populated with the given patterns.
+func NewPathWhitelist(patterns ...string) *PathWhitelist {
+	w := &PathWhitelist{}
+	w.Add(patterns...)
+	return w
+}
+
+// compilePatterns normalises and splits each pattern once, ahead of any request.
+func compilePatterns(patterns []string) []compiledPattern {
+	compiled := make([]compiledPattern, 0, len(patterns))
+	for _, p := range patterns {
+		clean := cleanPath(p)
+		cp := compiledPattern{raw: clean, parts: strings.Split(clean, "/")}
+		if strings.HasSuffix(clean, "/*") {
+			cp.prefix = strings.TrimSuffix(clean, "/*")
+		}
+		compiled = append(compiled, cp)
+	}
+	return compiled
+}
+
+// Add appends patterns, normalising and splitting each now rather than per request.
+func (w *PathWhitelist) Add(patterns ...string) {
+	if len(patterns) == 0 {
+		return
+	}
+	compiled := compilePatterns(patterns)
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.patterns = append(w.patterns, compiled...)
+}
+
+// Replace discards any existing patterns and installs the given ones, for callers
+// whose configuration is a full swap rather than an incremental registration.
+func (w *PathWhitelist) Replace(patterns ...string) {
+	compiled := compilePatterns(patterns)
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.patterns = compiled
+}
+
+// Match reports whether path matches any registered pattern. Equivalent to calling
+// MatchPathPattern for every pattern, except the path is normalised and split once.
+func (w *PathWhitelist) Match(path string) bool {
+	clean := cleanPath(path)
+	pathParts := strings.Split(clean, "/")
+
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	for i := range w.patterns {
+		p := &w.patterns[i]
+		if p.raw == clean {
+			return true
+		}
+		// A suffix wildcard matches both the bare prefix and anything below it.
+		if p.prefix != "" && (clean == p.prefix || strings.HasPrefix(clean, p.prefix+"/")) {
+			return true
+		}
+		if len(p.parts) != len(pathParts) {
+			continue
+		}
+		if matchSegments(p.parts, pathParts) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchSegments compares an already-split pattern against an already-split path.
+func matchSegments(patternParts, pathParts []string) bool {
+	for i, part := range patternParts {
+		if part == "*" || strings.HasPrefix(part, ":") {
+			continue
+		}
+		if part != pathParts[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Patterns returns a copy of the registered patterns in registration order.
+func (w *PathWhitelist) Patterns() []string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	res := make([]string, len(w.patterns))
+	for i := range w.patterns {
+		res[i] = w.patterns[i].raw
+	}
+	return res
 }

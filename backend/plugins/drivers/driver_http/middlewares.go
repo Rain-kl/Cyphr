@@ -25,29 +25,20 @@ import (
 var (
 	apiPrefixMu sync.RWMutex
 	apiPrefix   = "/api/v1"
-
-	whitelistMu       sync.RWMutex
-	whitelistPatterns []string
 )
+
+// whitelist holds the global no-auth HTTP patterns. They are set once at
+// configuration time and matched per request, so PathWhitelist parses them up front.
+var whitelist = extpoints.NewPathWhitelist()
 
 // SetWhitelist configures global whitelist patterns for HTTP routes.
 func SetWhitelist(patterns []string) {
-	whitelistMu.Lock()
-	defer whitelistMu.Unlock()
-	whitelistPatterns = make([]string, len(patterns))
-	copy(whitelistPatterns, patterns)
+	whitelist.Replace(patterns...)
 }
 
 // IsPathWhitelisted checks if the given path matches any registered whitelist pattern.
 func IsPathWhitelisted(path string) bool {
-	whitelistMu.RLock()
-	defer whitelistMu.RUnlock()
-	for _, pattern := range whitelistPatterns {
-		if extpoints.MatchPathPattern(pattern, path) {
-			return true
-		}
-	}
-	return false
+	return whitelist.Match(path)
 }
 
 func setAPIPrefix(prefix string) {
