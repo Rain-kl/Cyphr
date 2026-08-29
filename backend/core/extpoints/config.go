@@ -45,8 +45,15 @@ const (
 	OriginDefault = "default"
 )
 
+// RedactedValue replaces the printed value of keys declared with secret:"true".
+const RedactedValue = "******"
+
 // durationType distinguishes time.Duration from plain int64 during tag walking and decoding.
 var durationType = reflect.TypeFor[time.Duration]()
+
+// ConfigRegistry must satisfy the full extension contract, so a missing accessor is a
+// compile error rather than a runtime surprise inside a plugin Apply.
+var _ ConfigExtension = (*ConfigRegistry)(nil)
 
 // ConfigSource abstracts where raw configuration values come from, keeping the
 // micro-kernel free of concrete loaders such as viper.

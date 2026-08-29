@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"time"
 )
 
 // Resolve computes the effective value of every declared key. Priority is, in order:
@@ -148,8 +149,8 @@ func assignFields(elem reflect.Value, fields []configField, values map[string]an
 
 // Entries returns the effective configuration as redacted, key-sorted entries.
 func (r *ConfigRegistry) Entries() []ConfigEntry {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	keys := append([]string(nil), r.order...)
 	sort.Strings(keys)
@@ -157,10 +158,126 @@ func (r *ConfigRegistry) Entries() []ConfigEntry {
 	out := make([]ConfigEntry, 0, len(keys))
 	for _, key := range keys {
 		d := r.decls[key]
+		if _, done := r.values[key]; !done && r.src != nil {
+			_ = r.resolveLocked(key)
+		}
 		out = append(out, ConfigEntry{
-			Key: d.key, PluginID: d.pluginID, Env: d.env,
-			Origin: r.origins[key], Value: "pending",
+			Key:      d.key,
+			PluginID: d.pluginID,
+			Env:      d.env,
+			Origin:   r.origins[key],
+			Value:    formatEntryValue(r.values[key], d.secret),
 		})
 	}
 	return out
+}
+
+// formatEntryValue renders one effective value for diagnostics, masking secrets.
+func formatEntryValue(value any, secret bool) string {
+	if secret {
+		return RedactedValue
+	}
+	if value == nil {
+		return ""
+	}
+	return fmt.Sprint(value)
+}
+
+// Value returns the resolved value for key, lazily resolving a declared key that has
+// not been computed yet. Missing and unresolvable keys report false rather than an
+// error so gates and diagnostics can keep using the fallback accessors.
+func (r *ConfigRegistry) Value(key string) (any, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, done := r.values[key]; !done {
+		if r.src == nil {
+			return nil, false
+		}
+		if _, declared := r.decls[key]; !declared {
+			return nil, false
+		}
+		if err := r.resolveLocked(key); err != nil {
+			return nil, false
+		}
+	}
+
+	value, ok := r.values[key]
+	return value, ok
+}
+
+// String returns the string value of key or fallback when absent or mismatched.
+func (r *ConfigRegistry) String(key, fallback string) string {
+	if value, ok := r.Value(key); ok {
+		if converted, err := convertString(value); err == nil {
+			return converted.(string)
+		}
+	}
+	return fallback
+}
+
+// Bool returns the boolean value of key or fallback when absent or mismatched.
+func (r *ConfigRegistry) Bool(key string, fallback bool) bool {
+	if value, ok := r.Value(key); ok {
+		if converted, err := convertBool(value); err == nil {
+			return converted.(bool)
+		}
+	}
+	return fallback
+}
+
+// Int returns the int value of key or fallback when absent or mismatched.
+func (r *ConfigRegistry) Int(key string, fallback int) int {
+	if value, ok := r.Value(key); ok {
+		converted, err := convertNumeric(value, reflect.TypeFor[int](), signedNumbers)
+		if err == nil {
+			return converted.(int)
+		}
+	}
+	return fallback
+}
+
+// Duration returns the time.Duration value of key or fallback when absent or mismatched.
+func (r *ConfigRegistry) Duration(key string, fallback time.Duration) time.Duration {
+	if value, ok := r.Value(key); ok {
+		if converted, err := convertDuration(value); err == nil {
+			return converted.(time.Duration)
+		}
+	}
+	return fallback
+}
+
+// Strings returns the []string value of key, or nil when absent.
+func (r *ConfigRegistry) Strings(key string) []string {
+	value, ok := r.Value(key)
+	if !ok {
+		return nil
+	}
+
+	converted, err := convertSlice(value, reflect.TypeFor[[]string]())
+	if err != nil {
+		return nil
+	}
+
+	list, _ := converted.([]string)
+	return list
+}
+
+// WasSet reports whether an environment variable is present, regardless of its value.
+func (r *ConfigRegistry) WasSet(envName string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.src == nil {
+		return false
+	}
+	_, found := r.src.LookupEnv(envName)
+	return found
+}
+
+// Origin reports where a key's effective value came from; "" means the zero value.
+func (r *ConfigRegistry) Origin(key string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.origins[key]
 }

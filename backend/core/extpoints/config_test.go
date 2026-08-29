@@ -164,3 +164,82 @@ func TestResolveReportsTypeMismatchOnBadEnvironmentValue(t *testing.T) {
 	assert.Contains(t, err.Error(), "worker.concurrency")
 	assert.Contains(t, err.Error(), "WORKER_CONCURRENCY")
 }
+
+func TestViewAccessorsAndOrigins(t *testing.T) {
+	src := newFakeSource()
+	src.values["redis.db"] = 1
+	src.env["REDIS_ADDR"] = "redis:6379"
+	src.env["REDIS_ENABLED"] = "false"
+
+	r := extpoints.NewConfigRegistry(src)
+	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+	require.NoError(t, r.Declare("auth", extpoints.ConfigBinding{Prefix: "app", Target: &sessionConfig{}}))
+	require.NoError(t, r.Resolve())
+
+	assert.Equal(t, extpoints.OriginEnv, r.Origin("redis.addrs"))
+	assert.Equal(t, []string{"redis:6379"}, r.Strings("redis.addrs"))
+	assert.False(t, r.Bool("redis.enabled", true))
+	assert.Equal(t, 1, r.Int("redis.db", 0))
+	assert.Equal(t, "86400", r.String("app.session_age", "0"))
+	assert.Equal(t, "fallback", r.String("redis.missing", "fallback"))
+	assert.Zero(t, r.Duration("redis.dial_timeout", 0))
+	assert.True(t, r.WasSet("REDIS_ADDR"))
+	assert.False(t, r.WasSet("REDIS_NOPE"))
+}
+
+func TestAutoEnableBeatsFileValueButLosesToExplicitEnv(t *testing.T) {
+	src := newFakeSource()
+	src.env["REDIS_ADDR"] = "redis:6379"
+	src.values["redis.enabled"] = false
+
+	r := extpoints.NewConfigRegistry(src)
+	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+	require.NoError(t, r.Resolve())
+	assert.True(t, r.Bool("redis.enabled", false), "REDIS_ADDR presence implies enabled")
+	assert.Equal(t, extpoints.OriginAutoEnable, r.Origin("redis.enabled"))
+
+	explicit := newFakeSource()
+	explicit.env["REDIS_ADDR"] = "redis:6379"
+	explicit.env["REDIS_ENABLED"] = "false"
+
+	r2 := extpoints.NewConfigRegistry(explicit)
+	require.NoError(t, r2.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+	require.NoError(t, r2.Resolve())
+	assert.False(t, r2.Bool("redis.enabled", true), "explicit REDIS_ENABLED must win over auto-enable")
+	assert.Equal(t, extpoints.OriginEnv, r2.Origin("redis.enabled"))
+}
+
+func TestEntriesRedactSecretsAndReportDefaults(t *testing.T) {
+	r := extpoints.NewConfigRegistry(newFakeSource())
+	require.NoError(t, r.Declare("auth", extpoints.ConfigBinding{Prefix: "app", Target: &sessionConfig{}}))
+	require.NoError(t, r.Resolve())
+
+	entries := map[string]extpoints.ConfigEntry{}
+	for _, e := range r.Entries() {
+		entries[e.Key] = e
+	}
+
+	assert.Equal(t, extpoints.RedactedValue, entries["app.session_secret"].Value)
+	assert.Equal(t, extpoints.OriginDefault, entries["app.session_age"].Origin)
+	assert.Equal(t, "86400", entries["app.session_age"].Value)
+}
+
+func TestBindRejectsReadsBeforeSourceIsRegistered(t *testing.T) {
+	r := extpoints.NewConfigRegistry(nil)
+	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+
+	assert.ErrorIs(t, r.Resolve(), extpoints.ErrConfigNoSource)
+
+	var cfg redisConfig
+	assert.ErrorIs(t, r.Bind("redis", &cfg), extpoints.ErrConfigNoSource)
+}
+
+func TestBindRejectsReadsBeforeResolution(t *testing.T) {
+	r := extpoints.NewConfigRegistry(newFakeSource())
+	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))
+
+	var cfg redisConfig
+	err := r.Bind("redis", &cfg)
+	require.ErrorIs(t, err, extpoints.ErrConfigNotResolved)
+	assert.Contains(t, err.Error(), "App.Prepare")
+}
