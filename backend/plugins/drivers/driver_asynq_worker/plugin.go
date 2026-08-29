@@ -8,7 +8,6 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"sync"
@@ -22,9 +21,6 @@ const (
 	defaultConcurrency     = 10
 	defaultShutdownTimeout = 10 * time.Second
 )
-
-//go:embed migrations/*/*.sql
-var workerMigrations embed.FS
 
 // Option configures the Asynq worker driver plugin.
 type Option func(*Plugin)
@@ -165,9 +161,6 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	p.taskSvc = &taskServiceImpl{}
 	core.Provide[contracts.TaskService](ctx, p.taskSvc)
 	SetActiveTaskExtension(ctx.Tasks())
-
-	// 2. Register migrations for w_task_executions table
-	ctx.Migrations().Register("driver_asynq_worker", workerMigrations)
 
 	ctx.OnDispose(func() error {
 		SetActiveTaskExtension(nil)

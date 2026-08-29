@@ -8,7 +8,6 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -16,9 +15,6 @@ import (
 
 	"github.com/hibiken/asynq"
 )
-
-//go:embed migrations/*/*.sql
-var cronMigrations embed.FS
 
 // Option configures the Asynq cron scheduler driver plugin.
 type Option func(*Plugin)
@@ -147,9 +143,6 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		setTaskService(nil)
 		return nil
 	})
-
-	// Register migrations for w_schedules table
-	ctx.Migrations().Register("driver_asynq_cron", cronMigrations)
 
 	ctx.OnDispose(func() error {
 		return p.Stop(context.Background())

@@ -152,11 +152,9 @@ Wavelet 贯彻了 Cordis 核心范式，通过形式化保证解决组件系统�
 | `w_users` | `backend/plugins/domain/user` | `models.go`<br>`repository.go` | `core/contracts.UserService`<br>`contracts.UserDTO` |
 | `w_auth_sources`<br>`w_external_accounts`<br>`w_access_tokens` | `backend/plugins/domain/auth` | `models.go`<br>`service.go` | `core/contracts.AuthService`<br>`contracts.AuthRegistry` |
 | `w_uploads`<br>`w_upload_stats` | `backend/plugins/domain/upload` | `models/models.go`<br>`repository/repository.go` | `core/contracts.StorageService`<br>`upload.Ingest` 流水线 |
-| `w_system_configs`<br>`w_templates` | `backend/plugins/domain/admin` | `models.go`<br>`repository.go` | `ctx.Settings()` / `contracts.ConfigService`<br>Redis Pub/Sub 广播 |
+| `w_system_configs`<br>`w_templates`<br>`w_schedules`<br>`w_task_executions` | `backend/plugins/domain/admin` | `models.go`<br>`repository.go` | `ctx.Settings()` / `contracts.ConfigService`<br>`contracts.TaskService` |
 | `w_message_channels`<br>`w_message_bindings`<br>`w_message_pairing_codes`<br>`w_push_events`<br>`w_push_channels`<br>`w_push_histories` | `backend/plugins/domain/message_gateway` | `models.go`<br>`repository.go` | `EventBus` 强类型事件广播订阅 |
 | `w_user_access_logs` | `backend/plugins/domain/risk_control` | `logstore/` | `logstore` 门面<br>ClickHouse PG/SQLite 回落 |
-| `w_schedules` | `backend/plugins/drivers/driver_asynq_cron` | `schedule.go` | `ctx.Schedule()` 扩展点 |
-| `w_task_executions` | `backend/plugins/drivers/driver_asynq_worker` | `types.go`<br>`executor.go` | `ctx.Task()` 扩展点 |
 | `w_schema_versions` | **系统内部** | `backend/cmd/app.go` sharedStore | 自动管理，不归属于任何插件 |
 
 ### 5.3 架构防线与单向依赖保障

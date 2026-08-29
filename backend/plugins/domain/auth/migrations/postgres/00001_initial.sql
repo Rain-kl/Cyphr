@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS w_access_tokens (
     user_id BIGINT NOT NULL,
     token_hash VARCHAR(64) NOT NULL UNIQUE,
     name VARCHAR(128) NOT NULL,
+    masked_token VARCHAR(64) NOT NULL DEFAULT '',
     description VARCHAR(255),
     is_admin BOOLEAN DEFAULT FALSE,
     expires_at TIMESTAMPTZ,

@@ -151,6 +151,7 @@ func TestUserPlugin(t *testing.T) {
 	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, cache.New().Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
+	require.NoError(t, auth.New().Apply(ctx))
 
 	p := user.New()
 	assert.Equal(t, "user", p.Name())

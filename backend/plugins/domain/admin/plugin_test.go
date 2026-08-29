@@ -38,3 +38,47 @@ func TestAdminPluginUnit(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "0 4 * * *", setting.Default)
 }
+
+func TestAdminMigrationsIncludeTaskExecutionsAndSchedules(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+	p := admin.New()
+	require.NoError(t, p.Apply(ctx))
+
+	entry, ok := ctx.Migrations().Get("admin")
+	require.True(t, ok, "admin plugin must register migrations")
+	assert.Equal(t, "admin", entry.PluginID)
+
+	// Verify sqlite migration files include w_schedules and w_task_executions
+	sqliteDir, err := entry.FS.Open("migrations/sqlite/00001_initial.sql")
+	require.NoError(t, err)
+	defer sqliteDir.Close()
+
+	stat, err := sqliteDir.Stat()
+	require.NoError(t, err)
+	buf := make([]byte, stat.Size())
+	_, err = sqliteDir.Read(buf)
+	require.NoError(t, err)
+	content := string(buf)
+
+	assert.Contains(t, content, "CREATE TABLE IF NOT EXISTS w_task_executions")
+	assert.Contains(t, content, "CREATE TABLE IF NOT EXISTS w_schedules")
+	assert.Contains(t, content, "CREATE TABLE IF NOT EXISTS w_system_configs")
+	assert.Contains(t, content, "CREATE TABLE IF NOT EXISTS w_templates")
+
+	// Verify postgres migration files include w_schedules and w_task_executions
+	pgDir, err := entry.FS.Open("migrations/postgres/00001_initial.sql")
+	require.NoError(t, err)
+	defer pgDir.Close()
+
+	stat, err = pgDir.Stat()
+	require.NoError(t, err)
+	buf = make([]byte, stat.Size())
+	_, err = pgDir.Read(buf)
+	require.NoError(t, err)
+	pgContent := string(buf)
+
+	assert.Contains(t, pgContent, "CREATE TABLE IF NOT EXISTS w_task_executions")
+	assert.Contains(t, pgContent, "CREATE TABLE IF NOT EXISTS w_schedules")
+	assert.Contains(t, pgContent, "CREATE TABLE IF NOT EXISTS w_system_configs")
+	assert.Contains(t, pgContent, "CREATE TABLE IF NOT EXISTS w_templates")
+}
