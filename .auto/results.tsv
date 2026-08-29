@@ -19,3 +19,4 @@ iteration	commit	metric	delta	status	guard	description
 18	8c4955c	79	0.0	keep	pass	BUGFIX: removed phantom user:daily_audit cron (dispatched to unregistered task); cross-plugin invariant test added
 19	84eaf3f	79	0.0	keep	pass	CORDIS+BUGFIX: task handlers were asynq-typed so 4 upload tasks could not run under the in-process worker; made driver-agnostic + gate check 7 (proven: gate names all 3 files pre-fix)
 20	efa7555	79	0.0	keep	pass	BUGFIX telegram: LongPoller.Timeout was 10 nanoseconds -> getUpdates timeout=0 -> busy polling; now 10s (proven by reverting the constant)
+21	1023fa3	79	0.0	keep	pass	DISK LEAK: telegram inbound media scratch dirs were never removed (no consumer reads them); cleanup on handler exit. No test possible (needs live download)
