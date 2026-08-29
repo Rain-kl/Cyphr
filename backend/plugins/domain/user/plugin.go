@@ -8,6 +8,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/ginutil"
 	"context"
 	"embed"
 	"reflect"
@@ -56,6 +57,10 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Inject() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeFor[contracts.DBService](),
+		// Apply resolves AuthService to build the route auth middleware. The
+		// kernel only gates Apply on declared deps, so leaving this out lets
+		// user mount before auth and fall back to a pass-through middleware.
+		reflect.TypeFor[contracts.AuthService](),
 	}
 }
 
@@ -85,8 +90,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	})
 
 	// 0.1 Resolve auth service for middleware (via IoC, not direct import)
-	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
-	var noTokenMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
+	denyAuth := ginutil.AuthUnavailable()
+	loginMW := denyAuth
+	noTokenMW := denyAuth
 	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
 		if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
 			loginMW = mw

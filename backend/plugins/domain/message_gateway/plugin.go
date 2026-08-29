@@ -8,6 +8,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/util"
 	"Wavelet/plugins/domain/message_gateway/handler"
 	"Wavelet/plugins/domain/message_gateway/model"
@@ -59,6 +60,10 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Inject() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeFor[contracts.DBService](),
+		// AuthService is captured as a middleware value in Apply, so it cannot
+		// be late-bound with core.When like the other services below; the
+		// kernel must mount auth first or the routes get a pass-through guard.
+		reflect.TypeFor[contracts.AuthService](),
 	}
 }
 
@@ -130,8 +135,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	})
 
 	// 0. Resolve auth service for middleware (via IoC, not direct import)
-	var loginMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
-	var adminMW gin.HandlerFunc = func(c *gin.Context) { c.Next() }
+	denyAuth := ginutil.AuthUnavailable()
+	loginMW := denyAuth
+	adminMW := denyAuth
 	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
 		if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
 			loginMW = mw
