@@ -114,25 +114,33 @@ func (s *AuthServiceImpl) OnLoginSuccess(c context.Context, uid string) {
 
 ---
 
-### 场景 4：如何开发并注册一个 HTTP API 接口？如何添加路由中间件？
-插件通过 `ctx.Router()` 声明路由。微内核支持标准 Gin 路由组与中间件挂载：
+### 场景 4：如何开发并注册一个 HTTP API 接口？如何添加路由中间件与白名单？
+插件通过 `ctx.Router()` 声明路由。微内核支持标准 Gin 路由组、中间件挂载与免鉴权白名单机制：
 
 ```go
 func (p *OrderPlugin) Apply(ctx *core.Context) error {
-    // 获取全局或 auth 插件提供的中间件
+    // 1. 如果插件包含无需登录的公开接口，主动注册到 Router 白名单（支持精确路径与通配符如 /api/v1/public/*）
+    ctx.Router().RegisterWhitelist(
+        "/api/v1/orders/public-status",
+        "/api/v1/orders/callback/*",
+    )
+
+    // 2. 获取全局或 auth 插件提供的鉴权中间件
     authSvc, _ := core.Inject[contracts.AuthService](ctx)
 
-    // 创建带版本前缀和鉴权中间件的路由组
+    // 3. 创建带版本前缀和鉴权中间件的路由组
     group := ctx.Router().Group("/api/v1/orders", authSvc.RequireAuthMiddleware())
     
-    // 注册 Handler
-    group.GET("", p.handleListOrders)
+    // 4. 注册 Handler
+    group.GET("/public-status", p.handlePublicStatus) // 命中白名单，自动免鉴权放行
+    group.GET("", p.handleListOrders)                 // 受保护接口，需登录鉴权
     group.POST("", p.handleCreateOrder)
     group.GET("/:id", p.handleGetOrderDetail)
 
     return nil
 }
 ```
+> 💡 **鉴权放行防线**：`auth` 插件提供的 `RequireAuthMiddleware()` 内部已接入白名单拦截器。所有注册到白名单的路由在经过鉴权中间件时均会自动放行，彻底杜绝免鉴权接口被全局或组级鉴权中间件误拦截（返回 401 Unauthorized）。
 
 ---
 
@@ -622,7 +630,7 @@ Wavelet/
 
 | 扩展点/能力方法 | 返回类型 | 功能说明 | 适用场景 |
 | :--- | :--- | :--- | :--- |
-| `ctx.Router()` | `RouterExtension` | 声明 HTTP 路由、前缀分组与挂载中间件，支持 `Unregister` / `UnregisterByID` | 暴露 API 接口、Web 控制台 |
+| `ctx.Router()` | `RouterExtension` | 声明 HTTP 路由、前缀分组、挂载中间件与免鉴权白名单注册（`RegisterWhitelist`, `IsWhitelisted`），支持 `Unregister` / `UnregisterByID` | 暴露 API 接口、公开免鉴权端点、Web 控制台 |
 | `ctx.Task()` | `TaskExtension` | 注册 Asynq 异步任务消费处理器，支持 `Unregister` | 耗时后台任务、异步消息发送 |
 | `ctx.Schedule()` | `ScheduleExtension`| 注册 Cron 定时调度任务，支持 `Unregister` | 定时报表统计、周期性清理 |
 | `ctx.Migrations()` | `MigrationExtension`| 注册插件专属的 Goose SQL 迁移嵌入系统，支持 `Unregister` | 自建数据表、版本升级 |

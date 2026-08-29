@@ -182,5 +182,18 @@ Wavelet 贯彻了 Cordis 核心范式，通过形式化保证解决组件系统�
   - 当 `redis.enabled = true`：`cache`、`driver_asynq_worker` 与 `driver_asynq_cron` 自动激活，无缝升级为分布式高可用架构。
 - **动态拔插可组合性**：所有互斥插件可同时通过 `app.Use(...)` 注册，装配根无需编写侵入式的 `if-else` 条件分支，全面实现架构的时空可组合性与高内聚。
 
+---
 
+## 7. HTTP 驱动白名单机制与自包含认证防线 (HTTP Driver Whitelist & Auth Defense)
 
+### 7.1 微内核路由白名单机制 (Router Whitelist Extension)
+在插件化中台架构中，鉴权中间件若以全局或组级形式挂载，极易导致免鉴权公开接口（如登录、注册、OAuth 回调、人机验证）被误拦截并返回 `401 Unauthorized`。Wavelet 在微内核扩展点（`extpoints.RouterExtension`）中内建了声明式白名单机制：
+- **声明式注册**：插件通过 `ctx.Router().RegisterWhitelist(patterns...)` 主动注册免鉴权路由，支持精确路径与通配符（如 `/api/v1/oauth/*`、`/api/v1/oauth/:source/authorize`）。
+- **作用域支持**：路由组（`RouterGroup`）支持相对路径白名单注册，自动与父级路由前缀级联。
+
+### 7.2 认证域所有权主动声明与鉴权前置放行
+- **所有权主动声明**：认证域（`auth` 插件）与业务插件在 `Apply` 中主动注册其管辖的公开/免鉴权接口（如 `/api/v1/user/login`、`/api/v1/user/register`、`/api/v1/oauth/callback`、`/api/v1/cap/challenge` 等）。
+- **前置放行防线**：`auth` 提供的登录鉴权中间件（`LoginRequired`）在执行 Token/Session 校验前，必须优先匹配白名单并直接放行，彻底消除公开接口误拦截。
+
+### 7.3 Session 存储双模与自动降级保障
+- **零 Redis 平滑回退**：`driver_http` 运行时驱动适配 `redis.enabled` 配置。当 Redis 处于禁用状态或连接不可用时，自动降级为基于安全加密的 `cookie.NewStore`，确保全套基础中间件（Recovery、CORS、Session、Tracing、Logger）永不脱落，登录与注册会话下发 100% 稳定可靠。
