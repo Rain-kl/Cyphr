@@ -70,13 +70,48 @@ func loggerMiddleware() gin.HandlerFunc {
 	}
 }
 
-func isOriginAllowed(ctx context.Context, origin string) bool {
-	var val string
+const (
+	// serverAddressConfigKey 是 admin 域声明的系统配置键（跨插件不能直接引用其常量）。
+	serverAddressConfigKey = "server_address"
+	// serverAddressCacheKey / serverAddressCacheTTL 把 CORS 允许来源的读取从每请求
+	// 一次主库查询降为每 TTL 一次，TTL 与存储驱动的系统配置缓存保持一致。
+	serverAddressCacheKey = "driver_http:cors:server_address"
+	serverAddressCacheTTL = 5 * time.Second
+)
+
+// loadServerAddress reads the configured server address straight from system configs.
+func loadServerAddress(ctx context.Context) (string, error) {
 	db := getDB(ctx)
 	if db == nil {
-		return false
+		return "", nil
 	}
-	if err := db.Table("w_system_configs").Where("key = ?", "server_address").Pluck("value", &val).Error; err != nil || val == "" {
+	var val string
+	if err := db.Table("w_system_configs").Where("key = ?", serverAddressConfigKey).Pluck("value", &val).Error; err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+// serverAddress returns the configured server address, served from the shared
+// cache so CORS does not reach the database on every request.
+func serverAddress(ctx context.Context) (string, error) {
+	cacheSvc := getCache(ctx)
+	if cacheSvc == nil {
+		return loadServerAddress(ctx)
+	}
+
+	var val string
+	if err := cacheSvc.GetOrSet(ctx, serverAddressCacheKey, &val, serverAddressCacheTTL, func() (any, error) {
+		return loadServerAddress(ctx)
+	}); err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+func isOriginAllowed(ctx context.Context, origin string) bool {
+	val, err := serverAddress(ctx)
+	if err != nil || val == "" {
 		return false
 	}
 	allowedOrigins := strings.Split(val, ",")

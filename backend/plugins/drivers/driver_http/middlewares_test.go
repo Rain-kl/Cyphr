@@ -4,11 +4,13 @@
 package driver_http
 
 import (
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/testhelper"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -119,4 +121,87 @@ func TestCORSMiddleware(t *testing.T) {
 			t.Error("expected Access-Control-Allow-Methods header")
 		}
 	})
+}
+
+// memoryCache 是一个可工作的内存缓存，用于统计 loader（即数据库查询）实际执行次数。
+type memoryCache struct {
+	values map[string]string
+	loads  int
+}
+
+func (c *memoryCache) Get(_ context.Context, key string, target any) error {
+	v, ok := c.values[key]
+	if !ok {
+		return contracts.ErrCacheMiss
+	}
+	dst, ok := target.(*string)
+	if !ok {
+		return contracts.ErrCacheMiss
+	}
+	*dst = v
+	return nil
+}
+
+func (c *memoryCache) Set(_ context.Context, key string, value any, _ time.Duration) error {
+	v, ok := value.(string)
+	if !ok {
+		return nil
+	}
+	c.values[key] = v
+	return nil
+}
+
+func (c *memoryCache) Delete(_ context.Context, key string) error {
+	delete(c.values, key)
+	return nil
+}
+
+func (c *memoryCache) GetOrSet(_ context.Context, key string, target any, _ time.Duration, loader func() (any, error)) error {
+	if err := c.Get(context.Background(), key, target); err == nil {
+		return nil
+	}
+	raw, err := loader()
+	if err != nil {
+		return err
+	}
+	c.loads++
+	v, ok := raw.(string)
+	if !ok {
+		return nil
+	}
+	c.values[key] = v
+	if dst, ok := target.(*string); ok {
+		*dst = v
+	}
+	return nil
+}
+
+func (c *memoryCache) Invalidate(ctx context.Context, key string) error {
+	return c.Delete(ctx, key)
+}
+
+// TestCORSAllowedOriginReadsConfigOncePerCacheWindow 回归：CORS 的来源校验不得在
+// 每个请求上都查询主库，缓存有效期内 loader 只应执行一次。
+func TestCORSAllowedOriginReadsConfigOncePerCacheWindow(t *testing.T) {
+	dbConn, _, cleanup := testhelper.SetupTestEnvironment(t)
+	setDBService(&mockDBService{db: dbConn})
+	cache := &memoryCache{values: map[string]string{}}
+	setCacheService(cache)
+	defer func() {
+		setCacheService(nil)
+		setDBService(nil)
+		cleanup()
+	}()
+
+	ctx := context.Background()
+	const origin = "http://localhost:8000" // testhelper 预置的 server_address
+	for range 3 {
+		if !isOriginAllowed(ctx, origin) {
+			t.Fatalf("origin %q should be allowed", origin)
+		}
+	}
+
+	if cache.loads != 1 {
+		t.Errorf("expected 1 config load across 3 requests, got %d", cache.loads)
+	}
 }

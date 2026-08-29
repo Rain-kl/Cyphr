@@ -110,6 +110,19 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
+	// Bind CacheService from Context
+	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+		setCacheService(cache)
+	} else {
+		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
+			setCacheService(cache)
+		})
+	}
+	ctx.OnDispose(func() error {
+		setCacheService(nil)
+		return nil
+	})
+
 	ctx.OnDispose(func() error {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)
 		defer cancel()
