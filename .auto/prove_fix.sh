@@ -46,10 +46,12 @@ if [ "${RC}" -eq 0 ]; then
     echo "PROVE FAILED: tests still pass without the fix — this is not a real bug fix"
     exit 1
 fi
-if echo "${OUT}" | grep -qE '^(FAIL|--- FAIL)'; then
+if echo "${OUT}" | grep -q 'build failed'; then
+    KIND="compile (signature changed; behaviour proven by inspection)"
+elif echo "${OUT}" | grep -qE '^--- FAIL'; then
     KIND="assertion"
 else
-    KIND="compile"
+    KIND="failure"
 fi
 echo "PROVED: test fails without the fix (${KIND})"
 exit 0
