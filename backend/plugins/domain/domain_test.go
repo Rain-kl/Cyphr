@@ -234,10 +234,6 @@ func TestUserPlugin(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 3, taskDef.Retry)
 
-	schedDef, ok := ctx.Schedules().Get("user:daily_audit")
-	require.True(t, ok)
-	assert.Equal(t, "0 3 * * *", schedDef.Spec)
-
 	// 10. Settings
 	sReg, ok := ctx.Settings().Get("user.registration_enabled")
 	require.True(t, ok)
@@ -433,7 +429,15 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 
 	// Verify total schedules registered
 	allSchedules := ctx.Schedules().Schedules()
-	assert.GreaterOrEqual(t, len(allSchedules), 3)
+	assert.GreaterOrEqual(t, len(allSchedules), 2)
+
+	// 每个调度指向的任务类型都必须已注册 Handler，否则触发时会投递到无人处理的
+	// 任务类型，预期的清理逻辑静默失效。
+	for _, sched := range allSchedules {
+		_, ok := ctx.Tasks().Get(sched.TaskType)
+		assert.Truef(t, ok, "schedule %q dispatches to task %q, which is never registered",
+			sched.Spec, sched.TaskType)
+	}
 
 	// Verify total settings schemas registered
 	allSettings := ctx.Settings().Schemas()

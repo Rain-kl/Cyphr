@@ -173,7 +173,12 @@ var (
 	ErrConfigType = errors.New("extpoints: configuration value type mismatch")
 
 	// ErrConfigInvalid is returned when a resolved value violates a declared value range.
+	// Reserved for source-level value checks; per-plugin value ranges are validated by the
+	// declaring plugin after Bind (see spec §4.3 C1).
 	ErrConfigInvalid = errors.New("extpoints: invalid configuration value")
+
+	// ErrConfigUnknownKey is returned when a configuration key was never declared.
+	ErrConfigUnknownKey = errors.New("extpoints: unknown configuration key")
 
 	// ErrConfigNotResolved is returned when typed reads happen before resolution.
 	ErrConfigNotResolved = errors.New("extpoints: configuration not resolved; run App.Prepare first")
@@ -196,9 +201,6 @@ const (
 	// OriginDefault marks a value that came from a declaration default.
 	OriginDefault = "default"
 )
-
-// redactedValue replaces the printed value of keys declared with secret:"true".
-const redactedValue = "******"
 
 // durationType distinguishes time.Duration from plain int64 during tag walking and decoding.
 var durationType = reflect.TypeFor[time.Duration]()
@@ -225,8 +227,11 @@ type ConfigBinding struct {
 }
 
 // configField is a single leaf discovered while walking a binding struct's tags.
+// key is the fully qualified dotted path used for resolution; path is the raw `config`
+// tag value used to locate the Go field again during Bind.
 type configField struct {
 	key        string
+	path       string
 	env        string
 	autoEnable string
 	def        string
@@ -272,6 +277,9 @@ type ConfigView interface {
 type ConfigExtension interface {
 	ConfigView
 
+	// SetSource installs the raw value source after construction, letting the composition
+	// root build the adapter once the kernel Context already exists.
+	SetSource(src ConfigSource)
 	// Declare registers plugin-owned configuration bindings before Apply runs.
 	Declare(pluginID string, bindings ...ConfigBinding) error
 	// Bind resolves and assigns the configuration values for a tagged struct.
@@ -386,6 +394,7 @@ func walkConfigFields(t reflect.Type, prefix string) ([]configField, error) {
 
 		out = append(out, configField{
 			key:        joinKey(prefix, path),
+			path:       path,
 			env:        sf.Tag.Get("env"),
 			autoEnable: sf.Tag.Get("autoEnable"),
 			def:        sf.Tag.Get("default"),
@@ -782,7 +791,7 @@ func convertStruct(raw any, typ reflect.Type) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s.%s: %w", ErrConfigType, typ.Name(), f.key, err)
 		}
-		out.FieldByName(indexFieldName(typ, f.key)).Set(reflect.ValueOf(converted))
+		out.FieldByName(indexFieldName(typ, f.path)).Set(reflect.ValueOf(converted))
 	}
 	return out.Interface(), nil
 }
@@ -820,23 +829,9 @@ func indexFieldName(t reflect.Type, key string) string {
 
 - [ ] **Step 4: 写解析与绑定实现**
 
-把 `backend/core/extpoints/config_resolve.go` 的骨架替换为完整实现：
+在 `backend/core/extpoints/config_resolve.go` **末尾追加**下列实现（保留 Task 1 写入的文件头、`Entries` 占位与 `sort` import；本步骤新增用到 `errors`、`fmt`、`reflect`，不要引入 `sync`/`time`）：
 
 ```go
-// Copyright 2026 Arctel.net
-// SPDX-License-Identifier: Apache-2.0
-
-package extpoints
-
-import (
-	"errors"
-	"fmt"
-	"reflect"
-	"sort"
-	"sync"
-	"time"
-)
-
 // Resolve computes the effective value of every declared key. Priority is, in order:
 // an explicit environment override, an auto-enable trigger, the configuration file,
 // then the declared default. Resolution is idempotent; later declarations resolve lazily.
@@ -926,6 +921,9 @@ func (r *ConfigRegistry) Bind(prefix string, target any) error {
 	if r.src == nil {
 		return ErrConfigNoSource
 	}
+	if !r.resolved {
+		return fmt.Errorf("%w: Bind(%q, %T) ran before App.Prepare", ErrConfigNotResolved, prefix, target)
+	}
 
 	elem, err := bindingStruct(target, prefix)
 	if err != nil {
@@ -951,7 +949,7 @@ func (r *ConfigRegistry) Bind(prefix string, target any) error {
 
 	for _, f := range fields {
 		value := r.values[f.key]
-		field := elem.FieldByName(indexFieldName(elem.Type(), f.key))
+		field := elem.FieldByName(indexFieldName(elem.Type(), f.path))
 		if !field.IsValid() || !field.CanSet() {
 			return fmt.Errorf("%w: field for key %q is not settable", ErrConfigTarget, f.key)
 		}
@@ -966,17 +964,12 @@ func (r *ConfigRegistry) Bind(prefix string, target any) error {
 }
 ```
 
-注意：`ErrConfigUnknownKey` 与后续访问器在 Task 3 引入；本 Step 先加哨兵错误到 `config.go` 的错误块，避免编译失败：
-
-```go
-	// ErrConfigUnknownKey is returned when a configuration key was never declared.
-	ErrConfigUnknownKey = errors.New("extpoints: unknown configuration key")
-```
+注意：`ErrConfigUnknownKey` 等全部哨兵错误已在 Task 1 的 `config.go` 错误块中定义，本步骤不要重复声明。
 
 - [ ] **Step 5: 运行测试确认通过**
 
 Run: `cd backend && go test ./core/extpoints/ -run 'TestResolve|TestDeclare' -v`
-Expected: 全部 `--- PASS`，`ok Wavelet/core/extpoints`。若 `sync`/`time` 报未使用 import，说明骨架残留 import，删除即可。
+Expected: 全部 `--- PASS`，`ok Wavelet/core/extpoints`。若报 `Entries redeclared`，说明 Step 4 误把整文件替换而非追加。
 
 - [ ] **Step 6: 格式与静态检查**
 
@@ -1016,7 +1009,7 @@ func TestViewAccessorsAndOrigins(t *testing.T) {
 	require.NoError(t, r.Declare("auth", extpoints.ConfigBinding{Prefix: "app", Target: &sessionConfig{}}))
 	require.NoError(t, r.Resolve())
 
-	assert.Equal(t, extpoints.OriginEnv, r.Origin("redis.addr"))
+	assert.Equal(t, extpoints.OriginEnv, r.Origin("redis.addrs"))
 	assert.Equal(t, "redis:6379", r.Strings("redis.addrs")[0])
 	assert.False(t, r.Bool("redis.enabled", true))
 	assert.Equal(t, 1, r.Int("redis.db", 0))
@@ -1073,7 +1066,7 @@ func TestBindRejectsReadsBeforeSourceIsRegistered(t *testing.T) {
 }
 ```
 
-导出脱敏常量：在 `backend/core/extpoints/config.go` 中把 `redactedValue` 改名导出为 `RedactedValue`（同文件内 `Entries` 与测试同步引用）：
+新增脱敏常量到 `backend/core/extpoints/config.go`（Task 1 未定义它，因为此处才首次使用）：
 
 ```go
 // RedactedValue replaces the printed value of keys declared with secret:"true".
@@ -1471,8 +1464,8 @@ func TestFiberSkipMovesToSkippedStateAndDisposesScope(t *testing.T) {
 	require.NoError(t, f.Skip())
 
 	assert.Equal(t, core.FiberSkipped, f.State())
+	assert.True(t, f.Skipped())
 	assert.False(t, plugin.applied, "a skipped plugin must never reach Apply")
-	assert.False(t, f.DependenciesSatisfied(root), "skipped fibers must not satisfy dependents")
 	assert.NoError(t, f.Unload(), "unloading a skipped fiber is a no-op")
 }
 
@@ -1489,40 +1482,16 @@ func TestFiberSkipIsIdempotentForActiveFibers(t *testing.T) {
 - [ ] **Step 2: 运行测试确认失败**
 
 Run: `cd backend && go test ./core/ -run 'TestFiberSkip' -v`
-Expected: 编译失败，报 `undefined: core.FiberSkipped`、`f.Skip undefined`、`f.DependenciesSatisfied` 参数类型不符（该断言要求 skipped 判定，实现后通过）。
+Expected: 编译失败，报 `undefined: core.FiberSkipped`、`f.Skip undefined`、`f.Skipped undefined`。
 
 - [ ] **Step 3: 写实现**
 
-`backend/core/fiber.go` 中 `FiberDisposed` 常量之后追加状态：
-
-```go
-	// FiberSkipped indicates the plugin never activated because its configuration gate
-	// evaluated to false, so an alternative provider took over.
-	FiberSkipped
-```
-
-`FiberState` 常量块内的字符串值需与注释一致，把该常量的取值写为 `"SKIPPED"`：
+`backend/core/fiber.go` 的 `FiberState` 常量块中，在 `FiberDisposed` 之后追加一个状态：
 
 ```go
 	// FiberSkipped indicates the plugin never activated because its configuration gate
 	// evaluated to false, so an alternative provider took over.
 	FiberSkipped FiberState = "SKIPPED"
-```
-
-`DependenciesSatisfied` 改为短路跳过被门禁排除的插件：
-
-```go
-// DependenciesSatisfied checks if all declared dependencies are present in the target
-// Context container. A skipped plugin provides nothing, so it can never satisfy dependents.
-func (f *Fiber) DependenciesSatisfied(ctx *Context) bool {
-	if f.State() == FiberSkipped {
-		return false
-	}
-	if len(f.deps) == 0 {
-		return true
-	}
-	// ...existing resolution loop unchanged
-}
 ```
 
 `Load` 之后追加 `Skip`：
@@ -1541,19 +1510,14 @@ func (f *Fiber) Skip() error {
 
 	return f.ctx.Dispose()
 }
+
+// Skipped reports whether the plugin was excluded by its configuration gate.
+func (f *Fiber) Skipped() bool {
+	return f.State() == FiberSkipped
+}
 ```
 
-`Load` 开头补一条守卫，防止已跳过插件被重新加载：
-
-```go
-	f.mu.Lock()
-	if f.state != FiberPending {
-		f.mu.Unlock()
-		return nil
-	}
-```
-
-（该守卫已存在，无需改动；`Skip` 依赖同一不变式。）
+> **不要改 `DependenciesSatisfied`**：依赖能否满足完全由 IoC 容器解析决定。被跳过的插件从未执行 `Apply`，也就没有 `core.Provide`，其消费者自然解析不到服务并在 `Reconcile` 里报"waiting for"。用 Fiber 状态做短路是错误语义。
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -1622,7 +1586,7 @@ func TestAppPrepareResolvesAndGatesPlugins(t *testing.T) {
 	assert.False(t, redisAlt.applied)
 }
 
-func TestAppStartRunsPrepareWhenCallerSkipsIt(t *testing.T) {
+func TestAppApplyPluginsGatesImplicitly(t *testing.T) {
 	redisLike := &gatedPlugin{name: "cache", enabled: true}
 	app := core.NewApp(core.WithConfigSource(newGateSource(false)))
 	app.Use(redisLike)
@@ -1681,9 +1645,7 @@ func WithConfigSource(src ConfigSource) AppOption {
 			return
 		}
 		a.configSource = src
-		if setter, ok := a.ctx.Config().(interface{ SetSource(ConfigSource) }); ok {
-			setter.SetSource(src)
-		}
+		a.ctx.Config().SetSource(src)
 	}
 }
 

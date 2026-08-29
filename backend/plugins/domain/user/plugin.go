@@ -138,10 +138,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
-	// 5. Register Cron Schedules
-	ctx.Schedule().RegisterCron("0 3 * * *", "user:daily_audit", map[string]string{"type": "audit"})
-
-	// 6. Register Settings Schemas
+	// 5. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "user.registration_enabled",
 		Default:     true,
