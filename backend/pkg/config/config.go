@@ -6,6 +6,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"log"
 	"os"
@@ -67,7 +68,8 @@ func init() {
 
 	// 读取配置文件（可选：找不到文件时使用空默认值 + 环境变量）
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
 			// 文件存在但读取/解析失败
 			if _, statErr := os.Stat(configPath); statErr == nil { //nolint:gosec // configPath is loaded from CONFIG_PATH environment variable
 				log.Fatalf("[Config] read config failed: %v\n", err)

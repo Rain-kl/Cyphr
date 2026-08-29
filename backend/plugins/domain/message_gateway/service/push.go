@@ -206,7 +206,7 @@ func RunPushTest(ctx context.Context, cfg pkgpush.Config, target string) error {
 		return err
 	}
 	if err := pusher.ValidateConfig(cfg); err != nil {
-		return fmt.Errorf("%s: %v", errs.ErrValidationFailed, err)
+		return fmt.Errorf("%s: %w", errs.ErrValidationFailed, err)
 	}
 
 	ApplySMTPFallbackToPushConfig(ctx, &cfg)

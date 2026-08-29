@@ -76,7 +76,7 @@ func (p *TelegramPusher) Send(ctx context.Context, cfg Config, target string, bo
 		}
 		fallbackErr := p.sendMessage(ctx, baseURL, cfg.Secret, chatID, plainText, "")
 		if fallbackErr != nil {
-			return "", fmt.Errorf("telegram: send message failed (fallback also failed): %w (original HTML error: %v)", fallbackErr, err)
+			return "", fmt.Errorf("telegram: send message failed (fallback also failed): %w (original HTML error: %w)", fallbackErr, err)
 		}
 	}
 
