@@ -22,6 +22,11 @@ type RouterExtension interface {
 	Use(middlewares ...any)
 	Group(prefix string, middlewares ...any) RouterExtension
 	Handle(method, path string, handlers ...any) RouteDefinition
+	// HandleRaw joins path with the group prefix but preserves a trailing slash,
+	// so `/resource` and `/resource/` can coexist as distinct routes.
+	HandleRaw(method, path string, handlers ...any) RouteDefinition
+	// BasePath reports this group's absolute prefix ("" for the root registry).
+	BasePath() string
 	GET(path string, handlers ...any) RouteDefinition
 	POST(path string, handlers ...any) RouteDefinition
 	PUT(path string, handlers ...any) RouteDefinition
@@ -503,3 +508,67 @@ func (w *PathWhitelist) Patterns() []string {
 	}
 	return res
 }
+
+// ─── Raw path registration ────────────────────────────────────────────────────
+
+// ensureLeadingSlash normalises a path to start with exactly one "/" while
+// preserving any trailing slash (unlike cleanPath).
+func ensureLeadingSlash(p string) string {
+	if p == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(p, "/") {
+		return "/" + p
+	}
+	return p
+}
+
+// joinPathPreservingTrailing joins a group prefix and a relative path without
+// stripping a trailing slash, so a group "/x" can serve both "/x" and "/x/".
+func joinPathPreservingTrailing(base, relative string) string {
+	rel := ensureLeadingSlash(relative)
+	if base == "" || base == "/" {
+		return rel
+	}
+	return strings.TrimSuffix(cleanPath(base), "/") + rel
+}
+
+// HandleRaw registers a route on the root registry, preserving a trailing slash.
+func (r *RouterRegistry) HandleRaw(method, path string, handlers ...any) RouteDefinition {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.nextID++
+	rd := RouteDefinition{
+		ID:          r.nextID,
+		Method:      strings.ToUpper(method),
+		Path:        ensureLeadingSlash(path),
+		Handlers:    handlers,
+		Middlewares: append([]any(nil), r.middlewares...),
+	}
+	r.routes = append(r.routes, rd)
+	return rd
+}
+
+// BasePath returns "" because the root registry has no prefix.
+func (r *RouterRegistry) BasePath() string { return "" }
+
+// HandleRaw registers a route under this group, preserving a trailing slash.
+func (g *RouterGroup) HandleRaw(method, path string, handlers ...any) RouteDefinition {
+	g.registry.mu.Lock()
+	defer g.registry.mu.Unlock()
+
+	g.registry.nextID++
+	rd := RouteDefinition{
+		ID:     g.registry.nextID,
+		Method: strings.ToUpper(method),
+		Path:   joinPathPreservingTrailing(g.prefix, path),
+	}
+	rd.Handlers = handlers
+	rd.Middlewares = append(g.registry.middlewares, g.middlewares...)
+	g.registry.routes = append(g.registry.routes, rd)
+	return rd
+}
+
+// BasePath returns this group's absolute prefix.
+func (g *RouterGroup) BasePath() string { return g.prefix }
