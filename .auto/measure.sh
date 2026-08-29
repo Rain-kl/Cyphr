@@ -9,6 +9,14 @@
 set -uo pipefail
 cd "$(dirname "$0")/../backend"
 
+# Hermetic lint result cache. golangci-lint's default cache is machine-wide, so
+# entries written while analysing a different worktree are replayed carrying that
+# checkout's absolute paths, which misattributes findings and can serve a stale
+# verdict. Key the cache to this directory. Count-neutral: cold and shared-warm
+# runs both report the same number of findings.
+GOLANGCI_LINT_CACHE="${TMPDIR:-/tmp}/ar-lint-cache-$(pwd | cksum | awk '{print $1}')"
+export GOLANGCI_LINT_CACHE
+
 REF_CFG="$(cd .. && pwd)/.auto/lint.ref.yaml"
 
 # Primary: pinned yardstick findings (never the mutable project config).

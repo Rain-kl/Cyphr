@@ -4,6 +4,13 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}/backend"
+
+# Same per-checkout lint cache as measure.sh: golangci-lint's default cache is
+# machine-wide, so a different worktree analysing identical sources can make this
+# Guard read back a stale verdict. Key it to the backend directory.
+GOLANGCI_LINT_CACHE="${TMPDIR:-/tmp}/ar-lint-cache-$(pwd | cksum | awk '{print $1}')"
+export GOLANGCI_LINT_CACHE
+
 STATUS=0
 fail() { echo "GUARD FAIL: $1"; STATUS=1; }
 
