@@ -330,18 +330,40 @@ func (s *taskServiceImpl) ListTasks() []contracts.TaskMetaDTO {
 		for _, param := range m.Params {
 			params = append(params, contracts.TaskParamDTO{
 				Name:        param.Name,
+				Label:       param.Label,
 				Type:        param.Type,
 				Description: param.Description,
+				Placeholder: param.Placeholder,
 				Required:    param.Required,
 			})
 		}
+		taskType := m.Type
+		if taskType == "" {
+			taskType = m.AsynqTask
+		}
+		if taskType == "" {
+			taskType = m.Name
+		}
+		asynqTask := m.AsynqTask
+		if asynqTask == "" {
+			asynqTask = taskType
+		}
+		name := m.Name
+		if name == "" {
+			name = taskType
+		}
 		res = append(res, contracts.TaskMetaDTO{
-			Name:        m.Type,
-			DisplayName: m.Name,
-			Description: m.Description,
-			Params:      params,
-			MaxRetry:    m.MaxRetry,
-			Queue:       m.Queue,
+			Type:         taskType,
+			AsynqTask:    asynqTask,
+			Name:         name,
+			DisplayName:  name,
+			Description:  m.Description,
+			Category:     m.Category,
+			SupportsTime: m.SupportsTime,
+			Params:       params,
+			MaxRetry:     m.MaxRetry,
+			Queue:        m.Queue,
+			Retryable:    m.Retryable,
 		})
 	}
 	return res
@@ -356,18 +378,40 @@ func (s *taskServiceImpl) GetTaskMeta(taskType string) (contracts.TaskMetaDTO, b
 	for _, param := range m.Params {
 		params = append(params, contracts.TaskParamDTO{
 			Name:        param.Name,
+			Label:       param.Label,
 			Type:        param.Type,
 			Description: param.Description,
+			Placeholder: param.Placeholder,
 			Required:    param.Required,
 		})
 	}
+	tType := m.Type
+	if tType == "" {
+		tType = m.AsynqTask
+	}
+	if tType == "" {
+		tType = m.Name
+	}
+	asynqTask := m.AsynqTask
+	if asynqTask == "" {
+		asynqTask = tType
+	}
+	name := m.Name
+	if name == "" {
+		name = tType
+	}
 	return contracts.TaskMetaDTO{
-		Name:        m.Type,
-		DisplayName: m.Name,
-		Description: m.Description,
-		Params:      params,
-		MaxRetry:    m.MaxRetry,
-		Queue:       m.Queue,
+		Type:         tType,
+		AsynqTask:    asynqTask,
+		Name:         name,
+		DisplayName:  name,
+		Description:  m.Description,
+		Category:     m.Category,
+		SupportsTime: m.SupportsTime,
+		Params:       params,
+		MaxRetry:     m.MaxRetry,
+		Queue:        m.Queue,
+		Retryable:    m.Retryable,
 	}, true
 }
 

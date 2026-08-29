@@ -34,17 +34,23 @@ var warmImageCacheMu sync.Mutex
 
 // WarmImageCacheMeta represents the image cache warmup task metadata.
 var WarmImageCacheMeta = contracts.TaskMetaDTO{
-	Name:        WarmImageCacheTask,
-	DisplayName: "预热图片压缩缓存",
-	Description: "串行将文件管理中的图片转换为指定质量的 WebP 并写入永久缓存",
-	Category:    taskCategoryUpload,
-	MaxRetry:    3,
-	Queue:       taskQueueDefault,
+	Type:         TaskTypeWarmImageCache,
+	AsynqTask:    WarmImageCacheTask,
+	Name:         "预热图片压缩缓存",
+	DisplayName:  "预热图片压缩缓存",
+	Description:  "串行将文件管理中的图片转换为指定质量的 WebP 并写入永久缓存",
+	Category:     taskCategoryUpload,
+	SupportsTime: false,
+	MaxRetry:     1,
+	Queue:        taskQueueDefault,
+	Retryable:    true,
 	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "quality",
+			Label:       "图片质量",
 			Type:        "string",
 			Required:    true,
+			Placeholder: "low / medium / high",
 			Description: "WebP 压缩质量，仅支持 low、medium、high",
 		},
 	},

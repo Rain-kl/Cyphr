@@ -165,19 +165,41 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 5. Register background tasks
 	ctx.Task().Register("message_gateway:push_notification", func(c context.Context, payload []byte) error {
 		return pushHandler.Execute(c, payload)
-	}, extpoints.WithTaskRetry(defaultTaskRetry))
+	},
+		extpoints.WithTaskType("push_notification"),
+		extpoints.WithTaskName("消息网关推送通知"),
+		extpoints.WithTaskDescription("异步执行系统通知的多渠道派发与推送"),
+		extpoints.WithTaskCategory("push"),
+		extpoints.WithTaskRetry(defaultTaskRetry),
+		extpoints.WithTaskQueue("default"),
+		extpoints.WithTaskRetryable(true),
+	)
 
 	ctx.Task().Register(service.SendNotificationTask, func(c context.Context, payload []byte) error {
 		return pushHandler.Execute(c, payload)
-	}, extpoints.WithTaskRetry(defaultTaskRetry))
+	}, extpoints.WithTaskMeta(service.SendNotificationMeta), extpoints.WithTaskRetry(defaultTaskRetry))
 
 	ctx.Task().Register("message_gateway:dispatch_bot_msg", func(_ context.Context, _ []byte) error {
 		return nil
-	})
+	},
+		extpoints.WithTaskType("dispatch_bot_msg"),
+		extpoints.WithTaskName("分发 Bot 消息"),
+		extpoints.WithTaskDescription("异步处理与分发 Bot 下行消息"),
+		extpoints.WithTaskCategory("messaging"),
+		extpoints.WithTaskQueue("default"),
+	)
 
 	ctx.Task().Register("message_gateway:cleanup_pairing_codes", func(c context.Context, _ []byte) error {
 		return repository.DeleteExpiredPairingCodes(c)
-	}, extpoints.WithTaskRetry(defaultTaskRetry))
+	},
+		extpoints.WithTaskType("cleanup_pairing_codes"),
+		extpoints.WithTaskName("清理过期配对码"),
+		extpoints.WithTaskDescription("定时清理已过期的平台 Bot 配对码"),
+		extpoints.WithTaskCategory("messaging"),
+		extpoints.WithTaskRetry(defaultTaskRetry),
+		extpoints.WithTaskQueue("default"),
+		extpoints.WithTaskRetryable(true),
+	)
 
 	// 6. Register Cron Schedules
 	ctx.Schedule().RegisterCron("*/10 * * * *", "message_gateway:cleanup_pairing_codes", map[string]any{"action": "cleanup"})

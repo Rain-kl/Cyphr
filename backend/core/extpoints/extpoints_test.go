@@ -173,13 +173,29 @@ func TestTaskExtension(t *testing.T) {
 		extpoints.WithTaskRetry(3),
 		extpoints.WithTaskTimeout(10*time.Second),
 		extpoints.WithTaskMetadata("queue", "critical"),
+		extpoints.WithTaskType("cancel_timeout"),
+		extpoints.WithTaskName("取消超时订单"),
+		extpoints.WithTaskDescription("自动关单"),
+		extpoints.WithTaskCategory("order"),
+		extpoints.WithTaskSupportsTime(true),
+		extpoints.WithTaskQueue("orders"),
+		extpoints.WithTaskRetryable(true),
 		nil, // test nil option
 	)
 
 	// Re-register to test update
 	tr.Register("order:cancel_timeout", handler,
 		extpoints.WithTaskConcurrency(10),
+		extpoints.WithTaskRetry(3),
+		extpoints.WithTaskTimeout(10*time.Second),
 		extpoints.WithTaskMetadata("queue", "high"),
+		extpoints.WithTaskType("cancel_timeout"),
+		extpoints.WithTaskName("取消超时订单"),
+		extpoints.WithTaskDescription("自动关单"),
+		extpoints.WithTaskCategory("order"),
+		extpoints.WithTaskSupportsTime(true),
+		extpoints.WithTaskQueue("orders"),
+		extpoints.WithTaskRetryable(true),
 	)
 
 	tasks := tr.Tasks()
@@ -187,6 +203,19 @@ func TestTaskExtension(t *testing.T) {
 	assert.Equal(t, "order:cancel_timeout", tasks[0].Pattern)
 	assert.Equal(t, 10, tasks[0].Concurrency)
 	assert.Equal(t, "high", tasks[0].Metadata["queue"])
+	assert.Equal(t, "cancel_timeout", tasks[0].Type)
+	assert.Equal(t, "取消超时订单", tasks[0].Name)
+
+	dto := tasks[0].ToDTO()
+	assert.Equal(t, "cancel_timeout", dto.Type)
+	assert.Equal(t, "order:cancel_timeout", dto.AsynqTask)
+	assert.Equal(t, "取消超时订单", dto.Name)
+	assert.Equal(t, "取消超时订单", dto.DisplayName)
+	assert.Equal(t, "自动关单", dto.Description)
+	assert.Equal(t, "order", dto.Category)
+	assert.True(t, dto.SupportsTime)
+	assert.Equal(t, "orders", dto.Queue)
+	assert.True(t, dto.Retryable)
 
 	task, ok := tr.Get("order:cancel_timeout")
 	assert.True(t, ok)

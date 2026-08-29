@@ -4103,6 +4103,9 @@ const docTemplate = `{
         "contracts.TaskMetaDTO": {
             "type": "object",
             "properties": {
+                "asynq_task": {
+                    "type": "string"
+                },
                 "category": {
                     "type": "string"
                 },
@@ -4127,11 +4130,20 @@ const docTemplate = `{
                 "queue": {
                     "type": "string"
                 },
+                "retryable": {
+                    "type": "boolean"
+                },
                 "schedule": {
                     "type": "string"
                 },
+                "supports_time": {
+                    "type": "boolean"
+                },
                 "timeout": {
                     "$ref": "#/definitions/time.Duration"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -4142,7 +4154,13 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "label": {
+                    "type": "string"
+                },
                 "name": {
+                    "type": "string"
+                },
+                "placeholder": {
                     "type": "string"
                 },
                 "required": {

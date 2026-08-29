@@ -4,6 +4,7 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"sync"
 )
@@ -28,6 +29,7 @@ type TaskMeta struct {
 	AsynqTask    string      `json:"asynq_task"`
 	Name         string      `json:"name"`
 	Description  string      `json:"description"`
+	Category     string      `json:"category,omitempty"`
 	SupportsTime bool        `json:"supports_time"`
 	MaxRetry     int         `json:"max_retry"`
 	Queue        string      `json:"queue"`
@@ -52,14 +54,80 @@ func RegisterTaskMeta(meta TaskMeta) {
 	dispatchableTasks = append(dispatchableTasks, meta)
 }
 
-// GetDispatchableTasks 获取所有已注册的元数据列表（返回副本以避免并发读写冲突）
+// GetDispatchableTasks 获取所有已注册的元数据列表（优先结合 activeTaskReg 和 dispatchableTasks）
 func GetDispatchableTasks() []TaskMeta {
-	dispatchableTasksMutex.RLock()
-	defer dispatchableTasksMutex.RUnlock()
+	activeTaskRegMutex.RLock()
+	reg := activeTaskReg
+	activeTaskRegMutex.RUnlock()
 
-	metas := make([]TaskMeta, len(dispatchableTasks))
-	copy(metas, dispatchableTasks)
+	var metas []TaskMeta
+	seen := make(map[string]bool)
+
+	if reg != nil {
+		for _, td := range reg.Tasks() {
+			dto := td.ToDTO()
+			m := toInternalTaskMeta(dto)
+			metas = append(metas, m)
+			seen[m.Type] = true
+			seen[m.AsynqTask] = true
+		}
+	}
+
+	dispatchableTasksMutex.RLock()
+	for _, t := range dispatchableTasks {
+		if !seen[t.Type] && !seen[t.AsynqTask] {
+			metas = append(metas, t)
+			seen[t.Type] = true
+			seen[t.AsynqTask] = true
+		}
+	}
+	dispatchableTasksMutex.RUnlock()
+
 	return metas
+}
+
+func toInternalTaskMeta(dto contracts.TaskMetaDTO) TaskMeta {
+	params := make([]TaskParam, 0, len(dto.Params))
+	for _, p := range dto.Params {
+		params = append(params, TaskParam{
+			Name:        p.Name,
+			Label:       p.Label,
+			Type:        p.Type,
+			Required:    p.Required,
+			Placeholder: p.Placeholder,
+			Description: p.Description,
+		})
+	}
+	taskType := dto.Type
+	if taskType == "" {
+		taskType = dto.AsynqTask
+	}
+	if taskType == "" {
+		taskType = dto.Name
+	}
+	asynqTask := dto.AsynqTask
+	if asynqTask == "" {
+		asynqTask = taskType
+	}
+	name := dto.Name
+	if name == "" {
+		name = dto.DisplayName
+	}
+	if name == "" {
+		name = taskType
+	}
+	return TaskMeta{
+		Type:         taskType,
+		AsynqTask:    asynqTask,
+		Name:         name,
+		Description:  dto.Description,
+		Category:     dto.Category,
+		SupportsTime: dto.SupportsTime,
+		MaxRetry:     dto.MaxRetry,
+		Queue:        dto.Queue,
+		Retryable:    dto.Retryable,
+		Params:       params,
+	}
 }
 
 var (
@@ -80,14 +148,10 @@ func getFromActiveTaskExtension(taskType string) *TaskMeta {
 	if activeTaskReg == nil {
 		return nil
 	}
-	if td, ok := activeTaskReg.Get(taskType); ok {
-		return &TaskMeta{
-			Type:      td.Pattern,
-			Name:      td.Pattern,
-			AsynqTask: td.Pattern,
-			Queue:     "default",
-			Retryable: td.Retry > 0,
-			MaxRetry:  td.Retry,
+	for _, td := range activeTaskReg.Tasks() {
+		if td.Type == taskType || td.Pattern == taskType {
+			m := toInternalTaskMeta(td.ToDTO())
+			return &m
 		}
 	}
 	return nil
@@ -95,9 +159,13 @@ func getFromActiveTaskExtension(taskType string) *TaskMeta {
 
 // GetTaskMeta 根据任务类型获取元数据
 func GetTaskMeta(taskType string) *TaskMeta {
+	if m := getFromActiveTaskExtension(taskType); m != nil {
+		return m
+	}
+
 	dispatchableTasksMutex.RLock()
 	for _, t := range dispatchableTasks {
-		if t.Type == taskType {
+		if t.Type == taskType || t.AsynqTask == taskType {
 			copied := t
 			dispatchableTasksMutex.RUnlock()
 			return &copied
@@ -105,22 +173,12 @@ func GetTaskMeta(taskType string) *TaskMeta {
 	}
 	dispatchableTasksMutex.RUnlock()
 
-	return getFromActiveTaskExtension(taskType)
+	return nil
 }
 
 // GetTaskMetaByAsynqTask 根据 Asynq 任务名称获取元数据
 func GetTaskMetaByAsynqTask(asynqTask string) *TaskMeta {
-	dispatchableTasksMutex.RLock()
-	for _, t := range dispatchableTasks {
-		if t.AsynqTask == asynqTask {
-			copied := t
-			dispatchableTasksMutex.RUnlock()
-			return &copied
-		}
-	}
-	dispatchableTasksMutex.RUnlock()
-
-	return getFromActiveTaskExtension(asynqTask)
+	return GetTaskMeta(asynqTask)
 }
 
 // GetRegisteredAsynqTasks 返回所有已注册的 Asynq 任务名称，以便动态注册路由

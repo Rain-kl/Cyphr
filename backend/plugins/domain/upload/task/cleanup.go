@@ -31,12 +31,16 @@ const (
 
 // SystemCleanupMeta represents the task metadata.
 var SystemCleanupMeta = contracts.TaskMetaDTO{
-	Name:        SystemCleanupTask,
-	DisplayName: "系统垃圾清理",
-	Description: "定期清理未使用上传文件、历史推送记录和过期任务执行日志",
-	Category:    "maintenance",
-	MaxRetry:    3,
-	Queue:       taskQueueDefault,
+	Type:         TaskTypeSystemCleanup,
+	AsynqTask:    SystemCleanupTask,
+	Name:         "系统垃圾清理",
+	DisplayName:  "系统垃圾清理",
+	Description:  "定期清理未使用上传文件、历史推送记录和过期任务执行日志",
+	Category:     "maintenance",
+	SupportsTime: false,
+	MaxRetry:     3,
+	Queue:        taskQueueDefault,
+	Retryable:    true,
 }
 
 // SystemCleanupHandler 系统定期垃圾清理异步任务处理器

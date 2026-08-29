@@ -708,23 +708,31 @@ const (
 
 // SendNotificationMeta represents the task metadata.
 var SendNotificationMeta = contracts.TaskMetaDTO{
-	Name:        TaskTypeSendNotification,
-	DisplayName: "推送通知",
-	Description: "异步执行系统通知的多渠道派发与推送",
-	MaxRetry:    3,
-	Queue:       "default",
+	Type:         TaskTypeSendNotification,
+	AsynqTask:    SendNotificationTask,
+	Name:         "推送通知",
+	DisplayName:  "推送通知",
+	Description:  "异步执行系统通知的多渠道派发与推送",
+	Category:     "push",
+	SupportsTime: false,
+	MaxRetry:     3,
+	Queue:        "default",
+	Retryable:    true,
 	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "event_key",
+			Label:       "事件标识",
 			Type:        "string",
-			Description: "事件标识 (如 admin_login)",
 			Required:    true,
+			Placeholder: "admin_login",
+			Description: "事件标识 (如 admin_login)",
 		},
 		{
 			Name:        "target",
+			Label:       "目标接收者",
 			Type:        "string",
-			Description: "目标接收者",
 			Required:    false,
+			Description: "目标接收者",
 		},
 	},
 }

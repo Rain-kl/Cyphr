@@ -36,30 +36,24 @@ const (
 
 // StorageMigrationMeta describes the manually dispatchable migration task.
 var StorageMigrationMeta = contracts.TaskMetaDTO{
-	Name:        StorageMigrationTask,
-	DisplayName: "迁移文件存储",
-	Description: "将活动存储中的文件迁移到待切换的目标存储，迁移期间文件系统保持只读",
-	Category:    taskCategoryUpload,
-	MaxRetry:    3,
-	Queue:       taskQueueDefault,
+	Type:         TaskTypeStorageMigration,
+	AsynqTask:    StorageMigrationTask,
+	Name:         "迁移文件存储",
+	DisplayName:  "迁移文件存储",
+	Description:  "将活动存储中的文件迁移到待切换的目标存储，迁移期间文件系统保持只读",
+	Category:     taskCategoryUpload,
+	SupportsTime: false,
+	MaxRetry:     1,
+	Queue:        taskQueueDefault,
+	Retryable:    true,
 	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "target",
+			Label:       "目标存储配置 (JSON)",
 			Type:        "text",
 			Required:    true,
+			Placeholder: `{"driver": "s3", "local": {"root": "."}, "s3": {"bucket": "my-bucket"}}`,
 			Description: "待迁移到的目标存储引擎完整配置 JSON 字符串",
-		},
-		{
-			Name:        "batch_size",
-			Type:        "number",
-			Required:    false,
-			Description: "每批扫描的文件数量（默认 100）",
-		},
-		{
-			Name:        "concurrency",
-			Type:        "number",
-			Required:    false,
-			Description: "并发迁移 worker 数量（默认 4）",
 		},
 	},
 }

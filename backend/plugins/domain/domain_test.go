@@ -446,6 +446,12 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 	// Verify total tasks registered
 	allTasks := ctx.Tasks().Tasks()
 	assert.GreaterOrEqual(t, len(allTasks), 4)
+	for _, task := range allTasks {
+		dto := task.ToDTO()
+		assert.NotEmpty(t, dto.Type, "task %s should have type", task.Pattern)
+		assert.NotEmpty(t, dto.AsynqTask, "task %s should have asynq_task", task.Pattern)
+		assert.NotEmpty(t, dto.Name, "task %s should have name", task.Pattern)
+	}
 
 	// Verify total schedules registered
 	allSchedules := ctx.Schedules().Schedules()

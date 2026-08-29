@@ -150,25 +150,25 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Task().Register(task.SystemCleanupTask, func(c context.Context, payload []byte) error {
 		_, err := cleanupHandler.Execute(c, payload)
 		return err
-	}, extpoints.WithTaskRetry(defaultCleanupRetry))
+	}, extpoints.WithTaskMeta(task.SystemCleanupMeta), extpoints.WithTaskRetry(defaultCleanupRetry))
 
 	rebuildStatsHandler := &task.RebuildUploadStatsHandler{}
 	ctx.Task().Register(task.RebuildUploadStatsTask, func(c context.Context, payload []byte) error {
 		_, err := rebuildStatsHandler.Execute(c, payload)
 		return err
-	}, extpoints.WithTaskRetry(defaultStatsRetry))
+	}, extpoints.WithTaskMeta(task.RebuildUploadStatsMeta), extpoints.WithTaskRetry(defaultStatsRetry))
 
 	migrationHandler := &task.MigrationHandler{}
 	ctx.Task().Register(task.StorageMigrationTask, func(c context.Context, payload []byte) error {
 		_, err := migrationHandler.Execute(c, payload)
 		return err
-	}, extpoints.WithTaskRetry(defaultSingleRetry))
+	}, extpoints.WithTaskMeta(task.StorageMigrationMeta), extpoints.WithTaskRetry(defaultSingleRetry))
 
 	warmHandler := &task.WarmImageCacheHandler{}
 	ctx.Task().Register(task.WarmImageCacheTask, func(c context.Context, payload []byte) error {
 		_, err := warmHandler.Execute(c, payload)
 		return err
-	}, extpoints.WithTaskRetry(1))
+	}, extpoints.WithTaskMeta(task.WarmImageCacheMeta), extpoints.WithTaskRetry(1))
 
 	// 4. Register Cron Schedule
 	ctx.Schedule().RegisterCron("0 3 * * *", task.SystemCleanupTask, nil)

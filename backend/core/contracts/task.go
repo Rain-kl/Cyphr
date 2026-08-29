@@ -12,23 +12,29 @@ import (
 // TaskParamDTO describes a parameter accepted by a background task.
 type TaskParamDTO struct {
 	Name        string `json:"name"`
+	Label       string `json:"label"`
 	Type        string `json:"type"`
-	Description string `json:"description"`
 	Required    bool   `json:"required"`
+	Placeholder string `json:"placeholder,omitempty"`
+	Description string `json:"description,omitempty"`
 	Default     any    `json:"default,omitempty"`
 }
 
 // TaskMetaDTO describes the metadata and configuration of a registered background task.
 type TaskMetaDTO struct {
-	Name        string         `json:"name"`
-	DisplayName string         `json:"display_name"`
-	Description string         `json:"description"`
-	Category    string         `json:"category"`
-	Params      []TaskParamDTO `json:"params,omitempty"`
-	MaxRetry    int            `json:"max_retry"`
-	Timeout     time.Duration  `json:"timeout"`
-	Queue       string         `json:"queue"`
-	Schedule    string         `json:"schedule,omitempty"`
+	Type         string         `json:"type"`
+	AsynqTask    string         `json:"asynq_task"`
+	Name         string         `json:"name"`
+	DisplayName  string         `json:"display_name,omitempty"`
+	Description  string         `json:"description"`
+	Category     string         `json:"category,omitempty"`
+	SupportsTime bool           `json:"supports_time"`
+	Params       []TaskParamDTO `json:"params,omitempty"`
+	MaxRetry     int            `json:"max_retry"`
+	Timeout      time.Duration  `json:"timeout,omitempty"`
+	Queue        string         `json:"queue"`
+	Retryable    bool           `json:"retryable"`
+	Schedule     string         `json:"schedule,omitempty"`
 }
 
 // TaskResultDTO represents the outcome of a background task execution.

@@ -32,12 +32,11 @@ func DispatchTask(ctx context.Context, req model.DispatchTaskRequest) (string, e
 		return "", err
 	}
 
-	meta, ok := taskSvc.GetTaskMeta(req.TaskType)
-	if !ok {
+	if _, ok := taskSvc.GetTaskMeta(req.TaskType); !ok {
 		return "", errs.ErrInvalidTaskType
 	}
 
-	validated, err := validateTaskPayload(taskSvc, meta.Name, req.Payload)
+	validated, err := validateTaskPayload(taskSvc, req.TaskType, req.Payload)
 	if err != nil {
 		return "", err
 	}

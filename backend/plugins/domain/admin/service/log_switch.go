@@ -31,13 +31,25 @@ const (
 
 // LogDBSwitchMeta 描述切换日志数据库任务。
 var LogDBSwitchMeta = contracts.TaskMetaDTO{
-	Name:        LogDBSwitchTask,
-	DisplayName: "切换日志数据库",
-	Description: "复制迁移用户访问日志并在成功后切换日志主库（期间禁止日志写入）",
-	MaxRetry:    3,
-	Queue:       "default",
+	Type:         TaskTypeLogDBSwitch,
+	AsynqTask:    LogDBSwitchTask,
+	Name:         "切换日志数据库",
+	DisplayName:  "切换日志数据库",
+	Description:  "复制迁移用户访问日志并在成功后切换日志主库（期间禁止日志写入）",
+	Category:     "system",
+	SupportsTime: false,
+	MaxRetry:     3,
+	Queue:        "default",
+	Retryable:    true,
 	Params: []contracts.TaskParamDTO{
-		{Name: "target", Description: "迁移目标：postgres（主库为 PG 时）、sqlite（主库为 SQLite 时）或 clickhouse", Type: "string", Required: true},
+		{
+			Name:        "target",
+			Label:       "目标日志库",
+			Type:        "string",
+			Required:    true,
+			Placeholder: "postgres|sqlite|clickhouse",
+			Description: "迁移目标：postgres（主库为 PG 时）、sqlite（主库为 SQLite 时）或 clickhouse",
+		},
 	},
 }
 

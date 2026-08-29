@@ -24,12 +24,16 @@ const (
 
 // RebuildUploadStatsMeta describes the upload stats rebuild task.
 var RebuildUploadStatsMeta = contracts.TaskMetaDTO{
-	Name:        RebuildUploadStatsTask,
-	DisplayName: "重算文件存储统计",
-	Description: "根据当前 w_uploads 活跃记录全量重建 w_upload_stats（总量、类型、分类、趋势）",
-	Category:    taskCategoryUpload,
-	MaxRetry:    3,
-	Queue:       taskQueueDefault,
+	Type:         TaskTypeRebuildUploadStats,
+	AsynqTask:    RebuildUploadStatsTask,
+	Name:         "重算文件存储统计",
+	DisplayName:  "重算文件存储统计",
+	Description:  "根据当前 w_uploads 活跃记录全量重建 w_upload_stats（总量、类型、分类、趋势）",
+	Category:     taskCategoryUpload,
+	SupportsTime: false,
+	MaxRetry:     2,
+	Queue:        taskQueueDefault,
+	Retryable:    true,
 }
 
 // RebuildUploadStatsHandler rebuilds incremental upload stats from active upload records.

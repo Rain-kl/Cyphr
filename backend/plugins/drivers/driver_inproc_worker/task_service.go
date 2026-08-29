@@ -36,12 +36,7 @@ func (s *inprocTaskService) ListTasks() []contracts.TaskMetaDTO {
 	tasks := s.taskReg.Tasks()
 	res := make([]contracts.TaskMetaDTO, 0, len(tasks))
 	for _, td := range tasks {
-		res = append(res, contracts.TaskMetaDTO{
-			Name:        td.Pattern,
-			DisplayName: td.Pattern,
-			MaxRetry:    td.Retry,
-			Timeout:     td.Timeout,
-		})
+		res = append(res, td.ToDTO())
 	}
 	return res
 }
@@ -50,16 +45,12 @@ func (s *inprocTaskService) GetTaskMeta(taskType string) (contracts.TaskMetaDTO,
 	if s.taskReg == nil {
 		return contracts.TaskMetaDTO{}, false
 	}
-	td, ok := s.taskReg.Get(taskType)
-	if !ok {
-		return contracts.TaskMetaDTO{}, false
+	for _, td := range s.taskReg.Tasks() {
+		if td.Type == taskType || td.Pattern == taskType {
+			return td.ToDTO(), true
+		}
 	}
-	return contracts.TaskMetaDTO{
-		Name:        td.Pattern,
-		DisplayName: td.Pattern,
-		MaxRetry:    td.Retry,
-		Timeout:     td.Timeout,
-	}, true
+	return contracts.TaskMetaDTO{}, false
 }
 
 func (s *inprocTaskService) ValidatePayload(_ string, payload []byte) ([]byte, error) {
