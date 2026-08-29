@@ -303,8 +303,6 @@ func (a *App) RunMigrations() error {
 // 2. Dispatches database migrations via MigrationEngine.
 // 3. Filters and starts drivers matching the active Profile.
 // 4. Emits "app:ready" on the EventBus.
-//
-//nolint:contextcheck
 func (a *App) Start(ctx ...context.Context) error {
 	a.mu.Lock()
 	if a.running {
@@ -386,8 +384,6 @@ func (a *App) Start(ctx ...context.Context) error {
 // 2. Stops all started drivers in LIFO (reverse) order.
 // 3. Disposes the Context (running registered OnDispose callbacks in LIFO order).
 // 4. Emits "app:stopped" on the EventBus.
-//
-//nolint:contextcheck
 func (a *App) Stop(ctx ...context.Context) error {
 	a.mu.Lock()
 	if !a.running {
@@ -448,7 +444,7 @@ func (a *App) Stop(ctx ...context.Context) error {
 // Run starts the application and blocks until an OS signal (SIGINT, SIGTERM) or context cancellation is received,
 // then executes graceful shutdown.
 //
-//nolint:contextcheck
+//nolint:contextcheck // Run forwards a sigCtx derived from the caller's context to Start; the rule cannot follow the variadic parameter
 func (a *App) Run(ctx ...context.Context) error {
 	var parent context.Context
 	switch {
@@ -505,8 +501,6 @@ func (a *App) ExecuteCLI(args ...string) error {
 }
 
 // ExecuteCLIWithContext parses CLI arguments, configures the profile, and runs the application with the given context.
-//
-//nolint:contextcheck
 func (a *App) ExecuteCLIWithContext(ctx context.Context, args ...string) error {
 	cliArgs := args
 	if len(cliArgs) == 0 {

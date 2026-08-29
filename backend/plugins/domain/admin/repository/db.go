@@ -327,7 +327,7 @@ func GetPostgresInfo(ctx context.Context) model.DatabaseInfoResponse {
 
 // OpenSQLiteExportFile opens the active SQLite database file together with its stat info.
 func OpenSQLiteExportFile() (*os.File, os.FileInfo, error) {
-	//nolint:gosec // export db file path is trusted
+	// export db file path is trusted
 	f, err := os.Open(sqliteDatabasePath())
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", errs.ErrOpenDatabaseFileFailed, err)

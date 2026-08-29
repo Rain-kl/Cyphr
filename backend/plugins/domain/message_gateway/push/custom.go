@@ -68,7 +68,7 @@ func (p *CustomPusher) Send(ctx context.Context, cfg Config, _ string, body map[
 	bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, maxCustomResponseBytes))
 	upstreamResp := strings.TrimSpace(string(bodyBytes))
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 { //nolint:mnd
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return upstreamResp, fmt.Errorf("custom: http status %s", resp.Status)
 	}
 

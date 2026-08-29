@@ -55,8 +55,6 @@ type batchDownloadRequest struct {
 // @Failure 401 {object} response.Any "未登录"
 // @Failure 500 {object} response.Any "内部错误"
 // @Router /api/v1/upload [post]
-//
-//nolint:revive
 func UploadFile(c *gin.Context) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Security-Policy", "sandbox")

@@ -12,8 +12,6 @@ import (
 )
 
 // TaskExecutionStatus 任务执行状态
-//
-//nolint:revive
 type TaskExecutionStatus string
 
 // Task execution status constants.
@@ -25,8 +23,6 @@ const (
 )
 
 // TaskExecution 任务执行记录
-//
-//nolint:revive
 type TaskExecution struct {
 	ID           uint64              `json:"id,string" gorm:"primaryKey"`
 	TaskID       string              `json:"task_id" gorm:"size:128;uniqueIndex;not null"`
@@ -92,8 +88,6 @@ func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*Ta
 }
 
 // TaskExecutionCleanupStats describes task execution log cleanup results.
-//
-//nolint:revive
 type TaskExecutionCleanupStats struct {
 	HighFrequencyDeleted int64
 	LowFrequencyDeleted  int64

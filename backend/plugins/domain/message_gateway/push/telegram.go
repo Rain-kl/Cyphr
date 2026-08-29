@@ -34,8 +34,6 @@ type telegramErrorResponse struct {
 }
 
 // Send 执行 Telegram 消息发送
-//
-//nolint:cyclop
 func (p *TelegramPusher) Send(ctx context.Context, cfg Config, target string, body map[string]any, template string, _ map[string]any) (string, error) {
 	if cfg.Secret == "" {
 		return "", errors.New("telegram: Bot Token (Secret) is required")

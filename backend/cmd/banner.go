@@ -2,8 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package cmd provides CLI command entry points.
-//
-//nolint:unused
 package cmd
 
 import (
@@ -14,7 +12,7 @@ import (
 	"strings"
 )
 
-//nolint:unused // startup banner formatting utilities
+// startup banner formatting utilities
 type startupState struct {
 	mode           string
 	listensForHTTP bool

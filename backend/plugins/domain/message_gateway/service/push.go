@@ -899,8 +899,6 @@ type EventTrigger struct{}
 var DefaultTrigger = &EventTrigger{}
 
 // Trigger receives event metadata and processes the event notification dispatch asynchronously.
-//
-//nolint:contextcheck
 func (t *EventTrigger) Trigger(ctx context.Context, meta model.EventMetadata, body map[string]any) {
 	asyncCtx := context.WithoutCancel(ctx)
 	util.Go(func() {

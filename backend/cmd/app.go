@@ -39,8 +39,6 @@ import (
 )
 
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.
-//
-//nolint:contextcheck
 func newWaveletApp(profile core.Profile) *core.App {
 	app := core.NewApp(
 		core.WithProfile(profile),

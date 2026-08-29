@@ -108,7 +108,6 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contra
 			_ = cache.Delete(cleanupCtx, lockKey)
 		}()
 
-		//nolint:contextcheck,gosec
 		util.Go(func() {
 			ticker := time.NewTicker(renewalInterval)
 			defer ticker.Stop()
@@ -116,6 +115,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contra
 				select {
 				case <-ticker.C:
 					renewCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+					//nolint:contextcheck // renewal must carry its own deadline; the task context may already be canceled
 					_ = cache.Set(renewCtx, lockKey, "locked", time.Hour)
 					cancel()
 				case <-stopRenewal:

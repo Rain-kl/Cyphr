@@ -20,7 +20,7 @@ const (
 	errPasswordEncryptFailed = "密码加密失败"
 	//nolint:gosec // error message, not hardcoded credentials
 	errPasswordUpdateFailed = "密码更新失败"
-	//nolint:gosec // error message, not hardcoded credentials
+	// error message, not hardcoded credentials
 	errPasswordEmpty = "password cannot be empty"
 )
 
@@ -35,7 +35,7 @@ const (
 	errAdminCannotDelete    = "管理员账号无法被删除"
 	errCannotDeleteSelf     = "不能删除当前登录用户"
 	errServiceUsernameEmpty = "user: username cannot be empty"
-	//nolint:gosec // error message, not hardcoded credentials
+	// error message, not hardcoded credentials
 	errServiceOldPasswordIncorrect = "user: incorrect old password"
 	//nolint:gosec // error message, not hardcoded credentials
 	errServicePasswordTooShort = "密码长度至少为 8 位"

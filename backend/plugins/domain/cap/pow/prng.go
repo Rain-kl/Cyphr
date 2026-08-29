@@ -10,7 +10,7 @@ import (
 
 // fnv1a returns the 32-bit FNV-1a hash of a string
 //
-//nolint:mnd // FNV-1a 算法位移常量
+// FNV-1a 算法位移常量
 func fnv1a(str string) uint32 {
 	var hash uint32 = 2166136261
 	for i := 0; i < len(str); i++ {
@@ -22,7 +22,7 @@ func fnv1a(str string) uint32 {
 
 // fnv1aResume resumes FNV-1a hashing from a given state
 //
-//nolint:mnd // FNV-1a 算法位移常量
+// FNV-1a 算法位移常量
 func fnv1aResume(state uint32, str string) uint32 {
 	h := state
 	for i := 0; i < len(str); i++ {
@@ -33,15 +33,13 @@ func fnv1aResume(state uint32, str string) uint32 {
 }
 
 // hashShift computes FNV-1a mix additions
-//
-//nolint:mnd
 func hashShift(h uint32) uint32 {
 	return (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)
 }
 
 // prngFromHash generates a hex string of specified length using an initial hash state
 //
-//nolint:mnd // xorshift 算法位移常量
+// xorshift 算法位移常量
 func prngFromHash(initialHash uint32, length int) string {
 	state := initialHash
 	var result strings.Builder

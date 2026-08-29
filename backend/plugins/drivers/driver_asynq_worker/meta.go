@@ -10,7 +10,7 @@ import (
 
 // TaskParam 任务参数定义
 //
-//nolint:revive // TaskParam 保留完整名称以避免与通用 Param 混淆
+// TaskParam 保留完整名称以避免与通用 Param 混淆
 type TaskParam struct {
 	Name        string `json:"name"`        // 参数键名
 	Label       string `json:"label"`       // 显示名称
@@ -22,7 +22,7 @@ type TaskParam struct {
 
 // TaskMeta 任务元数据
 //
-//nolint:revive // TaskMeta 保留完整名称以避免与通用 Meta 混淆
+// TaskMeta 保留完整名称以避免与通用 Meta 混淆
 type TaskMeta struct {
 	Type         string      `json:"type"`
 	AsynqTask    string      `json:"asynq_task"`
