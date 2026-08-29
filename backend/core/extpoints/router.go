@@ -85,6 +85,11 @@ func (r *RouterRegistry) Group(prefix string, middlewares ...any) RouterExtensio
 
 // Handle registers a route with a custom HTTP method and handlers.
 func (r *RouterRegistry) Handle(method, path string, handlers ...any) RouteDefinition {
+	return r.addRoute(method, cleanPath(path), handlers...)
+}
+
+// addRoute appends a route whose path is already normalised.
+func (r *RouterRegistry) addRoute(method, fullPath string, handlers ...any) RouteDefinition {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -92,7 +97,7 @@ func (r *RouterRegistry) Handle(method, path string, handlers ...any) RouteDefin
 	rd := RouteDefinition{
 		ID:          r.nextID,
 		Method:      strings.ToUpper(method),
-		Path:        cleanPath(path),
+		Path:        fullPath,
 		Handlers:    handlers,
 		Middlewares: append([]any(nil), r.middlewares...),
 	}
@@ -228,10 +233,13 @@ func (g *RouterGroup) Group(prefix string, middlewares ...any) RouterExtension {
 
 // Handle registers a route under this group.
 func (g *RouterGroup) Handle(method, path string, handlers ...any) RouteDefinition {
+	return g.addRoute(method, joinPaths(g.prefix, path), handlers...)
+}
+
+// addRoute appends a route under this group whose path is already joined.
+func (g *RouterGroup) addRoute(method, fullPath string, handlers ...any) RouteDefinition {
 	g.registry.mu.Lock()
 	defer g.registry.mu.Unlock()
-
-	fullPath := joinPaths(g.prefix, path)
 
 	allMiddlewares := make([]any, 0, len(g.registry.middlewares)+len(g.middlewares))
 	allMiddlewares = append(allMiddlewares, g.registry.middlewares...)
@@ -535,19 +543,7 @@ func joinPathPreservingTrailing(base, relative string) string {
 
 // HandleRaw registers a route on the root registry, preserving a trailing slash.
 func (r *RouterRegistry) HandleRaw(method, path string, handlers ...any) RouteDefinition {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.nextID++
-	rd := RouteDefinition{
-		ID:          r.nextID,
-		Method:      strings.ToUpper(method),
-		Path:        ensureLeadingSlash(path),
-		Handlers:    handlers,
-		Middlewares: append([]any(nil), r.middlewares...),
-	}
-	r.routes = append(r.routes, rd)
-	return rd
+	return r.addRoute(method, ensureLeadingSlash(path), handlers...)
 }
 
 // BasePath returns "" because the root registry has no prefix.
@@ -555,19 +551,7 @@ func (r *RouterRegistry) BasePath() string { return "" }
 
 // HandleRaw registers a route under this group, preserving a trailing slash.
 func (g *RouterGroup) HandleRaw(method, path string, handlers ...any) RouteDefinition {
-	g.registry.mu.Lock()
-	defer g.registry.mu.Unlock()
-
-	g.registry.nextID++
-	rd := RouteDefinition{
-		ID:     g.registry.nextID,
-		Method: strings.ToUpper(method),
-		Path:   joinPathPreservingTrailing(g.prefix, path),
-	}
-	rd.Handlers = handlers
-	rd.Middlewares = append(g.registry.middlewares, g.middlewares...)
-	g.registry.routes = append(g.registry.routes, rd)
-	return rd
+	return g.addRoute(method, joinPathPreservingTrailing(g.prefix, path), handlers...)
 }
 
 // BasePath returns this group's absolute prefix.
