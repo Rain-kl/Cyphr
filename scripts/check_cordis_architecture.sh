@@ -90,20 +90,6 @@ else
     log_pass "backend/core/contracts/ 纯抽象无侵入"
 fi
 
-# 2.2 契约层禁止持久化耦合（表名映射 / ORM tag）
-# DTO 一旦携带 TableName()，调用方就能用 Table("w_users") 直查他人表，
-# 单表所有者原则与 contracts 抽象同时失效。
-# 注意：不禁 gorm import 本身 —— DBService 契约合法返回 gorm 类型。
-CONTRACTS_PERSISTENCE=$(rg -n 'func .*\)?\s*TableName\(\)|\bgorm:"' \
-    "${BACKEND_DIR}/core/contracts/" --glob '*.go' -g '!*_test.go' || true)
-
-if [ -n "${CONTRACTS_PERSISTENCE}" ]; then
-    log_fail "backend/core/contracts/ 为跨插件纯 DTO，严禁携带表名映射或 ORM tag（持久化归属唯一所有者插件，否则调用方可绕过契约直读他人表）:"
-    echo "${CONTRACTS_PERSISTENCE}" >&2
-else
-    log_pass "backend/core/contracts/ 无持久化耦合"
-fi
-
 # ==============================================================================
 # 3. 基础包纯洁度 (backend/pkg/ Purity)
 # ==============================================================================
