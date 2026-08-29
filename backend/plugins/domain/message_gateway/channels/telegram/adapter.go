@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	tele "gopkg.in/telebot.v4"
 )
@@ -41,16 +42,27 @@ func (a *Adapter) Capabilities() model.Capability {
 	return model.Capability{Text: true, Image: true, File: true, Reply: true}
 }
 
-// Connect starts long polling.
-func (a *Adapter) Connect(ctx context.Context) error {
+// longPollWindow is how long Telegram may hold a getUpdates call open before
+// returning empty. telebot converts it with int(timeout / time.Second), so a
+// bare integer here would mean nanoseconds, send timeout=0 and turn the poller
+// into a tight loop against the Bot API.
+const longPollWindow = 10 * time.Second
+
+// buildTeleSettings assembles the telebot settings.
+func buildTeleSettings(cfg model.ChannelConfig) tele.Settings {
 	pref := tele.Settings{
-		Token:  a.cfg.Credentials["bot_token"],
-		Poller: &tele.LongPoller{Timeout: 10},
+		Token:  cfg.Credentials["bot_token"],
+		Poller: &tele.LongPoller{Timeout: longPollWindow},
 	}
-	if base := strings.TrimSpace(a.cfg.Extra["base_url"]); base != "" {
+	if base := strings.TrimSpace(cfg.Extra["base_url"]); base != "" {
 		pref.URL = strings.TrimSuffix(base, "/")
 	}
-	bot, err := tele.NewBot(pref)
+	return pref
+}
+
+// Connect starts long polling.
+func (a *Adapter) Connect(ctx context.Context) error {
+	bot, err := tele.NewBot(buildTeleSettings(a.cfg))
 	if err != nil {
 		return fmt.Errorf("telegram: new bot: %w", err)
 	}

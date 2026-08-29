@@ -1578,12 +1578,31 @@ func TestAppPrepareResolvesAndGatesPlugins(t *testing.T) {
 
 	cacheFiber, ok := app.Fiber("cache")
 	require.True(t, ok)
+	require.Equal(t, core.FiberPending, cacheFiber.State(), "Prepare only builds the resolution barrier")
+	assert.True(t, app.Context().Config().Resolved())
+
+	require.NoError(t, app.Reconcile())
+
 	require.Equal(t, core.FiberActive, cacheFiber.State())
 
 	memoryFiber, ok := app.Fiber("cache_memory")
 	require.True(t, ok)
-	require.Equal(t, core.FiberSkipped, memoryFiber.State())
+	assert.Equal(t, core.FiberSkipped, memoryFiber.State())
 	assert.False(t, redisAlt.applied)
+}
+
+func TestAppGatesPluginsMountedAfterPrepare(t *testing.T) {
+	app := core.NewApp(core.WithConfigSource(newGateSource(true)))
+	require.NoError(t, app.Prepare())
+
+	late := &gatedPlugin{name: "cache_memory", enabled: false}
+	app.Use(late)
+	require.NoError(t, app.Reconcile())
+
+	fiber, ok := app.Fiber("cache_memory")
+	require.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, fiber.State(),
+		"plugins added after Prepare must still be gated")
 }
 
 func TestAppApplyPluginsGatesImplicitly(t *testing.T) {

@@ -7,9 +7,31 @@ import (
 	"Wavelet/plugins/domain/message_gateway/model"
 	"context"
 	"testing"
+	"time"
 
 	tele "gopkg.in/telebot.v4"
 )
+
+// TestBuildTeleSettingsLongPollWindow 回归：LongPoller.Timeout 是 time.Duration，
+// telebot 以 int(timeout/time.Second) 下发给 getUpdates。写成裸整数会被解释为
+// 纳秒，令 timeout=0，长轮询退化为对 Bot API 的空转轮询。
+func TestBuildTeleSettingsLongPollWindow(t *testing.T) {
+	pref := buildTeleSettings(model.ChannelConfig{
+		Credentials: map[string]string{"bot_token": "token"},
+		Extra:       map[string]string{"base_url": "https://tg.example.com/api/"},
+	})
+
+	poller, ok := pref.Poller.(*tele.LongPoller)
+	if !ok {
+		t.Fatalf("expected *tele.LongPoller, got %T", pref.Poller)
+	}
+	if got := int(poller.Timeout / time.Second); got != 10 {
+		t.Errorf("getUpdates would receive timeout=%d seconds, want 10", got)
+	}
+	if pref.URL != "https://tg.example.com/api" {
+		t.Errorf("base_url trailing slash should be trimmed, got %q", pref.URL)
+	}
+}
 
 func TestHandleUpdate_DropsGroups(t *testing.T) {
 	var got int
