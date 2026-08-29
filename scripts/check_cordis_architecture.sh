@@ -53,12 +53,12 @@ echo -e "${BOLD}═════════════════════�
 # ==============================================================================
 log_check "1. 检查微内核 (backend/core/) 纯洁度..."
 
-# 1.1 禁止直接依赖重型 Web/ORM/Worker 框架
-CORE_FRAMEWORK_IMPORTS=$(rg -n '"github.com/gin-gonic/gin"|"gorm.io/gorm"|"github.com/hibiken/asynq"|"github.com/robfig/cron' \
+# 1.1 禁止直接依赖重型 Web/ORM/Worker/Config 框架
+CORE_FRAMEWORK_IMPORTS=$(rg -n '"github.com/gin-gonic/gin"|"gorm.io/gorm"|"github.com/hibiken/asynq"|"github.com/robfig/cron|"github.com/spf13/viper"|"github.com/mitchellh/mapstructure"' \
     "${BACKEND_DIR}/core/" --glob '*.go' -g '!*contracts*' -g '!*_test.go' || true)
 
 if [ -n "${CORE_FRAMEWORK_IMPORTS}" ]; then
-    log_fail "backend/core/ 严禁导入具体 Web/ORM/Worker 运行时框架 (gin, gorm, asynq, cron):"
+    log_fail "backend/core/ 严禁导入具体 Web/ORM/Worker/Config 运行时框架 (gin, gorm, asynq, cron, viper, mapstructure):"
     echo "${CORE_FRAMEWORK_IMPORTS}" >&2
 else
     log_pass "backend/core/ 无重型框架依赖"
