@@ -71,6 +71,54 @@ change, not extra cleanup.
 helper fit — that is a behaviour change wearing a refactor's clothes.
 **Metric delta**: -2.
 
+## Lesson 6 — iterations 15-21
+**Pattern**: Delegate a broad read-only audit for what mechanical gates cannot
+see (N+1s, locks held over I/O, resource leaks, layering), then re-verify each
+claim yourself before touching code.
+**Why it worked**: The audit produced the run's best findings — the per-request
+CORS database query, the orphan cron dispatching to a task nobody registered,
+media temp dirs nothing ever removed. It also produced a wrong one: it asserted
+telebot falls back to `http.DefaultClient` with no timeout, when telebot itself
+constructs a client with a one minute deadline. Acting on that would have added
+a tunable dressed up as a bug fix.
+**Conditions**: Whenever the committed gates are green and the easy signal is
+exhausted.
+**Anti-pattern**: Trusting an audit summary's file:line as evidence. One
+referenced file did not exist.
+**Metric delta**: 0 for three landed fixes (all kept under the proven-fix gate),
+but they were the run's highest-impact changes.
+
+## Lesson 7 — iteration 16
+**Pattern**: Prove query-reduction with a functional test double that counts
+loader invocations, and assert the counter for both the batch and the looped
+form in the same test.
+**Why it worked**: Asserting "1 query" alone is vacuous — it also passes when
+nothing ran. Asserting batch=1 and per-id=3 in one test makes the instrument
+itself checked, so the claim cannot silently degrade.
+**Conditions**: Any change whose whole value is doing less I/O.
+**Anti-pattern**: Fixing an N+1 by reaching around the contract into another
+plugin's repository. The layering was the reason the slow path existed; the
+right move was to extend the contract with a batch method.
+**Metric delta**: 0 (kept under the proven-fix gate).
+
+## Lesson 8 — iterations 17-22
+**Pattern**: Strengthen a gate only alongside the code that satisfies it, and
+never rewrite history in a shared worktree.
+**Why it worked**: Deleting 24 dead lint suppressions paid off exactly as the
+self-correcting design predicted: two of them were load-bearing under the
+project's own gate even though the analyzer called them unused, the Guard
+vetoed, and their removal surfaced two verified `contextcheck` false positives
+worth documenting instead of silently swallowing. Meanwhile a concurrent
+session was committing plan documents in the same tree, so `git add -A` swept
+one of its in-flight edits into my commit — unfixable by rebase without
+destroying their work, so the repair was to stage explicit paths from then on.
+**Conditions**: Always, in this repo. Assume another agent is editing `docs/`
+and `backend/core` concurrently.
+**Anti-pattern**: `git add -A` outside the first setup commit. Also: trusting
+"unused directive" as "safe to delete" — check the strictest config, not just
+the pinned yardstick.
+**Metric delta**: -25 in one iteration.
+
 ## Standing notes
 - Repo facts: backend module rooted at `backend/`, gofumpt orders a single
   import group as `Wavelet/...` before stdlib (uppercase sorts first); new Go
@@ -78,6 +126,7 @@ helper fit — that is a behaviour change wearing a refactor's clothes.
   fails the Guard.
 - Handler edits require `make swagger` (cheap: it regenerates identical docs
   when only bodies change).
-- 26 of the 96 `//nolint` directives currently suppress nothing — dead
-  suppressions are debt with a counter (`nolint_dirs`), and removing one that
-  is still load-bearing shows up as a new finding, so the metric self-corrects.
+- Dead suppressions are tracked by the `nolint_dirs` counter; removing one that
+  is still needed re-raises the original finding, so the metric self-corrects.
+  24 were removed in iteration 22; 72 remain, each still doing work.
+
