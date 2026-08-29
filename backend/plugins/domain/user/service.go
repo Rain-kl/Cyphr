@@ -24,21 +24,22 @@ func toUserDTO(u *User) *contracts.UserDTO {
 		return nil
 	}
 	return &contracts.UserDTO{
-		ID:          u.ID,
-		Username:    u.Username,
-		Nickname:    u.Nickname,
-		Email:       u.Email,
-		AvatarURL:   u.AvatarURL,
-		IsActive:    u.IsActive,
-		IsAdmin:     u.IsAdmin,
-		Bio:         u.Bio,
-		Phone:       u.Phone,
-		Gender:      u.Gender,
-		Website:     u.Website,
-		Location:    u.Location,
-		LastLoginAt: u.LastLoginAt,
-		CreatedAt:   u.CreatedAt,
-		UpdatedAt:   u.UpdatedAt,
+		ID:                 u.ID,
+		Username:           u.Username,
+		Nickname:           u.Nickname,
+		Email:              u.Email,
+		AvatarURL:          u.AvatarURL,
+		IsActive:           u.IsActive,
+		IsAdmin:            u.IsAdmin,
+		NeedChangePassword: u.NeedChangePassword || u.IsPlaintextPassword(),
+		Bio:                u.Bio,
+		Phone:              u.Phone,
+		Gender:             u.Gender,
+		Website:            u.Website,
+		Location:           u.Location,
+		LastLoginAt:        u.LastLoginAt,
+		CreatedAt:          u.CreatedAt,
+		UpdatedAt:          u.UpdatedAt,
 	}
 }
 

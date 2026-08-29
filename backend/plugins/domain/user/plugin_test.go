@@ -157,4 +157,24 @@ func TestUserLoginHTTPHandler(t *testing.T) {
 	setCookie := w.Header().Get("Set-Cookie")
 	assert.NotEmpty(t, setCookie)
 	assert.Contains(t, setCookie, "wavelet_session=")
+
+	// Plaintext default password seeded user
+	plainUser := &user.User{
+		Username: "plain_admin",
+		Password: "12345678", // Plaintext seed
+		Email:    "plain@example.com",
+		IsActive: true,
+	}
+	require.NoError(t, user.CreateUser(context.Background(), plainUser))
+
+	reqBodyPlain := `{"username":"plain_admin","password":"12345678"}`
+	reqPlain, _ := http.NewRequest(http.MethodPost, "/api/v1/user/login", bytes.NewBufferString(reqBodyPlain))
+	reqPlain.Header.Set("Content-Type", "application/json")
+	wPlain := httptest.NewRecorder()
+
+	r.ServeHTTP(wPlain, reqPlain)
+
+	assert.Equal(t, http.StatusOK, wPlain.Code)
+	assert.Contains(t, wPlain.Body.String(), `"username":"plain_admin"`)
+	assert.Contains(t, wPlain.Body.String(), `"need_change_password":true`)
 }

@@ -29,27 +29,39 @@ func (AccessToken) TableName() string {
 
 // User 用户表实体
 type User struct {
-	ID          uint64    `json:"id,string" gorm:"primaryKey;not null"`
-	Username    string    `json:"username" gorm:"size:64;uniqueIndex"`
-	Password    string    `json:"password,omitempty" gorm:"size:255"`
-	Nickname    string    `json:"nickname" gorm:"size:255"`
-	Email       string    `json:"email" gorm:"size:255;index"`
-	AvatarURL   string    `json:"avatar_url" gorm:"size:255"`
-	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
-	IsAdmin     bool      `json:"is_admin" gorm:"default:false"`
-	Bio         string    `json:"bio" gorm:"size:500"`
-	Phone       string    `json:"phone" gorm:"size:32"`
-	Gender      string    `json:"gender" gorm:"size:16"`
-	Website     string    `json:"website" gorm:"size:255"`
-	Location    string    `json:"location" gorm:"size:255"`
-	LastLoginAt time.Time `json:"last_login_at" gorm:"index"`
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime;index"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime;index"`
+	ID                 uint64    `json:"id,string" gorm:"primaryKey;not null"`
+	Username           string    `json:"username" gorm:"size:64;uniqueIndex"`
+	Password           string    `json:"password,omitempty" gorm:"size:255"`
+	Nickname           string    `json:"nickname" gorm:"size:255"`
+	Email              string    `json:"email" gorm:"size:255;index"`
+	AvatarURL          string    `json:"avatar_url" gorm:"size:255"`
+	IsActive           bool      `json:"is_active" gorm:"default:true;index"`
+	IsAdmin            bool      `json:"is_admin" gorm:"default:false"`
+	NeedChangePassword bool      `json:"need_change_password,omitempty" gorm:"-"`
+	Bio                string    `json:"bio" gorm:"size:500"`
+	Phone              string    `json:"phone" gorm:"size:32"`
+	Gender             string    `json:"gender" gorm:"size:16"`
+	Website            string    `json:"website" gorm:"size:255"`
+	Location           string    `json:"location" gorm:"size:255"`
+	LastLoginAt        time.Time `json:"last_login_at" gorm:"index"`
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime;index"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime;index"`
 }
 
 // TableName 表名
 func (User) TableName() string {
 	return "w_users"
+}
+
+// IsPlaintextPassword 检查当前密码是否为未加密的明文密码（如初始默认密码）
+func (u *User) IsPlaintextPassword() bool {
+	if u.Password == "" {
+		return false
+	}
+	return !strings.HasPrefix(u.Password, "$2a$") &&
+		!strings.HasPrefix(u.Password, "$2b$") &&
+		!strings.HasPrefix(u.Password, "$2y$") &&
+		!strings.HasPrefix(u.Password, "$2x$")
 }
 
 // SetEncryptedPassword 设置加密密码
@@ -66,13 +78,22 @@ func (u *User) SetEncryptedPassword(password string) error {
 	return nil
 }
 
-// CheckPassword 校验密码
+// CheckPassword 校验密码（支持 bcrypt 哈希校验与初始明文密码校验）
 func (u *User) CheckPassword(password string) bool {
 	if u.Password == "" {
 		util.DummyCheckPassword(password)
 		return false
 	}
-	return util.CheckPasswordHash(u.Password, password)
+	if !u.IsPlaintextPassword() {
+		return util.CheckPasswordHash(u.Password, password)
+	}
+
+	// 明文密码兼容比对（识别初始默认密码向用户警告修改密码）
+	if u.Password == password {
+		u.NeedChangePassword = true
+		return true
+	}
+	return false
 }
 
 // loginRequest 登录请求参数
