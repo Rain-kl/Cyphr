@@ -285,10 +285,15 @@ func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) 
 			return fmt.Errorf("migration %s: apply %w", entry.PluginID, err)
 		}
 
+		version, vErr := provider.GetDBVersion(context.Background())
+		if vErr != nil {
+			version = 0
+		}
+
 		if len(results) > 0 {
-			log.Printf("[migrate] %s: applied %d migration(s)", entry.PluginID, len(results))
+			log.Printf("[migrate] %s: applied %d migration(s) (v%d)", entry.PluginID, len(results), version)
 		} else {
-			log.Printf("[migrate] %s: up to date", entry.PluginID)
+			log.Printf("[migrate] %s: v%d", entry.PluginID, version)
 		}
 	}
 
