@@ -7,6 +7,7 @@
 package batchwriter
 
 import (
+	"Wavelet/pkg/util"
 	"context"
 	"sync"
 	"sync/atomic"
@@ -96,7 +97,7 @@ func (w *Writer[T]) Start(parent context.Context) {
 
 		w.ch = make(chan T, w.cfg.QueueSize)
 		w.workerCtx = context.WithoutCancel(parent)
-		go w.run()
+		util.Go(w.run)
 	})
 }
 

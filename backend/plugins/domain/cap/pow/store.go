@@ -4,6 +4,7 @@
 package pow
 
 import (
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"sync"
@@ -43,7 +44,7 @@ func NewMemoryStore(cleanupInterval time.Duration) *MemoryStore {
 		items: make(map[string]memoryItem),
 	}
 	if cleanupInterval > 0 {
-		go store.startCleanupLoop(cleanupInterval)
+		util.Go(func() { store.startCleanupLoop(cleanupInterval) })
 	}
 	return store
 }

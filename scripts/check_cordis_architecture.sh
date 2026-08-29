@@ -182,13 +182,16 @@ fi
 # ==============================================================================
 # 6. 并发安全规范 (Goroutine Concurrency Safety)
 # ==============================================================================
-log_check "6. 检查并发安全规范 (禁止生产代码中使用裸 go func())..."
+log_check "6. 检查并发安全规范 (禁止生产代码中使用裸 go 启动 goroutine)..."
 
-BARE_GO_ROUTINES=$(rg -n '\bgo func\(' "${BACKEND_DIR}" \
+# 同时覆盖 `go func() {...}()` 匿名形式与 `go worker.run()` / `go loop()` 命名调用形式：
+# 两者都不具备 panic 恢复能力，被调方一旦 panic 会直接击穿整个进程。
+# 例外：util.Go 自身的实现与事件总线 (它们内部已 recover)。
+BARE_GO_ROUTINES=$(rg -n --pcre2 '^[[:space:]]*go\s+(func\s*[\w{]|\w+(\.\w+)*\s*[\({])' "${BACKEND_DIR}" \
     --glob '*.go' -g '!*_test.go' -g '!goroutine.go' -g '!events.go' || true)
 
 if [ -n "${BARE_GO_ROUTINES}" ]; then
-    log_fail "生产代码严禁使用裸 'go func()'，必须使用 'util.Go' 确保 panic 恢复与调用栈追踪:"
+    log_fail "生产代码严禁裸 'go' 启动 goroutine（含 'go func()' 与 'go xxx()' 命名调用），必须使用 'util.Go' 确保 panic 恢复与调用栈追踪:"
     echo "${BARE_GO_ROUTINES}" >&2
 else
     log_pass "并发调用统一使用 util.Go 具备 panic 恢复能力"

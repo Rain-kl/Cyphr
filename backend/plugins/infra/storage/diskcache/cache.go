@@ -11,6 +11,7 @@ import (
 	"time"
 
 	pkgcache "Wavelet/pkg/cache/disk"
+	"Wavelet/pkg/util"
 )
 
 // Status represents the runtime cache statistics.
@@ -49,7 +50,7 @@ func GetGlobalCache() *DiskCache {
 		// Load initial configs from database
 		globalCache.ReloadConfig(context.Background())
 		// Start background routine to clean expired items every 10 minutes
-		go globalCache.StartCleanupWorker(defaultCleanupInterval * time.Minute)
+		util.Go(func() { globalCache.StartCleanupWorker(defaultCleanupInterval * time.Minute) })
 	})
 	return globalCache
 }

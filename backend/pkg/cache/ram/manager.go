@@ -4,6 +4,7 @@
 package ram
 
 import (
+	"Wavelet/pkg/util"
 	"context"
 	"errors"
 	"sync"
@@ -73,7 +74,7 @@ func Get(configType, key string) (CacheItem, bool) {
 	// Check expiration
 	if entry.item.TTL != -1 && !entry.expireAt.IsZero() && time.Now().After(entry.expireAt) {
 		// Asynchronously remove the expired item from the map and write back
-		go deleteKeyIfExpired(configType, key, entry.expireAt)
+		util.Go(func() { deleteKeyIfExpired(configType, key, entry.expireAt) })
 		return CacheItem{}, false
 	}
 
