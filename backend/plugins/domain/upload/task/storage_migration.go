@@ -12,7 +12,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -121,7 +120,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contra
 		})
 	}
 
-	active, err := loadActiveStorageConfig(ctx)
+	active, err := uploadstorage.LoadStorageConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load active storage config: %w", err)
 	}
@@ -130,7 +129,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contra
 		return nil, err
 	}
 	if target.Driver == active.Driver {
-		if err := saveActiveStorageConfig(ctx, target); err != nil {
+		if err := uploadstorage.SaveActiveConfig(ctx, target); err != nil {
 			return nil, fmt.Errorf("activate same-driver storage config: %w", err)
 		}
 		message := fmt.Sprintf("存储配置已更新，活动存储保持为 %s", target.Driver)
@@ -143,7 +142,7 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contra
 		return nil, fmt.Errorf("count source objects: %w", err)
 	}
 	if total == 0 {
-		if err := saveActiveStorageConfig(ctx, target); err != nil {
+		if err := uploadstorage.SaveActiveConfig(ctx, target); err != nil {
 			return nil, fmt.Errorf("activate empty storage config: %w", err)
 		}
 		message := fmt.Sprintf("当前存储没有需要迁移的对象，活动存储已切换为 %s", target.Driver)
@@ -162,39 +161,12 @@ func (h *MigrationHandler) Execute(ctx context.Context, payload []byte) (*contra
 		return nil, err
 	}
 
-	if err := saveActiveStorageConfig(ctx, target); err != nil {
+	if err := uploadstorage.SaveActiveConfig(ctx, target); err != nil {
 		return nil, fmt.Errorf("activate target storage: %w", err)
 	}
 	message := fmt.Sprintf("存储迁移完成，共迁移 %d 个对象，活动存储已切换为 %s", migrated, target.Driver)
 	logger.InfoF(ctx, "%s", message)
 	return &contracts.TaskResultDTO{Message: message}, nil
-}
-
-func loadActiveStorageConfig(ctx context.Context) (contracts.StorageConfigDTO, error) {
-	var val string
-	db := shared.GetDB(ctx)
-	if db != nil {
-		_ = db.Table("w_system_configs").Where("key = ?", "storage_config").Pluck("value", &val).Error
-	}
-	var cfg contracts.StorageConfigDTO
-	if val != "" {
-		_ = json.Unmarshal([]byte(val), &cfg)
-	}
-	return cfg, nil
-}
-
-func saveActiveStorageConfig(ctx context.Context, cfg contracts.StorageConfigDTO) error {
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	db := shared.GetDB(ctx)
-	if db == nil {
-		return errors.New("database not available")
-	}
-	return db.Table("w_system_configs").
-		Where("key = ?", "storage_config").
-		Update("value", string(data)).Error
 }
 
 func countStorageObjects(ctx context.Context) (int64, error) {
