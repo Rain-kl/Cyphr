@@ -55,19 +55,15 @@ func isTest() bool {
 	return false
 }
 
-func init() {
-	// 加载配置文件路径
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = findConfigPath("config.yaml")
-	}
+// load reads configuration from configPath, applies defaults and environment overrides,
+// and optionally disables external services for in-test runs. It uses a private viper
+// instance so a caller can resolve the same inputs repeatedly, which the parity test
+// against the kernel configuration engine requires.
+func load(configPath string, testMode bool) *configModel {
+	v := viper.New()
+	v.SetConfigFile(configPath)
 
-	// 设置配置文件
-	viper.SetConfigFile(configPath)
-	viper.AutomaticEnv()
-
-	// 读取配置文件（可选：找不到文件时使用空默认值 + 环境变量）
-	if err := viper.ReadInConfig(); err != nil {
+	if err := v.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFound) {
 			// 文件存在但读取/解析失败
@@ -76,15 +72,15 @@ func init() {
 			}
 		}
 		log.Println("[Config] no config file found, using environment variables only")
-		viper.SetConfigType("yaml")
-		if err := viper.ReadConfig(strings.NewReader("")); err != nil {
+		v.SetConfigType("yaml")
+		if err := v.ReadConfig(strings.NewReader("")); err != nil {
 			log.Fatalf("[Config] failed to init empty config: %v\n", err)
 		}
 	}
 
 	// 解析配置到结构体
 	var c configModel
-	if err := viper.Unmarshal(&c); err != nil {
+	if err := v.Unmarshal(&c); err != nil {
 		log.Fatalf("[Config] parse config failed: %v\n", err)
 	}
 
@@ -95,18 +91,26 @@ func init() {
 	applyDefaults(&c)
 
 	// Disable standard DB/Redis initializations during tests to prevent connection attempts.
-	if isTest() {
+	if testMode {
 		c.Database.Enabled = false
 		c.Database.SQLitePath = ":memory:"
 		c.Redis.Enabled = false
 		c.ClickHouse.Enabled = false
 	}
 
-	// 设置全局配置
-	Config = &c
+	return &c
+}
 
-	// 打印配置
-	printConfig(&c)
+func init() {
+	// 加载配置文件路径
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = findConfigPath("config.yaml")
+	}
+
+	// 设置全局配置并打印
+	Config = load(configPath, isTest())
+	printConfig(Config)
 }
 
 func applyDefaults(c *configModel) {
