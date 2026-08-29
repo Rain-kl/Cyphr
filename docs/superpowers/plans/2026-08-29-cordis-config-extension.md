@@ -2145,10 +2145,37 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/spf13/viper"
 
 	"Wavelet/core/extpoints"
-	"Wavelet/plugins/infra/config"
 )
+
+// yamlSource is a test-local core.ConfigSource over the repository config file.
+// It deliberately does not import plugins/infra/config: backend/pkg must not depend on
+// upper layers even in tests, and the adapter has its own coverage in its package tests.
+type yamlSource struct {
+	v *viper.Viper
+}
+
+func newYAMLSource(t *testing.T, path string) *yamlSource {
+	t.Helper()
+
+	v := viper.New()
+	v.SetConfigFile(path)
+	require.NoError(t, v.ReadInConfig())
+	return &yamlSource{v: v}
+}
+
+func (s *yamlSource) Lookup(path string) (any, bool) {
+	if !s.v.IsSet(path) {
+		return nil, false
+	}
+	return s.v.Get(path), true
+}
+
+func (s *yamlSource) LookupEnv(name string) (string, bool) { return os.LookupEnv(name) }
+
+func (s *yamlSource) Describe() string { return s.v.ConfigFileUsed() }
 
 // engineAppConfig mirrors appConfig with engine tags.
 type engineAppConfig struct {
