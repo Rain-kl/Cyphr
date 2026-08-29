@@ -72,3 +72,21 @@ func TestConfigGetRejectsNilView(t *testing.T) {
 	_, err := core.ConfigGet[float64](nil, "otel.sampling_rate")
 	require.ErrorIs(t, err, extpoints.ErrConfigNotResolved)
 }
+
+func TestContextConfigIsSharedAcrossForks(t *testing.T) {
+	ctx := core.NewContext(nil)
+	child := ctx.Fork()
+
+	require.NotNil(t, ctx.Config())
+	assert.Same(t, ctx.Config(), child.Config(), "configuration declarations are process-wide facts")
+
+	require.NoError(t, child.Config().Declare("cache",
+		extpoints.ConfigBinding{Prefix: "otel", Target: &otelConfig{}}))
+
+	declared := false
+	for _, entry := range ctx.Config().Entries() {
+		declared = declared || entry.Key == "otel.sampling_rate"
+	}
+	assert.True(t, declared, "a declaration made in a plugin scope must be visible to the root")
+	assert.False(t, ctx.Config().Resolved())
+}

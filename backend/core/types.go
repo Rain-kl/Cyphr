@@ -154,3 +154,32 @@ type SettingExtension = extpoints.SettingExtension
 
 // SettingSchema re-exports extpoints.SettingSchema.
 type SettingSchema = extpoints.SettingSchema
+
+// ConfigExtension re-exports extpoints.ConfigExtension.
+type ConfigExtension = extpoints.ConfigExtension
+
+// ConfigSource re-exports extpoints.ConfigSource.
+type ConfigSource = extpoints.ConfigSource
+
+// ConfigBinding re-exports extpoints.ConfigBinding.
+type ConfigBinding = extpoints.ConfigBinding
+
+// ConfigView re-exports extpoints.ConfigView.
+type ConfigView = extpoints.ConfigView
+
+// ConfigEntry re-exports extpoints.ConfigEntry.
+type ConfigEntry = extpoints.ConfigEntry
+
+// ConfigGatedPlugin is an optional interface for plugins whose activation depends on
+// configuration. The kernel evaluates the gate during reconciliation, before the
+// plugin's Apply runs, so every key read by ConfigEnabled must be published through
+// DeclareConfig.
+type ConfigGatedPlugin interface {
+	Plugin
+
+	// DeclareConfig publishes the configuration bindings consumed by ConfigEnabled.
+	DeclareConfig() []extpoints.ConfigBinding
+
+	// ConfigEnabled reports whether this plugin should activate for the resolved values.
+	ConfigEnabled(view extpoints.ConfigView) bool
+}
