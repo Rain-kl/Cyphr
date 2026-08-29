@@ -89,18 +89,27 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
-	// 0.1 Resolve auth service for middleware (via IoC, not direct import)
+	// 0.1 Resolve auth service for middleware and cache invalidation (via IoC, not direct import)
 	denyAuth := ginutil.AuthUnavailable()
 	loginMW := denyAuth
 	noTokenMW := denyAuth
 	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
+		SetAuthService(authSvc)
 		if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok {
 			loginMW = mw
 		}
 		if mw, ok := authSvc.DisallowTokenAuthMiddleware().(gin.HandlerFunc); ok {
 			noTokenMW = mw
 		}
+	} else {
+		core.When[contracts.AuthService](ctx, func(svc contracts.AuthService) {
+			SetAuthService(svc)
+		})
 	}
+	ctx.OnDispose(func() error {
+		SetAuthService(nil)
+		return nil
+	})
 
 	// 1. Register migrations
 	ctx.Migrations().Register("user", userMigrations)

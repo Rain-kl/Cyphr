@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"Wavelet/core"
+	"context"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,12 +108,20 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 }
 
 func TestNewWaveletAppWithRedisEnabled(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+
 	app := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
 		"redis": map[string]any{
 			"enabled": true,
+			"addrs":   []string{mr.Addr()},
 		},
 	}))
 	require.NotNil(t, app)
+	defer func() {
+		_ = app.Stop(context.Background())
+	}()
 	require.NoError(t, app.Reconcile())
 
 	f, ok := app.Fiber("cache")

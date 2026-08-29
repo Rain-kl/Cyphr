@@ -13,10 +13,29 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
+
+var (
+	authMu  sync.RWMutex
+	authSvc contracts.AuthService
+)
+
+// SetAuthService binds the AuthService for cache synchronization.
+func SetAuthService(s contracts.AuthService) {
+	authMu.Lock()
+	defer authMu.Unlock()
+	authSvc = s
+}
+
+func getAuthService() contracts.AuthService {
+	authMu.RLock()
+	defer authMu.RUnlock()
+	return authSvc
+}
 
 func getUserIDFromSession(c *gin.Context) uint64 {
 	defer func() { _ = recover() }()
@@ -47,14 +66,15 @@ func getUserIDFromSession(c *gin.Context) uint64 {
 }
 
 func invalidateUserCache(ctx context.Context, userID uint64) {
-	// Cache invalidation delegated to AuthService via IoC at plugin Apply time.
-	_ = ctx
-	_ = userID
+	if s := getAuthService(); s != nil {
+		s.InvalidateCachedUser(ctx, userID)
+	}
 }
 
 func invalidateTokenCache(ctx context.Context, tokenHash string) {
-	_ = ctx
-	_ = tokenHash
+	if s := getAuthService(); s != nil {
+		s.InvalidateCachedToken(ctx, tokenHash)
+	}
 }
 
 // Login handles username and password authentication.
@@ -170,6 +190,12 @@ func ChangePassword(c *gin.Context) {
 		logger.ErrorF(c.Request.Context(), "persist changed password failed: %v", err)
 	}
 	invalidateUserCache(c.Request.Context(), user.ID)
+
+	sess := sessions.Default(c)
+	sess.Set("need_change_password", false)
+	if err := sess.Save(); err != nil {
+		logger.ErrorF(c.Request.Context(), "save session failed on change-password: %v", err)
+	}
 
 	c.JSON(http.StatusOK, response.OKNil())
 }

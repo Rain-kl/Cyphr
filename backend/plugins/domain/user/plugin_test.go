@@ -177,4 +177,24 @@ func TestUserLoginHTTPHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, wPlain.Code)
 	assert.Contains(t, wPlain.Body.String(), `"username":"plain_admin"`)
 	assert.Contains(t, wPlain.Body.String(), `"need_change_password":true`)
+	cookieHeader := wPlain.Header().Get("Set-Cookie")
+	assert.NotEmpty(t, cookieHeader)
+
+	// Change password
+	r.POST("/api/v1/user/change-password", user.ChangePassword)
+	changeBody := `{"old_password":"12345678","new_password":"NewStrongPassword123!"}`
+	reqChange, _ := http.NewRequest(http.MethodPost, "/api/v1/user/change-password", bytes.NewBufferString(changeBody))
+	reqChange.Header.Set("Content-Type", "application/json")
+	reqChange.Header.Set("Cookie", cookieHeader)
+	wChange := httptest.NewRecorder()
+
+	r.ServeHTTP(wChange, reqChange)
+	assert.Equal(t, http.StatusOK, wChange.Code)
+
+	// Verify updated user model has encrypted password and need_change_password is false
+	updatedUser, err := user.GetUserByUsername(context.Background(), "plain_admin")
+	require.NoError(t, err)
+	assert.False(t, updatedUser.IsPlaintextPassword())
+	assert.True(t, updatedUser.CheckPassword("NewStrongPassword123!"))
+	assert.False(t, updatedUser.NeedChangePassword)
 }

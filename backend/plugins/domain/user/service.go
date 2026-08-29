@@ -174,10 +174,14 @@ func (s *userServiceImpl) UpdatePassword(ctx context.Context, id uint64, oldPass
 		return err
 	}
 
-	return updateUserColumns(ctx, id, map[string]any{
+	if err := updateUserColumns(ctx, id, map[string]any{
 		"password":      user.Password,
 		columnUpdatedAt: time.Now(),
-	})
+	}); err != nil {
+		return err
+	}
+	invalidateUserCache(ctx, id)
+	return nil
 }
 
 func (s *userServiceImpl) VerifyPassword(ctx context.Context, id uint64, password string) bool {
