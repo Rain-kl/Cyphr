@@ -6,7 +6,6 @@ package cmd
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"Wavelet/plugins/domain/admin"
 	"Wavelet/plugins/domain/auth"
 	"Wavelet/plugins/domain/cap"
@@ -22,6 +21,7 @@ import (
 	"Wavelet/plugins/drivers/driver_inproc_worker"
 	"Wavelet/plugins/infra/cache"
 	"Wavelet/plugins/infra/cache_memory"
+	"Wavelet/plugins/infra/config"
 	"Wavelet/plugins/infra/logger"
 	"Wavelet/plugins/infra/storage"
 	"context"
@@ -38,14 +38,48 @@ import (
 	infradb "Wavelet/plugins/infra/database"
 )
 
+const (
+	defaultShutdownTimeout = 15 * time.Second
+	defaultHTTPAddr        = "127.0.0.1:3000"
+)
+
+// runProfileApp prepares and runs the application for a given profile.
+func runProfileApp(profile core.Profile, mode string, listensForHTTP bool) {
+	app := newWaveletApp(profile)
+	if err := app.Prepare(); err != nil {
+		log.Fatalf("[%s] prepare failed: %v\n", mode, err)
+	}
+	state := startupState{
+		mode:           mode,
+		listensForHTTP: listensForHTTP,
+		env:            app.Context().Config().String("app.env", "production"),
+	}
+	if listensForHTTP {
+		state.addr = app.Context().Config().String("app.addr", defaultHTTPAddr)
+	}
+	printStartupBanner(state)
+	if err := app.Run(); err != nil {
+		log.Fatalf("[%s] run failed: %v\n", mode, err)
+	}
+}
+
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.
 //
 //nolint:contextcheck
-func newWaveletApp(profile core.Profile) *core.App {
-	app := core.NewApp(
+func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
+	src, err := config.NewSource()
+	if err != nil {
+		log.Fatalf("[App] load config source failed: %v\n", err)
+	}
+
+	appOpts := []core.AppOption{
 		core.WithProfile(profile),
-		core.WithShutdownTimeout(time.Duration(config.Config.App.GracefulShutdownTimeout)*time.Second),
-	)
+		core.WithConfigSource(src),
+		core.WithShutdownTimeout(defaultShutdownTimeout),
+	}
+	appOpts = append(appOpts, opts...)
+
+	app := core.NewApp(appOpts...)
 
 	// 1. Register standard infrastructure plugins
 	app.Use(
@@ -54,20 +88,15 @@ func newWaveletApp(profile core.Profile) *core.App {
 		storage.New(),
 	)
 
-	// 2. Register Cache and Async/Cron Drivers based on Redis configuration
-	if config.Config.Redis.Enabled {
-		app.Use(
-			cache.New(),
-			driver_asynq_worker.New(),
-			driver_asynq_cron.New(),
-		)
-	} else {
-		app.Use(
-			cache_memory.New(),
-			driver_inproc_worker.New(),
-			driver_inproc_cron.New(),
-		)
-	}
+	// 2. Register Cache and Async/Cron Drivers (both gated: cache vs cache_memory, asynq vs inproc)
+	app.Use(
+		cache.New(),
+		cache_memory.New(),
+		driver_asynq_worker.New(),
+		driver_inproc_worker.New(),
+		driver_asynq_cron.New(),
+		driver_inproc_cron.New(),
+	)
 
 	// 3. Register all 8 domain business plugins (admin first to ensure schema and base config tables exist)
 	app.Use(
@@ -86,7 +115,7 @@ func newWaveletApp(profile core.Profile) *core.App {
 
 	// 5. Mount HTTP runtime driver
 	app.Use(
-		driver_http.New(driver_http.WithAddr(config.Config.App.Addr)),
+		driver_http.New(),
 	)
 
 	return app
@@ -236,7 +265,7 @@ func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) 
 		return fmt.Errorf("migration: get underlying DB from GORM: %w", err)
 	}
 
-	dialect := gooseDialect()
+	dialect := gooseDialect(ctx)
 	dialectStr := string(dialect)
 
 	for _, entry := range entries {
@@ -267,11 +296,11 @@ func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) 
 }
 
 // gooseDialect returns the goose dialect based on the configured database engine.
-func gooseDialect() goose.Dialect {
-	if !config.Config.Database.Enabled {
-		return goose.DialectSQLite3
+func gooseDialect(ctx *core.Context) goose.Dialect {
+	if ctx != nil && ctx.Config() != nil && ctx.Config().Bool("database.enabled", false) {
+		return goose.DialectPostgres
 	}
-	return goose.DialectPostgres
+	return goose.DialectSQLite3
 }
 
 func findMigrationFS(rootFS fs.FS, dialect goose.Dialect) fs.FS {

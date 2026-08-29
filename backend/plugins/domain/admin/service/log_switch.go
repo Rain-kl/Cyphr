@@ -5,7 +5,6 @@ package service
 
 import (
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/plugins/domain/admin/errs"
 	"Wavelet/plugins/domain/admin/model"
@@ -139,15 +138,15 @@ func validateSwitch(ctx context.Context, target string) error {
 	}
 	switch target {
 	case targetClickHouse:
-		if !config.Config.ClickHouse.Enabled {
+		if !GetClickHouseConfig().Enabled {
 			return errors.New(errs.ErrClickHouseNotEnabled)
 		}
 	case targetPostgres:
-		if !config.Config.Database.Enabled {
+		if !GetDBConfig().Enabled {
 			return errors.New(errs.ErrPostgresNotEnabled)
 		}
 	case targetSQLite:
-		if config.Config.Database.Enabled {
+		if GetDBConfig().Enabled {
 			return errors.New(errs.ErrSQLiteNotAllowedAsLogDB)
 		}
 	}

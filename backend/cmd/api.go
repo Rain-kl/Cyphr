@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"Wavelet/core"
-	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -14,13 +13,6 @@ var apiCmd = &cobra.Command{
 	Use:   "api",
 	Short: "wavelet API",
 	Run: func(_ *cobra.Command, _ []string) {
-		printStartupBanner(startupState{
-			mode:           "api",
-			listensForHTTP: true,
-		})
-		app := newWaveletApp(core.ProfileAPI)
-		if err := app.Run(); err != nil {
-			log.Fatalf("[API] run failed: %v\n", err)
-		}
+		runProfileApp(core.ProfileAPI, "api", true)
 	},
 }

@@ -7,7 +7,6 @@ package driver_asynq_cron
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"context"
 	"embed"
 	"encoding/json"
@@ -84,10 +83,45 @@ func (p *Plugin) Name() string {
 	return "driver_asynq_cron"
 }
 
+type redisCronConfig struct {
+	Enabled  bool     `config:"enabled" env:"REDIS_ENABLED" default:"false" autoEnable:"REDIS_ADDR"`
+	Addrs    []string `config:"addrs" env:"REDIS_ADDR"`
+	Username string   `config:"username" env:"REDIS_USERNAME"`
+	Password string   `config:"password" env:"REDIS_PASSWORD" secret:"true"`
+	DB       int      `config:"db" env:"REDIS_DB"`
+}
+
+// DeclareConfig declares configuration bindings for driver_asynq_cron.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "redis", Target: &redisCronConfig{}},
+	}
+}
+
+// ConfigEnabled gates plugin activation when Redis is enabled.
+func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
+	return view.Bool("redis.enabled", false)
+}
+
 // Apply mounts the Asynq Cron Scheduler driver into the micro-kernel Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var rCfg redisCronConfig
+	_ = ctx.Config().Bind("redis", &rCfg)
+
 	p.mu.Lock()
 	p.coreCtx = ctx
+	if p.redisOpt == nil {
+		addr := "127.0.0.1:6379"
+		if len(rCfg.Addrs) > 0 && rCfg.Addrs[0] != "" {
+			addr = rCfg.Addrs[0]
+		}
+		p.redisOpt = asynq.RedisClientOpt{
+			Addr:     addr,
+			Username: rCfg.Username,
+			Password: rCfg.Password,
+			DB:       rCfg.DB,
+		}
+	}
 	p.mu.Unlock()
 
 	// Bind DBService
@@ -263,15 +297,7 @@ func (p *Plugin) resolveRedisOpt() asynq.RedisConnOpt {
 	if RedisOpt != nil {
 		return RedisOpt
 	}
-	redisCfg := config.Config.Redis
-	addr := "127.0.0.1:6379"
-	if len(redisCfg.Addrs) > 0 && redisCfg.Addrs[0] != "" {
-		addr = redisCfg.Addrs[0]
-	}
 	return asynq.RedisClientOpt{
-		Addr:     addr,
-		Username: redisCfg.Username,
-		Password: redisCfg.Password,
-		DB:       redisCfg.DB,
+		Addr: "127.0.0.1:6379",
 	}
 }

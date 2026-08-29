@@ -5,9 +5,10 @@
 package idgen
 
 import (
-	"Wavelet/pkg/config"
+	"errors"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/bwmarrin/snowflake"
 )
@@ -17,25 +18,44 @@ const epoch int64 = 1764547200000
 
 const maxNegativeIDRetries = 3
 
-var node *snowflake.Node
+var (
+	mu   sync.RWMutex
+	node *snowflake.Node
+)
 
-func init() {
+// Init initializes the snowflake ID generator with the given node ID.
+func Init(nodeID int64) error {
 	snowflake.Epoch = epoch
 
-	nodeID := config.Config.App.NodeID
-	var err error
-	node, err = snowflake.NewNode(nodeID)
+	n, err := snowflake.NewNode(nodeID)
 	if err != nil {
-		log.Fatalf("[Snowflake] init failed: %v\n", err)
+		return fmt.Errorf("idgen: init node %d failed: %w", nodeID, err)
 	}
+
+	mu.Lock()
+	node = n
+	mu.Unlock()
+
 	log.Printf("[Snowflake] initialized with node ID: %d, epoch: 2025-12-01\n", nodeID)
+	return nil
 }
+
+// ErrNotInitialized indicates NextUint64ID was called before Init.
+var ErrNotInitialized = errors.New("idgen: Init must be called before generating IDs")
 
 // NextUint64ID 生成下一个分布式唯一 ID。
 // 理论上不应出现负值；若出现则最多重试 maxNegativeIDRetries 次，仍失败则 panic。
 func NextUint64ID() uint64 {
+	mu.RLock()
+	n := node
+	mu.RUnlock()
+
+	if n == nil {
+		panic(ErrNotInitialized)
+	}
+
 	for attempt := 1; attempt <= maxNegativeIDRetries; attempt++ {
-		id := node.Generate().Int64()
+		id := n.Generate().Int64()
 		if id >= 0 {
 			return uint64(id)
 		}

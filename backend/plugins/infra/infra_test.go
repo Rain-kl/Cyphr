@@ -41,11 +41,25 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func TestDatabasePlugin(t *testing.T) {
+func prepareTestContext(values map[string]any, declarers ...core.Plugin) *core.Context {
 	ctx := core.NewContext(context.Background())
-	testDB := setupTestDB(t)
+	ctx.Config().SetSource(core.NewMapSource(values))
+	for _, p := range declarers {
+		if d, ok := p.(interface{ DeclareConfig() []core.ConfigBinding }); ok {
+			for _, b := range d.DeclareConfig() {
+				_ = ctx.Config().Declare(p.Name(), b)
+			}
+		}
+	}
+	_ = ctx.Config().Resolve()
+	return ctx
+}
 
+func TestDatabasePlugin(t *testing.T) {
+	testDB := setupTestDB(t)
 	p := database.New(database.WithDB(testDB))
+	ctx := prepareTestContext(nil, p)
+
 	require.Equal(t, "database", p.Name())
 	require.NoError(t, p.Apply(ctx))
 
@@ -70,8 +84,9 @@ func TestDatabasePlugin(t *testing.T) {
 }
 
 func TestCachePluginRAMOnly(t *testing.T) {
-	ctx := core.NewContext(context.Background())
 	p := cache.New()
+	ctx := prepareTestContext(nil, p)
+
 	require.Equal(t, "cache", p.Name())
 	require.NoError(t, p.Apply(ctx))
 
@@ -142,11 +157,11 @@ func TestCachePluginWithRedisAndPubSub(t *testing.T) {
 	})
 	defer func() { _ = rdb.Close() }()
 
-	ctx1 := core.NewContext(context.Background())
-	ctx2 := core.NewContext(context.Background())
-
 	p1 := cache.New(cache.WithRedis(rdb), cache.WithKeyPrefix("test:"))
 	p2 := cache.New(cache.WithRedis(rdb), cache.WithKeyPrefix("test:"))
+
+	ctx1 := prepareTestContext(map[string]any{"redis.enabled": true}, p1)
+	ctx2 := prepareTestContext(map[string]any{"redis.enabled": true}, p2)
 
 	require.NoError(t, p1.Apply(ctx1))
 	require.NoError(t, p2.Apply(ctx2))
@@ -294,14 +309,20 @@ func TestStoragePlugin(t *testing.T) {
 }
 
 func TestAllInfraPluginsCombined(t *testing.T) {
-	ctx := core.NewContext(context.Background())
 	testDB := setupTestDB(t)
 	memBackend := newMemoryBackend()
 
-	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
-	require.NoError(t, cache.New().Apply(ctx))
-	require.NoError(t, logger.New().Apply(ctx))
-	require.NoError(t, storage.New(storage.WithBackend(memBackend)).Apply(ctx))
+	dbP := database.New(database.WithDB(testDB))
+	cacheP := cache.New()
+	logP := logger.New()
+	storageP := storage.New(storage.WithBackend(memBackend))
+
+	ctx := prepareTestContext(nil, dbP, cacheP, logP, storageP)
+
+	require.NoError(t, dbP.Apply(ctx))
+	require.NoError(t, cacheP.Apply(ctx))
+	require.NoError(t, logP.Apply(ctx))
+	require.NoError(t, storageP.Apply(ctx))
 
 	// Using3 to resolve dependencies concurrently
 	var resolved bool

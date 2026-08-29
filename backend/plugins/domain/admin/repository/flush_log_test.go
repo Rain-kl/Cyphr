@@ -44,6 +44,13 @@ func newFlushLogTestCache(t *testing.T) (contracts.CacheService, *miniredis.Mini
 
 	p := cacheplugin.New(cacheplugin.WithRedis(rdb), cacheplugin.WithRAMCapacity(64))
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(map[string]any{
+		"redis": map[string]any{
+			"enabled": true,
+			"addrs":   []string{mr.Addr()},
+		},
+	}))
+	require.NoError(t, ctx.Config().Resolve())
 	require.NoError(t, p.Apply(ctx))
 	svc, err := core.Inject[contracts.CacheService](ctx)
 	require.NoError(t, err)

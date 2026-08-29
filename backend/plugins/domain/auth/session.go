@@ -5,13 +5,13 @@ package auth
 
 import (
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/config"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -19,14 +19,38 @@ import (
 	gsessions "github.com/gorilla/sessions"
 )
 
+var (
+	sessConfigMu sync.RWMutex
+	sessConfig   = SessionConfig{
+		SessionCookieName: "wavelet_session",
+		SessionAge:        86400,
+		SessionHTTPOnly:   true,
+	}
+)
+
+// SetSessionConfig updates the active session configuration.
+func SetSessionConfig(cfg SessionConfig) {
+	sessConfigMu.Lock()
+	defer sessConfigMu.Unlock()
+	sessConfig = cfg
+}
+
+// GetSessionConfig returns the active session configuration.
+func GetSessionConfig() SessionConfig {
+	sessConfigMu.RLock()
+	defer sessConfigMu.RUnlock()
+	return sessConfig
+}
+
 // GetSessionOptions 根据配置构建 Session 选项
 func GetSessionOptions(maxAge int) sessions.Options {
+	cfg := GetSessionConfig()
 	return sessions.Options{
 		Path:     "/",
-		Domain:   config.Config.App.SessionDomain,
+		Domain:   cfg.SessionDomain,
 		MaxAge:   maxAge,
-		HttpOnly: config.Config.App.SessionHTTPOnly,
-		Secure:   config.Config.App.SessionSecure,
+		HttpOnly: cfg.SessionHTTPOnly,
+		Secure:   cfg.SessionSecure,
 		SameSite: http.SameSiteLaxMode,
 	}
 }
@@ -113,7 +137,8 @@ func SetLoginSession(ctx context.Context, c *gin.Context, user *contracts.UserDT
 	}
 
 	// 根据系统配置动态设置 Session 过期时间
-	maxAge := config.Config.App.SessionAge
+	cfg := GetSessionConfig()
+	maxAge := cfg.SessionAge
 	isSessionCookie := false
 
 	val, err := GetSystemConfigValue(ctx, "login_session_ttl_hours")
@@ -137,7 +162,7 @@ func SetLoginSession(ctx context.Context, c *gin.Context, user *contracts.UserDT
 	}
 
 	if isSessionCookie {
-		StripCookieMaxAgeAndExpires(c.Writer.Header(), config.Config.App.SessionCookieName)
+		StripCookieMaxAgeAndExpires(c.Writer.Header(), cfg.SessionCookieName)
 	}
 
 	return nil

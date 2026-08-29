@@ -6,6 +6,7 @@ package domain_test
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
 	"Wavelet/plugins/domain/admin"
 	"Wavelet/plugins/domain/auth"
 	"Wavelet/plugins/domain/message_gateway"
@@ -31,6 +32,7 @@ import (
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	_ = idgen.Init(1)
 	dbPath := filepath.Join(t.TempDir(), "domain_test.db")
 	testDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	require.NoError(t, err)
@@ -76,6 +78,8 @@ func (m *mockOAuthProvider) ExchangeCode(ctx context.Context, code string) (*con
 
 func TestAuthPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 
 	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
@@ -140,6 +144,8 @@ func TestAuthPlugin(t *testing.T) {
 
 func TestUserPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 
 	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
@@ -242,6 +248,8 @@ func TestUserPlugin(t *testing.T) {
 
 func TestMessageGatewayPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 
 	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
@@ -310,6 +318,8 @@ func TestMessageGatewayPlugin(t *testing.T) {
 
 func TestRiskControlPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	p := risk_control.New()
 	assert.Equal(t, "risk_control", p.Name())
 	assert.Equal(t, "risk_control", p.Manifest().Name)
@@ -330,6 +340,8 @@ func TestRiskControlPlugin(t *testing.T) {
 
 func TestAdminPlugin(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 
 	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
@@ -389,6 +401,13 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 	defer func() { _ = rdb.Close() }()
 
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(map[string]any{
+		"redis": map[string]any{
+			"enabled": true,
+			"addrs":   []string{mr.Addr()},
+		},
+	}))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 
 	// Apply Infra plugins

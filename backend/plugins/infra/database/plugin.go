@@ -56,13 +56,41 @@ func (p *Plugin) Name() string {
 	return "database"
 }
 
+// DeclareConfig declares database configuration keys.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "database", Target: &Config{}},
+		{Prefix: "clickhouse", Target: &ClickHouseConfig{}},
+		{Prefix: "app", Target: &appEnvConfig{}},
+	}
+}
+
 // Apply mounts the database service into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var dbCfg Config
+	if err := ctx.Config().Bind("database", &dbCfg); err != nil {
+		return err
+	}
+
+	var chCfg ClickHouseConfig
+	if err := ctx.Config().Bind("clickhouse", &chCfg); err != nil {
+		return err
+	}
+
+	var appCfg appEnvConfig
+	_ = ctx.Config().Bind("app", &appCfg)
+
 	targetDB := p.db
 	if targetDB == nil {
 		var err error
-		targetDB, err = InitDB()
+		targetDB, err = InitDBWithConfig(dbCfg, appCfg.Env == "production" || appCfg.Env == "prod")
 		if err != nil {
+			return err
+		}
+	}
+
+	if chCfg.Enabled {
+		if err := InitClickHouseWithConfig(chCfg); err != nil {
 			return err
 		}
 	}

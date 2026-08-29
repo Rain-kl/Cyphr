@@ -4,7 +4,6 @@
 package driver_asynq_worker
 
 import (
-	"Wavelet/pkg/config"
 	"testing"
 
 	"github.com/redis/go-redis/v9/maintnotifications"
@@ -42,17 +41,17 @@ func TestMaintNotificationsConfig(t *testing.T) {
 }
 
 func TestPrefixedQueue(t *testing.T) {
-	oldPrefix := config.Config.Redis.KeyPrefix
+	oldPrefix := GetKeyPrefix()
 	defer func() {
-		config.Config.Redis.KeyPrefix = oldPrefix
+		SetKeyPrefix(oldPrefix)
 	}()
 
-	config.Config.Redis.KeyPrefix = "test:"
+	SetKeyPrefix("test:")
 	if got := PrefixedQueue("default"); got != "test:default" {
 		t.Fatalf("PrefixedQueue() = %q, want %q", got, "test:default")
 	}
 
-	config.Config.Redis.KeyPrefix = ""
+	SetKeyPrefix("")
 	if got := PrefixedQueue("default"); got != "default" {
 		t.Fatalf("PrefixedQueue() = %q, want %q", got, "default")
 	}

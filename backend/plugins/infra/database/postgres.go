@@ -4,7 +4,6 @@
 package database
 
 import (
-	"Wavelet/pkg/config"
 	"context"
 	"fmt"
 	"log"
@@ -30,15 +29,19 @@ const sqliteDirMode = 0o750
 
 // InitDB 初始化主数据库实例（支持 PostgreSQL / SQLite）
 func InitDB() (*gorm.DB, error) {
-	if !config.Config.Database.Enabled {
-		return initSQLite()
-	}
-	return initPostgres()
+	return InitDBWithConfig(Config{}, false)
 }
 
-// initSQLite 初始化 SQLite 数据库（PostgreSQL 禁用时的后备方案）
-func initSQLite() (*gorm.DB, error) {
-	sqlitePath := config.Config.Database.SQLitePath
+// InitDBWithConfig initializes the main database with the provided config.
+func InitDBWithConfig(cfg Config, isProd bool) (*gorm.DB, error) {
+	if !cfg.Enabled {
+		return initSQLiteWithConfig(cfg, isProd)
+	}
+	return initPostgresWithConfig(cfg, isProd)
+}
+
+func initSQLiteWithConfig(cfg Config, isProd bool) (*gorm.DB, error) {
+	sqlitePath := cfg.SQLitePath
 	if sqlitePath == "" {
 		sqlitePath = "./data/wavelet.db"
 	}
@@ -54,9 +57,9 @@ func initSQLite() (*gorm.DB, error) {
 	targetDB, err := gorm.Open(sqlite.Open(sqlitePath), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		Logger: &gormZapLogger{
-			logLevel:                  parseLogLevel(config.Config.Database.LogLevel),
-			slowThreshold:             config.Config.Database.SlowThreshold,
-			ignoreRecordNotFoundError: config.Config.App.IsProduction(),
+			logLevel:                  parseLogLevel(cfg.LogLevel),
+			slowThreshold:             cfg.SlowThreshold,
+			ignoreRecordNotFoundError: isProd,
 		},
 	})
 	if err != nil {
@@ -81,24 +84,21 @@ func initSQLite() (*gorm.DB, error) {
 	return targetDB, nil
 }
 
-// initPostgres 初始化 PostgreSQL 数据库
-func initPostgres() (*gorm.DB, error) {
-	dbConfig := config.Config.Database
-
+func initPostgresWithConfig(cfg Config, isProd bool) (*gorm.DB, error) {
 	// 构建主库 DSN 并连接
-	primaryDSN := buildDSN(dbConfig.Host, dbConfig.Port, dbConfig.Username, dbConfig.Password)
+	primaryDSN := buildDSN(cfg, cfg.Host, cfg.Port, cfg.Username, cfg.Password)
 
 	pgConfig := postgres.Config{
 		DSN:                  primaryDSN,
-		PreferSimpleProtocol: dbConfig.PreferSimpleProtocol,
+		PreferSimpleProtocol: cfg.PreferSimpleProtocol,
 	}
 
 	targetDB, err := gorm.Open(postgres.New(pgConfig), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 		Logger: &gormZapLogger{
-			logLevel:                  parseLogLevel(config.Config.Database.LogLevel),
-			slowThreshold:             config.Config.Database.SlowThreshold,
-			ignoreRecordNotFoundError: config.Config.App.IsProduction(),
+			logLevel:                  parseLogLevel(cfg.LogLevel),
+			slowThreshold:             cfg.SlowThreshold,
+			ignoreRecordNotFoundError: isProd,
 		},
 	})
 	if err != nil {
@@ -110,9 +110,9 @@ func initPostgres() (*gorm.DB, error) {
 		tracing.NewPlugin(
 			tracing.WithoutMetrics(),
 			tracing.WithAttributes(
-				attribute.String("db.instance", dbConfig.Database),
-				attribute.String("db.ip", dbConfig.Host),
-				attribute.String("server.address", net.JoinHostPort(dbConfig.Host, strconv.Itoa(dbConfig.Port))),
+				attribute.String("db.instance", cfg.Database),
+				attribute.String("db.ip", cfg.Host),
+				attribute.String("server.address", net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))),
 				attribute.String("db.system", "PostgreSQL"),
 			),
 		),
@@ -120,21 +120,21 @@ func initPostgres() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if len(dbConfig.Replicas) > 0 {
+	if len(cfg.Replicas) > 0 {
 		var replicaDialectors []gorm.Dialector
-		for _, replica := range dbConfig.Replicas {
+		for _, replica := range cfg.Replicas {
 			username := replica.Username
 			if username == "" {
-				username = dbConfig.Username
+				username = cfg.Username
 			}
 			password := replica.Password
 			if password == "" {
-				password = dbConfig.Password
+				password = cfg.Password
 			}
-			replicaDSN := buildDSN(replica.Host, replica.Port, username, password)
+			replicaDSN := buildDSN(cfg, replica.Host, replica.Port, username, password)
 			replicaDialectors = append(replicaDialectors, postgres.New(postgres.Config{
 				DSN:                  replicaDSN,
-				PreferSimpleProtocol: dbConfig.PreferSimpleProtocol,
+				PreferSimpleProtocol: cfg.PreferSimpleProtocol,
 			}))
 		}
 
@@ -143,15 +143,15 @@ func initPostgres() (*gorm.DB, error) {
 			Policy:   dbresolver.RandomPolicy{},
 		})
 
-		resolver.SetMaxIdleConns(dbConfig.MaxIdleConn).
-			SetMaxOpenConns(dbConfig.MaxOpenConn).
-			SetConnMaxLifetime(time.Duration(dbConfig.ConnMaxLifetime) * time.Second).
-			SetConnMaxIdleTime(time.Duration(dbConfig.ConnMaxIdleTime) * time.Second)
+		resolver.SetMaxIdleConns(cfg.MaxIdleConn).
+			SetMaxOpenConns(cfg.MaxOpenConn).
+			SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second).
+			SetConnMaxIdleTime(time.Duration(cfg.ConnMaxIdleTime) * time.Second)
 
 		if err = targetDB.Use(resolver); err != nil {
 			return nil, err
 		}
-		log.Printf("[PostgreSQL] initialized in Primary-Replica mode (%d replicas)\n", len(dbConfig.Replicas))
+		log.Printf("[PostgreSQL] initialized in Primary-Replica mode (%d replicas)\n", len(cfg.Replicas))
 	} else {
 		log.Println("[PostgreSQL] initialized in Standalone mode")
 	}
@@ -162,18 +162,17 @@ func initPostgres() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxIdleConns(dbConfig.MaxIdleConn)
-	sqlDB.SetMaxOpenConns(dbConfig.MaxOpenConn)
-	sqlDB.SetConnMaxLifetime(time.Duration(dbConfig.ConnMaxLifetime) * time.Second)
-	sqlDB.SetConnMaxIdleTime(time.Duration(dbConfig.ConnMaxIdleTime) * time.Second)
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleConn)
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenConn)
+	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)
+	sqlDB.SetConnMaxIdleTime(time.Duration(cfg.ConnMaxIdleTime) * time.Second)
 
 	db = targetDB
 	return targetDB, nil
 }
 
 // buildDSN 构建 PostgreSQL DSN
-func buildDSN(host string, port int, username, password string) string {
-	cfg := config.Config.Database
+func buildDSN(cfg Config, host string, port int, username, password string) string {
 	pqURL := &url.URL{
 		Scheme: "postgres",
 		Host:   net.JoinHostPort(host, strconv.Itoa(port)),

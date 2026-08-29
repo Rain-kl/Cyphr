@@ -138,6 +138,8 @@ Wavelet 贯彻了 Cordis 核心范式，通过形式化保证解决组件系统�
 ### 5.1 彻底根除集中式包与建立 backend/ 顶级总包
 在过去的传统单体架构中，集中式的 `internal/model/`、`internal/repository/` 以及 `internal/` 目录往往成为大杂烩，随着团队扩展导致模块边界失控与隐式耦合。在本次 Cordis 架构重构中，我们实施了彻底的物理清退与顶级前后端分包：
 - **`backend/` 顶级总包**：汇聚所有 Go 后端代码（`cmd/`、`core/`、`plugins/`、`pkg/`、`main.go`），根目录仅保留顶级功能域。
+- **配置读取框架归属内核**：`backend/core/extpoints/` 只承载与实现无关的配置声明与解析引擎（不 import viper），`backend/plugins/infra/config/` 承担文件与环境装载，读哪些字段由各插件自行声明；组合根不再跨插件判断配置选实现，改由 `ConfigGatedPlugin` 门禁 + `FiberSkipped` 决定激活方。
+- **`pkg/config/` 全局单例**：处于退场过渡期。配置声明与解析能力已上收内核，业务侧全量迁移与旧包物理清退由后续迁移计划落地。
 - **`internal/` 目录**：**100% 物理清除**。通用的无状态基础库平移至 `backend/pkg/`，所有业务全部下沉至 `backend/plugins/domain/`。
 - **`pkg/model/` 目录**：**100% 物理清除**。消灭集中式数据模型。
 - **`pkg/repository/` 目录**：**100% 物理清除**。消灭集中式仓储。
@@ -161,5 +163,24 @@ Wavelet 贯彻了 Cordis 核心范式，通过形式化保证解决组件系统�
 1. **测试脚手架绝对解耦**：底层通用的 `backend/pkg/testhelper` 严禁反向引用任何上层业务插件。`testhelper` 维护轻量自包含的测试表脚手架，彻底杜绝包导入循环（Import Cycle）。
 2. **Pub/Sub 并发安全防线**：在启动 Redis Pub/Sub 监听协程前，严格捕获局部客户端实例，彻底消除测试或重启期间对可变全局客户端的数据竞争（Data Race Free）。
 3. **零旁路读写 (No Bypass)**：严禁插件 A 跨界旁路直接操作属于插件 B 的数据表，跨域调用一律面向 `backend/core/contracts` 契约编程或发布事件。
+
+---
+
+## 6. Cordis 配置扩展点与条件门禁机制 (Config Extension & Gated Activation)
+
+### 6.1 彻底清退全局配置单例 (Zero-Singleton Architecture)
+在传统单体架构中，`pkg/config.Config` 全局静态变量充斥在各个业务与驱动模块中，导致隐式依赖、无法独立单测、无法多实例共存。Cordis 架构引入了基于微内核上下文的配置扩展点（`ctx.Config()`）：
+- **插件自包含声明**：每个插件实现 `DeclareConfig() []core.ConfigBinding`，声明自身所需的静态启动配置前缀、结构体与字段 tag（`config`、`env`、`default`、`autoEnable`、`secret`）。
+- **统一生命周期解析**：通过 `app.Prepare()` 建立配置解析屏障，统一绑定 YAML 文件与环境变量，支持前缀冲突检测与敏感字段脱敏导出。
+- **纯净依赖隔离**：插件在 `Apply(ctx)` 中通过 `ctx.Config().Bind("<prefix>", &cfg)` 读取自身配置，微内核与 `pkg/` 工具包绝对不依赖任何配置具体实现。
+
+### 6.2 基于配置的动态插件门禁 (Configuration-Gated Plugins)
+为了原生支持**单机单体（Zero-Redis Monolith）**与**分布式集群（Distributed Cluster）**无缝切换，Cordis 提供了 `core.ConfigGatedPlugin` 扩展接口：
+- **门禁契约**：实现 `ConfigEnabled(view core.ConfigView) bool` 方法。微内核在 `Reconcile` / `ApplyPlugins` 阶段依据解析后的配置动态求值。
+- **互斥挂载**：
+  - 当 `redis.enabled = false`（默认）：`cache_memory`、`driver_inproc_worker` 与 `driver_inproc_cron` 自动进入 `ACTIVE` 状态；分布式插件进入 `SKIPPED` 状态，达成零外部中间件极简单体。
+  - 当 `redis.enabled = true`：`cache`、`driver_asynq_worker` 与 `driver_asynq_cron` 自动激活，无缝升级为分布式高可用架构。
+- **动态拔插可组合性**：所有互斥插件可同时通过 `app.Use(...)` 注册，装配根无需编写侵入式的 `if-else` 条件分支，全面实现架构的时空可组合性与高内聚。
+
 
 

@@ -72,8 +72,23 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+type mgAppConfig struct {
+	SessionSecret string `config:"session_secret" env:"APP_SESSION_SECRET" secret:"true"`
+}
+
+// DeclareConfig declares configuration bindings for the message_gateway plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "app", Target: &mgAppConfig{}},
+	}
+}
+
 // Apply registers message_gateway migrations, routes, tasks, schedules, events, and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var cfg mgAppConfig
+	if err := ctx.Config().Bind("app", &cfg); err == nil && cfg.SessionSecret != "" {
+		service.SetCredentialSecret(cfg.SessionSecret)
+	}
 	// 0. Bind DBService, CacheService, TaskService, UserService
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
 		repository.SetDBService(db)

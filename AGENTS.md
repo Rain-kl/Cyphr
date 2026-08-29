@@ -111,7 +111,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - **扩展点自包含注册**：
   - **HTTP 路由**：插件自包含在 `Apply` 中通过 `ctx.Router().Group(...)` 挂载路由与中间件，禁止跨插件散落注册。
   - **异步与定时任务**：插件自包含在 `Apply` 中通过 `ctx.Task().Register(...)` 与 `ctx.Schedule().RegisterCron(...)` 声明。
-  - **动态配置**：插件自包含在 `Apply` 中通过 `ctx.Settings().Register(core.SettingSchema{...})` 声明配置模式，通过 `ctx.Config().Bind(...)` 绑定 YAML 配置。
+  - **静态启动配置**：插件自包含在 `Apply` 中通过 `ctx.Config().Bind("<prefix>", &cfg)` 读取**自己声明**的配置，字段以 tag 表达来源：`config`（yaml 路径）、`env`（覆盖变量名）、`default`、`autoEnable`（该变量存在即置真）、`secret`（导出脱敏）。需要在 `Apply` 之前被门禁求值的键，必须在 `DeclareConfig()` 中提前声明并实现 `core.ConfigGatedPlugin`。新增基础设施 key 保持顶层命名（`redis.*`），插件私有配置归 `plugins.<name>.*`。**严禁**再造全局配置单例或在 `backend/pkg/` 读取配置。
+  - **动态设置**：插件自包含在 `Apply` 中通过 `ctx.Settings().Register(core.SettingSchema{...})` 声明可热更新的管理台设置模式（与上面的静态启动配置分属两层）。
   - **数据迁移**：插件自包含在内部维护 `migrations/*.sql`，通过 `//go:embed` 打包并在 `Apply` 中通过 `ctx.Migrations().Register(pluginID, embedFS)` 注入。
 - **表单一所有者原则 (Single Owner Principle)**：
   - 每张数据表有且仅由一个所有者插件声明与维护（表名使用插件前缀如 `w_order_*`）。

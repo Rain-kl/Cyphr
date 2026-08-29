@@ -41,8 +41,24 @@ func (p *Plugin) Manifest() core.Manifest {
 	}
 }
 
+type capAppConfig struct {
+	SessionSecret string `config:"session_secret" env:"APP_SESSION_SECRET" secret:"true"`
+}
+
+// DeclareConfig declares configuration bindings for the cap plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "app", Target: &capAppConfig{}},
+	}
+}
+
 // Apply registers the cap routes and settings into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var cfg capAppConfig
+	if err := ctx.Config().Bind("app", &cfg); err == nil && cfg.SessionSecret != "" {
+		SetSecret([]byte(cfg.SessionSecret))
+	}
+
 	// 0. Bind DBService from Context
 	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
 		setDBService(db)

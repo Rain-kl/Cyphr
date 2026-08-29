@@ -77,13 +77,30 @@ func (p *Plugin) Name() string {
 	return "cache"
 }
 
+// DeclareConfig declares the configuration bindings consumed by this plugin.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "redis", Target: &RedisConfig{}},
+	}
+}
+
+// ConfigEnabled gates plugin activation based on whether Redis is enabled.
+func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
+	return view.Bool("redis.enabled", false)
+}
+
 // Apply mounts the multi-layer cache service into the Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var cfg RedisConfig
+	if err := ctx.Config().Bind("redis", &cfg); err != nil {
+		return err
+	}
+
 	redisClient := p.redisClient
 	if redisClient == nil {
 		if Redis == nil {
 			var err error
-			redisClient, err = InitRedis()
+			redisClient, err = InitRedisWithConfig(cfg)
 			if err != nil {
 				return err
 			}

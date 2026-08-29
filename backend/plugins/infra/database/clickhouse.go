@@ -5,7 +5,6 @@
 package database
 
 import (
-	"Wavelet/pkg/config"
 	"context"
 	"fmt"
 	"log"
@@ -34,35 +33,35 @@ var (
 	chDB *gorm.DB
 )
 
-func init() {
-	if !config.Config.ClickHouse.Enabled {
-		return
+// InitClickHouseWithConfig initializes the ClickHouse connection using the provided configuration.
+func InitClickHouseWithConfig(cfg ClickHouseConfig) error {
+	if !cfg.Enabled {
+		return nil
 	}
 
-	cfg := config.Config.ClickHouse
 	if cfg.Database == "" {
-		log.Fatalf("[ClickHouse] database name is required (expected: wavelet)\n")
+		return fmt.Errorf("[ClickHouse] database name is required (expected: wavelet)")
 	}
 
-	opts := buildClickHouseOptions()
+	opts := buildClickHouseOptions(cfg)
 
 	var err error
 	ChConn, err = clickhouse.Open(opts)
 	if err != nil {
-		log.Fatalf("[ClickHouse] init connection failed: %v\n", err)
+		return fmt.Errorf("[ClickHouse] init connection failed: %w", err)
 	}
 
 	if err = ChConn.Ping(context.Background()); err != nil {
-		log.Fatalf("[ClickHouse] ping failed: %v\n", err)
+		return fmt.Errorf("[ClickHouse] ping failed: %w", err)
 	}
 
 	chDB, err = gorm.Open(clickhouseDriver.New(clickhouseDriver.Config{
-		DSN: buildClickHouseDSN(),
+		DSN: buildClickHouseDSN(cfg),
 	}), &gorm.Config{
 		SkipDefaultTransaction: true,
 	})
 	if err != nil {
-		log.Fatalf("[ClickHouse] init gorm connection failed: %v\n", err)
+		return fmt.Errorf("[ClickHouse] init gorm connection failed: %w", err)
 	}
 
 	if err = chDB.Use(
@@ -74,12 +73,12 @@ func init() {
 			),
 		),
 	); err != nil {
-		log.Fatalf("[ClickHouse] init trace failed: %v\n", err)
+		return fmt.Errorf("[ClickHouse] init trace failed: %w", err)
 	}
 
 	sqlDB, err := chDB.DB()
 	if err != nil {
-		log.Fatalf("[ClickHouse] load sql db failed: %v\n", err)
+		return fmt.Errorf("[ClickHouse] load sql db failed: %w", err)
 	}
 
 	sqlDB.SetMaxIdleConns(cfg.MaxIdleConn)
@@ -87,11 +86,10 @@ func init() {
 	sqlDB.SetConnMaxLifetime(time.Duration(cfg.ConnMaxLifetime) * time.Second)
 
 	log.Println("[ClickHouse] connection established successfully")
+	return nil
 }
 
-func buildClickHouseOptions() *clickhouse.Options {
-	cfg := config.Config.ClickHouse
-
+func buildClickHouseOptions(cfg ClickHouseConfig) *clickhouse.Options {
 	return &clickhouse.Options{
 		Addr: cfg.Hosts,
 		Auth: clickhouse.Auth{
@@ -114,9 +112,7 @@ func buildClickHouseOptions() *clickhouse.Options {
 	}
 }
 
-func buildClickHouseDSN() string {
-	cfg := config.Config.ClickHouse
-
+func buildClickHouseDSN(cfg ClickHouseConfig) string {
 	chURL := &url.URL{
 		Scheme: "clickhouse",
 		Host:   strings.Join(cfg.Hosts, ","),

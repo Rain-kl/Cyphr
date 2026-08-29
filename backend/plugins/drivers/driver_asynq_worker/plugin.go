@@ -108,10 +108,44 @@ func (p *Plugin) Name() string {
 	return "driver_asynq_worker"
 }
 
+// DeclareConfig declares configuration bindings consumed by the Asynq worker driver.
+func (p *Plugin) DeclareConfig() []core.ConfigBinding {
+	return []core.ConfigBinding{
+		{Prefix: "worker", Target: &workerConfig{}},
+		{Prefix: "redis", Target: &redisWorkerConfig{}},
+	}
+}
+
+// ConfigEnabled gates plugin activation when Redis is enabled.
+func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
+	return view.Bool("redis.enabled", false)
+}
+
 // Apply mounts the Asynq Worker driver into the micro-kernel Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	var wCfg workerConfig
+	_ = ctx.Config().Bind("worker", &wCfg)
+	var rCfg redisWorkerConfig
+	_ = ctx.Config().Bind("redis", &rCfg)
+
 	p.mu.Lock()
 	p.coreCtx = ctx
+	if p.concurrency == defaultConcurrency && wCfg.Concurrency > 0 {
+		p.concurrency = wCfg.Concurrency
+	}
+	p.strictPriority = wCfg.StrictPriority
+	if len(p.queues) == 1 && p.queues["default"] == 1 && len(wCfg.Queues) > 0 {
+		qMap := make(map[string]int, len(wCfg.Queues))
+		for _, q := range wCfg.Queues {
+			qMap[q.Name] = q.Priority
+		}
+		p.queues = qMap
+	}
+	if p.redisOpt == nil {
+		p.redisOpt = NewRedisConnOptWithConfig(rCfg)
+	}
+	RedisOpt = p.redisOpt
+	ResetAsynqClient()
 	p.mu.Unlock()
 
 	// 0. Bind DBService

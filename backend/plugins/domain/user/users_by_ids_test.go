@@ -21,6 +21,8 @@ import (
 // 否则调用方（如访问日志按用户补全）会按 ID 逐条打库。
 func TestGetUsersByIDsUsesSingleQuery(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
 	require.NoError(t, user.New().Apply(ctx))

@@ -6,6 +6,7 @@ package user_test
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
 	"Wavelet/plugins/domain/user"
 	"context"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	_ = idgen.Init(1)
 	dbPath := filepath.Join(t.TempDir(), "user_test.db")
 	testDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	require.NoError(t, err)
@@ -36,6 +38,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 func TestUserPluginUnit(t *testing.T) {
 	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
 	testDB := setupTestDB(t)
 
 	dbPlugin := database.New(database.WithDB(testDB))

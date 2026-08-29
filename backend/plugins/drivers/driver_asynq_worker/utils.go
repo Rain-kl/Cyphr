@@ -4,7 +4,6 @@
 package driver_asynq_worker
 
 import (
-	"Wavelet/pkg/config"
 	"sync"
 
 	"github.com/hibiken/asynq"
@@ -72,8 +71,11 @@ func GetAsynqClient() *asynq.Client {
 		return AsynqClient
 	}
 
-	opt := NewRedisConnOpt()
-	RedisOpt = opt
+	opt := RedisOpt
+	if opt == nil {
+		opt = NewRedisConnOpt()
+		RedisOpt = opt
+	}
 	AsynqClient = asynq.NewClient(opt)
 	return AsynqClient
 }
@@ -88,9 +90,33 @@ func ResetAsynqClient() {
 	}
 }
 
+var (
+	keyPrefixMu sync.RWMutex
+	keyPrefix   string
+)
+
+// SetKeyPrefix sets the redis key prefix for queue names.
+func SetKeyPrefix(prefix string) {
+	keyPrefixMu.Lock()
+	defer keyPrefixMu.Unlock()
+	keyPrefix = prefix
+}
+
+// GetKeyPrefix returns the redis key prefix for queue names.
+func GetKeyPrefix() string {
+	keyPrefixMu.RLock()
+	defer keyPrefixMu.RUnlock()
+	return keyPrefix
+}
+
 // NewRedisConnOpt 根据配置返回对应的 asynq Redis 连接选项
 func NewRedisConnOpt() asynq.RedisConnOpt {
-	cfg := config.Config.Redis
+	return NewRedisConnOptWithConfig(redisWorkerConfig{})
+}
+
+// NewRedisConnOptWithConfig returns the asynq RedisConnOpt based on the provided configuration.
+func NewRedisConnOptWithConfig(cfg redisWorkerConfig) asynq.RedisConnOpt {
+	SetKeyPrefix(cfg.KeyPrefix)
 	addrs := cfg.Addrs
 
 	if cfg.ClusterMode {
@@ -135,7 +161,7 @@ func NewRedisConnOpt() asynq.RedisConnOpt {
 
 // PrefixedQueue 返回带前缀的队列名，用于 Cluster 模式隔离
 func PrefixedQueue(queue string) string {
-	prefix := config.Config.Redis.KeyPrefix
+	prefix := GetKeyPrefix()
 	if prefix == "" {
 		return queue
 	}

@@ -4,12 +4,12 @@
 package cache
 
 import (
-	"Wavelet/pkg/config"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -18,17 +18,36 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// Redis 全局 Redis 客户端实例
-var Redis redis.UniversalClient
+var (
+	// Redis 全局 Redis 客户端实例
+	Redis redis.UniversalClient
 
-// InitRedis 初始化全局/默认 Redis 客户端实例
-func InitRedis() (redis.UniversalClient, error) {
-	cfg := config.Config.Redis
+	keyPrefixMu sync.RWMutex
+	keyPrefix   string
+)
 
+// SetKeyPrefix sets the package-level key prefix.
+func SetKeyPrefix(prefix string) {
+	keyPrefixMu.Lock()
+	defer keyPrefixMu.Unlock()
+	keyPrefix = prefix
+}
+
+// GetKeyPrefix returns the package-level key prefix.
+func GetKeyPrefix() string {
+	keyPrefixMu.RLock()
+	defer keyPrefixMu.RUnlock()
+	return keyPrefix
+}
+
+// InitRedisWithConfig initializes the Redis client using the provided RedisConfig.
+func InitRedisWithConfig(cfg RedisConfig) (redis.UniversalClient, error) {
 	if !cfg.Enabled {
 		log.Println("[Redis] is disabled, skipping Redis initialization")
 		return nil, nil
 	}
+
+	SetKeyPrefix(cfg.KeyPrefix)
 
 	var client redis.UniversalClient
 
@@ -114,7 +133,7 @@ func redisMaintNotificationsConfig(enabled bool) *maintnotifications.Config {
 
 // PrefixedKey 返回带前缀的 Key
 func PrefixedKey(key string) string {
-	prefix := config.Config.Redis.KeyPrefix
+	prefix := GetKeyPrefix()
 	if prefix == "" {
 		return key
 	}

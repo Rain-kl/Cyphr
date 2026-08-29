@@ -7,49 +7,56 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
-	"Wavelet/pkg/config"
+	"Wavelet/pkg/idgen"
 	"context"
 	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRedisPluggability_Simulation(t *testing.T) {
-	origRedisEnabled := config.Config.Redis.Enabled
-	origAddr := config.Config.App.Addr
-	config.Config.App.Addr = "127.0.0.1:0"
-	defer func() {
-		config.Config.Redis.Enabled = origRedisEnabled
-		config.Config.App.Addr = origAddr
-	}()
+	_ = idgen.Init(1)
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// 场景 1: 拔出 Redis (Zero-Redis Monolith 模式)
 	// ══════════════════════════════════════════════════════════════════════════
 	t.Run("Scenario_Unplugged_ZeroRedis_Mode", func(t *testing.T) {
-		config.Config.Redis.Enabled = false
-
-		app := newWaveletApp(core.ProfileAll)
+		app := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
+			"app": map[string]any{
+				"addr": "127.0.0.1:0",
+			},
+			"redis": map[string]any{
+				"enabled": false,
+			},
+		}))
 		require.NotNil(t, app)
+		require.NoError(t, app.Reconcile())
 
 		// 1. 验证插件挂载形态
-		_, ok := app.Plugin("cache_memory")
+		f, ok := app.Fiber("cache_memory")
 		assert.True(t, ok, "cache_memory 必须挂载")
-		_, ok = app.Plugin("driver_inproc_worker")
+		assert.Equal(t, core.FiberActive, f.State())
+		f, ok = app.Fiber("driver_inproc_worker")
 		assert.True(t, ok, "driver_inproc_worker 必须挂载")
-		_, ok = app.Plugin("driver_inproc_cron")
+		assert.Equal(t, core.FiberActive, f.State())
+		f, ok = app.Fiber("driver_inproc_cron")
 		assert.True(t, ok, "driver_inproc_cron 必须挂载")
+		assert.Equal(t, core.FiberActive, f.State())
 
-		_, ok = app.Plugin("cache")
-		assert.False(t, ok, "分布式 cache 不得挂载")
-		_, ok = app.Plugin("driver_asynq_worker")
-		assert.False(t, ok, "asynq_worker 不得挂载")
-		_, ok = app.Plugin("driver_asynq_cron")
-		assert.False(t, ok, "asynq_cron 不得挂载")
+		f, ok = app.Fiber("cache")
+		assert.True(t, ok)
+		assert.Equal(t, core.FiberSkipped, f.State(), "分布式 cache 不得挂载")
+		f, ok = app.Fiber("driver_asynq_worker")
+		assert.True(t, ok)
+		assert.Equal(t, core.FiberSkipped, f.State(), "asynq_worker 不得挂载")
+		f, ok = app.Fiber("driver_asynq_cron")
+		assert.True(t, ok)
+		assert.Equal(t, core.FiberSkipped, f.State(), "asynq_cron 不得挂载")
 
 		// 2. 注册测试任务与 Cron 定时
 		var taskExecuted atomic.Int32
@@ -114,25 +121,42 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 	// 场景 2: 插入 Redis (Distributed Cluster 模式)
 	// ══════════════════════════════════════════════════════════════════════════
 	t.Run("Scenario_Plugged_Redis_Mode", func(t *testing.T) {
-		config.Config.Redis.Enabled = true
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
 
-		app := newWaveletApp(core.ProfileAll)
+		app := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
+			"app": map[string]any{
+				"addr": "127.0.0.1:0",
+			},
+			"redis": map[string]any{
+				"enabled": true,
+				"addrs":   []string{mr.Addr()},
+			},
+		}))
 		require.NotNil(t, app)
+		require.NoError(t, app.Reconcile())
 
 		// 1. 验证插件挂载形态
-		_, ok := app.Plugin("cache")
+		f, ok := app.Fiber("cache")
 		assert.True(t, ok, "分布式 cache 必须挂载")
-		_, ok = app.Plugin("driver_asynq_worker")
+		assert.Equal(t, core.FiberActive, f.State())
+		f, ok = app.Fiber("driver_asynq_worker")
 		assert.True(t, ok, "driver_asynq_worker 必须挂载")
-		_, ok = app.Plugin("driver_asynq_cron")
+		assert.Equal(t, core.FiberActive, f.State())
+		f, ok = app.Fiber("driver_asynq_cron")
 		assert.True(t, ok, "driver_asynq_cron 必须挂载")
+		assert.Equal(t, core.FiberActive, f.State())
 
-		_, ok = app.Plugin("cache_memory")
-		assert.False(t, ok, "纯内存 cache 不得挂载")
-		_, ok = app.Plugin("driver_inproc_worker")
-		assert.False(t, ok, "inproc_worker 不得挂载")
-		_, ok = app.Plugin("driver_inproc_cron")
-		assert.False(t, ok, "inproc_cron 不得挂载")
+		f, ok = app.Fiber("cache_memory")
+		assert.True(t, ok)
+		assert.Equal(t, core.FiberSkipped, f.State(), "纯内存 cache 不得挂载")
+		f, ok = app.Fiber("driver_inproc_worker")
+		assert.True(t, ok)
+		assert.Equal(t, core.FiberSkipped, f.State(), "inproc_worker 不得挂载")
+		f, ok = app.Fiber("driver_inproc_cron")
+		assert.True(t, ok)
+		assert.Equal(t, core.FiberSkipped, f.State(), "inproc_cron 不得挂载")
 
 		// 2. 注册测试任务
 		var asynqTaskExecuted atomic.Int32
@@ -143,7 +167,7 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 			return nil
 		}, extpoints.WithTaskTimeout(3*time.Second))
 
-		// 3. 启动应用 (连接真实运行中的 Redis 6379)
+		// 3. 启动应用
 		bootCtx, bootCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer bootCancel()
 		require.NoError(t, app.Start(bootCtx))
@@ -172,7 +196,7 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, taskSvc)
 
-		taskID, err := taskSvc.Dispatch(reqCtx, "test:asynq_task", []byte("payload_plugged"), "unit_test")
+		taskID, err := taskSvc.Dispatch(reqCtx, "test:asynq_task", []byte("payload_plugged"), "default")
 		require.NoError(t, err)
 		assert.NotEmpty(t, taskID)
 
@@ -190,10 +214,20 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 	// 场景 3: 往复插拔连续切换 (拔出 → 插入 → 再拔出，验证时空可组合性与零残留)
 	// ══════════════════════════════════════════════════════════════════════════
 	t.Run("Scenario_Dynamic_Plug_Unplug_Sequence", func(t *testing.T) {
+		mr, err := miniredis.Run()
+		require.NoError(t, err)
+		defer mr.Close()
+
 		for i := 1; i <= 2; i++ {
 			// 1. 拔出 Redis 运行
-			config.Config.Redis.Enabled = false
-			appUnplugged := newWaveletApp(core.ProfileAll)
+			appUnplugged := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
+				"app": map[string]any{
+					"addr": "127.0.0.1:0",
+				},
+				"redis": map[string]any{
+					"enabled": false,
+				},
+			}))
 			require.NoError(t, appUnplugged.Start(context.Background()))
 
 			cacheSvc1, err := core.Inject[contracts.CacheService](appUnplugged.Context())
@@ -203,8 +237,15 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 			require.NoError(t, appUnplugged.Stop(context.Background()))
 
 			// 2. 插入 Redis 运行
-			config.Config.Redis.Enabled = true
-			appPlugged := newWaveletApp(core.ProfileAll)
+			appPlugged := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
+				"app": map[string]any{
+					"addr": "127.0.0.1:0",
+				},
+				"redis": map[string]any{
+					"enabled": true,
+					"addrs":   []string{mr.Addr()},
+				},
+			}))
 			require.NoError(t, appPlugged.Start(context.Background()))
 
 			cacheSvc2, err := core.Inject[contracts.CacheService](appPlugged.Context())

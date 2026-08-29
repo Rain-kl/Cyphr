@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"Wavelet/core"
-	"Wavelet/pkg/config"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,13 +21,22 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 
 	for _, prof := range profiles {
 		t.Run(string(prof), func(t *testing.T) {
-			app := newWaveletApp(prof)
+			app := newWaveletApp(prof, core.WithConfigValues(map[string]any{
+				"app": map[string]any{
+					"addr": "127.0.0.1:0",
+				},
+				"redis": map[string]any{
+					"enabled": false,
+				},
+			}))
 			require.NotNil(t, app)
 			assert.Equal(t, prof, app.Profile())
 
-			// 3 infra + (1 cache + 2 worker/cron) + 8 domain + 1 http driver = 15 plugins
+			// 3 infra + 2 cache + 4 worker/cron + 8 domain + 1 http driver = 18 plugins
 			plugins := app.Plugins()
-			assert.Len(t, plugins, 15)
+			assert.Len(t, plugins, 18)
+
+			require.NoError(t, app.Reconcile())
 
 			// Verify standard infra plugins
 			_, ok := app.Plugin("database")
@@ -41,14 +49,29 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 			assert.True(t, ok, "storage plugin missing")
 
 			// In zero-Redis mode (default in test)
-			_, ok = app.Plugin("cache_memory")
-			assert.True(t, ok, "cache_memory plugin missing")
+			f, ok := app.Fiber("cache_memory")
+			assert.True(t, ok, "cache_memory fiber missing")
+			assert.Equal(t, core.FiberActive, f.State())
 
-			_, ok = app.Plugin("driver_inproc_worker")
-			assert.True(t, ok, "inproc worker driver missing")
+			f, ok = app.Fiber("cache")
+			assert.True(t, ok, "cache fiber missing")
+			assert.Equal(t, core.FiberSkipped, f.State())
 
-			_, ok = app.Plugin("driver_inproc_cron")
-			assert.True(t, ok, "inproc scheduler driver missing")
+			f, ok = app.Fiber("driver_inproc_worker")
+			assert.True(t, ok, "inproc worker driver fiber missing")
+			assert.Equal(t, core.FiberActive, f.State())
+
+			f, ok = app.Fiber("driver_asynq_worker")
+			assert.True(t, ok, "asynq worker driver fiber missing")
+			assert.Equal(t, core.FiberSkipped, f.State())
+
+			f, ok = app.Fiber("driver_inproc_cron")
+			assert.True(t, ok, "inproc scheduler driver fiber missing")
+			assert.Equal(t, core.FiberActive, f.State())
+
+			f, ok = app.Fiber("driver_asynq_cron")
+			assert.True(t, ok, "asynq scheduler driver fiber missing")
+			assert.Equal(t, core.FiberSkipped, f.State())
 
 			// Verify domain plugins
 			_, ok = app.Plugin("auth")
@@ -83,19 +106,35 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 }
 
 func TestNewWaveletAppWithRedisEnabled(t *testing.T) {
-	orig := config.Config.Redis.Enabled
-	config.Config.Redis.Enabled = true
-	defer func() { config.Config.Redis.Enabled = orig }()
-
-	app := newWaveletApp(core.ProfileAll)
+	app := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
+		"redis": map[string]any{
+			"enabled": true,
+		},
+	}))
 	require.NotNil(t, app)
+	require.NoError(t, app.Reconcile())
 
-	_, ok := app.Plugin("cache")
+	f, ok := app.Fiber("cache")
 	assert.True(t, ok, "cache plugin missing in Redis mode")
+	assert.Equal(t, core.FiberActive, f.State())
 
-	_, ok = app.Plugin("driver_asynq_worker")
+	f, ok = app.Fiber("driver_asynq_worker")
 	assert.True(t, ok, "asynq worker driver missing in Redis mode")
+	assert.Equal(t, core.FiberActive, f.State())
 
-	_, ok = app.Plugin("driver_asynq_cron")
+	f, ok = app.Fiber("driver_asynq_cron")
 	assert.True(t, ok, "asynq scheduler driver missing in Redis mode")
+	assert.Equal(t, core.FiberActive, f.State())
+
+	f, ok = app.Fiber("cache_memory")
+	assert.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, f.State())
+
+	f, ok = app.Fiber("driver_inproc_worker")
+	assert.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, f.State())
+
+	f, ok = app.Fiber("driver_inproc_cron")
+	assert.True(t, ok)
+	assert.Equal(t, core.FiberSkipped, f.State())
 }

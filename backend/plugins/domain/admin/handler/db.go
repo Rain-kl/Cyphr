@@ -4,7 +4,6 @@
 package handler
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/admin/errs"
@@ -147,7 +146,7 @@ func GetDatabaseInfo(c *gin.Context) {
 // @Failure 500 {object} response.Any "导出失败"
 // @Router /api/v1/admin/db-export [get]
 func ExportDatabase(c *gin.Context) {
-	if !config.Config.Database.Enabled {
+	if !service.GetDBConfig().Enabled {
 		exportSQLite(c)
 	} else {
 		exportPostgres(c)

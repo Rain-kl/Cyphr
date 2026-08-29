@@ -4,6 +4,7 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/testhelper"
 	"context"
 	"errors"
@@ -21,6 +22,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
+
+func init() {
+	_ = idgen.Init(1)
+}
 
 type mockDBService struct {
 	db *gorm.DB

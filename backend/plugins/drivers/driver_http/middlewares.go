@@ -5,13 +5,13 @@
 package driver_http
 
 import (
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"context"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +20,26 @@ import (
 
 	otel_trace "Wavelet/pkg/trace"
 )
+
+var (
+	apiPrefixMu sync.RWMutex
+	apiPrefix   = "/api/v1"
+)
+
+func setAPIPrefix(prefix string) {
+	if prefix == "" {
+		return
+	}
+	apiPrefixMu.Lock()
+	defer apiPrefixMu.Unlock()
+	apiPrefix = prefix
+}
+
+func getAPIPrefix() string {
+	apiPrefixMu.RLock()
+	defer apiPrefixMu.RUnlock()
+	return apiPrefix
+}
 
 func loggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -46,7 +66,7 @@ func loggerMiddleware() gin.HandlerFunc {
 
 		// 打印日志
 		// 排除健康检查接口
-		healthPath := config.Config.App.APIPrefix + "/health"
+		healthPath := getAPIPrefix() + "/health"
 		if c.Request.URL.Path != healthPath {
 			logger.InfoF(
 				ctx,

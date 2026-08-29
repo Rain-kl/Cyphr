@@ -6,8 +6,8 @@ package risk_control_test
 import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/batchwriter"
-	"Wavelet/pkg/config"
 	"Wavelet/pkg/ginutil"
+	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/domain/risk_control"
 	"Wavelet/plugins/domain/risk_control/logstore"
@@ -22,6 +22,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	_ = idgen.Init(1)
+}
 
 func newTestAccessLogWriter(t *testing.T, cfg batchwriter.Config) (*batchwriter.Writer[*logstore.UserAccessLog], func() []*logstore.UserAccessLog) {
 	t.Helper()
@@ -70,8 +74,8 @@ func TestRiskControlMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("ClickHouse disabled", func(t *testing.T) {
-		config.Config.ClickHouse.Enabled = false
-		defer func() { config.Config.ClickHouse.Enabled = false }()
+		risk_control.SetAccessLogEnabled(false)
+		defer risk_control.SetAccessLogEnabled(false)
 
 		r := testhelper.NewTestGinEngine(risk_control.RiskControlMiddleware())
 		r.GET("/test", func(c *gin.Context) {
@@ -87,8 +91,8 @@ func TestRiskControlMiddleware(t *testing.T) {
 	})
 
 	t.Run("ClickHouse enabled - Normal Authenticated Request", func(t *testing.T) {
-		config.Config.ClickHouse.Enabled = true
-		defer func() { config.Config.ClickHouse.Enabled = false }()
+		risk_control.SetAccessLogEnabled(true)
+		defer risk_control.SetAccessLogEnabled(false)
 
 		cfg := batchwriter.DefaultConfig()
 		cfg.MaxBatchSize = 100
@@ -133,8 +137,8 @@ func TestRiskControlMiddleware(t *testing.T) {
 	})
 
 	t.Run("ClickHouse enabled - Unauthenticated Request", func(t *testing.T) {
-		config.Config.ClickHouse.Enabled = true
-		defer func() { config.Config.ClickHouse.Enabled = false }()
+		risk_control.SetAccessLogEnabled(true)
+		defer risk_control.SetAccessLogEnabled(false)
 
 		cfg := batchwriter.DefaultConfig()
 		cfg.MaxBatchSize = 100
@@ -162,8 +166,8 @@ func TestRiskControlMiddleware(t *testing.T) {
 	})
 
 	t.Run("ClickHouse enabled - Buffer Full Rate Limiting", func(t *testing.T) {
-		config.Config.ClickHouse.Enabled = true
-		defer func() { config.Config.ClickHouse.Enabled = false }()
+		risk_control.SetAccessLogEnabled(true)
+		defer risk_control.SetAccessLogEnabled(false)
 
 		cfg := batchwriter.DefaultConfig()
 		cfg.QueueSize = 2
