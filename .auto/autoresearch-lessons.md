@@ -182,7 +182,44 @@ the command still exits 0.
 bash word-splitting habit in this environment.
 **Metric delta**: -0, 1 wrong verdict corrected.
 
+## Lesson 12 — iterations 27-32
+**Pattern**: Two things produced every substantive win: (1) find a place where
+correctness rests on a *prose comment* instead of an enforced constraint, and (2)
+find immutable startup work being redone inside a request path.
+**Why it worked**: Lint cannot see either class, so `debt` barely moved while real
+defects did. The comment "field comes from call sites, never from user input" sat
+on a function that interpolated its column argument straight into `WHERE` — the
+tautology payload executed and returned a row with `err=<nil>`, a filter bypass,
+not a hypothetical. The comment "contracts are pure abstractions" sat on a DTO
+carrying `TableName()`, which is exactly the handle four plugins used to read
+`w_users` instead of calling `UserService`. On the second pattern, three packages
+each re-normalised and re-split static whitelist patterns per request: hoisting
+that to registration cut 14 allocs/op to 1.
+**Conditions**: Any exported function taking a string that reaches SQL, a path
+matcher, or a shell. Any loop over configuration inside a request handler.
+**Anti-pattern**: Believing `nolintlint`'s "unused directive" means "safe to
+delete" — hit twice now, and the project gate vetoed it both times. Also believing
+a doc comment's self-assessment: verify the claim or leave it alone.
+**Metric delta**: 64 -> 63 across five keeps. Four of the five kept changes had
+delta 0. Under a pure-debt loop this run would have looked stalled while fixing a
+security bypass and a hot-path allocation bug.
+
 ## Standing notes
+- **The golangci-lint cache is machine-wide** (`~/.cache/golangci-lint`), so a
+  sibling worktree analysing identical sources replays here carrying *that*
+  checkout's absolute paths — 12 of 63 findings pointed outside the repo, which
+  misattributes findings and can serve a stale Guard verdict. `measure.sh` and
+  `checks.sh` now key `GOLANGCI_LINT_CACHE` per checkout (iteration 31). It is
+  count-neutral (cold and warm both 63), but check path attribution before
+  trusting any finding's location.
+- **Do not delegate a repo-wide audit to one subagent.** Both broad audits
+  (architecture, bugs/perf) hit the 150-turn cap after ~45M tokens combined and
+  returned nothing usable. Everything this run found came from targeted inline
+  greps followed by reading the specific function. If delegating, bound it to one
+  package cluster and a small finding budget.
+- Run decisions for this run: real defects first with `debt` as a secondary gate,
+  commits directly on `main`, small file moves allowed but large package
+  restructuring goes to a written proposal first.
 - Upstream moves fast in this repo: `origin/main` gained 11 commits mid-run
   (Cordis config extension point — `ctx.Config().Bind`, `DeclareConfig()`,
   `core.ConfigGatedPlugin`), which raised measured `debt` 54 -> 64 and
