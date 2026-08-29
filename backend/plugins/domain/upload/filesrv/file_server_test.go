@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -55,7 +56,10 @@ func (s *localTestStorageService) Put(_ context.Context, key string, body io.Rea
 	return contracts.StoragePutResult{Key: key, Bucket: "local"}, err
 }
 
-func (s *localTestStorageService) Get(_ context.Context, key string) (*contracts.StorageObject, error) {
+func (s *localTestStorageService) Get(ctx context.Context, key string) (*contracts.StorageObject, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	path := filepath.Join(s.root, key)
@@ -355,6 +359,50 @@ func TestServeFileByIDImageCompression(t *testing.T) {
 			t.Errorf("expected empty body on 304 response, got %d bytes", w2.Body.Len())
 		}
 	})
+}
+
+// The singleflight body generates once on behalf of every concurrent requester
+// sharing a cache key, so the caller that happens to arrive first must not be
+// able to fail the others by disconnecting.
+func TestEnsureCompressedImageCacheSurvivesCallerCancellation(t *testing.T) {
+	tempDir := t.TempDir()
+	shared.SetStorageService(&localTestStorageService{root: tempDir})
+
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{R: 0, G: 255, B: 0, A: 255})
+	var pngBuf bytes.Buffer
+	if err := png.Encode(&pngBuf, img); err != nil {
+		t.Fatalf("failed to encode test png: %v", err)
+	}
+	const filePath = "cancel_probe.png"
+	if err := os.WriteFile(filepath.Join(tempDir, filePath), pngBuf.Bytes(), 0o600); err != nil {
+		t.Fatalf("failed to write test png: %v", err)
+	}
+
+	upload := &models.Upload{
+		ID:        990001,
+		FilePath:  filePath,
+		FileSize:  int64(pngBuf.Len()),
+		MimeType:  "image/png",
+		Extension: "png",
+		// Unique per run so the persistent disk cache can never serve this key.
+		Hash:      fmt.Sprintf("cancel-probe-%d", time.Now().UnixNano()),
+		UpdatedAt: time.Now(),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	webpBytes, cached, err := EnsureCompressedImageCache(ctx, upload, "medium")
+	if err != nil {
+		t.Fatalf("compressed image generation failed with a canceled caller context: %v", err)
+	}
+	if cached {
+		t.Errorf("expected a freshly generated image, got a cache hit")
+	}
+	if len(webpBytes) == 0 {
+		t.Errorf("expected non-empty webp bytes")
+	}
 }
 
 func TestNormalizeImageQuality(t *testing.T) {

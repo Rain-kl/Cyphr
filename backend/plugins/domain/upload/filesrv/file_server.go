@@ -227,8 +227,11 @@ func EnsureCompressedImageCache(
 		return nil, false, fmt.Errorf("read compressed image cache: %w", err)
 	}
 
+	// The flight body serves every concurrent requester for this key, so it must
+	// not die when whichever caller happened to arrive first disconnects.
+	flightCtx := context.WithoutCancel(ctx)
 	result, err, _ := compressedImageFlight.Do(cacheKey, func() (any, error) {
-		return generateCompressedImageCache(ctx, upload, quality, cacheKey)
+		return generateCompressedImageCache(flightCtx, upload, quality, cacheKey)
 	})
 	if err != nil {
 		return nil, false, err
