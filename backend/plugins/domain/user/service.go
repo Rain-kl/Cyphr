@@ -62,6 +62,18 @@ func (s *userServiceImpl) GetUserByID(ctx context.Context, id uint64) (*contract
 	return toUserDTO(u), nil
 }
 
+func (s *userServiceImpl) GetUsersByIDs(ctx context.Context, ids []uint64) ([]*contracts.UserDTO, error) {
+	users, err := GetUsersByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	dtos := make([]*contracts.UserDTO, 0, len(users))
+	for i := range users {
+		dtos = append(dtos, toUserDTO(&users[i]))
+	}
+	return dtos, nil
+}
+
 func (s *userServiceImpl) GetUserByUsername(ctx context.Context, username string) (*contracts.UserDTO, error) {
 	u, err := GetUserByUsername(ctx, username)
 	if err != nil {

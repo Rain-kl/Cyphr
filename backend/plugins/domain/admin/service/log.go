@@ -220,9 +220,11 @@ func enrichAccessLogsWithUsers(ctx context.Context, list []model.AccessLogItem) 
 
 	userMap := make(map[uint64]repository.UserDisplayName, len(userIDs))
 	if userSvc := GetUserService(ctx); userSvc != nil {
-		for _, uid := range userIDs {
-			if u, err := userSvc.GetUserByID(ctx, uid); err == nil && u != nil {
-				userMap[uid] = repository.UserDisplayName{Username: u.Username, Nickname: u.Nickname}
+		if users, err := userSvc.GetUsersByIDs(ctx, userIDs); err == nil {
+			for _, u := range users {
+				if u != nil {
+					userMap[u.ID] = repository.UserDisplayName{Username: u.Username, Nickname: u.Nickname}
+				}
 			}
 		}
 	} else if names, err := repository.LoadUserDisplayNames(ctx, userIDs); err == nil {

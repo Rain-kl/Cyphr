@@ -62,6 +62,10 @@ type UserService interface {
 	// GetUserByID retrieves a user by ID.
 	GetUserByID(ctx context.Context, id uint64) (*UserDTO, error)
 
+	// GetUsersByIDs retrieves several users in one round-trip. An empty ids
+	// slice yields no results and touches no storage.
+	GetUsersByIDs(ctx context.Context, ids []uint64) ([]*UserDTO, error)
+
 	// GetUserByUsername retrieves a user by username.
 	GetUserByUsername(ctx context.Context, username string) (*UserDTO, error)
 

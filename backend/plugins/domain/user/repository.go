@@ -52,6 +52,18 @@ func GetUserByID(ctx context.Context, id uint64) (*User, error) {
 	return &u, nil
 }
 
+// GetUsersByIDs 一次性批量获取多个用户，避免调用方按 ID 逐条查询。
+func GetUsersByIDs(ctx context.Context, ids []uint64) ([]User, error) {
+	if len(ids) == 0 {
+		return []User{}, nil
+	}
+	var users []User
+	if err := getDB(ctx).Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 // GetUserByUsername 通过用户名获取用户
 func GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
