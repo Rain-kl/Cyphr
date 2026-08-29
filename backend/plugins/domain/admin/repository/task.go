@@ -82,9 +82,7 @@ func GetTaskExecutionByTaskID(ctx context.Context, taskID string) (*model.TaskEx
 	if err := GetDB(ctx).Where("task_id = ?", taskID).First(&execution).Error; err != nil {
 		return nil, err
 	}
-	if err := loadTaskExecutionLog(ctx, &execution); err != nil {
-		return nil, err
-	}
+	loadTaskExecutionLog(ctx, &execution)
 	return &execution, nil
 }
 
@@ -94,9 +92,7 @@ func GetTaskExecutionByID(ctx context.Context, id uint64) (*model.TaskExecution,
 	if err := GetDB(ctx).Where("id = ?", id).First(&execution).Error; err != nil {
 		return nil, err
 	}
-	if err := loadTaskExecutionLog(ctx, &execution); err != nil {
-		return nil, err
-	}
+	loadTaskExecutionLog(ctx, &execution)
 	return &execution, nil
 }
 
@@ -108,9 +104,7 @@ func GetLatestTaskExecutionByTaskType(ctx context.Context, taskType string) (*mo
 		Order("id DESC").
 		First(&execution).Error
 	if err == nil {
-		if loadErr := loadTaskExecutionLog(ctx, &execution); loadErr != nil {
-			return nil, false, loadErr
-		}
+		loadTaskExecutionLog(ctx, &execution)
 		return &execution, true, nil
 	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -206,9 +200,7 @@ func ListTaskExecutionRecords(ctx context.Context, req model.ListTaskExecutionsR
 	if err := query.Order("id DESC").Offset(offset).Limit(req.PageSize).Find(&executions).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := loadTaskExecutionLogs(ctx, executions); err != nil {
-		return nil, 0, err
-	}
+	loadTaskExecutionLogs(ctx, executions)
 
 	return executions, total, nil
 }
@@ -302,23 +294,25 @@ func TaskExecutionLogRedisKey(taskID string) string {
 	return taskExecutionLogRedisKeyPrefix + taskID
 }
 
-func loadTaskExecutionLog(ctx context.Context, execution *model.TaskExecution) error {
+// loadTaskExecutionLog best-effort enriches an execution with its cached log;
+// a cache miss or failure simply leaves the stored log column in place.
+func loadTaskExecutionLog(ctx context.Context, execution *model.TaskExecution) {
 	cacheSvc := GetCache(ctx)
 	if cacheSvc == nil {
-		return nil
+		return
 	}
 
 	var logText string
 	if err := cacheSvc.Get(ctx, TaskExecutionLogRedisKey(execution.TaskID), &logText); err == nil && logText != "" {
 		execution.Log = logText
 	}
-	return nil
 }
 
-func loadTaskExecutionLogs(ctx context.Context, executions []model.TaskExecution) error {
+// loadTaskExecutionLogs best-effort enriches every execution with its cached log.
+func loadTaskExecutionLogs(ctx context.Context, executions []model.TaskExecution) {
 	cacheSvc := GetCache(ctx)
 	if cacheSvc == nil || len(executions) == 0 {
-		return nil
+		return
 	}
 
 	for i := range executions {
@@ -327,5 +321,4 @@ func loadTaskExecutionLogs(ctx context.Context, executions []model.TaskExecution
 			executions[i].Log = logText
 		}
 	}
-	return nil
 }
