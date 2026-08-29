@@ -125,7 +125,13 @@ func AppendTaskExecutionLog(ctx context.Context, taskID, logLine string) error {
 	key := TaskExecutionLogRedisKey(taskID)
 
 	var existing string
-	_ = cacheSvc.Get(ctx, key, &existing)
+	if err := cacheSvc.Get(ctx, key, &existing); err != nil {
+		// 只有未命中才代表「尚无缓冲」；其余读取失败若被当作空缓冲继续写入，
+		// 会用这一行覆盖掉整段已缓冲的任务日志。
+		if !errors.Is(err, contracts.ErrCacheMiss) {
+			return fmt.Errorf("load buffered task execution log: %w", err)
+		}
+	}
 	return cacheSvc.Set(ctx, key, existing+line, taskExecutionLogExpiration)
 }
 
