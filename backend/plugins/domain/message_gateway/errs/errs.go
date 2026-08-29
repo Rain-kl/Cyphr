@@ -20,6 +20,10 @@ var (
 	// ErrRecordNotFound maps GORM's missing-row sentinel at the repository boundary so
 	// upper layers never import gorm. Its text matches gorm.ErrRecordNotFound verbatim.
 	ErrRecordNotFound = errors.New("record not found")
+
+	// ErrUnsupportedUserLookupField rejects a column name that the repository is not
+	// allowed to interpolate into a WHERE clause.
+	ErrUnsupportedUserLookupField = errors.New("unsupported user lookup field")
 )
 
 // User-facing validation and error message constants.

@@ -295,9 +295,20 @@ func LoadSMTPConfigRecord(ctx context.Context) model.SMTPConfig {
 	return cfg
 }
 
+// userLookupColumns allow-lists the columns FindUserByFieldRecord may filter on.
+// The column name is concatenated into the WHERE clause, so anything not listed
+// here must never reach the database.
+var userLookupColumns = map[string]struct{}{
+	"id":       {},
+	"username": {},
+}
+
 // FindUserByFieldRecord is the user lookup fallback for when the UserService
-// contract is not wired yet. field comes from call sites, never from user input.
+// contract is not wired yet. field must be one of userLookupColumns.
 func FindUserByFieldRecord(ctx context.Context, field string, value any) (*contracts.UserDTO, error) {
+	if _, ok := userLookupColumns[field]; !ok {
+		return nil, errs.ErrUnsupportedUserLookupField
+	}
 	db := GetDB(ctx)
 	if db == nil {
 		return nil, errs.ErrRecordNotFound
