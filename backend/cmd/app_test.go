@@ -121,6 +121,7 @@ func TestNewWaveletAppWithRedisEnabled(t *testing.T) {
 	require.NotNil(t, app)
 	defer func() {
 		_ = app.Stop(context.Background())
+		_ = app.Context().Dispose()
 	}()
 	require.NoError(t, app.Reconcile())
 

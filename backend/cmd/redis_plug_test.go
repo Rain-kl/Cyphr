@@ -208,6 +208,7 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer stopCancel()
 		require.NoError(t, app.Stop(stopCtx))
+		_ = app.Context().Dispose()
 	})
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -235,6 +236,7 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 			require.NoError(t, cacheSvc1.Set(context.Background(), fmt.Sprintf("seq_key_%d", i), "seq_val_unplugged", time.Minute))
 
 			require.NoError(t, appUnplugged.Stop(context.Background()))
+			_ = appUnplugged.Context().Dispose()
 
 			// 2. 插入 Redis 运行
 			appPlugged := newWaveletApp(core.ProfileAll, core.WithConfigValues(map[string]any{
@@ -253,6 +255,7 @@ func TestRedisPluggability_Simulation(t *testing.T) {
 			require.NoError(t, cacheSvc2.Set(context.Background(), fmt.Sprintf("seq_key_%d", i), "seq_val_plugged", time.Minute))
 
 			require.NoError(t, appPlugged.Stop(context.Background()))
+			_ = appPlugged.Context().Dispose()
 		}
 	})
 }
