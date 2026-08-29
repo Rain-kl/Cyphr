@@ -7,6 +7,7 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -77,5 +78,5 @@ func (s *inprocTaskService) ListExecutions(_ context.Context, _, _ string, _, _ 
 }
 
 func (s *inprocTaskService) GetExecution(_ context.Context, _ uint64) (*contracts.TaskExecutionDTO, error) {
-	return nil, nil
+	return nil, errors.New("driver_inproc_worker: task executions are not tracked")
 }
