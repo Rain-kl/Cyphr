@@ -14,3 +14,4 @@ iteration	commit	metric	delta	status	guard	description
 12	101cb2f	79	-1.0	keep	pass	nilnil: inproc driver GetExecution returns error, matching asynq driver semantics
 14	6932b54	79	0.0	keep	pass	DATA-LOSS BUGFIX: cache read error no longer clobbers buffered task log (proven: assertion fails on revert)
 15	2c41563	79	0.0	keep	pass	PERF: CORS origin check no longer hits DB per request (5s cached read); proven - loader count 0 vs 1 on revert
+16	976f9b1	79	0.0	keep	pass	PERF: contract-level batch user lookup replaces N+1 in access-log enrichment (test proves 1 query vs 3)
