@@ -170,6 +170,10 @@ type MockAuthService struct {
 	DB *gorm.DB
 }
 
+// errMockNotImplemented marks a mock method no test exercises yet, so an
+// accidental call reports this instead of dereferencing a nil result.
+var errMockNotImplemented = errors.New("mock auth service: not implemented")
+
 // RequireAuthMiddleware returns a dummy auth middleware.
 func (a *MockAuthService) RequireAuthMiddleware() any {
 	return func(c *gin.Context) { c.Next() }
@@ -226,7 +230,7 @@ func (a *MockAuthService) VerifyToken(_ context.Context, token string) (*contrac
 
 // Authenticate verifies credentials.
 func (a *MockAuthService) Authenticate(_ context.Context, _, _ string) (*contracts.UserDTO, error) {
-	return nil, nil
+	return nil, errMockNotImplemented
 }
 
 // CreateSession creates a login session.
@@ -257,12 +261,12 @@ func (a *MockAuthService) ListAuthSources(_ context.Context) ([]contracts.AuthSo
 
 // CreateAuthSource creates an authentication source.
 func (a *MockAuthService) CreateAuthSource(_ context.Context, _ contracts.AuthSourceDTO) (*contracts.AuthSourceDTO, error) {
-	return nil, nil
+	return nil, errMockNotImplemented
 }
 
 // UpdateAuthSource updates an authentication source.
 func (a *MockAuthService) UpdateAuthSource(_ context.Context, _ uint64, _ contracts.AuthSourceDTO) (*contracts.AuthSourceDTO, error) {
-	return nil, nil
+	return nil, errMockNotImplemented
 }
 
 // DeleteAuthSource deletes an authentication source.
@@ -272,7 +276,7 @@ func (a *MockAuthService) DeleteAuthSource(_ context.Context, _ uint64) error {
 
 // ToggleAuthSource toggles an authentication source active state.
 func (a *MockAuthService) ToggleAuthSource(_ context.Context, _ uint64) (*contracts.AuthSourceDTO, error) {
-	return nil, nil
+	return nil, errMockNotImplemented
 }
 
 // SetupTestEnv initializes test helper environment and binds DB, Cache, Storage, Auth mocks to shared services.
