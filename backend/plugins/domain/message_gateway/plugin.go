@@ -231,8 +231,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
-	// 9. Register built-in domain events
+	// 9. Register built-in domain events and provide PushRegistry
 	service.RegisterCustomEvents()
+	core.Provide[contracts.PushRegistry](ctx, service.PushRegistryAdapter{})
 
 	// 10. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{

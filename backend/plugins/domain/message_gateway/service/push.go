@@ -49,6 +49,31 @@ func GetBuiltInEvents() []model.EventMetadata {
 	return out
 }
 
+// PushRegistryAdapter adapts contracts.PushRegistry onto the built-in event store.
+type PushRegistryAdapter struct{}
+
+func (PushRegistryAdapter) RegisterBuiltInEvent(meta contracts.PushEventMeta) {
+	RegisterBuiltInEvent(eventMetadataFromContract(meta))
+}
+
+func (PushRegistryAdapter) SyncEvents(ctx context.Context) error {
+	return SyncEvents(ctx)
+}
+
+func eventMetadataFromContract(meta contracts.PushEventMeta) model.EventMetadata {
+	return model.EventMetadata{
+		Key:         meta.Key,
+		Name:        meta.Name,
+		Description: meta.Description,
+		DefaultTemplate: model.NotificationMessage{
+			Title:   meta.DefaultTemplate.Title,
+			Content: meta.DefaultTemplate.Content,
+			Level:   meta.DefaultTemplate.Level,
+			Ext:     meta.DefaultTemplate.Ext,
+		},
+	}
+}
+
 // SyncBuiltInEvents seeds a database row for every registered built-in event.
 func SyncBuiltInEvents(ctx context.Context) error {
 	for _, meta := range GetBuiltInEvents() {
