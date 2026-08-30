@@ -56,6 +56,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Router().GET("/api/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+	ctx.Router().GET("/api/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, response.OKNil())
+	})
+	ctx.Router().RegisterWhitelist("/api/health")
 
 	// 2. Public config
 	ctx.Router().GET("/api/v1/config/public", func(c *gin.Context) {

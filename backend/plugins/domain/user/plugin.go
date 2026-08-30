@@ -142,6 +142,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		userGroup.GET("/logout", Logout)
 		userGroup.POST("/send-email-code", emailCap, SendEmailCode)
 		userGroup.POST("/change-password", loginMW, ChangePassword)
+		userGroup.GET("/self", loginMW, Self)
 		userGroup.PUT("/profile", loginMW, UpdateProfile)
 
 		// Access Tokens

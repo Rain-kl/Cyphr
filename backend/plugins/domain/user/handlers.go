@@ -200,6 +200,22 @@ func ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
+// Self returns the current authenticated user.
+func Self(c *gin.Context) {
+	svc := getAuthService()
+	if svc == nil {
+		response.AbortUnauthorized(c, errUserNotFound)
+		return
+	}
+	user, err := svc.GetCurrentUser(c)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "get current user failed: %v", err)
+		response.AbortUnauthorized(c, errUserNotFound)
+		return
+	}
+	c.JSON(http.StatusOK, response.OK(user))
+}
+
 // UpdateProfile updates profile info.
 func UpdateProfile(c *gin.Context) {
 	var req updateProfileRequest
