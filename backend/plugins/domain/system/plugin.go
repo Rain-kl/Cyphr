@@ -50,14 +50,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	appName := ctx.Config().String("app.app_name", "Wavelet")
 
 	// 1. Health check
-	ctx.Router().GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
 	ctx.Router().GET("/api/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-	ctx.Router().GET("/api/health", Health)
-	ctx.Router().RegisterWhitelist("/api/health")
+	ctx.Router().RegisterWhitelist("/api/healthz")
 
 	// 2. Public config
 	ctx.Router().GET("/api/v1/config/public", func(c *gin.Context) {
@@ -89,15 +85,4 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	})
 
 	return nil
-}
-
-// Health 健康检查
-// @Summary 健康检查
-// @Description 检查服务是否正常运行，可用于负载均衡存活探测
-// @Tags health
-// @Produce json
-// @Success 200 {object} response.Any{data=string} "服务正常"
-// @Router /api/health [get]
-func Health(c *gin.Context) {
-	c.JSON(http.StatusOK, response.OKNil())
 }

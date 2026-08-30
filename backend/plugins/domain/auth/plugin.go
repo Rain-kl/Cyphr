@@ -134,7 +134,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		"/api/v1/user/send-email-code",
 		"/api/v1/cap/challenge",
 		"/api/v1/cap/redeem",
-		"/healthz",
+		"/api/healthz",
 		"/metrics",
 	}
 	RegisterWhitelist(publicEndpoints...)

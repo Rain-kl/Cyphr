@@ -15,55 +15,39 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func TestHealthRouteReturnsOKNil(t *testing.T) {
+func TestHealthzIsTheOnlyHealthRoute(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx := core.NewContext(context.Background())
 	if err := New().Apply(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	healthHandler := routeHandler(t, ctx, "GET", "/api/health")
-	routeHandler(t, ctx, "GET", "/healthz")
-	if !ctx.Router().IsWhitelisted("/api/health") {
-		t.Fatal("GET /api/health is not whitelisted")
+	var hasHealthz bool
+	for _, rd := range ctx.Router().Routes() {
+		key := rd.Method + " " + rd.Path
+		switch key {
+		case "GET /api/healthz":
+			hasHealthz = true
+		case "GET /healthz", "GET /api/health":
+			t.Errorf("removed health route still registered: %s", key)
+		}
+	}
+	if !hasHealthz {
+		t.Fatal("GET /api/healthz missing")
+	}
+	if !ctx.Router().IsWhitelisted("/api/healthz") {
+		t.Fatal("GET /api/healthz not whitelisted")
 	}
 
+	handler := routeHandler(t, ctx, "GET", "/api/healthz")
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	healthHandler(c)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/healthz", nil)
+	handler(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
 	}
-
-	var body struct {
-		ErrorMsg string `json:"error_msg"`
-		Data     any    `json:"data"`
-	}
-	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	if body.ErrorMsg != "" {
-		t.Fatalf("error_msg = %q, want empty", body.ErrorMsg)
-	}
-	if body.Data != nil {
-		t.Fatalf("data = %#v, want null", body.Data)
-	}
-}
-
-func TestHealthzRouteUnchanged(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	ctx := core.NewContext(context.Background())
-	if err := New().Apply(ctx); err != nil {
-		t.Fatal(err)
-	}
-
-	handler := routeHandler(t, ctx, "GET", "/healthz")
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/healthz", nil)
-	handler(c)
 
 	var body map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
