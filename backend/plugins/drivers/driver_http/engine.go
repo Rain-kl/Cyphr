@@ -31,6 +31,11 @@ func BuildEngineWithConfig(appCfg httpAppConfig, redisCfg httpRedisConfig) (*gin
 
 	// 初始化路由
 	r := gin.New()
+	redirect := true
+	if appCfg.RedirectTrailingSlash != nil {
+		redirect = *appCfg.RedirectTrailingSlash
+	}
+	r.RedirectTrailingSlash = redirect
 	r.Use(gin.Recovery())
 	r.Use(corsMiddleware())
 

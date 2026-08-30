@@ -15,6 +15,7 @@ type httpAppConfig struct {
 	SessionAge              int    `config:"session_age" env:"APP_SESSION_AGE" default:"86400"`
 	SessionHTTPOnly         bool   `config:"session_http_only" env:"APP_SESSION_HTTP_ONLY" default:"true"`
 	SessionSecure           bool   `config:"session_secure" env:"APP_SESSION_SECURE"`
+	RedirectTrailingSlash   *bool  `config:"redirect_trailing_slash" env:"APP_REDIRECT_TRAILING_SLASH"`
 }
 
 type httpRedisConfig struct {
