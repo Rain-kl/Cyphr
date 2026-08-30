@@ -50,6 +50,7 @@ type listFilesResponse struct {
 // @Security SessionCookie
 // @Success 200 {object} response.Any{data=listFilesResponse} "查询成功"
 // @Failure 400 {object} response.Any "参数错误"
+// @Router /api/v1/admin/uploads [get]
 // @Router /api/v1/admin/uploads/files [get]
 func ListFiles(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -96,6 +97,7 @@ func ListFiles(c *gin.Context) {
 // @Security SessionCookie
 // @Success 200 {object} response.Any "删除成功"
 // @Failure 404 {object} response.Any "文件不存在"
+// @Router /api/v1/admin/uploads/{id} [delete]
 // @Router /api/v1/admin/uploads/files/{id} [delete]
 func DeleteFile(c *gin.Context) {
 	ctx := c.Request.Context()

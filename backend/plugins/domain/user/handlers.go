@@ -77,7 +77,17 @@ func invalidateTokenCache(ctx context.Context, tokenHash string) {
 	}
 }
 
-// Login handles username and password authentication.
+// Login 用户密码登录
+// @Summary 用户密码登录
+// @Description 使用用户名和密码登录，登录成功后建立 Session。若管理员已关闭密码登录功能则返回错误。
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body user.loginRequest true "登录请求参数"
+// @Success 200 {object} response.Any "登录成功，返回用户信息"
+// @Failure 400 {object} response.Any "用户名或密码错误"
+// @Failure 500 {object} response.Any "服务内部错误"
+// @Router /api/v1/user/login [post]
 func Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -109,7 +119,17 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(user))
 }
 
-// Register registers a new user.
+// Register 用户注册
+// @Summary 用户注册
+// @Description 使用用户名和密码注册新账号，注册成功后自动登录并建立 Session。
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body user.registerRequest true "注册请求参数"
+// @Success 200 {object} response.Any "注册并登录成功，返回用户信息"
+// @Failure 400 {object} response.Any "参数错误、用户名已存在或注册已关闭"
+// @Failure 500 {object} response.Any "服务内部错误"
+// @Router /api/v1/user/register [post]
 func Register(c *gin.Context) {
 	var req registerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -142,7 +162,15 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(newUser))
 }
 
-// Logout logs out the current session.
+// Logout 用户退出登录
+// @Summary 用户退出登录
+// @Description 清除用户登录 Session，完成退出
+// @Tags user
+// @Produce json
+// @Security SessionCookie
+// @Success 200 {object} response.Any{data=string} "退出成功"
+// @Failure 500 {object} response.Any "Session 清除失败"
+// @Router /api/v1/user/logout [get]
 func Logout(c *gin.Context) {
 	sess := sessions.Default(c)
 	sess.Options(sessions.Options{
@@ -156,12 +184,30 @@ func Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
-// SendEmailCode sends an email verification code.
+// SendEmailCode 发送邮箱验证码
+// @Summary 发送邮箱验证码
+// @Description 向指定邮箱发送验证码（用于注册场景）
+// @Tags user
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Any "发送成功"
+// @Failure 400 {object} response.Any "参数错误"
+// @Router /api/v1/user/send-email-code [post]
 func SendEmailCode(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(gin.H{"sent": true}))
 }
 
-// ChangePassword changes the current user password.
+// ChangePassword 修改用户密码
+// @Summary 修改用户密码
+// @Description 修改当前登录用户的密码。
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body user.changePasswordRequest true "修改密码请求参数"
+// @Success 200 {object} response.Any{data=string} "修改密码成功"
+// @Failure 400 {object} response.Any "原密码错误或新密码不符合要求"
+// @Failure 401 {object} response.Any "请先登录"
+// @Router /api/v1/user/change-password [post]
 func ChangePassword(c *gin.Context) {
 	var req changePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -200,7 +246,15 @@ func ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
-// Self returns the current authenticated user.
+// Self 获取当前登录用户信息
+// @Summary 获取当前登录用户信息
+// @Description 返回当前登录用户的基本信息，需要登录。
+// @Tags user
+// @Produce json
+// @Security SessionCookie
+// @Success 200 {object} response.Any "用户信息"
+// @Failure 401 {object} response.Any "未登录"
+// @Router /api/v1/user/self [get]
 func Self(c *gin.Context) {
 	svc := getAuthService()
 	if svc == nil {
@@ -216,7 +270,17 @@ func Self(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(user))
 }
 
-// UpdateProfile updates profile info.
+// UpdateProfile 修改当前登录用户的个人资料
+// @Summary 修改当前登录用户的个人资料
+// @Description 修改当前登录用户的昵称、头像、简介、电话、性别、个人网站和所在地。
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body user.updateProfileRequest true "更新请求参数"
+// @Success 200 {object} response.Any "修改成功，返回更新后的用户信息"
+// @Failure 400 {object} response.Any "参数错误"
+// @Failure 401 {object} response.Any "未登录"
+// @Router /api/v1/user/profile [put]
 func UpdateProfile(c *gin.Context) {
 	var req updateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -247,7 +311,15 @@ func UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(user))
 }
 
-// ListAccessTokens lists access tokens for the current user.
+// ListAccessTokens 获取当前用户的 AccessToken 列表
+// @Summary 获取当前用户的 AccessToken 列表
+// @Description 返回当前登录用户的所有 active access tokens（脱敏后）
+// @Tags user
+// @Produce json
+// @Security SessionCookie
+// @Success 200 {object} response.Any{data=[]user.AccessToken} "令牌列表"
+// @Failure 401 {object} response.Any "未登录"
+// @Router /api/v1/user/access-tokens [get]
 func ListAccessTokens(c *gin.Context) {
 	userID := getUserIDFromSession(c)
 	tokens, err := listAccessTokensByUser(c.Request.Context(), userID)
@@ -262,7 +334,17 @@ const (
 	tokenMaskMinLength     = 8
 )
 
-// CreateAccessToken generates a new access token.
+// CreateAccessToken 创建一个新的 AccessToken
+// @Summary 创建一个新的 AccessToken
+// @Description 为当前用户新建一个 API 访问令牌，仅在此接口返回一次明文令牌值，请妥善保存。
+// @Tags user
+// @Accept json
+// @Produce json
+// @Param request body user.createAccessTokenRequest true "令牌名称"
+// @Security SessionCookie
+// @Success 200 {object} response.Any "新建令牌成功"
+// @Failure 400 {object} response.Any "参数错误或超限"
+// @Router /api/v1/user/access-tokens [post]
 func CreateAccessToken(c *gin.Context) {
 	var req createAccessTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -301,7 +383,16 @@ func CreateAccessToken(c *gin.Context) {
 	}))
 }
 
-// DeleteAccessToken deletes a specific access token.
+// DeleteAccessToken 删除一个 AccessToken
+// @Summary 删除一个 AccessToken
+// @Description 撤销并删除一个属于当前用户的 API 访问令牌
+// @Tags user
+// @Produce json
+// @Param id path string true "令牌ID"
+// @Security SessionCookie
+// @Success 200 {object} response.Any{data=string} "删除成功"
+// @Failure 400 {object} response.Any "参数错误"
+// @Router /api/v1/user/access-tokens/{id} [delete]
 func DeleteAccessToken(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
@@ -324,7 +415,16 @@ func DeleteAccessToken(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OKNil())
 }
 
-// RotateAccessToken rotates an access token value.
+// RotateAccessToken 轮换一个 AccessToken
+// @Summary 轮换一个 AccessToken
+// @Description 轮换（重新生成）一个属于当前用户的 API 访问令牌的密钥，旧令牌将立即失效
+// @Tags user
+// @Produce json
+// @Param id path string true "令牌ID"
+// @Security SessionCookie
+// @Success 200 {object} response.Any "令牌轮换成功"
+// @Failure 400 {object} response.Any "参数错误"
+// @Router /api/v1/user/access-tokens/{id}/rotate [post]
 func RotateAccessToken(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)

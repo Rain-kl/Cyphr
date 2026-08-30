@@ -25,11 +25,26 @@ import (
 )
 
 // GetLoginSources 获取可用登录源列表
+// @Summary 获取可用登录源
+// @Description 返回当前系统已启用的所有 OAuth 登录源，前端展示登录按钮列表时调用
+// @Tags oauth
+// @Produce json
+// @Success 200 {object} response.Any{data=[]auth.AuthSourceView} "登录源列表"
+// @Router /api/v1/oauth/sources [get]
 func GetLoginSources(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(activeLoginSources(c.Request.Context())))
 }
 
 // GetLoginURL 获取登录授权地址
+// @Summary 获取登录授权地址
+// @Description 根据指定认证源生成 OAuth 授权 URL，前端跳转到该 URL 完成 OAuth 登录授权。source 参数为空时使用第一个启用的认证源。
+// @Tags oauth
+// @Produce json
+// @Param source query string false "认证源名称，为空使用第一个启用的认证源"
+// @Success 200 {object} response.Any{data=auth.OAuthAuthorizeResponse} "授权 URL"
+// @Failure 400 {object} response.Any "认证源不存在或未配置"
+// @Failure 500 {object} response.Any "构造 URL 失败"
+// @Router /api/v1/oauth/login [get]
 func GetLoginURL(c *gin.Context) {
 	ctx := c.Request.Context()
 	if !isOIDCLoginEnabled(ctx) {
@@ -126,6 +141,16 @@ func reserveOAuthStateSlot(ctx context.Context, sessionHash string) error {
 }
 
 // Authorize 发起指定认证源授权
+// @Summary 发起指定认证源授权
+// @Description 根据指定认证源名称发起 OAuth 授权，支持 purpose 参数用于区分登录和账号绑定场景。认证源必须已启用。
+// @Tags oauth
+// @Produce json
+// @Param source path string true "认证源名称"
+// @Param purpose query string false "授权目的：login（登录）或 bind（绑定账号），默认 login"
+// @Success 200 {object} response.Any{data=auth.OAuthAuthorizeResponse} "授权 URL"
+// @Failure 400 {object} response.Any "认证源不存在或未启用"
+// @Failure 500 {object} response.Any "构造 URL 失败"
+// @Router /api/v1/oauth/{source}/authorize [get]
 func Authorize(c *gin.Context) {
 	ctx := c.Request.Context()
 	if !isOIDCLoginEnabled(ctx) {
@@ -197,6 +222,17 @@ func Authorize(c *gin.Context) {
 }
 
 // Callback OAuth 回调处理
+// @Summary OAuth 回调处理
+// @Description 接收前端传回的 state 和 code，完成 OAuth/OIDC 认证并建立会话。支持登录（login）和账号绑定（bind）两种场景。
+// @Tags oauth
+// @Accept json
+// @Produce json
+// @Param request body auth.CallbackRequest true "回调请求参数"
+// @Success 200 {object} response.Any{data=auth.OAuthCallbackResult} "登录或绑定成功"
+// @Failure 400 {object} response.Any "state 无效、参数错误或认证源错误"
+// @Failure 401 {object} response.Any "绑定场景未登录"
+// @Failure 500 {object} response.Any "OAuth 认证失败或内部错误"
+// @Router /api/v1/oauth/callback [post]
 func Callback(c *gin.Context) {
 	var req CallbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -437,6 +473,15 @@ func handleCallbackRegister(ctx context.Context, c *gin.Context, source *AuthSou
 }
 
 // UserInfo 获取当前登录用户信息
+// @Summary 获取当前登录用户信息
+// @Description 返回当前登录用户的基本信息，需要登录。
+// @Tags oauth
+// @Produce json
+// @Security SessionCookie
+// @Success 200 {object} response.Any{data=auth.BasicUserInfo} "用户信息"
+// @Failure 401 {object} response.Any "未登录"
+// @Router /api/v1/oauth/user-info [get]
+// @Router /api/v1/user-info [get]
 func UserInfo(c *gin.Context) {
 	user, _ := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
 	session := sessions.Default(c)
@@ -449,6 +494,14 @@ func UserInfo(c *gin.Context) {
 }
 
 // Logout 退出登录
+// @Summary 退出登录
+// @Description 清除当前用户的登录会话，完成退出。清除 Cookie 中的 Session 数据。
+// @Tags oauth
+// @Produce json
+// @Security SessionCookie
+// @Success 200 {object} response.Any{data=string} "退出成功"
+// @Failure 500 {object} response.Any "Session 清除失败"
+// @Router /api/v1/oauth/logout [get]
 func Logout(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get(UserIDKey)
@@ -469,6 +522,15 @@ func Logout(c *gin.Context) {
 }
 
 // ListExternalAccounts 获取当前用户的外部帐号绑定列表
+// @Summary 获取外部帐号列表
+// @Description 返回当前登录用户已绑定的所有外部 OAuth 帐号信息，需要登录
+// @Tags oauth
+// @Produce json
+// @Security SessionCookie
+// @Success 200 {object} response.Any "外部帐号列表"
+// @Failure 401 {object} response.Any "未登录"
+// @Failure 500 {object} response.Any "内部错误"
+// @Router /api/v1/oauth/external-accounts [get]
 func ListExternalAccounts(c *gin.Context) {
 	userID := GetUserIDFromContext(c)
 	accounts, err := ListExternalAccountsByUserID(c.Request.Context(), userID)
@@ -480,6 +542,16 @@ func ListExternalAccounts(c *gin.Context) {
 }
 
 // DeleteExternalAccount 解除外部帐号绑定
+// @Summary 解除外部帐号绑定
+// @Description 解除当前登录用户与指定外部帐号的绑定关系，需要登录
+// @Tags oauth
+// @Produce json
+// @Security SessionCookie
+// @Param id path uint64 true "外部帐号绑定记录 ID"
+// @Success 200 {object} response.Any{data=string} "解除绑定成功"
+// @Failure 400 {object} response.Any "ID 无效或解除失败"
+// @Failure 401 {object} response.Any "未登录"
+// @Router /api/v1/oauth/external-accounts/{id}/delete [post]
 func DeleteExternalAccount(c *gin.Context) {
 	userID := GetUserIDFromContext(c)
 	if userID == 0 {
