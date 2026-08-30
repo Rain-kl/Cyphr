@@ -41,6 +41,10 @@ import (
 const (
 	defaultShutdownTimeout = 15 * time.Second
 	defaultHTTPAddr        = "127.0.0.1:8000"
+
+	// migrationAdvisoryLockKey serializes baseline + plugin Up across Postgres
+	// sessions (ASCII "wave"). SQLite is single-writer and needs no extra lock.
+	migrationAdvisoryLockKey int64 = 0x77617665
 )
 
 // runProfileApp prepares and runs the application for a given profile.
@@ -140,17 +144,21 @@ type sharedStore struct {
 func (s *sharedStore) Tablename() string { return "w_schema_versions" }
 
 func (s *sharedStore) CreateVersionTable(ctx context.Context, db goosedb.DBTxConn) error {
+	_, err := db.ExecContext(ctx, schemaVersionsDDL(s.dialect))
+	return err
+}
+
+func schemaVersionsDDL(dialect string) string {
 	timeType := "TIMESTAMPTZ"
-	if s.dialect == "sqlite3" || s.dialect == "sqlite" {
+	if dialect == "sqlite3" || dialect == "sqlite" {
 		timeType = "DATETIME"
 	}
-	_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS w_schema_versions (
+	return fmt.Sprintf(`CREATE TABLE IF NOT EXISTS w_schema_versions (
 		plugin_id   VARCHAR(64)  NOT NULL,
 		version_id  BIGINT       NOT NULL,
 		applied_at  %s  NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (plugin_id, version_id)
-	)`, timeType))
-	return err
+	)`, timeType)
 }
 
 //nolint:mnd
@@ -265,6 +273,38 @@ func (e *gooseEngine) Migrate(ctx *core.Context, entries []core.MigrationEntry) 
 
 	dialect := gooseDialect(ctx)
 	dialectStr := string(dialect)
+	goCtx := context.Background()
+	if ctx != nil {
+		goCtx = ctx.GoContext()
+	}
+	if goCtx == nil {
+		goCtx = context.Background()
+	}
+
+	bootstrap := &sharedStore{dialect: dialectStr}
+	if err := bootstrap.CreateVersionTable(goCtx, sqlDB); err != nil {
+		return fmt.Errorf("migration: create version table: %w", err)
+	}
+
+	if dialect == goose.DialectPostgres {
+		conn, lockErr := sqlDB.Conn(goCtx)
+		if lockErr != nil {
+			return fmt.Errorf("migration: pin connection for advisory lock: %w", lockErr)
+		}
+		defer func() { _ = conn.Close() }()
+		if _, lockErr = conn.ExecContext(goCtx, "SELECT pg_advisory_lock($1)", migrationAdvisoryLockKey); lockErr != nil {
+			return fmt.Errorf("migration: advisory lock: %w", lockErr)
+		}
+		defer func() {
+			_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", migrationAdvisoryLockKey)
+		}()
+	}
+
+	if fn := ctx.MigrationBaseline(); fn != nil {
+		if err := fn(ctx); err != nil {
+			return fmt.Errorf("migration baseline: %w", err)
+		}
+	}
 
 	for _, entry := range entries {
 		store := &sharedStore{

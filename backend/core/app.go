@@ -59,6 +59,14 @@ func WithMigrationRunner(runner MigrationRunner) AppOption {
 	}
 }
 
+// WithMigrationBaseline registers a hook the migration engine runs after the
+// shared version table exists and before any plugin Up.
+func WithMigrationBaseline(fn func(*Context) error) AppOption {
+	return func(a *App) {
+		a.migrationBaseline = fn
+	}
+}
+
 // WithShutdownTimeout sets the fallback timeout for graceful application shutdown.
 func WithShutdownTimeout(timeout time.Duration) AppOption {
 	return func(a *App) {
@@ -99,23 +107,24 @@ func WithConfigDecl(pluginID string, bindings ...ConfigBinding) AppOption {
 // It manages plugin collection, dependency mounting, migration execution, profile-based driver startup,
 // and graceful signal-driven LIFO shutdown.
 type App struct {
-	mu               sync.RWMutex
-	ctx              *Context
-	profile          Profile
-	plugins          []Plugin
-	pluginMap        map[string]Plugin
-	fibers           []*Fiber
-	fiberMap         map[string]*Fiber
-	applied          bool
-	running          bool
-	startedDrivers   []Driver
-	migrationEngine  MigrationEngine
-	shutdownTimeout  time.Duration
-	configSource     ConfigSource
-	hostDeclOwner    string
-	hostDeclBindings []ConfigBinding
-	prepared         bool
-	applyErr         error
+	mu                sync.RWMutex
+	ctx               *Context
+	profile           Profile
+	plugins           []Plugin
+	pluginMap         map[string]Plugin
+	fibers            []*Fiber
+	fiberMap          map[string]*Fiber
+	applied           bool
+	running           bool
+	startedDrivers    []Driver
+	migrationEngine   MigrationEngine
+	migrationBaseline func(*Context) error
+	shutdownTimeout   time.Duration
+	configSource      ConfigSource
+	hostDeclOwner     string
+	hostDeclBindings  []ConfigBinding
+	prepared          bool
+	applyErr          error
 }
 
 // NewApp creates a new Cordis application instance with default options.
@@ -373,22 +382,20 @@ func (a *App) prepareLocked() error {
 	if a.prepared {
 		return nil
 	}
-	if a.configSource == nil {
-		a.prepared = true
-		return nil
+	if a.configSource != nil {
+		config := a.ctx.Config()
+		config.SetSource(a.configSource)
+
+		if err := config.Declare(a.hostDeclOwner, a.hostDeclBindings...); err != nil {
+			return err
+		}
+		if err := config.Resolve(); err != nil {
+			return err
+		}
 	}
 
-	config := a.ctx.Config()
-	config.SetSource(a.configSource)
-
-	if err := config.Declare(a.hostDeclOwner, a.hostDeclBindings...); err != nil {
-		return err
-	}
-	if err := config.Resolve(); err != nil {
-		return err
-	}
+	a.ctx.setMigrationBaseline(a.migrationBaseline)
 	a.prepared = true
-
 	return nil
 }
 

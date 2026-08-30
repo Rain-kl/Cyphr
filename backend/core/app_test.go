@@ -594,3 +594,61 @@ func TestAppSetShutdownTimeoutIgnoresNonPositive(t *testing.T) {
 	app.SetShutdownTimeout(45 * time.Second)
 	assert.Equal(t, 45*time.Second, app.ShutdownTimeout())
 }
+
+func TestWithMigrationBaselineVisibleAfterPrepare(t *testing.T) {
+	var called bool
+	fn := func(*core.Context) error {
+		called = true
+		return nil
+	}
+
+	app := core.NewApp(core.WithMigrationBaseline(fn))
+	require.Nil(t, app.Context().MigrationBaseline(), "baseline must be copied during Prepare")
+
+	require.NoError(t, app.Prepare())
+
+	got := app.Context().MigrationBaseline()
+	require.NotNil(t, got, "Prepare must copy the baseline onto the root Context")
+	require.NoError(t, got(app.Context()))
+	assert.True(t, called)
+}
+
+func TestWithMigrationBaselineRunsBeforeEngineMigrate(t *testing.T) {
+	var order []string
+	engine := core.MigrationRunner(func(ctx *core.Context, _ []extpoints.MigrationEntry) error {
+		order = append(order, "engine")
+		if ctx.MigrationBaseline() == nil {
+			t.Fatal("baseline must be visible on context inside Migrate")
+		}
+		return ctx.MigrationBaseline()(ctx)
+	})
+
+	sqlFS := fstest.MapFS{
+		"migrations/001_init.sql": &fstest.MapFile{Data: []byte("-- +goose Up\nSELECT 1;\n")},
+	}
+	app := core.NewApp(
+		core.WithMigrationEngine(engine),
+		core.WithMigrationBaseline(func(*core.Context) error {
+			order = append(order, "baseline")
+			return nil
+		}),
+		core.WithPlugins(&appMockPlugin{
+			name: "t",
+			applyFn: func(ctx *core.Context) error {
+				ctx.Migrations().Register("t", sqlFS)
+				return nil
+			},
+		}),
+	)
+
+	require.NoError(t, app.Start(context.Background()))
+	defer func() { _ = app.Stop(context.Background()) }()
+
+	assert.Equal(t, []string{"engine", "baseline"}, order)
+}
+
+func TestWithMigrationBaselineNilByDefault(t *testing.T) {
+	app := core.NewApp()
+	require.NoError(t, app.Prepare())
+	assert.Nil(t, app.Context().MigrationBaseline())
+}

@@ -29,12 +29,13 @@ type Context struct {
 	settings   extpoints.SettingExtension
 	config     extpoints.ConfigExtension
 
-	mu        sync.RWMutex
-	children  []*Context
-	disposers []Disposer
-	drivers   []Driver
-	values    map[any]any
-	disposed  bool
+	mu                sync.RWMutex
+	children          []*Context
+	disposers         []Disposer
+	drivers           []Driver
+	values            map[any]any
+	disposed          bool
+	migrationBaseline func(*Context) error
 }
 
 // NewContext creates a new root Context wrapping a standard Go context.
@@ -159,18 +160,19 @@ func (c *Context) ForkWithContext(base context.Context) *Context {
 	ctx, cancel := context.WithCancel(base)
 
 	child := &Context{
-		goCtx:      ctx,
-		cancel:     cancel,
-		parent:     c,
-		container:  NewContainer(c.container),
-		events:     c.events,
-		router:     c.router,
-		migrations: c.migrations,
-		tasks:      c.tasks,
-		schedules:  c.schedules,
-		settings:   c.settings,
-		config:     c.config,
-		values:     make(map[any]any),
+		goCtx:             ctx,
+		cancel:            cancel,
+		parent:            c,
+		container:         NewContainer(c.container),
+		events:            c.events,
+		router:            c.router,
+		migrations:        c.migrations,
+		tasks:             c.tasks,
+		schedules:         c.schedules,
+		settings:          c.settings,
+		config:            c.config,
+		values:            make(map[any]any),
+		migrationBaseline: c.MigrationBaseline(),
 	}
 
 	c.mu.Lock()
@@ -206,6 +208,33 @@ func (c *Context) Router() extpoints.RouterExtension {
 // Migrations returns the MigrationExtension registry.
 func (c *Context) Migrations() extpoints.MigrationExtension {
 	return c.migrations
+}
+
+// MigrationBaseline returns the hook copied onto this Context during App.Prepare.
+// Child contexts fall back to their parent so forks still see the root hook.
+func (c *Context) MigrationBaseline() func(*Context) error {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	fn := c.migrationBaseline
+	c.mu.RUnlock()
+	if fn != nil {
+		return fn
+	}
+	if c.parent != nil {
+		return c.parent.MigrationBaseline()
+	}
+	return nil
+}
+
+func (c *Context) setMigrationBaseline(fn func(*Context) error) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.migrationBaseline = fn
+	c.mu.Unlock()
 }
 
 // Tasks returns the scoped TaskExtension registry with automatic disposer tracking.
