@@ -126,6 +126,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		uploadGroup.GET("", handler.ListFiles)
 		uploadGroup.DELETE("/:id", handler.DeleteFile)
 		uploadGroup.POST("/batch-download", handler.BatchDownloadFiles)
+		uploadGroup.GET("/my", handler.ListMyFiles)
+		uploadGroup.PUT("/:id", handler.UpdateMyFile)
+		uploadGroup.GET("/download/:id", handler.DownloadFile)
+		uploadGroup.POST("/download/batch", handler.BatchDownloadFiles)
 	}
 
 	adminUploadGroup := ctx.Router().Group("/api/v1/admin/uploads", loginMW)
