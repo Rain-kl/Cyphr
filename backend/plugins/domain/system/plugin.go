@@ -59,6 +59,16 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	// 2. Public config
 	ctx.Router().GET("/api/v1/config/public", func(c *gin.Context) {
+		if p, err := core.Inject[contracts.PublicConfigProvider](ctx); err == nil && p != nil {
+			data, err := p.PublicConfig(c.Request.Context())
+			if err != nil {
+				logger.ErrorF(c.Request.Context(), "[System] public config provider failed: %v", err)
+				response.AbortInternal(c, "public config unavailable")
+				return
+			}
+			c.JSON(http.StatusOK, response.OK(data))
+			return
+		}
 		configs, err := listPublicSystemConfigs(c.Request.Context(), ctx)
 		if err != nil {
 			logger.ErrorF(c.Request.Context(), "[System] query public system configs failed: %v", err)
