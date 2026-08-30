@@ -300,6 +300,9 @@ func (a *App) reconcileLocked() error {
 					return fmt.Errorf("core: load fiber %q failed: %w", f.Name(), err)
 				}
 				progress = true
+				// Rescan from the head of the Use() list so earlier pending
+				// plugins run before later ones that became ready in this pass.
+				break
 			}
 		}
 		if !progress {

@@ -98,6 +98,38 @@ func TestFiber_ConfluenceAndReactiveActivation(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestReconcileAppliesEarlierConsumersBeforeLaterOnes(t *testing.T) {
+	app := core.NewApp()
+	var order []string
+	early := &orderPlugin{name: "early-consumer", order: &order, inject: []reflect.Type{reflect.TypeFor[MockServiceA]()}}
+	provider := &orderPlugin{name: "provider", order: &order, provide: true}
+	late := &orderPlugin{name: "late-consumer", order: &order, inject: []reflect.Type{reflect.TypeFor[MockServiceA]()}}
+	app.Use(early, provider, late)
+
+	require.NoError(t, app.Start(context.Background()))
+	assert.Equal(t, []string{"provider", "early-consumer", "late-consumer"}, order)
+	require.NoError(t, app.Stop())
+}
+
+type orderPlugin struct {
+	name    string
+	order   *[]string
+	inject  []reflect.Type
+	provide bool
+}
+
+func (p *orderPlugin) Name() string { return p.name }
+
+func (p *orderPlugin) Inject() []reflect.Type { return p.inject }
+
+func (p *orderPlugin) Apply(ctx *core.Context) error {
+	*p.order = append(*p.order, p.name)
+	if p.provide {
+		core.Provide[MockServiceA](ctx, &mockServiceAImpl{})
+	}
+	return nil
+}
+
 func TestFiber_UnsatisfiedDependencyReturnsError(t *testing.T) {
 	app := core.NewApp()
 
