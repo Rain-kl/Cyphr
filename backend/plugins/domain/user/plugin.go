@@ -120,13 +120,27 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 	core.Provide[contracts.UserService](ctx, p.userSvc)
 
+	passThrough := gin.HandlerFunc(func(c *gin.Context) { c.Next() })
+	loginCap, registerCap, emailCap := passThrough, passThrough, passThrough
+	if capSvc, err := core.Inject[contracts.CaptchaService](ctx); err == nil && capSvc != nil {
+		if mw, ok := capSvc.VerifyMiddleware("login").(gin.HandlerFunc); ok {
+			loginCap = mw
+		}
+		if mw, ok := capSvc.VerifyMiddleware("register").(gin.HandlerFunc); ok {
+			registerCap = mw
+		}
+		if mw, ok := capSvc.VerifyMiddleware("send_email_code").(gin.HandlerFunc); ok {
+			emailCap = mw
+		}
+	}
+
 	// 3. Register HTTP Routes
 	userGroup := ctx.Router().Group("/api/v1/user")
 	{
-		userGroup.POST("/login", Login)
-		userGroup.POST("/register", Register)
+		userGroup.POST("/login", loginCap, Login)
+		userGroup.POST("/register", registerCap, Register)
 		userGroup.GET("/logout", Logout)
-		userGroup.POST("/send-email-code", SendEmailCode)
+		userGroup.POST("/send-email-code", emailCap, SendEmailCode)
 		userGroup.POST("/change-password", loginMW, ChangePassword)
 		userGroup.PUT("/profile", loginMW, UpdateProfile)
 

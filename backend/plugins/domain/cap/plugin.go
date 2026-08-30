@@ -77,6 +77,8 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		InvalidateRuntimeSettings()
 	})
 
+	core.Provide[contracts.CaptchaService](ctx, captchaService{})
+
 	// Register HTTP Routes
 	capGroup := ctx.Router().Group("/api/v1/cap")
 	{
@@ -84,6 +86,11 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		capGroup.POST("/challenge", Challenge)
 		capGroup.POST("/redeem", Redeem)
 	}
+
+	legacy := ctx.Router().Group("/api/cap")
+	legacy.POST("/challenge", Challenge)
+	legacy.POST("/redeem", Redeem)
+	ctx.Router().RegisterWhitelist("/api/cap/challenge", "/api/cap/redeem")
 
 	// Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{
@@ -103,3 +110,13 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	return nil
 }
+
+type captchaService struct{}
+
+func (captchaService) VerifyMiddleware(scope string) any {
+	return VerifyMiddleware(GetDefaultManager(), scope)
+}
+
+func (captchaService) ChallengeHandler() any { return Challenge }
+
+func (captchaService) RedeemHandler() any { return Redeem }
