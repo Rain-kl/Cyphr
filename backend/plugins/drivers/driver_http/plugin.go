@@ -7,6 +7,7 @@ package driver_http
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	_ "Wavelet/docs" // swagger documentation registration
 	"Wavelet/pkg/util"
 	"context"
 	"errors"
@@ -17,6 +18,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 const (
@@ -204,6 +207,19 @@ func (p *Plugin) Start(ctx context.Context) error {
 			}
 
 			p.engine.Handle(rd.Method, rd.Path, allHandlers...)
+		}
+	}
+
+	// Mount Swagger in non-production environments
+	if p.coreCtx != nil {
+		var appCfg httpAppConfig
+		_ = p.coreCtx.Config().Bind("app", &appCfg)
+		if appCfg.Env != "production" && appCfg.Env != "prod" {
+			swaggerHandler := ginSwagger.WrapHandler(swaggerFiles.Handler)
+			p.engine.GET("/swagger/*any", swaggerHandler)
+			if appCfg.APIPrefix != "" {
+				p.engine.GET(appCfg.APIPrefix+"/swagger/*any", swaggerHandler)
+			}
 		}
 	}
 

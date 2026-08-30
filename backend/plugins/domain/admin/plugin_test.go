@@ -23,6 +23,14 @@ func TestAdminPluginUnit(t *testing.T) {
 	// Verify routes
 	routes := ctx.Router().Routes()
 	assert.NotEmpty(t, routes)
+	var hasRobots bool
+	for _, r := range routes {
+		if r.Path == "/robots.txt" && r.Method == "GET" {
+			hasRobots = true
+			break
+		}
+	}
+	assert.True(t, hasRobots, "admin plugin must register /robots.txt")
 
 	// Verify tasks
 	_, ok := ctx.Tasks().Get("admin:system_cleanup")

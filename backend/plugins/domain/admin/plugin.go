@@ -170,6 +170,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	adminRouter := ctx.Router().Group("/api/v1/admin", loginMW, adminMW)
 	handler.RegisterRoutes(adminRouter)
 
+	// Register robots.txt public route
+	ctx.Router().GET("/robots.txt", handler.GetRobotsTXT)
+	ctx.Router().RegisterWhitelist("/robots.txt")
+
 	// 2. Register Background Tasks
 	logSwitchHandler := &service.LogDBSwitchHandler{}
 	ctx.Task().Register(service.LogDBSwitchTask, func(c context.Context, payload []byte) error {

@@ -1,5 +1,71 @@
 basePath: /
 definitions:
+  auth.AuthSourceView:
+    properties:
+      client_secret_configured:
+        type: boolean
+      display_name:
+        type: string
+      icon_url:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  auth.BasicUserInfo:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      id:
+        type: integer
+      is_admin:
+        type: boolean
+      location:
+        type: string
+      need_change_password:
+        type: boolean
+      nickname:
+        type: string
+      phone:
+        type: string
+      username:
+        type: string
+      website:
+        type: string
+    type: object
+  auth.CallbackRequest:
+    properties:
+      code:
+        type: string
+      state:
+        type: string
+    required:
+    - code
+    - state
+    type: object
+  auth.OAuthAuthorizeResponse:
+    properties:
+      authorize_url:
+        type: string
+    type: object
+  auth.OAuthCallbackResult:
+    properties:
+      status:
+        type: string
+      user:
+        $ref: '#/definitions/auth.BasicUserInfo'
+    type: object
   cap.ChallengeResponse:
     properties:
       challenge:
@@ -46,6 +112,34 @@ definitions:
     required:
     - solutions
     - token
+    type: object
+  contracts.AuthSourceDTO:
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      created_at:
+        type: string
+      display_name:
+        type: string
+      icon_url:
+        type: string
+      id:
+        example: "0"
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      openid_discovery_url:
+        type: string
+      scopes:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
     type: object
   contracts.TaskMetaDTO:
     properties:
@@ -318,6 +412,45 @@ definitions:
       type:
         type: string
     type: object
+  model.CreatePushChannelRequest:
+    properties:
+      description:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+      other:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    required:
+    - name
+    - type
+    type: object
+  model.CreatePushEventRequest:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      event_key:
+        type: string
+      targets:
+        items:
+          type: string
+        type: array
+      task_type:
+        type: string
+      template:
+        type: string
+    type: object
   model.CreateScheduleRequest:
     properties:
       cron:
@@ -555,6 +688,56 @@ definitions:
       type:
         type: string
     type: object
+  model.PushChannel:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: integer
+      name:
+        type: string
+      other:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+    type: object
+  model.PushEvent:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      event_key:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      targets:
+        items:
+          type: string
+        type: array
+      task_type:
+        type: string
+      template:
+        type: string
+      updated_at:
+        type: string
+    type: object
   model.Schedule:
     properties:
       created_at:
@@ -726,6 +909,30 @@ definitions:
       updated_at:
         type: string
     type: object
+  model.TestPushChannelRequest:
+    properties:
+      name:
+        type: string
+      other:
+        type: string
+      target:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  model.TestPushRequest:
+    properties:
+      config:
+        $ref: '#/definitions/push.Config'
+      target:
+        type: string
+    required:
+    - config
+    type: object
   model.TestSMTPRequest:
     properties:
       smtp_host:
@@ -804,6 +1011,40 @@ definitions:
         type: object
       name:
         type: string
+    type: object
+  model.UpdatePushChannelRequest:
+    properties:
+      description:
+        type: string
+      enabled:
+        type: boolean
+      other:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    required:
+    - type
+    type: object
+  model.UpdatePushEventRequest:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      targets:
+        items:
+          type: string
+        type: array
+      template:
+        type: string
+    required:
+    - template
     type: object
   model.UpdateScheduleRequest:
     properties:
@@ -1015,6 +1256,25 @@ definitions:
     - UploadStatusPending
     - UploadStatusUsed
     - UploadStatusDeleted
+  push.Config:
+    properties:
+      channel:
+        description: 渠道名称，例如 "lark", "custom", "email" 等，唯一标识
+        type: string
+      ext:
+        additionalProperties: {}
+        description: 预留拓展 JSON 配置
+        type: object
+      key:
+        description: AppID 或 SMTP 用户名
+        type: string
+      secret:
+        description: 签名密钥或 SMTP 密码/Token
+        type: string
+      url:
+        description: Webhook 地址或 SMTP 地址
+        type: string
+    type: object
   response.Any:
     properties:
       data: {}
@@ -1043,6 +1303,83 @@ definitions:
     - Second
     - Minute
     - Hour
+  user.AccessToken:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_admin:
+        type: boolean
+      masked_token:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  user.changePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  user.createAccessTokenRequest:
+    properties:
+      expires_at:
+        type: string
+      is_admin:
+        type: boolean
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  user.loginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  user.registerRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  user.updateProfileRequest:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      gender:
+        type: string
+      location:
+        type: string
+      nickname:
+        type: string
+      phone:
+        type: string
+      website:
+        type: string
+    type: object
 info:
   contact:
     name: Wavelet
@@ -1054,71 +1391,193 @@ info:
   title: Wavelet API
   version: 1.0.0
 paths:
-  /api/cap/challenge:
-    post:
-      consumes:
-      - application/json
-      description: 客户端获取 PoW 难题和签名的 JWT Token，并在后台计算。
-      parameters:
-      - description: 可选范围限制参数
-        in: body
-        name: request
-        schema:
-          $ref: '#/definitions/cap.challengeRequest'
+  /api/v1/admin/auth-sources:
+    get:
+      description: 返回所有已配置的 OAuth/OIDC 认证源列表，包括已启用和未启用的，需要管理员权限
       produces:
       - application/json
       responses:
         "200":
-          description: 成功返回 PoW 难题
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.Any'
-            - properties:
-                data:
-                  $ref: '#/definitions/cap.ChallengeResponse'
-              type: object
-        "500":
-          description: 内部服务错误
+          description: 认证源列表
           schema:
             $ref: '#/definitions/response.Any'
-      summary: 生成人机验证难题
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "403":
+          description: 无管理员权限
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 内部错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取认证源列表
       tags:
-      - cap
-  /api/cap/redeem:
+      - admin
     post:
       consumes:
       - application/json
-      description: 提交 PoW 解答进行核销，成功后返回一次性 X-Cap-Token 凭证
+      description: 创建一个新的 OAuth/OIDC 认证源配置，认证源名称必须唯一且符合命名规范，需要管理员权限
       parameters:
-      - description: 难题 Token 与解答 solutions 数组
+      - description: 创建认证源参数
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/cap.redeemRequest'
+          $ref: '#/definitions/contracts.AuthSourceDTO'
       produces:
       - application/json
       responses:
         "200":
-          description: 核销成功，返回 X-Cap-Token
+          description: 创建成功，返回认证源信息
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误或验证失败
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "403":
+          description: 无管理员权限
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 创建认证源
+      tags:
+      - admin
+  /api/v1/admin/auth-sources/{id}:
+    delete:
+      description: 删除指定认证源及其关联的所有外部帐号绑定记录，警告：删除后相关用户将无法通过该源登录，需要管理员权限
+      parameters:
+      - description: 认证源 ID 或名称
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
           schema:
             allOf:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/cap.RedeemResponse'
+                  type: string
               type: object
         "400":
-          description: 参数错误或核销失败
+          description: ID 无效或删除失败
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "403":
+          description: 无管理员权限
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 删除认证源
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: 更新指定 ID 的认证源配置。若 client_secret 字段为空，则保留原有密钥不变，需要管理员权限
+      parameters:
+      - description: 认证源 ID 或名称
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新认证源参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/contracts.AuthSourceDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功，返回更新后的认证源信息
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误或验证失败
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "403":
+          description: 无管理员权限
           schema:
             $ref: '#/definitions/response.Any'
         "500":
-          description: 内部服务错误
+          description: 内部错误
           schema:
             $ref: '#/definitions/response.Any'
-      summary: 校验人机验证解答
+      security:
+      - SessionCookie: []
+      summary: 更新认证源
       tags:
-      - cap
+      - admin
+  /api/v1/admin/auth-sources/{id}/toggle:
+    put:
+      consumes:
+      - application/json
+      description: 启用或禁用指定认证源。尝试启用时将验证 Client ID 和 Client Secret 是否已配置，需要管理员权限
+      parameters:
+      - description: 认证源 ID 或名称
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 切换成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: 验证失败或认证源不存在
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "403":
+          description: 无管理员权限
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 切换认证源启用状态
+      tags:
+      - admin
   /api/v1/admin/cache/clear:
     post:
       description: 清除系统磁盘缓存目录中的所有临时文件，并重置缓存容量和 Key 追踪数据
@@ -1696,6 +2155,362 @@ paths:
       summary: List message gateway channel definitions
       tags:
       - admin-message-gateway
+  /api/v1/admin/push/channels:
+    get:
+      description: 返回系统配置的所有消息通道列表，需要管理员权限
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 消息通道列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.PushChannel'
+                  type: array
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 获取所有消息通道
+      tags:
+      - admin-push
+    post:
+      consumes:
+      - application/json
+      description: 新建一个消息通道配置，需要管理员权限
+      parameters:
+      - description: 创建参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreatePushChannelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.PushChannel'
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 创建消息通道
+      tags:
+      - admin-push
+  /api/v1/admin/push/channels/{id}:
+    delete:
+      description: 根据ID删除消息通道，需要管理员权限
+      parameters:
+      - description: 通道ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 删除消息通道
+      tags:
+      - admin-push
+    put:
+      consumes:
+      - application/json
+      description: 修改消息通道配置，需要管理员权限
+      parameters:
+      - description: 通道ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdatePushChannelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.PushChannel'
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 更新消息通道
+      tags:
+      - admin-push
+  /api/v1/admin/push/channels/definitions:
+    get:
+      description: 返回系统支持的所有消息通道类型的动态表单定义，需要管理员权限
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 通道配置定义列表
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取所有消息通道配置字段定义
+      tags:
+      - admin-push
+  /api/v1/admin/push/channels/test:
+    post:
+      consumes:
+      - application/json
+      description: 触发一次临时的或现有的通道连通性推送测试，需要管理员权限
+      parameters:
+      - description: 测试参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.TestPushChannelRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 测试触发成功
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 测试通道连通性
+      tags:
+      - admin-push
+  /api/v1/admin/push/events:
+    get:
+      description: 返回系统配置的通知事件列表，包括预置和自定义事件，需要管理员权限
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 通知事件列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.PushEvent'
+                  type: array
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 获取所有通知事件
+      tags:
+      - admin-push
+    post:
+      consumes:
+      - application/json
+      description: 绑定系统内置事件或异步任务、推送渠道、接收目标并创建通知事件配置，需要管理员权限
+      parameters:
+      - description: 创建参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreatePushEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 创建成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.PushEvent'
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 创建通知事件
+      tags:
+      - admin-push
+  /api/v1/admin/push/events/{id}:
+    delete:
+      description: 删除数据库中的特定通知事件配置，需要管理员权限
+      parameters:
+      - description: 事件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 删除通知事件配置
+      tags:
+      - admin-push
+    put:
+      consumes:
+      - application/json
+      description: 更新已有通知事件的推送渠道、接收目标和内容模板，需要管理员权限
+      parameters:
+      - description: 事件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdatePushEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 更新通知事件
+      tags:
+      - admin-push
+  /api/v1/admin/push/events/{id}/toggle:
+    post:
+      description: 启用或禁用指定的通知事件
+      parameters:
+      - description: 事件 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 切换成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 快捷切换通知事件启用状态
+      tags:
+      - admin-push
+  /api/v1/admin/push/events/builtin:
+    get:
+      description: 返回系统定义的所有内置通知事件元数据，供前端下拉框选择，需要管理员权限
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 内置通知事件列表
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取所有内置通知事件
+      tags:
+      - admin-push
+  /api/v1/admin/push/histories:
+    get:
+      description: 返回分页的通知历史日志数据，需要管理员权限
+      parameters:
+      - description: 当前页码
+        in: query
+        name: page
+        type: integer
+      - description: 分页大小
+        in: query
+        name: page_size
+        type: integer
+      - description: 过滤事件名称
+        in: query
+        name: event_key
+        type: string
+      - description: 过滤发送状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 推送历史列表
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 分页获取通知推送历史
+      tags:
+      - admin-push
+  /api/v1/admin/push/test:
+    post:
+      consumes:
+      - application/json
+      description: 接收临时通知渠道配置并在本地同步调用 Pusher.Send 发送测试消息
+      parameters:
+      - description: 测试请求体
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.TestPushRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 测试成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+      security:
+      - SessionCookie: []
+      summary: 测试推送通道发送
+      tags:
+      - admin-push
   /api/v1/admin/status:
     get:
       description: 获取后端服务运行状态、Goroutine、内存指标等详细统计数据，需要管理员权限
@@ -2627,6 +3442,80 @@ paths:
       summary: 下载并应用应用更新
       tags:
       - admin
+  /api/v1/admin/uploads:
+    get:
+      description: 分页获取系统上传的文件列表，支持文件名关键词、业务类型、扩展名、上传用户ID过滤
+      parameters:
+      - description: 页码（默认 1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量（默认 20，最大 100）
+        in: query
+        name: page_size
+        type: integer
+      - description: 文件名关键词（模糊匹配）
+        in: query
+        name: keyword
+        type: string
+      - description: 业务分类过滤
+        in: query
+        name: type
+        type: string
+      - description: 扩展名过滤
+        in: query
+        name: extension
+        type: string
+      - description: 上传用户 ID 过滤
+        in: query
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 查询成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.listFilesResponse'
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取文件列表
+      tags:
+      - admin
+  /api/v1/admin/uploads/{id}:
+    delete:
+      description: 将指定 ID 的文件状态置为 deleted（软删除）
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            $ref: '#/definitions/response.Any'
+        "404":
+          description: 文件不存在
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 删除文件
+      tags:
+      - admin
   /api/v1/admin/uploads/download/{id}:
     get:
       description: 根据文件 ID 获取文件，以附件形式 (Attachment) 强制开启客户端浏览器下载
@@ -3121,6 +4010,100 @@ paths:
       summary: 更新用户状态
       tags:
       - admin
+  /api/v1/cap/challenge:
+    get:
+      consumes:
+      - application/json
+      description: 客户端获取 PoW 难题和签名的 JWT Token，并在后台计算。
+      parameters:
+      - description: 可选范围限制参数
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/cap.challengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回 PoW 难题
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/cap.ChallengeResponse'
+              type: object
+        "500":
+          description: 内部服务错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 生成人机验证难题
+      tags:
+      - cap
+    post:
+      consumes:
+      - application/json
+      description: 客户端获取 PoW 难题和签名的 JWT Token，并在后台计算。
+      parameters:
+      - description: 可选范围限制参数
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/cap.challengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功返回 PoW 难题
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/cap.ChallengeResponse'
+              type: object
+        "500":
+          description: 内部服务错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 生成人机验证难题
+      tags:
+      - cap
+  /api/v1/cap/redeem:
+    post:
+      consumes:
+      - application/json
+      description: 提交 PoW 解答进行核销，成功后返回一次性 X-Cap-Token 凭证
+      parameters:
+      - description: 难题 Token 与解答 solutions 数组
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/cap.redeemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 核销成功，返回 X-Cap-Token
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/cap.RedeemResponse'
+              type: object
+        "400":
+          description: 参数错误或核销失败
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 内部服务错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 校验人机验证解答
+      tags:
+      - cap
   /api/v1/config/public:
     get:
       consumes:
@@ -3254,6 +4237,238 @@ paths:
       summary: List enabled messaging channels
       tags:
       - message-gateway
+  /api/v1/oauth/{source}/authorize:
+    get:
+      description: 根据指定认证源名称发起 OAuth 授权，支持 purpose 参数用于区分登录和账号绑定场景。认证源必须已启用。
+      parameters:
+      - description: 认证源名称
+        in: path
+        name: source
+        required: true
+        type: string
+      - description: 授权目的：login（登录）或 bind（绑定账号），默认 login
+        in: query
+        name: purpose
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 授权 URL
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.OAuthAuthorizeResponse'
+              type: object
+        "400":
+          description: 认证源不存在或未启用
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 构造 URL 失败
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 发起指定认证源授权
+      tags:
+      - oauth
+  /api/v1/oauth/callback:
+    post:
+      consumes:
+      - application/json
+      description: 接收前端传回的 state 和 code，完成 OAuth/OIDC 认证并建立会话。支持登录（login）和账号绑定（bind）两种场景。
+      parameters:
+      - description: 回调请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.CallbackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录或绑定成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.OAuthCallbackResult'
+              type: object
+        "400":
+          description: state 无效、参数错误或认证源错误
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 绑定场景未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: OAuth 认证失败或内部错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: OAuth 回调处理
+      tags:
+      - oauth
+  /api/v1/oauth/external-accounts:
+    get:
+      description: 返回当前登录用户已绑定的所有外部 OAuth 帐号信息，需要登录
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 外部帐号列表
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 内部错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取外部帐号列表
+      tags:
+      - oauth
+  /api/v1/oauth/external-accounts/{id}/delete:
+    post:
+      description: 解除当前登录用户与指定外部帐号的绑定关系，需要登录
+      parameters:
+      - description: 外部帐号绑定记录 ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 解除绑定成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: ID 无效或解除失败
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 解除外部帐号绑定
+      tags:
+      - oauth
+  /api/v1/oauth/login:
+    get:
+      description: 根据指定认证源生成 OAuth 授权 URL，前端跳转到该 URL 完成 OAuth 登录授权。source 参数为空时使用第一个启用的认证源。
+      parameters:
+      - description: 认证源名称，为空使用第一个启用的认证源
+        in: query
+        name: source
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 授权 URL
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.OAuthAuthorizeResponse'
+              type: object
+        "400":
+          description: 认证源不存在或未配置
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 构造 URL 失败
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 获取登录授权地址
+      tags:
+      - oauth
+  /api/v1/oauth/logout:
+    get:
+      description: 清除当前用户的登录会话，完成退出。清除 Cookie 中的 Session 数据。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 退出成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "500":
+          description: Session 清除失败
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 退出登录
+      tags:
+      - oauth
+  /api/v1/oauth/sources:
+    get:
+      description: 返回当前系统已启用的所有 OAuth 登录源，前端展示登录按钮列表时调用
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录源列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/auth.AuthSourceView'
+                  type: array
+              type: object
+      summary: 获取可用登录源
+      tags:
+      - oauth
+  /api/v1/oauth/user-info:
+    get:
+      description: 返回当前登录用户的基本信息，需要登录。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取当前登录用户信息
+      tags:
+      - oauth
   /api/v1/upload:
     post:
       consumes:
@@ -3417,6 +4632,325 @@ paths:
       summary: 获取我的文件列表
       tags:
       - upload
+  /api/v1/user-info:
+    get:
+      description: 返回当前登录用户的基本信息，需要登录。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户信息
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  $ref: '#/definitions/auth.BasicUserInfo'
+              type: object
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取当前登录用户信息
+      tags:
+      - oauth
+  /api/v1/user/access-tokens:
+    get:
+      description: 返回当前登录用户的所有 active access tokens（脱敏后）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 令牌列表
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/user.AccessToken'
+                  type: array
+              type: object
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取当前用户的 AccessToken 列表
+      tags:
+      - user
+    post:
+      consumes:
+      - application/json
+      description: 为当前用户新建一个 API 访问令牌，仅在此接口返回一次明文令牌值，请妥善保存。
+      parameters:
+      - description: 令牌名称
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.createAccessTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 新建令牌成功
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误或超限
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 创建一个新的 AccessToken
+      tags:
+      - user
+  /api/v1/user/access-tokens/{id}:
+    delete:
+      description: 撤销并删除一个属于当前用户的 API 访问令牌
+      parameters:
+      - description: 令牌ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 删除一个 AccessToken
+      tags:
+      - user
+  /api/v1/user/access-tokens/{id}/rotate:
+    post:
+      description: 轮换（重新生成）一个属于当前用户的 API 访问令牌的密钥，旧令牌将立即失效
+      parameters:
+      - description: 令牌ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 令牌轮换成功
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 轮换一个 AccessToken
+      tags:
+      - user
+  /api/v1/user/change-password:
+    post:
+      consumes:
+      - application/json
+      description: 修改当前登录用户的密码。
+      parameters:
+      - description: 修改密码请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.changePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改密码成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: 原密码错误或新密码不符合要求
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 请先登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 修改用户密码
+      tags:
+      - user
+  /api/v1/user/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码登录，登录成功后建立 Session。若管理员已关闭密码登录功能则返回错误。
+      parameters:
+      - description: 登录请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功，返回用户信息
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 用户名或密码错误
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 服务内部错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 用户密码登录
+      tags:
+      - user
+  /api/v1/user/logout:
+    get:
+      description: 清除用户登录 Session，完成退出
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 退出成功
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Any'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "500":
+          description: Session 清除失败
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 用户退出登录
+      tags:
+      - user
+  /api/v1/user/profile:
+    put:
+      consumes:
+      - application/json
+      description: 修改当前登录用户的昵称、头像、简介、电话、性别、个人网站和所在地。
+      parameters:
+      - description: 更新请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.updateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 修改成功，返回更新后的用户信息
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 修改当前登录用户的个人资料
+      tags:
+      - user
+  /api/v1/user/register:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码注册新账号，注册成功后自动登录并建立 Session。
+      parameters:
+      - description: 注册请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/user.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 注册并登录成功，返回用户信息
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误、用户名已存在或注册已关闭
+          schema:
+            $ref: '#/definitions/response.Any'
+        "500":
+          description: 服务内部错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 用户注册
+      tags:
+      - user
+  /api/v1/user/self:
+    get:
+      description: 返回当前登录用户的基本信息，需要登录。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户信息
+          schema:
+            $ref: '#/definitions/response.Any'
+        "401":
+          description: 未登录
+          schema:
+            $ref: '#/definitions/response.Any'
+      security:
+      - SessionCookie: []
+      summary: 获取当前登录用户信息
+      tags:
+      - user
+  /api/v1/user/send-email-code:
+    post:
+      consumes:
+      - application/json
+      description: 向指定邮箱发送验证码（用于注册场景）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 发送成功
+          schema:
+            $ref: '#/definitions/response.Any'
+        "400":
+          description: 参数错误
+          schema:
+            $ref: '#/definitions/response.Any'
+      summary: 发送邮箱验证码
+      tags:
+      - user
   /f/{id}:
     get:
       description: 根据文件 ID 获取并提供已上传的临时或正式文件，若配置了缓存则优先走本地缓存，否则从 S3 等后端存储读取并流式返回
