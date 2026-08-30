@@ -180,6 +180,13 @@ func formatEntryValue(value any, secret bool) string {
 	if value == nil {
 		return ""
 	}
+	rv := reflect.ValueOf(value)
+	if rv.Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			return ""
+		}
+		return fmt.Sprint(rv.Elem().Interface())
+	}
 	return fmt.Sprint(value)
 }
 

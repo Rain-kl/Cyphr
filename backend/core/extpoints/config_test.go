@@ -224,6 +224,54 @@ func TestEntriesRedactSecretsAndReportDefaults(t *testing.T) {
 	assert.Equal(t, "86400", entries["app.session_age"].Value)
 }
 
+type optionalBoolConfig struct {
+	RedirectTrailingSlash *bool `config:"redirect_trailing_slash" env:"APP_REDIRECT_TRAILING_SLASH"`
+}
+
+func TestBindBoolPointerFromFileAndEnv(t *testing.T) {
+	t.Run("absent stays nil", func(t *testing.T) {
+		r := extpoints.NewConfigRegistry(newFakeSource())
+		require.NoError(t, r.Declare("driver_http", extpoints.ConfigBinding{Prefix: "app", Target: &optionalBoolConfig{}}))
+		require.NoError(t, r.Resolve())
+
+		var got optionalBoolConfig
+		require.NoError(t, r.Bind("app", &got))
+		assert.Nil(t, got.RedirectTrailingSlash)
+		assert.Equal(t, "", r.Origin("app.redirect_trailing_slash"))
+	})
+
+	t.Run("file false", func(t *testing.T) {
+		src := newFakeSource()
+		src.values["app.redirect_trailing_slash"] = false
+
+		r := extpoints.NewConfigRegistry(src)
+		require.NoError(t, r.Declare("driver_http", extpoints.ConfigBinding{Prefix: "app", Target: &optionalBoolConfig{}}))
+		require.NoError(t, r.Resolve())
+
+		var got optionalBoolConfig
+		require.NoError(t, r.Bind("app", &got))
+		require.NotNil(t, got.RedirectTrailingSlash)
+		assert.False(t, *got.RedirectTrailingSlash)
+		assert.Equal(t, extpoints.OriginFile, r.Origin("app.redirect_trailing_slash"))
+		assert.False(t, r.Bool("app.redirect_trailing_slash", true))
+	})
+
+	t.Run("env false", func(t *testing.T) {
+		src := newFakeSource()
+		src.env["APP_REDIRECT_TRAILING_SLASH"] = "false"
+
+		r := extpoints.NewConfigRegistry(src)
+		require.NoError(t, r.Declare("driver_http", extpoints.ConfigBinding{Prefix: "app", Target: &optionalBoolConfig{}}))
+		require.NoError(t, r.Resolve())
+
+		var got optionalBoolConfig
+		require.NoError(t, r.Bind("app", &got))
+		require.NotNil(t, got.RedirectTrailingSlash)
+		assert.False(t, *got.RedirectTrailingSlash)
+		assert.Equal(t, extpoints.OriginEnv, r.Origin("app.redirect_trailing_slash"))
+	})
+}
+
 func TestBindRejectsReadsBeforeSourceIsRegistered(t *testing.T) {
 	r := extpoints.NewConfigRegistry(nil)
 	require.NoError(t, r.Declare("cache", extpoints.ConfigBinding{Prefix: "redis", Target: &redisConfig{}}))

@@ -33,15 +33,38 @@ func convertValue(raw any, typ reflect.Type) (any, error) {
 		return convertSlice(raw, typ)
 	case reflect.Struct:
 		return convertStruct(raw, typ)
+	case reflect.Ptr:
+		return convertPointer(raw, typ)
 	default:
 		return nil, fmt.Errorf("%w: %s is not a supported configuration type", ErrConfigType, typ)
 	}
+}
+
+// convertPointer decodes into the element type and returns a non-nil pointer to it.
+// Nested pointers are rejected so configuration tags stay one level deep.
+func convertPointer(raw any, typ reflect.Type) (any, error) {
+	elemType := typ.Elem()
+	if elemType.Kind() == reflect.Ptr {
+		return nil, fmt.Errorf("%w: %s is not a supported configuration type", ErrConfigType, typ)
+	}
+	elem, err := convertValue(raw, elemType)
+	if err != nil {
+		return nil, err
+	}
+	ptr := reflect.New(elemType)
+	ptr.Elem().Set(reflect.ValueOf(elem))
+	return ptr.Interface(), nil
 }
 
 func convertBool(raw any) (any, error) {
 	switch v := raw.(type) {
 	case bool:
 		return v, nil
+	case *bool:
+		if v == nil {
+			return nil, fmt.Errorf("%w: nil *bool is not a boolean", ErrConfigType)
+		}
+		return *v, nil
 	case string:
 		parsed, err := strconv.ParseBool(strings.TrimSpace(v))
 		if err != nil {
