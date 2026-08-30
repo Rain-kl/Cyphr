@@ -86,11 +86,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		capGroup.POST("/challenge", Challenge)
 		capGroup.POST("/redeem", Redeem)
 	}
-
-	legacy := ctx.Router().Group("/api/cap")
-	legacy.POST("/challenge", Challenge)
-	legacy.POST("/redeem", Redeem)
-	ctx.Router().RegisterWhitelist("/api/cap/challenge", "/api/cap/redeem")
+	ctx.Router().RegisterWhitelist("/api/v1/cap/challenge", "/api/v1/cap/redeem")
 
 	// Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{

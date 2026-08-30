@@ -34,14 +34,17 @@ func TestApplyRegistersUnversionedCapRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]bool{
+		"GET /api/v1/cap/challenge":  false,
 		"POST /api/v1/cap/challenge": false,
-		"POST /api/cap/challenge":    false,
-		"POST /api/cap/redeem":       false,
+		"POST /api/v1/cap/redeem":    false,
 	}
 	for _, rd := range ctx.Router().Routes() {
 		key := rd.Method + " " + rd.Path
 		if _, ok := want[key]; ok {
 			want[key] = true
+		}
+		if key == "POST /api/cap/challenge" || key == "POST /api/cap/redeem" {
+			t.Errorf("legacy route must not exist: %s", key)
 		}
 	}
 	for key, ok := range want {

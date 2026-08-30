@@ -20,7 +20,8 @@ import (
 // @Param request body challengeRequest false "可选范围限制参数"
 // @Success 200 {object} response.Any{data=cap.ChallengeResponse} "成功返回 PoW 难题"
 // @Failure 500 {object} response.Any "内部服务错误"
-// @Router /api/cap/challenge [post]
+// @Router /api/v1/cap/challenge [get]
+// @Router /api/v1/cap/challenge [post]
 func Challenge(c *gin.Context) {
 	var req challengeRequest
 	_ = c.ShouldBind(&req) // 允许不传 body，默认使用 login scope
@@ -54,7 +55,7 @@ func Challenge(c *gin.Context) {
 // @Success 200 {object} response.Any{data=cap.RedeemResponse} "核销成功，返回 X-Cap-Token"
 // @Failure 400 {object} response.Any "参数错误或核销失败"
 // @Failure 500 {object} response.Any "内部服务错误"
-// @Router /api/cap/redeem [post]
+// @Router /api/v1/cap/redeem [post]
 func Redeem(c *gin.Context) {
 	var req redeemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
