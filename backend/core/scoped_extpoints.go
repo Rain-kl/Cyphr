@@ -40,6 +40,20 @@ func (s *scopedRouterExtension) Handle(method, path string, handlers ...any) ext
 	return rd
 }
 
+// HandleRaw registers a trailing-slash-preserving route and tears it down with the scope.
+func (s *scopedRouterExtension) HandleRaw(method, path string, handlers ...any) extpoints.RouteDefinition {
+	rd := s.underlying.HandleRaw(method, path, handlers...)
+	routeID := rd.ID
+	s.ctx.OnDispose(func() error {
+		s.underlying.UnregisterByID(routeID)
+		return nil
+	})
+	return rd
+}
+
+// BasePath delegates to the wrapped group prefix.
+func (s *scopedRouterExtension) BasePath() string { return s.underlying.BasePath() }
+
 func (s *scopedRouterExtension) GET(path string, handlers ...any) extpoints.RouteDefinition {
 	return s.Handle("GET", path, handlers...)
 }
