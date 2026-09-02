@@ -4,25 +4,19 @@
 package push
 
 import (
-	"Wavelet/pkg/httppool"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
-)
 
-const (
-	pushoverAPIEndpoint = "https://api.pushover.net/1/messages.json"
+	"github.com/nikoksr/notify"
+	"github.com/nikoksr/notify/service/pushover"
 )
 
 func init() {
 	Register("pushover", &PushoverPusher{})
 }
 
-// PushoverPusher Pushover 移动端推送实现
+// PushoverPusher 基于 nikoksr/notify 的 Pushover 移动端推送实现
 type PushoverPusher struct{}
 
 // Send 发送 Pushover 通知
@@ -36,10 +30,8 @@ func (p *PushoverPusher) Send(ctx context.Context, cfg Config, target string, bo
 	}
 
 	userKey := cfg.URL
-	if userKey == "" && cfg.Ext != nil {
-		if k, ok := cfg.Ext["user_key"].(string); ok {
-			userKey = k
-		}
+	if userKey == "" {
+		userKey = cfg.Other
 	}
 	if target != "" {
 		userKey = target
@@ -51,33 +43,17 @@ func (p *PushoverPusher) Send(ctx context.Context, cfg Config, target string, bo
 	title := bodyTitle(body)
 	content := bodyContent(body, "%s: %v", "\n")
 
-	formData := url.Values{}
-	formData.Set("token", appToken)
-	formData.Set("user", userKey)
-	formData.Set("title", title)
-	formData.Set("message", content)
+	poService := pushover.New(appToken)
+	poService.AddReceivers(userKey)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, pushoverAPIEndpoint, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("pushover: create request failed: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	notifier := notify.New()
+	notifier.UseServices(poService)
 
-	client := httppool.NewClient(defaultHTTPClientTimeout)
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("pushover: http request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
-	upstreamResp := strings.TrimSpace(string(respBody))
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return upstreamResp, fmt.Errorf("pushover: http status %s", resp.Status)
+	if err := notifier.Send(ctx, title, content); err != nil {
+		return "", fmt.Errorf("pushover: notify send failed: %w", err)
 	}
 
-	return upstreamResp, nil
+	return "ok", nil
 }
 
 // ValidateConfig 校验 Pushover 配置

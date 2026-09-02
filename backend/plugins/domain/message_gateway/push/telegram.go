@@ -4,137 +4,72 @@
 package push
 
 import (
-	"Wavelet/pkg/httppool"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
+	"strconv"
+
+	"github.com/nikoksr/notify"
+	"github.com/nikoksr/notify/service/telegram"
 )
 
 func init() {
 	Register("telegram", &TelegramPusher{})
 }
 
-// TelegramPusher Telegram 机器人推送实现
+// TelegramPusher 基于 nikoksr/notify 的 Telegram 机器人推送实现
 type TelegramPusher struct{}
 
-type telegramMessageRequest struct {
-	ChatID    string `json:"chat_id"`
-	Text      string `json:"text"`
-	ParseMode string `json:"parse_mode,omitempty"`
-}
-
-type telegramErrorResponse struct {
-	Ok          bool   `json:"ok"`
-	ErrorCode   int    `json:"error_code"`
-	Description string `json:"description"`
-}
-
 // Send 执行 Telegram 消息发送
-func (p *TelegramPusher) Send(ctx context.Context, cfg Config, target string, body map[string]any, template string, _ map[string]any) (string, error) {
-	if cfg.Secret == "" {
-		return "", errors.New("telegram: Bot Token (Secret) is required")
+func (p *TelegramPusher) Send(ctx context.Context, cfg Config, target string, body map[string]any, _ string, _ map[string]any) (string, error) {
+	botToken := cfg.Secret
+	if botToken == "" {
+		botToken = cfg.Key
+	}
+	if botToken == "" {
+		return "", errors.New("telegram: bot token is required")
 	}
 
-	chatID := target
-	if chatID == "" {
-		chatID = cfg.Key // Use default chat ID (Key) if target is blank
+	chatIDStr := target
+	if chatIDStr == "" {
+		chatIDStr = cfg.Other
 	}
-	if chatID == "" {
-		return "", errors.New("telegram: chat_id (target or default Key) is required")
+	if chatIDStr == "" {
+		return "", errors.New("telegram: chat_id is required")
 	}
 
-	baseURL := cfg.URL
-	if baseURL == "" {
-		baseURL = "https://api.telegram.org"
+	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("telegram: invalid chat_id %q: %w", chatIDStr, err)
 	}
-	baseURL = strings.TrimSuffix(baseURL, "/")
 
 	title := bodyTitle(body)
-	content := bodyContent(body, "<b>%s</b>: %v", "\n")
-	level := bodyLevel(body)
+	content := bodyContent(body, "%s: %v", "\n")
 
-	var text string
-	if template != "" {
-		text = ParseTemplate(template, body)
-	} else {
-		text = fmt.Sprintf("<b>[%s] %s</b>\n\n%s", escapeHTML(level), escapeHTML(title), escapeHTML(content))
-	}
-
-	// Try sending with HTML parse mode
-	err := p.sendMessage(ctx, baseURL, cfg.Secret, chatID, text, "HTML")
+	tgService, err := telegram.New(botToken)
 	if err != nil {
-		// Fallback: send as plain text without parse mode
-		plainText := text
-		if template == "" {
-			plainText = fmt.Sprintf("[%s] %s\n\n%s", level, title, content)
-		}
-		fallbackErr := p.sendMessage(ctx, baseURL, cfg.Secret, chatID, plainText, "")
-		if fallbackErr != nil {
-			return "", fmt.Errorf("telegram: send message failed (fallback also failed): %w (original HTML error: %w)", fallbackErr, err)
-		}
+		return "", fmt.Errorf("telegram: init service failed: %w", err)
+	}
+	tgService.AddReceivers(chatID)
+
+	notifier := notify.New()
+	notifier.UseServices(tgService)
+
+	if err := notifier.Send(ctx, title, content); err != nil {
+		return "", fmt.Errorf("telegram: notify send failed: %w", err)
 	}
 
-	return "", nil
+	return "ok", nil
 }
 
-// ValidateConfig 校验 Telegram 配置
+// ValidateConfig 校验 Telegram 机器人配置
 func (p *TelegramPusher) ValidateConfig(cfg Config) error {
-	if cfg.Secret == "" {
-		return errors.New("bot Token (Secret) is required")
+	token := cfg.Secret
+	if token == "" {
+		token = cfg.Key
 	}
-	if cfg.URL != "" {
-		if !strings.HasPrefix(cfg.URL, "http://") && !strings.HasPrefix(cfg.URL, "https://") {
-			return errors.New("API base URL must start with http:// or https://")
-		}
+	if token == "" {
+		return errors.New("bot token is required")
 	}
 	return nil
-}
-
-func (p *TelegramPusher) sendMessage(ctx context.Context, baseURL, token, chatID, text, parseMode string) error {
-	apiURL := fmt.Sprintf("%s/bot%s/sendMessage", baseURL, token)
-
-	reqPayload := telegramMessageRequest{
-		ChatID:    chatID,
-		Text:      text,
-		ParseMode: parseMode,
-	}
-
-	jsonData, err := json.Marshal(reqPayload)
-	if err != nil {
-		return fmt.Errorf("marshal request failed: %w", err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("create http request failed: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	client := httppool.NewClient(defaultHTTPClientTimeout)
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf("http request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		var errRes telegramErrorResponse
-		if decodeErr := json.NewDecoder(resp.Body).Decode(&errRes); decodeErr == nil {
-			return fmt.Errorf("http status %d: %s", resp.StatusCode, errRes.Description)
-		}
-		return fmt.Errorf("http status %s", resp.Status)
-	}
-
-	return nil
-}
-
-func escapeHTML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	return s
 }

@@ -344,11 +344,3 @@ func bodyContent(body map[string]any, format, sep string) string {
 	}
 	return strings.Join(parts, sep)
 }
-
-// bodyLevel returns the upper-cased notification level, falling back to INFO.
-func bodyLevel(body map[string]any) string {
-	if l, ok := body["level"].(string); ok && l != "" {
-		return strings.ToUpper(l)
-	}
-	return levelInfo
-}

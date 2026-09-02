@@ -4,77 +4,66 @@
 package push
 
 import (
-	"Wavelet/pkg/httppool"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
+
+	"github.com/nikoksr/notify"
+	"github.com/nikoksr/notify/service/slack"
 )
 
 func init() {
 	Register("slack", &SlackPusher{})
 }
 
-// SlackPusher Slack Webhook 推送实现
+// SlackPusher 基于 nikoksr/notify 的 Slack 推送实现
 type SlackPusher struct{}
 
-type slackPayload struct {
-	Text string `json:"text"`
-}
-
 // Send 发送 Slack 通知
-func (p *SlackPusher) Send(ctx context.Context, cfg Config, _ string, body map[string]any, _ string, _ map[string]any) (string, error) {
-	if cfg.URL == "" {
-		return "", errors.New("slack: webhook URL is required")
+func (p *SlackPusher) Send(ctx context.Context, cfg Config, target string, body map[string]any, _ string, _ map[string]any) (string, error) {
+	token := cfg.Key
+	if token == "" {
+		token = cfg.Secret
+	}
+	channelID := cfg.URL
+	if target != "" {
+		channelID = target
+	}
+	if channelID == "" {
+		channelID = cfg.Other
+	}
+
+	if token == "" {
+		return "", errors.New("slack: bot/api token is required")
+	}
+	if channelID == "" {
+		return "", errors.New("slack: channel ID is required")
 	}
 
 	title := bodyTitle(body)
 	content := bodyContent(body, "*%s*: %v", "\n")
 
-	text := fmt.Sprintf("*%s*\n%s", title, content)
-	payload := slackPayload{
-		Text: text,
+	slackService := slack.New(token)
+	slackService.AddReceivers(channelID)
+
+	notifier := notify.New()
+	notifier.UseServices(slackService)
+
+	if err := notifier.Send(ctx, title, content); err != nil {
+		return "", fmt.Errorf("slack: notify send failed: %w", err)
 	}
 
-	reqBytes, err := json.Marshal(payload)
-	if err != nil {
-		return "", fmt.Errorf("slack: marshal payload failed: %w", err)
-	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.URL, bytes.NewReader(reqBytes))
-	if err != nil {
-		return "", fmt.Errorf("slack: create request failed: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	client := httppool.NewClient(defaultHTTPClientTimeout)
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return "", fmt.Errorf("slack: http request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes))
-	upstreamResp := strings.TrimSpace(string(respBody))
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return upstreamResp, fmt.Errorf("slack: http status %s", resp.Status)
-	}
-
-	return upstreamResp, nil
+	return "ok", nil
 }
 
 // ValidateConfig 校验 Slack 配置
 func (p *SlackPusher) ValidateConfig(cfg Config) error {
-	if cfg.URL == "" {
-		return errors.New("webhook URL is required")
+	token := cfg.Key
+	if token == "" {
+		token = cfg.Secret
 	}
-	if !strings.HasPrefix(cfg.URL, "https://") {
-		return errors.New("webhook URL must start with https://")
+	if token == "" {
+		return errors.New("slack token is required")
 	}
 	return nil
 }

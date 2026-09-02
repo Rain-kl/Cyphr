@@ -24,6 +24,7 @@ type Config struct {
 	URL     string         `json:"url,omitempty"`    // Webhook 地址或 SMTP 地址
 	Secret  string         `json:"secret,omitempty"` // 签名密钥或 SMTP 密码/Token
 	Key     string         `json:"key,omitempty"`    // AppID 或 SMTP 用户名
+	Other   string         `json:"other,omitempty"`  // 附加配置 (如 ChatID / UserKey / 扩展 JSON)
 	Ext     map[string]any `json:"ext,omitempty"`    // 预留拓展 JSON 配置
 }
 
