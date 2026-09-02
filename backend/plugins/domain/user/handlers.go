@@ -5,6 +5,7 @@ package user
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"context"
@@ -105,6 +106,13 @@ func Login(c *gin.Context) {
 	if !user.CheckPassword(req.Password) {
 		response.AbortUnauthorized(c, errPasswordMismatch)
 		return
+	}
+
+	if user.ID == 0 {
+		newID := idgen.NextUint64ID()
+		if err := getDB(c.Request.Context()).Model(&User{}).Where("username = ?", user.Username).Update("id", newID).Error; err == nil {
+			user.ID = newID
+		}
 	}
 
 	sess := sessions.Default(c)
