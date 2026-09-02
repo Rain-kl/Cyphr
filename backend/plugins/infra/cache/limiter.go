@@ -5,6 +5,7 @@ package cache
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/limiter"
 	"context"
 
 	"github.com/go-redis/redis_rate/v10"
@@ -56,4 +57,44 @@ func (r *redisLimiterImpl) AllowN(ctx context.Context, key string, rate contract
 
 func (r *redisLimiterImpl) Reset(ctx context.Context, key string) error {
 	return r.limiter.Reset(ctx, r.prefixedKey(key))
+}
+
+type memoryLimiterFallback struct {
+	limiter *limiter.MemoryLimiter
+}
+
+func newMemoryLimiterFallback() contracts.LimiterService {
+	return &memoryLimiterFallback{
+		limiter: limiter.NewMemoryLimiter(),
+	}
+}
+
+func (m *memoryLimiterFallback) Allow(ctx context.Context, key string, rate contracts.Rate) (*contracts.RateLimitResult, error) {
+	res, err := m.limiter.Allow(ctx, key, limiter.Rate{Limit: rate.Limit, Period: rate.Period})
+	if err != nil {
+		return nil, err
+	}
+	return &contracts.RateLimitResult{
+		Allowed:    res.Allowed,
+		Remaining:  res.Remaining,
+		ResetAfter: res.ResetAfter,
+		RetryAfter: res.RetryAfter,
+	}, nil
+}
+
+func (m *memoryLimiterFallback) AllowN(ctx context.Context, key string, rate contracts.Rate, n int) (*contracts.RateLimitResult, error) {
+	res, err := m.limiter.AllowN(ctx, key, limiter.Rate{Limit: rate.Limit, Period: rate.Period}, n)
+	if err != nil {
+		return nil, err
+	}
+	return &contracts.RateLimitResult{
+		Allowed:    res.Allowed,
+		Remaining:  res.Remaining,
+		ResetAfter: res.ResetAfter,
+		RetryAfter: res.RetryAfter,
+	}, nil
+}
+
+func (m *memoryLimiterFallback) Reset(ctx context.Context, key string) error {
+	return m.limiter.Reset(ctx, key)
 }

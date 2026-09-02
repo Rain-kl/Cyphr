@@ -120,7 +120,18 @@ else
     log_pass "backend/pkg/ 零插件依赖"
 fi
 
-# 3.2 pkg/util/ 严禁导入 Gin / ORM / Session 框架
+# 3.2 pkg/ 严禁导入 core/ (微内核与契约层)
+PKG_CORE_IMPORTS=$(rg -n "\"${MODULE}/core(/|\")" \
+    "${BACKEND_DIR}/pkg/" --glob '*.go' -g '!*testhelper*' -g '!*_test.go' || true)
+
+if [ -n "${PKG_CORE_IMPORTS}" ]; then
+    log_fail "backend/pkg/ 属于通用基础库，严禁依赖项目上层内核或契约 (${MODULE}/core/*):"
+    echo "${PKG_CORE_IMPORTS}" >&2
+else
+    log_pass "backend/pkg/ 零 core/ 依赖"
+fi
+
+# 3.3 pkg/util/ 严禁导入 Gin / ORM / Session 框架
 UTIL_FRAMEWORK_IMPORTS=$(rg -n '"gorm.io/gorm"|"github.com/gorilla/sessions"|"github.com/gin-gonic/gin"' \
     "${BACKEND_DIR}/pkg/util/" --glob '*.go' -g '!*_test.go' || true)
 

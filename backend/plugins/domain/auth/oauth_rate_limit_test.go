@@ -5,10 +5,9 @@ package auth_test
 
 import (
 	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/limiter"
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/auth"
+	"Wavelet/plugins/infra/cache_memory"
 	database "Wavelet/plugins/infra/database"
 	"context"
 	"encoding/json"
@@ -32,11 +31,7 @@ func TestOAuthRateLimiting(t *testing.T) {
 
 	testDB := setupTestDB(t)
 	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
-
-	// Provide in-memory limiter service
-	memLimiter := limiter.NewMemoryLimiter()
-	core.Provide[contracts.LimiterService](ctx, memLimiter)
-
+	require.NoError(t, cache_memory.New().Apply(ctx))
 	require.NoError(t, auth.New().Apply(ctx))
 
 	// Create an active OIDC source

@@ -1,10 +1,10 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package limiter
+package limiter_test
 
 import (
-	"Wavelet/core/contracts"
+	"Wavelet/pkg/limiter"
 	"context"
 	"sync"
 	"testing"
@@ -16,9 +16,9 @@ import (
 
 func TestMemoryLimiter_Basic(t *testing.T) {
 	ctx := context.Background()
-	lim := NewMemoryLimiter()
+	lim := limiter.NewMemoryLimiter()
 
-	rate := contracts.Rate{
+	rate := limiter.Rate{
 		Limit:  3,
 		Period: 100 * time.Millisecond,
 	}
@@ -61,9 +61,9 @@ func TestMemoryLimiter_Basic(t *testing.T) {
 
 func TestMemoryLimiter_WindowSlide(t *testing.T) {
 	ctx := context.Background()
-	lim := NewMemoryLimiter()
+	lim := limiter.NewMemoryLimiter()
 
-	rate := contracts.Rate{
+	rate := limiter.Rate{
 		Limit:  2,
 		Period: 50 * time.Millisecond,
 	}
@@ -90,9 +90,9 @@ func TestMemoryLimiter_WindowSlide(t *testing.T) {
 
 func TestMemoryLimiter_Concurrency(t *testing.T) {
 	ctx := context.Background()
-	lim := NewMemoryLimiter()
+	lim := limiter.NewMemoryLimiter()
 
-	rate := contracts.Rate{
+	rate := limiter.Rate{
 		Limit:  100,
 		Period: time.Second,
 	}

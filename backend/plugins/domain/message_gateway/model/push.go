@@ -15,7 +15,12 @@ const (
 	ChannelCustom    = "custom"
 	ChannelEmail     = "email"
 	ChannelLark      = "lark"
+	ChannelDingTalk  = "dingtalk"
 	ChannelTelegram  = "telegram"
+	ChannelBark      = "bark"
+	ChannelDiscord   = "discord"
+	ChannelSlack     = "slack"
+	ChannelPushover  = "pushover"
 	DefaultLevelInfo = "INFO"
 	KeyTitle         = "title"
 	KeyContent       = "content"
@@ -193,7 +198,17 @@ func ListPushDefinitions() []PushDefinition {
 	pushDefMu.RLock()
 	defer pushDefMu.RUnlock()
 
-	order := []string{ChannelCustom, ChannelLark, ChannelTelegram, ChannelEmail}
+	order := []string{
+		ChannelCustom,
+		ChannelLark,
+		ChannelDingTalk,
+		ChannelTelegram,
+		ChannelBark,
+		ChannelDiscord,
+		ChannelSlack,
+		ChannelPushover,
+		ChannelEmail,
+	}
 	res := make([]PushDefinition, 0, len(pushDefinitions))
 	for _, t := range order {
 		if d, ok := pushDefinitions[t]; ok {
@@ -215,6 +230,7 @@ func ListPushDefinitions() []PushDefinition {
 	return res
 }
 
+//nolint:funlen,goconst // Channel definitions registration table
 func init() {
 	RegisterPushChannelDefinition(PushDefinition{
 		Type:        ChannelCustom,
@@ -273,6 +289,30 @@ func init() {
 	})
 
 	RegisterPushChannelDefinition(PushDefinition{
+		Type:        ChannelDingTalk,
+		Name:        "钉钉群机器人",
+		Description: "配置钉钉群自定义机器人的 Webhook 接口投递。",
+		Fields: []PushField{
+			{
+				Key:         KeyURL,
+				Label:       "Webhook 地址",
+				Type:        TypeText,
+				Required:    true,
+				Placeholder: "https://oapi.dingtalk.com/robot/send?access_token=YOUR_TOKEN",
+				Description: "从钉钉群机器人设置中获取的完整 Webhook URL",
+			},
+			{
+				Key:         KeyToken,
+				Label:       "加签密钥 (Secret) (可选)",
+				Type:        TypeText,
+				Required:    false,
+				Placeholder: "可选，若机器人启用了安全设置中的加签校验，请在此输入 SEC 开头的密钥",
+				Description: "钉钉群机器人安全设置中的加签 Secret",
+			},
+		},
+	})
+
+	RegisterPushChannelDefinition(PushDefinition{
 		Type:        ChannelTelegram,
 		Name:        "Telegram 机器人",
 		Description: "配置 Telegram 机器人推送消息。",
@@ -300,6 +340,94 @@ func init() {
 				Required:    false,
 				Placeholder: "例如 -100123456789 或 @channel_name",
 				Description: "默认的消息接收 Chat ID。如果通知事件中未配置 targets，将推送到此 ID",
+			},
+		},
+	})
+
+	RegisterPushChannelDefinition(PushDefinition{
+		Type:        ChannelBark,
+		Name:        "Bark (iOS 推送)",
+		Description: "配置 Bark 推送通知至 iPhone / iPad 客户端。",
+		Fields: []PushField{
+			{
+				Key:         KeyToken,
+				Label:       "设备 Key (Device Key)",
+				Type:        TypeText,
+				Required:    true,
+				Placeholder: "Bark App 首页显示的 Device Key",
+				Description: "从 Bark App 复制的设备专属 Key",
+			},
+			{
+				Key:         KeyURL,
+				Label:       "Bark 服务器地址 (可选)",
+				Type:        TypeText,
+				Required:    false,
+				Placeholder: "https://api.day.app",
+				Description: "Bark 服务器地址，留空默认使用官方公共服务器 https://api.day.app",
+			},
+			{
+				Key:         KeyOther,
+				Label:       "额外配置 JSON (可选)",
+				Type:        TypeTextarea,
+				Required:    false,
+				Placeholder: "{\"group\": \"Wavelet\", \"sound\": \"minuet\", \"icon\": \"https://...\"}",
+				Description: "可选的 JSON 配置，支持 group (分组)、sound (铃声)、icon (自定义图标)",
+			},
+		},
+	})
+
+	RegisterPushChannelDefinition(PushDefinition{
+		Type:        ChannelDiscord,
+		Name:        "Discord 频道",
+		Description: "配置 Discord 频道的 Incoming Webhook 消息推送。",
+		Fields: []PushField{
+			{
+				Key:         KeyURL,
+				Label:       "Webhook 地址",
+				Type:        TypeText,
+				Required:    true,
+				Placeholder: "https://discord.com/api/webhooks/...",
+				Description: "从 Discord 频道集成设置中复制的 Webhook URL",
+			},
+		},
+	})
+
+	RegisterPushChannelDefinition(PushDefinition{
+		Type:        ChannelSlack,
+		Name:        "Slack 频道",
+		Description: "配置 Slack 频道的 Incoming Webhook 消息推送。",
+		Fields: []PushField{
+			{
+				Key:         KeyURL,
+				Label:       "Webhook 地址",
+				Type:        TypeText,
+				Required:    true,
+				Placeholder: "https://hooks.slack.com/services/...",
+				Description: "从 Slack 应用配置中复制的 Incoming Webhook URL",
+			},
+		},
+	})
+
+	RegisterPushChannelDefinition(PushDefinition{
+		Type:        ChannelPushover,
+		Name:        "Pushover 推送",
+		Description: "配置 Pushover 即时推送到手机/桌面客户端。",
+		Fields: []PushField{
+			{
+				Key:         KeyToken,
+				Label:       "应用 Token (App Token)",
+				Type:        TypePassword,
+				Required:    true,
+				Placeholder: "Pushover 创建应用生成的 API Token / Key",
+				Description: "从 Pushover 控制台创建的 Application API Token",
+			},
+			{
+				Key:         KeyURL,
+				Label:       "用户 Key (User Key)",
+				Type:        TypeText,
+				Required:    true,
+				Placeholder: "Pushover 账号主页的 User Key",
+				Description: "Pushover 个人账号的 User Key",
 			},
 		},
 	})

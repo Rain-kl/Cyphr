@@ -6,10 +6,10 @@ package user_test
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
-	"Wavelet/pkg/limiter"
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/auth"
 	"Wavelet/plugins/domain/user"
+	"Wavelet/plugins/infra/cache_memory"
 	database "Wavelet/plugins/infra/database"
 	"bytes"
 	"context"
@@ -34,11 +34,7 @@ func TestUserLoginRateLimiting(t *testing.T) {
 
 	testDB := setupTestDB(t)
 	require.NoError(t, database.New(database.WithDB(testDB)).Apply(ctx))
-
-	// Provide in-memory limiter service
-	memLimiter := limiter.NewMemoryLimiter()
-	core.Provide[contracts.LimiterService](ctx, memLimiter)
-
+	require.NoError(t, cache_memory.New().Apply(ctx))
 	require.NoError(t, auth.New().Apply(ctx))
 	require.NoError(t, user.New().Apply(ctx))
 

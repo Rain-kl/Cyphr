@@ -156,6 +156,20 @@ export function SettingsTab() {
           2,
         ),
       );
+    } else if (newType === 'bark') {
+      setChannelUrl('https://api.day.app');
+      setChannelOther(
+        JSON.stringify(
+          {
+            group: 'Wavelet',
+          },
+          null,
+          2,
+        ),
+      );
+    } else if (newType === 'telegram') {
+      setChannelUrl('https://api.telegram.org');
+      setChannelOther('');
     } else {
       setChannelOther('');
     }
@@ -224,10 +238,26 @@ export function SettingsTab() {
       }
     }
 
-    // 协议安全校验（非邮件服务且配置了地址时，强制 HTTPS 协议）
-    if (channelType !== 'email') {
+    // 协议安全校验（对特定 Webhook 服务且配置了地址时，强制 HTTPS 协议）
+    const httpsRequiredChannels = [
+      'custom',
+      'lark',
+      'dingtalk',
+      'discord',
+      'slack',
+      'telegram',
+    ];
+    if (httpsRequiredChannels.includes(channelType)) {
       if (channelUrl && !channelUrl.startsWith('https://')) {
         toast.error(t('httpsRequired'));
+        return;
+      }
+    } else if (channelType === 'bark' && channelUrl) {
+      if (
+        !channelUrl.startsWith('https://') &&
+        !channelUrl.startsWith('http://')
+      ) {
+        toast.error('Bark 服务器地址必须以 http:// 或 https:// 开头');
         return;
       }
     }
@@ -245,6 +275,13 @@ export function SettingsTab() {
         JSON.parse(channelOther);
       } catch {
         toast.error(t('larkTemplateFormat'));
+        return;
+      }
+    } else if (channelType === 'bark' && channelOther) {
+      try {
+        JSON.parse(channelOther);
+      } catch {
+        toast.error('Bark 额外配置必须是合法的 JSON 格式');
         return;
       }
     }

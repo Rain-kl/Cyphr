@@ -15,6 +15,7 @@ const (
 	defaultTitle             = "系统通知"
 	levelInfo                = "INFO"
 	defaultHTTPClientTimeout = 10 * time.Second
+	maxResponseBodyBytes     = 4096
 )
 
 // Config 基础通知渠道配置

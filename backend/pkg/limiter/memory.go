@@ -1,15 +1,28 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-// Package limiter provides in-memory rate limiting utilities.
+// Package limiter provides in-memory rate limiting utilities without external project dependencies.
 package limiter
 
 import (
-	"Wavelet/core/contracts"
 	"context"
 	"sync"
 	"time"
 )
+
+// Rate specifies a rate limit of Limit events permitted within a Period.
+type Rate struct {
+	Limit  int
+	Period time.Duration
+}
+
+// Result holds the outcome of an Allow check.
+type Result struct {
+	Allowed    bool
+	Remaining  int
+	ResetAfter time.Duration
+	RetryAfter time.Duration
+}
 
 type memoryEntry struct {
 	timestamps []time.Time
@@ -29,10 +42,10 @@ func (e *memoryEntry) prune(cutoff time.Time) {
 	}
 }
 
-func (e *memoryEntry) calcBlockedResult(limit int, period time.Duration, now time.Time) *contracts.RateLimitResult {
+func (e *memoryEntry) calcBlockedResult(limit int, period time.Duration, now time.Time) *Result {
 	currentCount := len(e.timestamps)
 	if currentCount == 0 {
-		return &contracts.RateLimitResult{
+		return &Result{
 			Allowed:    false,
 			Remaining:  limit,
 			ResetAfter: period,
@@ -46,7 +59,7 @@ func (e *memoryEntry) calcBlockedResult(limit int, period time.Duration, now tim
 	newest := e.timestamps[currentCount-1]
 	resetAfter := max(0, newest.Add(period).Sub(now))
 
-	return &contracts.RateLimitResult{
+	return &Result{
 		Allowed:    false,
 		Remaining:  limit - currentCount,
 		ResetAfter: resetAfter,
@@ -54,7 +67,7 @@ func (e *memoryEntry) calcBlockedResult(limit int, period time.Duration, now tim
 	}
 }
 
-// MemoryLimiter implements contracts.LimiterService using an in-memory sliding window algorithm.
+// MemoryLimiter implements an in-memory sliding window rate limiter.
 type MemoryLimiter struct {
 	mu      sync.Mutex
 	entries map[string]*memoryEntry
@@ -68,14 +81,14 @@ func NewMemoryLimiter() *MemoryLimiter {
 }
 
 // Allow checks whether 1 event for key is permitted under rate.
-func (m *MemoryLimiter) Allow(ctx context.Context, key string, rate contracts.Rate) (*contracts.RateLimitResult, error) {
+func (m *MemoryLimiter) Allow(ctx context.Context, key string, rate Rate) (*Result, error) {
 	return m.AllowN(ctx, key, rate, 1)
 }
 
 // AllowN checks whether n events for key are permitted under rate.
-func (m *MemoryLimiter) AllowN(_ context.Context, key string, rate contracts.Rate, n int) (*contracts.RateLimitResult, error) {
+func (m *MemoryLimiter) AllowN(_ context.Context, key string, rate Rate, n int) (*Result, error) {
 	if rate.Limit <= 0 || rate.Period <= 0 || n <= 0 {
-		return &contracts.RateLimitResult{Allowed: true}, nil
+		return &Result{Allowed: true}, nil
 	}
 
 	m.mu.Lock()
@@ -102,7 +115,7 @@ func (m *MemoryLimiter) AllowN(_ context.Context, key string, rate contracts.Rat
 
 	remaining := max(0, rate.Limit-len(entry.timestamps))
 
-	return &contracts.RateLimitResult{
+	return &Result{
 		Allowed:    true,
 		Remaining:  remaining,
 		ResetAfter: rate.Period,
