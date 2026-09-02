@@ -4115,7 +4115,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: 返回系统配置表中 visibility 为 1 的配置键值集合
+      description: 返回系统配置表中 visibility 为 1 的扁平键值集合（如 cap_login_enabled）
       produces:
       - application/json
       responses:

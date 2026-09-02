@@ -9,6 +9,7 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"Wavelet/pkg/ginutil"
+	"context"
 	"embed"
 	"reflect"
 
@@ -113,19 +114,12 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 	core.Provide[contracts.UserService](ctx, p.userSvc)
 
-	passThrough := gin.HandlerFunc(func(c *gin.Context) { c.Next() })
-	loginCap, registerCap, emailCap := passThrough, passThrough, passThrough
-	if capSvc, err := core.Inject[contracts.CaptchaService](ctx); err == nil && capSvc != nil {
-		if mw, ok := capSvc.VerifyMiddleware("login").(gin.HandlerFunc); ok {
-			loginCap = mw
-		}
-		if mw, ok := capSvc.VerifyMiddleware("register").(gin.HandlerFunc); ok {
-			registerCap = mw
-		}
-		if mw, ok := capSvc.VerifyMiddleware("send_email_code").(gin.HandlerFunc); ok {
-			emailCap = mw
-		}
-	}
+	// CAP middleware is resolved per request. user Apply runs before cap in
+	// the default plugin list; snapshotting CaptchaService here would leave
+	// login/register as a permanent pass-through.
+	loginCap := captchaGuard(ctx, "login")
+	registerCap := captchaGuard(ctx, "register")
+	emailCap := captchaGuard(ctx, "send_email_code")
 
 	// 3. Register HTTP Routes
 	userGroup := ctx.Router().Group("/api/v1/user")
@@ -180,5 +174,33 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		Category:    "security",
 	})
 
+	return nil
+}
+
+func captchaGuard(appCtx *core.Context, scope string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		svc := resolveCaptchaService(c.Request.Context(), appCtx)
+		if svc == nil {
+			c.Next()
+			return
+		}
+		mw, ok := svc.VerifyMiddleware(scope).(gin.HandlerFunc)
+		if !ok || mw == nil {
+			c.Next()
+			return
+		}
+		mw(c)
+	}
+}
+
+func resolveCaptchaService(reqCtx context.Context, appCtx *core.Context) contracts.CaptchaService {
+	if s, err := core.InjectFrom[contracts.CaptchaService](reqCtx); err == nil && s != nil {
+		return s
+	}
+	if appCtx != nil {
+		if s, err := core.Inject[contracts.CaptchaService](appCtx); err == nil && s != nil {
+			return s
+		}
+	}
 	return nil
 }

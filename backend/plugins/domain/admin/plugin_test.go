@@ -5,6 +5,7 @@ package admin_test
 
 import (
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/admin"
 	"context"
 	"testing"
@@ -40,6 +41,10 @@ func TestAdminPluginUnit(t *testing.T) {
 	setting, ok := ctx.Settings().Get("admin.system_cleanup_cron")
 	require.True(t, ok)
 	assert.Equal(t, "0 4 * * *", setting.Default)
+
+	provider, err := core.Inject[contracts.PublicConfigProvider](ctx)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
 }
 
 func TestAdminMigrationsIncludeTaskExecutionsAndSchedules(t *testing.T) {

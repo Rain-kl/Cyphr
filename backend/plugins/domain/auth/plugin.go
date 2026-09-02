@@ -119,6 +119,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		"/api/v1/user/login",
 		"/api/v1/user/register",
 		"/api/v1/user/send-email-code",
+		"/api/v1/config/public",
 		"/api/v1/cap/challenge",
 		"/api/v1/cap/redeem",
 		"/api/healthz",

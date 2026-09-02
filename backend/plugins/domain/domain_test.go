@@ -11,16 +11,21 @@ import (
 	"Wavelet/plugins/domain/auth"
 	"Wavelet/plugins/domain/message_gateway"
 	"Wavelet/plugins/domain/risk_control"
+	"Wavelet/plugins/domain/system"
 	"Wavelet/plugins/domain/user"
 	"Wavelet/plugins/infra/cache"
 	"Wavelet/plugins/infra/logger"
 	"Wavelet/plugins/infra/storage"
 	"context"
+	"encoding/json"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -388,6 +393,64 @@ func TestAdminPlugin(t *testing.T) {
 	schema, ok := ctx.Settings().Get("admin.system_cleanup_cron")
 	require.True(t, ok)
 	assert.Equal(t, "0 4 * * *", schema.Default)
+
+	provider, err := core.Inject[contracts.PublicConfigProvider](ctx)
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+}
+
+func TestPublicConfigExposesVisibleAdminRows(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
+	testDB := setupTestDB(t)
+
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, cache.New().Apply(ctx))
+	require.NoError(t, logger.New().Apply(ctx))
+
+	require.NoError(t, testDB.Create(&admin.SystemConfig{
+		Key:        "cap_login_enabled",
+		Value:      "true",
+		Type:       "system",
+		Visibility: 1,
+	}).Error)
+
+	require.NoError(t, admin.New().Apply(ctx))
+	require.NoError(t, system.New().Apply(ctx))
+
+	var handler gin.HandlerFunc
+	for _, rd := range ctx.Router().Routes() {
+		if rd.Method != "GET" || rd.Path != "/api/v1/config/public" {
+			continue
+		}
+		require.NotEmpty(t, rd.Handlers)
+		switch h := rd.Handlers[0].(type) {
+		case gin.HandlerFunc:
+			handler = h
+		case func(*gin.Context):
+			handler = h
+		default:
+			t.Fatalf("unexpected handler type %T", rd.Handlers[0])
+		}
+		break
+	}
+	require.NotNil(t, handler)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/config/public", nil)
+	c.Request = c.Request.WithContext(core.WithAppContext(c.Request.Context(), ctx))
+	handler(c)
+
+	var body struct {
+		Data map[string]string `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body), "body = %s", w.Body.String())
+	assert.Equal(t, "true", body.Data["cap_login_enabled"])
+	_, wrapped := body.Data["configs"]
+	assert.False(t, wrapped, "payload must be a flat map, got %v", body.Data)
 }
 
 func TestAllDomainPluginsCombined(t *testing.T) {

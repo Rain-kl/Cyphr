@@ -24,12 +24,10 @@ func setDBService(s contracts.DBService) {
 	dbSvc = s
 }
 
-// getDB resolves a GORM handle, preferring the *core.Context when supplied by callers.
+// getDB resolves a GORM handle from the request/app context, then the Bind fallback.
 func getDB(ctx context.Context) *gorm.DB {
-	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s, err := core.Inject[contracts.DBService](c); err == nil && s != nil {
-			return s.DB(ctx)
-		}
+	if s, err := core.InjectFrom[contracts.DBService](ctx); err == nil && s != nil {
+		return s.DB(ctx)
 	}
 	dbMu.RLock()
 	s := dbSvc

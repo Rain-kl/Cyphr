@@ -4538,7 +4538,7 @@ const docTemplate = `{
         },
         "/api/v1/config/public": {
             "get": {
-                "description": "返回系统配置表中 visibility 为 1 的配置键值集合",
+                "description": "返回系统配置表中 visibility 为 1 的扁平键值集合（如 cap_login_enabled）",
                 "consumes": [
                     "application/json"
                 ],

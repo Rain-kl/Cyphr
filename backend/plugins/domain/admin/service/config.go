@@ -18,6 +18,14 @@ import (
 
 const maskedConfigValue = "******"
 
+// PublicConfigAdapter exposes visibility=1 system configs as PublicConfigProvider.
+type PublicConfigAdapter struct{}
+
+// PublicConfig returns the unauthenticated public config map.
+func (PublicConfigAdapter) PublicConfig(ctx context.Context) (map[string]string, error) {
+	return PublicSystemConfigs(ctx)
+}
+
 // PublicSystemConfigs returns the key/value map exposed to unauthenticated clients.
 func PublicSystemConfigs(ctx context.Context) (map[string]string, error) {
 	configs, err := repository.ListVisibleSystemConfigs(ctx)
