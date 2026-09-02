@@ -119,6 +119,26 @@ function isPublicAuthRequest(url?: string): boolean {
   );
 }
 
+function initiateLogin(currentPath: string): Promise<never> {
+  if (
+    currentPath.startsWith('/login') ||
+    currentPath.startsWith('/register') ||
+    currentPath.startsWith('/callback') ||
+    currentPath.startsWith('/403')
+  ) {
+    return Promise.reject(new UnauthorizedError());
+  }
+
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('redirect_after_login', currentPath);
+    const loginUrl = new URL('/login', window.location.origin);
+    loginUrl.searchParams.set('callbackUrl', currentPath);
+    window.location.href = loginUrl.toString();
+  }
+
+  return new Promise<never>(() => {});
+}
+
 /**
  * 响应拦截器
  * 处理 API 响应和统一错误处理
@@ -152,13 +172,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(cancelError);
     }
 
-    /* 401：未登录。公开认证接口只把错误交给页面；已登录态下的误报不得清 cookie 跳登录页。 */
+    /* 401：未登录 → 登录页。登录/注册/人机校验接口把错误交给表单。 */
     if (error.response?.status === 401) {
       const message = error.response.data?.error_msg || '未登录';
-      if (!isPublicAuthRequest(error.config?.url)) {
-        toast.error(message, { id: 'unauthorized-error' });
+      if (isPublicAuthRequest(error.config?.url)) {
+        return Promise.reject(new UnauthorizedError(message));
       }
-      return Promise.reject(new UnauthorizedError(message));
+      return initiateLogin(window.location.pathname + window.location.search);
     }
 
     /* 403：已登录但权限不足，进入独立 403 页，不清 cookie。 */

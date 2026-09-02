@@ -73,9 +73,94 @@ if (typeof setInterval !== 'undefined') {
   }, 60000);
 }
 
+function backendOrigin(): string {
+  return process.env.WAVELET_BACKEND_URL || 'http://localhost:8000';
+}
+
+function isMultipart(request: NextRequest): boolean {
+  return (request.headers.get('content-type') || '').includes(
+    'multipart/form-data',
+  );
+}
+
+function isDocumentNavigation(request: NextRequest): boolean {
+  return request.headers.get('sec-fetch-dest') === 'document';
+}
+
+async function proxyApiToBackend(request: NextRequest): Promise<NextResponse> {
+  const { pathname, search } = request.nextUrl;
+  const url = `${backendOrigin()}${pathname}${search}`;
+  const headers = new Headers();
+  request.headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (
+      lower === 'host' ||
+      lower === 'connection' ||
+      lower === 'content-length' ||
+      lower === 'transfer-encoding'
+    ) {
+      return;
+    }
+    headers.set(key, value);
+  });
+  const host = request.headers.get('host');
+  if (host) {
+    headers.set('x-forwarded-host', host);
+  }
+  headers.set(
+    'x-forwarded-proto',
+    request.nextUrl.protocol.replace(':', '') || 'http',
+  );
+
+  const method = request.method.toUpperCase();
+  const init: RequestInit = {
+    method,
+    headers,
+    redirect: 'manual',
+  };
+  if (method !== 'GET' && method !== 'HEAD') {
+    init.body = request.body;
+    Object.assign(init, { duplex: 'half' });
+  }
+
+  const upstream = await fetch(url, init);
+
+  if (isDocumentNavigation(request)) {
+    if (upstream.status === 401) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', '/home');
+      return NextResponse.redirect(loginUrl);
+    }
+    if (upstream.status === 403) {
+      return NextResponse.redirect(new URL('/403', request.url));
+    }
+  }
+
+  const responseHeaders = new Headers();
+  upstream.headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (lower === 'set-cookie' || lower === 'transfer-encoding') {
+      return;
+    }
+    responseHeaders.set(key, value);
+  });
+  const out = new NextResponse(upstream.body, {
+    status: upstream.status,
+    headers: responseHeaders,
+  });
+  const cookies =
+    typeof upstream.headers.getSetCookie === 'function'
+      ? upstream.headers.getSetCookie()
+      : [];
+  for (const cookie of cookies) {
+    out.headers.append('set-cookie', cookie);
+  }
+  return out;
+}
+
 /* ==================== 代理主函数 ==================== */
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const sessionCookieName =
     process.env.WAVELET_SESSION_COOKIE_NAME || 'wavelet_session_id';
@@ -86,7 +171,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  /* API 请求：速率限制后放行 */
+  /* API 请求：速率限制后反代，并原样回写 Set-Cookie（rewrites 会丢登录 Cookie） */
   if (pathname.startsWith('/api/')) {
     const rateLimitEnabled = process.env.WAVELET_RATE_LIMIT_ENABLED === 'true';
 
@@ -108,7 +193,17 @@ export function proxy(request: NextRequest) {
         );
       }
     }
-    return NextResponse.next();
+    if (isMultipart(request)) {
+      return NextResponse.next();
+    }
+    try {
+      return await proxyApiToBackend(request);
+    } catch {
+      return NextResponse.json(
+        { error_msg: '无法连接到服务器', data: null },
+        { status: 502 },
+      );
+    }
   }
 
   /* 页面请求：公共路由放行 */

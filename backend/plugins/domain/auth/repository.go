@@ -34,10 +34,8 @@ func setCacheService(s contracts.CacheService) {
 }
 
 func getDB(ctx context.Context) *gorm.DB {
-	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s, err := core.Inject[contracts.DBService](c); err == nil && s != nil {
-			return s.DB(ctx)
-		}
+	if s, err := core.InjectFrom[contracts.DBService](ctx); err == nil && s != nil {
+		return s.DB(ctx)
 	}
 	dbMu.RLock()
 	s := dbSvc
@@ -49,10 +47,8 @@ func getDB(ctx context.Context) *gorm.DB {
 }
 
 func getCache(ctx context.Context) contracts.CacheService {
-	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s, err := core.Inject[contracts.CacheService](c); err == nil && s != nil {
-			return s
-		}
+	if s, err := core.InjectFrom[contracts.CacheService](ctx); err == nil && s != nil {
+		return s
 	}
 	cacheMu.RLock()
 	s := cacheSvc
