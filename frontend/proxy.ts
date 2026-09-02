@@ -81,6 +81,11 @@ export function proxy(request: NextRequest) {
     process.env.WAVELET_SESSION_COOKIE_NAME || 'wavelet_session_id';
   const sessionCookie = request.cookies.get(sessionCookieName);
 
+  // WebSocket upgrades must pass through to rewrites untouched.
+  if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+    return NextResponse.next();
+  }
+
   /* API 请求：速率限制后放行 */
   if (pathname.startsWith('/api/')) {
     const rateLimitEnabled = process.env.WAVELET_RATE_LIMIT_ENABLED === 'true';
@@ -136,7 +141,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/api/:path*',
-    '/((?!_next|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:jpg|jpeg|gif|png|svg|ico|webp)).*)',
+    '/api/((?!v1/admin/logs/ws).*)',
+    '/((?!_next|favicon.ico|robots.txt|sitemap.xml|api/v1/admin/logs/ws|.*\\.(?:jpg|jpeg|gif|png|svg|ico|webp)).*)',
   ],
 };

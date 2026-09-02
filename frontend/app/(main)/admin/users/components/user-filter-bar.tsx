@@ -218,7 +218,7 @@ export function UserFilterBar() {
 
       <div className='flex items-center gap-1.5 self-end lg:self-auto'>
         <span className='text-[10px] text-muted-foreground whitespace-nowrap'>
-          {t('totalRecords', { count: total })}
+          {t('totalRecords', { total })}
         </span>
         <div className='flex items-center border border-dashed rounded-md shadow-none'>
           <Button
