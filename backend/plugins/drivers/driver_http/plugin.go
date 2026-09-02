@@ -252,25 +252,40 @@ func (p *Plugin) mountContextRoutes(ctx context.Context) error {
 	}
 	p.engine.Use(appContextMiddleware(ctx, p.coreCtx.Root()))
 	SetWhitelist(p.coreCtx.Router().Whitelist())
+
+	globalMW, err := toGinHandlers(p.coreCtx.Router().Middlewares())
+	if err != nil {
+		return fmt.Errorf("driver_http: invalid global middleware: %w", err)
+	}
+
 	for _, rd := range p.coreCtx.Router().Routes() {
-		allHandlers := make([]gin.HandlerFunc, 0, len(rd.Middlewares)+len(rd.Handlers))
-		for _, m := range rd.Middlewares {
-			gh, err := toGinHandler(m)
-			if err != nil {
-				return fmt.Errorf("driver_http: invalid middleware for route %s %s: %w", rd.Method, rd.Path, err)
-			}
-			allHandlers = append(allHandlers, gh)
+		routeMW, convErr := toGinHandlers(rd.Middlewares)
+		if convErr != nil {
+			return fmt.Errorf("driver_http: invalid middleware for route %s %s: %w", rd.Method, rd.Path, convErr)
 		}
-		for _, h := range rd.Handlers {
-			gh, err := toGinHandler(h)
-			if err != nil {
-				return fmt.Errorf("driver_http: invalid handler for route %s %s: %w", rd.Method, rd.Path, err)
-			}
-			allHandlers = append(allHandlers, gh)
+		handlers, convErr := toGinHandlers(rd.Handlers)
+		if convErr != nil {
+			return fmt.Errorf("driver_http: invalid handler for route %s %s: %w", rd.Method, rd.Path, convErr)
 		}
+		allHandlers := make([]gin.HandlerFunc, 0, len(globalMW)+len(routeMW)+len(handlers))
+		allHandlers = append(allHandlers, globalMW...)
+		allHandlers = append(allHandlers, routeMW...)
+		allHandlers = append(allHandlers, handlers...)
 		p.engine.Handle(rd.Method, rd.Path, allHandlers...)
 	}
 	return nil
+}
+
+func toGinHandlers(hs []any) ([]gin.HandlerFunc, error) {
+	out := make([]gin.HandlerFunc, 0, len(hs))
+	for _, h := range hs {
+		gh, err := toGinHandler(h)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, gh)
+	}
+	return out, nil
 }
 
 //nolint:contextcheck // middleware must wrap the gin request context, not Start's ctx

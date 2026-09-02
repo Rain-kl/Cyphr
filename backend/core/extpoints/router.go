@@ -95,11 +95,12 @@ func (r *RouterRegistry) addRoute(method, fullPath string, handlers ...any) Rout
 
 	r.nextID++
 	rd := RouteDefinition{
-		ID:          r.nextID,
-		Method:      strings.ToUpper(method),
-		Path:        fullPath,
-		Handlers:    handlers,
-		Middlewares: append([]any(nil), r.middlewares...),
+		ID:       r.nextID,
+		Method:   strings.ToUpper(method),
+		Path:     fullPath,
+		Handlers: handlers,
+		// Global Router.Use middlewares are applied at HTTP Start from
+		// Router.Middlewares(), so late-registered plugins still wrap earlier routes.
 	}
 	r.routes = append(r.routes, rd)
 	return rd
@@ -241,9 +242,7 @@ func (g *RouterGroup) addRoute(method, fullPath string, handlers ...any) RouteDe
 	g.registry.mu.Lock()
 	defer g.registry.mu.Unlock()
 
-	allMiddlewares := make([]any, 0, len(g.registry.middlewares)+len(g.middlewares))
-	allMiddlewares = append(allMiddlewares, g.registry.middlewares...)
-	allMiddlewares = append(allMiddlewares, g.middlewares...)
+	allMiddlewares := append([]any(nil), g.middlewares...)
 
 	g.registry.nextID++
 	rd := RouteDefinition{

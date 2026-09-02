@@ -152,6 +152,41 @@ func TestHTTPDriverLifecycle(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestHTTPDriverAppliesGlobalMiddlewareRegisteredAfterRoutes(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
+
+	ctx.Router().GET("/early", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	var called atomic.Bool
+	ctx.Router().Use(func(c *gin.Context) {
+		called.Store(true)
+		c.Next()
+	})
+
+	httpPlugin := driver_http.New(driver_http.WithAddr("127.0.0.1:0"))
+	require.NoError(t, httpPlugin.Apply(ctx))
+	d, ok := ctx.Driver(core.DriverTypeHTTP)
+	require.True(t, ok)
+	require.NoError(t, d.Start(context.Background()))
+	t.Cleanup(func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = d.Stop(stopCtx)
+	})
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/early", httpPlugin.Addr()))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	if !called.Load() {
+		t.Fatal("Router.Use middleware registered after the route must still run at HTTP Start")
+	}
+}
+
 func TestAsynqWorkerDriverLifecycle(t *testing.T) {
 	mr, err := miniredis.Run()
 	require.NoError(t, err)

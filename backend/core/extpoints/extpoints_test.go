@@ -80,17 +80,32 @@ func TestRouterExtension(t *testing.T) {
 	for _, route := range routes {
 		if route.Method == "GET" && route.Path == "/api/v1/orders" {
 			foundOrderGet = true
-			assert.Equal(t, []any{mGlobal, mAPI, "api_extra_middleware"}, route.Middlewares)
+			assert.Equal(t, []any{mAPI, "api_extra_middleware"}, route.Middlewares)
 			assert.Equal(t, []any{hList}, route.Handlers)
 		}
 		if route.Method == "PUT" && route.Path == "/api/v1/admin/users/:id" {
 			foundUserPut = true
-			assert.Equal(t, []any{mGlobal, mAPI, "api_extra_middleware", mAdmin}, route.Middlewares)
+			assert.Equal(t, []any{mAPI, "api_extra_middleware", mAdmin}, route.Middlewares)
 			assert.Equal(t, []any{hUserPut}, route.Handlers)
 		}
 	}
 	assert.True(t, foundOrderGet)
 	assert.True(t, foundUserPut)
+}
+
+func TestRouterGlobalMiddlewareIsNotSnapshottedOntoRoutes(t *testing.T) {
+	r := extpoints.NewRouterRegistry()
+	r.GET("/before", "handler")
+	r.Use("late_global")
+	r.GET("/after", "handler")
+
+	for _, route := range r.Routes() {
+		if len(route.Middlewares) != 0 {
+			t.Errorf("route %s %s Middlewares = %v, want none (globals live on Router.Middlewares)",
+				route.Method, route.Path, route.Middlewares)
+		}
+	}
+	assert.Equal(t, []any{"late_global"}, r.Middlewares())
 }
 
 func TestRouterWhitelist(t *testing.T) {
