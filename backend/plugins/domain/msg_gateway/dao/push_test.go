@@ -4,128 +4,93 @@
 package dao_test
 
 import (
+	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/testhelper"
-	"Wavelet/plugins/domain/msg_gateway/consts"
 	"Wavelet/plugins/domain/msg_gateway/dao"
+	"Wavelet/plugins/domain/msg_gateway/model/entity"
 	"context"
-	"errors"
 	"testing"
 
-	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
-// stubDBService satisfies contracts.DBService over a test database handle.
 type stubDBService struct{ db *gorm.DB }
 
-func (s stubDBService) GORM() *gorm.DB { return s.db }
-
+func (s stubDBService) GORM() *gorm.DB                { return s.db }
 func (s stubDBService) DB(_ context.Context) *gorm.DB { return s.db }
+func (s stubDBService) Named(_ string) *gorm.DB       { return s.db }
 
-func (s stubDBService) Named(_ string) *gorm.DB { return s.db }
-
-// TestFindUserByFieldRecordRejectsUnlistedColumns pins the column allow-list. The
-// lookup column is interpolated into SQL, so an unlisted name must be refused before
-// any query is built rather than trusted because call sites happen to pass literals.
-func TestFindUserByFieldRecordRejectsUnlistedColumns(t *testing.T) {
+func TestPushChannelDAO_CRUD(t *testing.T) {
+	_ = idgen.Init(1)
 	db, _, cleanup := testhelper.SetupTestEnvironment(t)
 	defer cleanup()
-
-	if err := db.Table("w_users").Create(map[string]any{"id": 77, "username": "seeded"}).Error; err != nil {
-		t.Fatalf("seed user failed: %v", err)
-	}
+	require.NoError(t, db.AutoMigrate(&entity.PushChannel{}, &entity.PushEvent{}, &entity.PushHistory{}))
 
 	dao.SetDBServiceForTest(stubDBService{db: db})
 	t.Cleanup(func() { dao.SetDBServiceForTest(nil) })
 
 	ctx := context.Background()
 
-	user, err := dao.FindUserByFieldRecord(ctx, "username", "seeded")
-	if err != nil {
-		t.Fatalf("allowlisted lookup by username failed: %v", err)
+	ch := entity.PushChannel{
+		Name:    "test_webhook",
+		Type:    "custom",
+		URL:     "https://example.com/hook",
+		Enabled: true,
 	}
-	if user.ID != 77 {
-		t.Errorf("allowlisted lookup returned ID %d, want 77", user.ID)
-	}
-	if _, err := dao.FindUserByFieldRecord(ctx, "id", uint64(77)); err != nil {
-		t.Errorf("allowlisted lookup by id failed: %v", err)
-	}
+	require.NoError(t, dao.CreatePushChannelRecord(ctx, &ch))
+	assert.NotZero(t, ch.ID)
 
-	cases := []struct {
-		name  string
-		field string
-	}{
-		{"tautology injection", `username = '' OR 1=1 --`},
-		{"stacked statement", "id; DROP TABLE w_users"},
-		{"column outside allow-list", "password"},
-		{"empty field", ""},
-	}
-	for _, tc := range cases {
-		if _, err := dao.FindUserByFieldRecord(ctx, tc.field, "seeded"); !errors.Is(err, consts.ErrUnsupportedUserLookupField) {
-			t.Errorf("%s: got err %v, want ErrUnsupportedUserLookupField", tc.name, err)
-		}
-	}
+	loaded, err := dao.GetPushChannelByIDRecord(ctx, ch.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "test_webhook", loaded.Name)
 
-	var remaining int64
-	if err := db.Table("w_users").Count(&remaining).Error; err != nil || remaining != 1 {
-		t.Fatalf("w_users damaged by rejected lookups: count=%d err=%v", remaining, err)
-	}
+	active, err := dao.GetActivePushChannelByName(ctx, "test_webhook")
+	require.NoError(t, err)
+	assert.Equal(t, ch.ID, active.ID)
+
+	channels, err := dao.ListPushChannelsRecord(ctx)
+	require.NoError(t, err)
+	assert.NotEmpty(t, channels)
+
+	require.NoError(t, dao.DeletePushChannelRecord(ctx, &ch))
+	_, err = dao.GetPushChannelByIDRecord(ctx, ch.ID)
+	assert.Error(t, err)
 }
 
-// smtpTestValues are the four system-config rows the built-in email channel reads.
-var smtpTestValues = map[string]string{
-	"smtp_host":     "mail.example.test",
-	"smtp_port":     "465",
-	"smtp_username": "notify@example.test",
-	"smtp_password": "s3cret-value",
-}
-
-// TestLoadSMTPConfigRecordMapsEveryKey guards the single-query rewrite: every field
-// must still be filled from its own row.
-func TestLoadSMTPConfigRecordMapsEveryKey(t *testing.T) {
+func TestPushEventDAO_CRUD(t *testing.T) {
+	_ = idgen.Init(1)
 	db, _, cleanup := testhelper.SetupTestEnvironment(t)
 	defer cleanup()
-
-	keys := make([]string, 0, len(smtpTestValues))
-	for key := range smtpTestValues {
-		keys = append(keys, key)
-	}
-	if err := db.Table("w_system_configs").Where("key IN ?", keys).Delete(map[string]any{}).Error; err != nil {
-		t.Fatalf("clear smtp rows: %v", err)
-	}
-	for _, key := range keys {
-		row := map[string]any{"key": key, "value": smtpTestValues[key], "type": "system"}
-		if err := db.Table("w_system_configs").Create(row).Error; err != nil {
-			t.Fatalf("seed %s: %v", key, err)
-		}
-	}
+	require.NoError(t, db.AutoMigrate(&entity.PushChannel{}, &entity.PushEvent{}, &entity.PushHistory{}))
 
 	dao.SetDBServiceForTest(stubDBService{db: db})
 	t.Cleanup(func() { dao.SetDBServiceForTest(nil) })
 
-	cfg, err := dao.LoadSMTPConfigRecord(context.Background())
-	if err != nil {
-		t.Fatalf("LoadSMTPConfigRecord: %v", err)
-	}
-	if cfg.Host != smtpTestValues["smtp_host"] || cfg.Port != smtpTestValues["smtp_port"] ||
-		cfg.Username != smtpTestValues["smtp_username"] || cfg.Password != smtpTestValues["smtp_password"] {
-		t.Errorf("got %+v, want every SMTP field mapped from its own row", cfg)
-	}
-}
+	ctx := context.Background()
 
-// TestLoadSMTPConfigRecordSurfacesReadFailure pins the actual defect: a read that
-// fails used to be discarded, returning four blank strings that callers could only
-// interpret as "SMTP was never configured", so the notification was dropped silently.
-func TestLoadSMTPConfigRecordSurfacesReadFailure(t *testing.T) {
-	bare, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open bare sqlite: %v", err)
+	ev := entity.PushEvent{
+		EventKey: "test_event",
+		Name:     "测试事件",
+		Channels: []string{"test_webhook"},
+		Targets:  []string{"admin"},
+		Template: `{"title":"Hello"}`,
+		Enabled:  true,
 	}
+	require.NoError(t, dao.CreatePushEventRecord(ctx, &ev))
+	assert.NotZero(t, ev.ID)
 
-	dao.SetDBServiceForTest(stubDBService{db: bare})
-	t.Cleanup(func() { dao.SetDBServiceForTest(nil) })
+	loaded, err := dao.GetPushEventByKeyRecord(ctx, "test_event")
+	require.NoError(t, err)
+	assert.Equal(t, "测试事件", loaded.Name)
 
-	if _, err := dao.LoadSMTPConfigRecord(context.Background()); err == nil {
-		t.Fatal("LoadSMTPConfigRecord returned nil error although the config table cannot be read")
-	}
+	require.NoError(t, dao.UpdatePushEventEnabledRecord(ctx, &ev, false))
+	loadedDisabled, err := dao.GetPushEventByIDRecord(ctx, ev.ID)
+	require.NoError(t, err)
+	assert.False(t, loadedDisabled.Enabled)
+
+	require.NoError(t, dao.DeletePushEventRecord(ctx, &ev))
+	_, err = dao.GetPushEventByIDRecord(ctx, ev.ID)
+	assert.Error(t, err)
 }

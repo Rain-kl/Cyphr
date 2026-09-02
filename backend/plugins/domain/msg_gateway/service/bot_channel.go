@@ -90,7 +90,7 @@ func UpdateChannel(ctx context.Context, id uint64, req do.UpdateChannelRequest) 
 	row, err := dao.GetMessageChannel(ctx, id)
 	if err != nil {
 		if errors.Is(err, consts.ErrRecordNotFound) {
-			return do.ChannelDTO{}, errors.New(consts.ErrChannelNotFound)
+			return do.ChannelDTO{}, errors.New(consts.ErrChannelNotFoundText)
 		}
 		return do.ChannelDTO{}, err
 	}
@@ -157,7 +157,7 @@ func ListChannels(ctx context.Context) ([]do.ChannelDTO, error) {
 func DeleteChannel(ctx context.Context, id uint64) error {
 	if _, err := dao.GetMessageChannel(ctx, id); err != nil {
 		if errors.Is(err, consts.ErrRecordNotFound) {
-			return errors.New(consts.ErrChannelNotFound)
+			return errors.New(consts.ErrChannelNotFoundText)
 		}
 		return err
 	}
@@ -169,7 +169,7 @@ func ProbeChannel(ctx context.Context, id uint64) error {
 	row, err := dao.GetMessageChannel(ctx, id)
 	if err != nil {
 		if errors.Is(err, consts.ErrRecordNotFound) {
-			return errors.New(consts.ErrChannelNotFound)
+			return errors.New(consts.ErrChannelNotFoundText)
 		}
 		return err
 	}
@@ -284,28 +284,4 @@ func ToDTO(row *entity.MessageChannel, creds, extra map[string]string) do.Channe
 		Credentials: MaskCredentials(row.Type, creds),
 		Extra:       extra,
 	}
-}
-
-// MaskCredentials hides secret bearing credential entries.
-func MaskCredentials(_ string, in map[string]string) map[string]string {
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		if k == "token" || k == "client_secret" {
-			out[k] = MaskSecret(v)
-		} else {
-			out[k] = v
-		}
-	}
-	return out
-}
-
-const minMaskSecretLength = 8
-
-// MaskSecret keeps only a short visible prefix and suffix of a secret.
-func MaskSecret(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= minMaskSecretLength {
-		return "******"
-	}
-	return s[:4] + "..." + s[len(s)-4:]
 }

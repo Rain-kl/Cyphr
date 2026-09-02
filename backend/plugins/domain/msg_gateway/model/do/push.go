@@ -6,7 +6,6 @@ package do
 import (
 	"Wavelet/plugins/domain/msg_gateway/consts"
 	pkgpush "Wavelet/plugins/domain/msg_gateway/push"
-	"sync"
 	"time"
 )
 
@@ -159,58 +158,9 @@ type PushNotificationEvent struct {
 	Metadata map[string]any `json:"metadata,omitempty"`
 }
 
-var (
-	pushDefMu       sync.RWMutex
-	pushDefinitions = make(map[string]PushDefinition)
-)
-
-// RegisterPushChannelDefinition registers a channel definition.
-func RegisterPushChannelDefinition(def PushDefinition) {
-	pushDefMu.Lock()
-	defer pushDefMu.Unlock()
-	pushDefinitions[def.Type] = def
-}
-
-// ListPushDefinitions returns all registered channel definitions.
-func ListPushDefinitions() []PushDefinition {
-	pushDefMu.RLock()
-	defer pushDefMu.RUnlock()
-
-	order := []string{
-		consts.ChannelCustom,
-		consts.ChannelLark,
-		consts.ChannelDingTalk,
-		consts.ChannelTelegram,
-		consts.ChannelBark,
-		consts.ChannelDiscord,
-		consts.ChannelSlack,
-		consts.ChannelPushover,
-		consts.ChannelEmail,
-	}
-	res := make([]PushDefinition, 0, len(pushDefinitions))
-	for _, t := range order {
-		if d, ok := pushDefinitions[t]; ok {
-			res = append(res, d)
-		}
-	}
-	for t, d := range pushDefinitions {
-		found := false
-		for _, o := range order {
-			if o == t {
-				found = true
-				break
-			}
-		}
-		if !found {
-			res = append(res, d)
-		}
-	}
-	return res
-}
-
-//nolint:funlen,goconst,dupl // Channel definitions registration table
-func init() {
-	RegisterPushChannelDefinition(PushDefinition{
+//nolint:goconst,dupl // Static push channel form definitions table
+var defaultPushDefinitions = []PushDefinition{
+	{
 		Type:        consts.ChannelCustom,
 		Name:        "自定义消息通道",
 		Description: "使用自定义 HTTP POST 请求向外部 Webhook 发送数据。",
@@ -232,9 +182,8 @@ func init() {
 				Description: "可使用的变量：$title, $description, $content, $url, $to。例如 {\"text\": \"$content\"}",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelLark,
 		Name:        "飞书群机器人",
 		Description: "配置飞书群自定义机器人的 Webhook 接口投递。",
@@ -264,9 +213,8 @@ func init() {
 				Description: "若填写，必须是合法的飞书卡片 JSON 格式",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelDingTalk,
 		Name:        "钉钉群机器人",
 		Description: "配置钉钉群自定义机器人的 Webhook 接口投递。",
@@ -288,9 +236,8 @@ func init() {
 				Description: "钉钉群机器人安全设置中的加签 Secret",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelTelegram,
 		Name:        "Telegram 机器人",
 		Description: "配置 Telegram 机器人推送消息。",
@@ -320,9 +267,8 @@ func init() {
 				Description: "默认的消息接收 Chat ID。如果通知事件中未配置 targets，将推送到此 ID",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelBark,
 		Name:        "Bark (iOS 推送)",
 		Description: "配置 Bark 推送通知至 iPhone / iPad 客户端。",
@@ -352,9 +298,8 @@ func init() {
 				Description: "可选的 JSON 配置，支持 group (分组)、sound (铃声)、icon (自定义图标)",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelDiscord,
 		Name:        "Discord 频道",
 		Description: "配置 Discord 频道的 Incoming Webhook 消息推送。",
@@ -368,9 +313,8 @@ func init() {
 				Description: "从 Discord 频道集成设置中复制的 Webhook URL",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelSlack,
 		Name:        "Slack 频道",
 		Description: "配置 Slack 频道的 Incoming Webhook 消息推送。",
@@ -384,9 +328,8 @@ func init() {
 				Description: "从 Slack 应用配置中复制的 Incoming Webhook URL",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelPushover,
 		Name:        "Pushover 推送",
 		Description: "配置 Pushover 即时推送到手机/桌面客户端。",
@@ -408,12 +351,18 @@ func init() {
 				Description: "Pushover 个人账号的 User Key",
 			},
 		},
-	})
-
-	RegisterPushChannelDefinition(PushDefinition{
+	},
+	{
 		Type:        consts.ChannelEmail,
 		Name:        "邮件推送通道",
 		Description: "邮件推送通道直接使用系统全局 SMTP 设置进行发送，无需在此填写服务器配置。",
 		Fields:      []PushField{},
-	})
+	},
+}
+
+// ListPushDefinitions returns all registered channel definitions.
+func ListPushDefinitions() []PushDefinition {
+	res := make([]PushDefinition, len(defaultPushDefinitions))
+	copy(res, defaultPushDefinitions)
+	return res
 }

@@ -4,15 +4,9 @@
 package dao
 
 import (
-	"Wavelet/core"
-	"Wavelet/core/contracts"
-	"Wavelet/plugins/domain/msg_gateway/consts"
 	"Wavelet/plugins/domain/msg_gateway/model/do"
 	"Wavelet/plugins/domain/msg_gateway/model/entity"
 	"context"
-	"errors"
-	"fmt"
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -22,31 +16,6 @@ const (
 	activePushChannelCacheTTL = 24 * time.Hour
 	activePushEventCacheTTL   = 24 * time.Hour
 )
-
-var (
-	cacheMu  sync.RWMutex
-	cacheSvc contracts.CacheService
-)
-
-// SetCacheService sets the cache service singleton.
-func SetCacheService(s contracts.CacheService) {
-	cacheMu.Lock()
-	defer cacheMu.Unlock()
-	cacheSvc = s
-}
-
-// GetCache resolves the cache service for the current call.
-func GetCache(ctx context.Context) contracts.CacheService {
-	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s, err := core.Inject[contracts.CacheService](c); err == nil && s != nil {
-			return s
-		}
-	}
-	cacheMu.RLock()
-	s := cacheSvc
-	cacheMu.RUnlock()
-	return s
-}
 
 // ListPushChannelsRecord returns all push channels ordered by creation time descending.
 func ListPushChannelsRecord(ctx context.Context) ([]entity.PushChannel, error) {
@@ -112,14 +81,15 @@ func DeletePushChannelRecord(ctx context.Context, channel *entity.PushChannel) e
 }
 
 func getCachedOrQuery[T any](ctx context.Context, cacheKey string, ttl time.Duration, query func(db *gorm.DB, dest *T) error) (*T, error) {
-	var val T
 	if cache := GetCache(ctx); cache != nil {
+		var val T
 		if err := cache.Get(ctx, cacheKey, &val); err == nil {
 			return &val, nil
 		}
 	}
 
 	db := GetDB(ctx)
+	var val T
 	if err := query(db, &val); err != nil {
 		return nil, err
 	}
@@ -255,6 +225,9 @@ func ListPushHistoriesRecord(ctx context.Context, filter do.PushHistoryListFilte
 	if filter.EventKey != "" {
 		query = query.Where("event_key = ?", filter.EventKey)
 	}
+	if filter.Channel != "" {
+		query = query.Where("channel = ?", filter.Channel)
+	}
 	if filter.Status != "" {
 		query = query.Where("status = ?", filter.Status)
 	}
@@ -281,78 +254,4 @@ func CreatePushHistoryRecord(ctx context.Context, history *entity.PushHistory) e
 // PushHistoryQuery returns a scoped query builder for push histories.
 func PushHistoryQuery(ctx context.Context) *gorm.DB {
 	return GetDB(ctx).Model(&entity.PushHistory{})
-}
-
-// smtpConfigKeys are the system-config rows backing the built-in email channel.
-var smtpConfigKeys = []string{"smtp_host", "smtp_port", "smtp_username", "smtp_password"}
-
-// LoadSMTPConfigRecord reads the SMTP settings in one query.
-func LoadSMTPConfigRecord(ctx context.Context) (do.SMTPConfig, error) {
-	db := GetDB(ctx)
-	if db == nil {
-		return do.SMTPConfig{}, errors.New("database not available")
-	}
-
-	var rows []struct {
-		Key   string
-		Value string
-	}
-	if err := db.Table("w_system_configs").
-		Select("key", "value").
-		Where("key IN ?", smtpConfigKeys).
-		Find(&rows).Error; err != nil {
-		return do.SMTPConfig{}, fmt.Errorf("read smtp system configs: %w", err)
-	}
-
-	var cfg do.SMTPConfig
-	for _, row := range rows {
-		switch row.Key {
-		case "smtp_host":
-			cfg.Host = row.Value
-		case "smtp_port":
-			cfg.Port = row.Value
-		case "smtp_username":
-			cfg.Username = row.Value
-		case "smtp_password":
-			cfg.Password = row.Value
-		}
-	}
-	return cfg, nil
-}
-
-// userLookupColumns allow-lists the columns FindUserByFieldRecord may filter on.
-var userLookupColumns = map[string]struct{}{
-	"id":       {},
-	"username": {},
-}
-
-// FindUserByFieldRecord is the user lookup fallback for when the UserService
-// contract is not wired yet. field must be one of userLookupColumns.
-func FindUserByFieldRecord(ctx context.Context, field string, value any) (*contracts.UserDTO, error) {
-	if _, ok := userLookupColumns[field]; !ok {
-		return nil, consts.ErrUnsupportedUserLookupField
-	}
-	db := GetDB(ctx)
-	if db == nil {
-		return nil, consts.ErrRecordNotFound
-	}
-	var user contracts.UserDTO
-	if err := db.Table("w_users").Where(field+" = ?", value).First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-// FindFirstAdminUserRecord is the admin lookup fallback for when the UserService
-// contract is not wired yet.
-func FindFirstAdminUserRecord(ctx context.Context) (*contracts.UserDTO, error) {
-	db := GetDB(ctx)
-	if db == nil {
-		return nil, consts.ErrRecordNotFound
-	}
-	var adminUser contracts.UserDTO
-	if err := db.Table("w_users").Where("is_admin = ?", true).Order("id ASC").First(&adminUser).Error; err != nil {
-		return nil, err
-	}
-	return &adminUser, nil
 }

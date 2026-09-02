@@ -83,7 +83,7 @@ func (h *BotDispatchHandler) Execute(ctx context.Context, payload []byte) (*cont
 		}
 		channels = filtered
 		if len(channels) == 0 {
-			return nil, errors.New(consts.ErrChannelNotFound)
+			return nil, consts.ErrChannelNotFound
 		}
 	}
 

@@ -7,8 +7,8 @@ import (
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/msg_gateway/consts"
 	"Wavelet/plugins/domain/msg_gateway/service"
+	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -43,17 +43,12 @@ func ListAdminChannels(c *gin.Context) {
 }
 
 func parseAdminChannelID(c *gin.Context) (uint64, bool) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, consts.ErrInvalidChannelID)
-		return 0, false
-	}
-	return id, true
+	return parseUint64Param(c, "id", consts.ErrInvalidChannelID)
 }
 
 func handleAdminChannelError(c *gin.Context, err error, fallback func(c *gin.Context, msg string)) {
-	if err.Error() == consts.ErrChannelNotFound {
-		response.AbortNotFound(c, err.Error())
+	if errors.Is(err, consts.ErrChannelNotFound) || err.Error() == consts.ErrChannelNotFoundText {
+		response.AbortNotFound(c, consts.ErrChannelNotFoundText)
 		return
 	}
 	fallback(c, err.Error())

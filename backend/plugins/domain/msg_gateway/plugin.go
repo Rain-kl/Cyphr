@@ -64,9 +64,6 @@ func (p *Plugin) Name() string {
 func (p *Plugin) Inject() []reflect.Type {
 	return []reflect.Type{
 		reflect.TypeFor[contracts.DBService](),
-		// AuthService is captured as a middleware value in Apply, so it cannot
-		// be late-bound with core.When like the other services below; the
-		// kernel must mount auth first or the routes get a pass-through guard.
 		reflect.TypeFor[contracts.AuthService](),
 	}
 }
@@ -246,116 +243,20 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	return nil
 }
 
-// Re-exported constants.
-const (
-	CodeAlphabet = service.CodeAlphabet
-	CodeLength   = service.CodeLength
-)
-
-// MessageChannel is an alias for entity.MessageChannel.
-type MessageChannel = entity.MessageChannel
-
-// MessageBinding is an alias for entity.MessageBinding.
-type MessageBinding = entity.MessageBinding
-
-// MessagePairingCode is an alias for entity.MessagePairingCode.
-type MessagePairingCode = entity.MessagePairingCode
-
-// PushChannel is an alias for entity.PushChannel.
-type PushChannel = entity.PushChannel
-
-// PushEvent is an alias for entity.PushEvent.
-type PushEvent = entity.PushEvent
-
-// PushHistory is an alias for entity.PushHistory.
-type PushHistory = entity.PushHistory
-
-// PushNotificationEvent is an alias for do.PushNotificationEvent.
-type PushNotificationEvent = do.PushNotificationEvent
-
-// ChannelConfig is an alias for do.ChannelConfig.
-type ChannelConfig = do.ChannelConfig
-
-// Capability is an alias for do.Capability.
-type Capability = do.Capability
-
-// Recipient is an alias for do.Recipient.
-type Recipient = do.Recipient
-
-// Attachment is an alias for do.Attachment.
-type Attachment = do.Attachment
-
-// InboundMessage is an alias for do.InboundMessage.
-type InboundMessage = do.InboundMessage
-
-// OutboundMessage is an alias for do.OutboundMessage.
-type OutboundMessage = do.OutboundMessage
-
-// BindingDTO is an alias for do.BindingDTO.
-type BindingDTO = do.BindingDTO
-
-// PublicChannelDTO is an alias for do.PublicChannelDTO.
-type PublicChannelDTO = do.PublicChannelDTO
-
-// Definition is an alias for do.Definition.
-type Definition = do.Definition
-
-// ChannelDTO is an alias for do.ChannelDTO.
-type ChannelDTO = do.ChannelDTO
-
-// CreateChannelRequest is an alias for do.CreateChannelRequest.
-type CreateChannelRequest = do.CreateChannelRequest
-
-// UpdateChannelRequest is an alias for do.UpdateChannelRequest.
-type UpdateChannelRequest = do.UpdateChannelRequest
-
-// PushDefinition is an alias for do.PushDefinition.
-type PushDefinition = do.PushDefinition
-
-// PushField is an alias for do.PushField.
-type PushField = do.PushField
-
-// NotificationMessage is an alias for do.NotificationMessage.
-type NotificationMessage = do.NotificationMessage
-
-// EventMetadata is an alias for do.EventMetadata.
-type EventMetadata = do.EventMetadata
-
-// SendPayload is an alias for do.SendPayload.
-type SendPayload = do.SendPayload
-
-// Handler is an alias for service.Handler.
-type Handler = service.Handler
-
-// Factory is an alias for service.Factory.
-type Factory = service.Factory
-
-// Channel is an alias for service.Channel.
-type Channel = service.Channel
-
-// Runner is an alias for service.Runner.
-type Runner = service.Runner
-
-// EventTrigger is an alias for service.EventTrigger.
-type EventTrigger = service.EventTrigger
-
-// PushHandler is an alias for service.PushHandler.
-type PushHandler = service.PushHandler
-
-// Re-exported variables and functions.
-var (
-	SetDBServiceForTest = dao.SetDBServiceForTest
-	UpsertPairingCode   = dao.UpsertPairingCode
-	Register            = service.Register
-	Lookup              = service.Lookup
-	GenerateCode        = service.GenerateCode
-	NormalizeCode       = service.NormalizeCode
-	FormatCode          = service.FormatCode
-	Start               = service.Start
-	Stop                = service.Stop
-	GlobalRunner        = service.GlobalRunner
-	DefaultTrigger      = service.DefaultTrigger
-	SyncEvents          = service.SyncEvents
-	AdminLogin          = service.AdminLogin
-	HandleAdminLoggedIn = service.HandleAdminLoggedIn
+// Entity and DO aliases exported for integration test compatibility.
+type (
+	// MessageChannel is an alias for entity.MessageChannel.
+	MessageChannel = entity.MessageChannel
+	// MessageBinding is an alias for entity.MessageBinding.
+	MessageBinding = entity.MessageBinding
+	// MessagePairingCode is an alias for entity.MessagePairingCode.
+	MessagePairingCode = entity.MessagePairingCode
+	// PushChannel is an alias for entity.PushChannel.
+	PushChannel = entity.PushChannel
+	// PushEvent is an alias for entity.PushEvent.
+	PushEvent = entity.PushEvent
+	// PushHistory is an alias for entity.PushHistory.
+	PushHistory = entity.PushHistory
+	// PushNotificationEvent is an alias for do.PushNotificationEvent.
+	PushNotificationEvent = do.PushNotificationEvent
 )

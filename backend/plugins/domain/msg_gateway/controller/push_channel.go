@@ -10,7 +10,6 @@ import (
 	"Wavelet/plugins/domain/msg_gateway/service"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,18 +45,13 @@ func ListPushChannels(c *gin.Context) {
 
 // parsePushChannelID reads the path identifier of a push channel.
 func parsePushChannelID(c *gin.Context) (uint64, bool) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, consts.ErrInvalidChannelID)
-		return 0, false
-	}
-	return id, true
+	return parseUint64Param(c, "id", consts.ErrInvalidChannelID)
 }
 
 // handlePushChannelNotFoundError maps a missing channel row to 404, others to fallback.
 func handlePushChannelNotFoundError(c *gin.Context, err error, fallback func(c *gin.Context, msg string)) {
-	if errors.Is(err, consts.ErrRecordNotFound) {
-		response.AbortNotFound(c, consts.ErrChannelNotFound)
+	if errors.Is(err, consts.ErrRecordNotFound) || errors.Is(err, consts.ErrChannelNotFound) || err.Error() == consts.ErrChannelNotFoundText {
+		response.AbortNotFound(c, consts.ErrChannelNotFoundText)
 		return
 	}
 	fallback(c, err.Error())

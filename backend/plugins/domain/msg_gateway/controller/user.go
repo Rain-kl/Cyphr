@@ -4,64 +4,15 @@
 package controller
 
 import (
-	"Wavelet/core/contracts"
-	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/response"
 	"Wavelet/plugins/domain/msg_gateway/consts"
 	"Wavelet/plugins/domain/msg_gateway/model/do"
 	"Wavelet/plugins/domain/msg_gateway/service"
-	"context"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
-
-func currentUser(c *gin.Context) (*contracts.UserDTO, bool) {
-	return ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey)
-}
-
-// handleJSONRequest binds a JSON body, runs the service use case and writes the
-// standard success envelope; any service error surfaces as a bad request.
-func handleJSONRequest[Req any, Res any](c *gin.Context, handler func(ctx context.Context, req Req) (Res, error)) {
-	var req Req
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	res, err := handler(c.Request.Context(), req)
-	if err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(res))
-}
-
-// handleEntityUpdate resolves a path identifier plus JSON body, runs the updater
-// use case and writes the success envelope; error classification is delegated to onErr.
-func handleEntityUpdate[Req any, Res any](
-	c *gin.Context,
-	parseID func(*gin.Context) (uint64, bool),
-	updater func(ctx context.Context, id uint64, req Req) (Res, error),
-	onErr func(*gin.Context, error),
-) {
-	id, ok := parseID(c)
-	if !ok {
-		return
-	}
-	var req Req
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, err.Error())
-		return
-	}
-	dto, err := updater(c.Request.Context(), id, req)
-	if err != nil {
-		onErr(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, response.OK(dto))
-}
 
 // ListChannels lists enabled channels a user can bind.
 // @Summary List enabled messaging channels
@@ -160,9 +111,8 @@ func UnbindBinding(c *gin.Context) {
 		response.AbortUnauthorized(c, consts.ErrLoginRequired)
 		return
 	}
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		response.AbortBadRequest(c, consts.ErrInvalidBindingID)
+	id, ok := parseUint64Param(c, "id", consts.ErrInvalidBindingID)
+	if !ok {
 		return
 	}
 	if err := service.UnbindChannel(c.Request.Context(), user.ID, id); err != nil {
