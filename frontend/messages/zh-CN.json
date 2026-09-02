@@ -1919,12 +1919,19 @@
     "previousPage": "上一页",
     "home": "首页"
   },
+  "forbidden": {
+    "label": "Forbidden",
+    "description": "您已登录，但没有访问该资源的权限。如需开通，请联系管理员。",
+    "previousPage": "上一页",
+    "home": "首页"
+  },
   "providers": {
     "titleUpdater": {
       "login": "登录",
       "register": "注册",
       "admin": "后台管理",
-      "dashboard": "控制台"
+      "dashboard": "控制台",
+      "forbidden": "权限不足"
     }
   },
   "metadata": {

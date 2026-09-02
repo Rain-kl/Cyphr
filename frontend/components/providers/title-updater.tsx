@@ -27,6 +27,8 @@ export function SiteTitleUpdater() {
       suffix = ` - ${t('admin')}`;
     } else if (pathname === '/home') {
       suffix = ` - ${t('dashboard')}`;
+    } else if (pathname === '/403') {
+      suffix = ` - ${t('forbidden')}`;
     } else if (pathname === '/') {
       suffix = '';
     }

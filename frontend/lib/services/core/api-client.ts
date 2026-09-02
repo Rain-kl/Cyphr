@@ -161,10 +161,15 @@ apiClient.interceptors.response.use(
       return Promise.reject(new UnauthorizedError(message));
     }
 
-    /* 403：已登录但权限不足，留在当前页。 */
+    /* 403：已登录但权限不足，进入独立 403 页，不清 cookie。 */
     if (error.response?.status === 403) {
       const message = error.response.data?.error_msg || '权限不足';
-      toast.error(message, { id: 'forbidden-error' });
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname !== '/403'
+      ) {
+        window.location.replace('/403');
+      }
       return Promise.reject(
         new ForbiddenError(
           message,

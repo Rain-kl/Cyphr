@@ -1919,12 +1919,19 @@
     "previousPage": "Previous page",
     "home": "Home"
   },
+  "forbidden": {
+    "label": "Forbidden",
+    "description": "You are signed in, but you do not have permission to access this resource. Ask an administrator if you need access.",
+    "previousPage": "Previous page",
+    "home": "Home"
+  },
   "providers": {
     "titleUpdater": {
       "login": "Login",
       "register": "Register",
       "admin": "Admin",
-      "dashboard": "Dashboard"
+      "dashboard": "Dashboard",
+      "forbidden": "Forbidden"
     }
   },
   "metadata": {

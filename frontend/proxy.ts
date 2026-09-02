@@ -120,6 +120,7 @@ export function proxy(request: NextRequest) {
     '/privacy',
     '/terms',
     '/icon',
+    '/403',
   ];
   const publicPrefixes = ['/docs/', '/epay/'];
 
