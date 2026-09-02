@@ -6,6 +6,7 @@ package user
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/util"
 	"context"
 	"errors"
@@ -82,8 +83,11 @@ func GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	return &u, nil
 }
 
-// CreateUser 创建用户
+// CreateUser 创建用户。ID 为空时用雪花算法分配，避免 SQLite/GORM 把 0 当成自增主键。
 func CreateUser(ctx context.Context, u *User) error {
+	if u != nil && u.ID == 0 {
+		u.ID = idgen.NextUint64ID()
+	}
 	return getDB(ctx).Create(u).Error
 }
 
