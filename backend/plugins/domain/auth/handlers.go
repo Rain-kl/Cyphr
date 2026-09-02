@@ -125,6 +125,21 @@ func reserveOAuthStateSlot(ctx context.Context, sessionHash string) error {
 	if sessionHash == "" {
 		return nil
 	}
+	if limiter := getLimiter(ctx); limiter != nil {
+		key := fmt.Sprintf(oauthStateLimitKeyFormat, sessionHash)
+		res, err := limiter.Allow(ctx, key, contracts.Rate{
+			Limit:  oauthStateLimitMax,
+			Period: OAuthStateCacheKeyExpiration,
+		})
+		if err != nil {
+			return err
+		}
+		if !res.Allowed {
+			return errors.New(errOAuthStateRateLimited)
+		}
+		return nil
+	}
+
 	cache := getCache(ctx)
 	if cache == nil {
 		return nil

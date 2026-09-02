@@ -15,10 +15,12 @@ import (
 )
 
 var (
-	dbMu     sync.RWMutex
-	dbSvc    contracts.DBService
-	cacheMu  sync.RWMutex
-	cacheSvc contracts.CacheService
+	dbMu       sync.RWMutex
+	dbSvc      contracts.DBService
+	cacheMu    sync.RWMutex
+	cacheSvc   contracts.CacheService
+	limiterMu  sync.RWMutex
+	limiterSvc contracts.LimiterService
 )
 
 func setDBService(s contracts.DBService) {
@@ -31,6 +33,12 @@ func setCacheService(s contracts.CacheService) {
 	cacheMu.Lock()
 	defer cacheMu.Unlock()
 	cacheSvc = s
+}
+
+func setLimiterService(s contracts.LimiterService) {
+	limiterMu.Lock()
+	defer limiterMu.Unlock()
+	limiterSvc = s
 }
 
 func getDB(ctx context.Context) *gorm.DB {
@@ -53,6 +61,16 @@ func getCache(ctx context.Context) contracts.CacheService {
 	cacheMu.RLock()
 	s := cacheSvc
 	cacheMu.RUnlock()
+	return s
+}
+
+func getLimiter(ctx context.Context) contracts.LimiterService {
+	if s, err := core.InjectFrom[contracts.LimiterService](ctx); err == nil && s != nil {
+		return s
+	}
+	limiterMu.RLock()
+	s := limiterSvc
+	limiterMu.RUnlock()
 	return s
 }
 

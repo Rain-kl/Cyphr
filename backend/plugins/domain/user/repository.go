@@ -18,8 +18,10 @@ import (
 )
 
 var (
-	dbMu  sync.RWMutex
-	dbSvc contracts.DBService
+	dbMu       sync.RWMutex
+	dbSvc      contracts.DBService
+	limiterMu  sync.RWMutex
+	limiterSvc contracts.LimiterService
 )
 
 // SetDBService sets the active DBService contract for the user domain plugin.
@@ -27,6 +29,13 @@ func SetDBService(s contracts.DBService) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	dbSvc = s
+}
+
+// SetLimiterService sets the active LimiterService contract for the user domain plugin.
+func SetLimiterService(s contracts.LimiterService) {
+	limiterMu.Lock()
+	defer limiterMu.Unlock()
+	limiterSvc = s
 }
 
 func getDB(ctx context.Context) *gorm.DB {
@@ -42,6 +51,17 @@ func getDB(ctx context.Context) *gorm.DB {
 	}
 
 	return nil
+}
+
+func getLimiter(ctx context.Context) contracts.LimiterService {
+	if s, err := core.InjectFrom[contracts.LimiterService](ctx); err == nil && s != nil {
+		return s
+	}
+
+	limiterMu.RLock()
+	s := limiterSvc
+	limiterMu.RUnlock()
+	return s
 }
 
 // GetUserByID 通过 ID 获取用户

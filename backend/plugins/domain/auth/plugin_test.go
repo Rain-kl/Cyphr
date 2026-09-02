@@ -62,6 +62,13 @@ func hashToken(token string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+type testSystemConfig struct {
+	Key   string `gorm:"primaryKey"`
+	Value string
+}
+
+func (testSystemConfig) TableName() string { return "w_system_configs" }
+
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "auth_test.db")
@@ -73,6 +80,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&testAccessToken{},
 		&auth.AuthSource{},
 		&auth.ExternalAccount{},
+		&testSystemConfig{},
 	))
 
 	return testDB

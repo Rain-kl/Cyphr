@@ -5702,7 +5702,7 @@ const docTemplate = `{
         },
         "/api/v1/user/login": {
             "post": {
-                "description": "使用用户名和密码登录，登录成功后建立 Session。若管理员已关闭密码登录功能则返回错误。",
+                "description": "使用用户名和密码登录系统，验证通过后建立 Session 并返回用户信息。",
                 "consumes": [
                     "application/json"
                 ],
@@ -5712,7 +5712,7 @@ const docTemplate = `{
                 "tags": [
                     "user"
                 ],
-                "summary": "用户密码登录",
+                "summary": "用户登录",
                 "parameters": [
                     {
                         "description": "登录请求参数",
@@ -5733,6 +5733,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "用户名或密码错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.Any"
+                        }
+                    },
+                    "429": {
+                        "description": "登录尝试过于频繁",
                         "schema": {
                             "$ref": "#/definitions/response.Any"
                         }
@@ -5868,6 +5874,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "参数错误、用户名已存在或注册已关闭",
+                        "schema": {
+                            "$ref": "#/definitions/response.Any"
+                        }
+                    },
+                    "429": {
+                        "description": "注册尝试过于频繁",
                         "schema": {
                             "$ref": "#/definitions/response.Any"
                         }
@@ -6081,7 +6093,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "is_admin": {
                     "type": "boolean"

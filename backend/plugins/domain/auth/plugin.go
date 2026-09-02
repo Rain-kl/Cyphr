@@ -89,9 +89,11 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	core.Bind[contracts.DBService](ctx, setDBService)
 	core.Bind[contracts.CacheService](ctx, setCacheService)
+	core.Bind[contracts.LimiterService](ctx, setLimiterService)
 	ctx.OnDispose(func() error {
 		setDBService(nil)
 		setCacheService(nil)
+		setLimiterService(nil)
 		return nil
 	})
 

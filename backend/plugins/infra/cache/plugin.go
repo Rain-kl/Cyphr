@@ -8,6 +8,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/cache/ram"
+	"Wavelet/pkg/limiter"
 	"Wavelet/pkg/util"
 	"context"
 	"encoding/json"
@@ -139,6 +140,15 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	core.Provide[contracts.CacheService](ctx, svc)
+
+	var limiterSvc contracts.LimiterService
+	if redisClient != nil {
+		limiterSvc = newRedisLimiter(redisClient, p.keyPrefix)
+	} else {
+		limiterSvc = limiter.NewMemoryLimiter()
+	}
+	core.Provide[contracts.LimiterService](ctx, limiterSvc)
+
 	return nil
 }
 

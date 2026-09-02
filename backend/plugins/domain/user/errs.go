@@ -8,7 +8,9 @@ const (
 	errInvalidParams = "无效的请求参数"
 	errUserNotFound  = "用户不存在"
 	//nolint:gosec // error message, not hardcoded credentials
-	errPasswordMismatch = "用户名或密码错误"
+	errPasswordMismatch     = "用户名或密码错误"
+	errTooManyLoginAttempts = "登录尝试过于频繁，请稍后重试"
+	//nolint:gosec // error message, not hardcoded credentials
 	//nolint:gosec // error message, not hardcoded credentials
 	errOldPasswordIncorrect = "原密码不正确"
 	//nolint:gosec // error message, not hardcoded credentials

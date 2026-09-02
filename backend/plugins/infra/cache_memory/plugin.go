@@ -7,6 +7,7 @@ package cache_memory
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/limiter"
 )
 
 const defaultRAMCapacity = 10000
@@ -79,5 +80,6 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 
 	core.Provide[contracts.CacheService](ctx, svc)
+	core.Provide[contracts.LimiterService](ctx, limiter.NewMemoryLimiter())
 	return nil
 }
