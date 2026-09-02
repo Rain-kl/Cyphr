@@ -4,29 +4,20 @@
 package push
 
 import (
-	"Wavelet/pkg/util"
+	pkgmail "Wavelet/pkg/mail"
 	"context"
 	"errors"
 	"fmt"
 	"net"
-	"net/smtp"
-	"strings"
+	"strconv"
 )
 
 func init() {
 	Register("email", &EmailPusher{})
 }
 
-// EmailPusher 极简 SMTP 邮件推送实现 (静态、解耦)
+// EmailPusher 基于 pkg/mail 的 SMTP 邮件推送实现
 type EmailPusher struct{}
-
-// sanitizeEmailHeader removes CR/LF bytes so untrusted values cannot inject
-// additional email headers (email header injection).
-func sanitizeEmailHeader(v string) string {
-	v = strings.ReplaceAll(v, "\r", "")
-	v = strings.ReplaceAll(v, "\n", "")
-	return v
-}
 
 // Send 发送邮件
 func (p *EmailPusher) Send(ctx context.Context, cfg Config, target string, body map[string]any, _ string, ext map[string]any) (string, error) {
@@ -40,11 +31,6 @@ func (p *EmailPusher) Send(ctx context.Context, cfg Config, target string, body 
 	title := bodyTitle(body)
 	content := bodyContent(body, "<p><b>%s</b>: %v</p>", "")
 
-	// 邮件头和体
-	from := cfg.Key
-	to := target
-
-	// 如果 ext 中指定了 from_name，我们在 From 头部包含它
 	fromName := "System Notification"
 	if ext != nil {
 		if fn, ok := ext["from_name"].(string); ok && fn != "" {
@@ -52,38 +38,26 @@ func (p *EmailPusher) Send(ctx context.Context, cfg Config, target string, body 
 		}
 	}
 
-	subjectHeader := fmt.Sprintf("Subject: %s\r\n", sanitizeEmailHeader(title))
-	fromHeader := fmt.Sprintf("From: %s <%s>\r\n", sanitizeEmailHeader(fromName), sanitizeEmailHeader(from))
-	toHeader := fmt.Sprintf("To: %s\r\n", sanitizeEmailHeader(to))
-	mimeHeader := "MIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n\r\n"
-
-	// 拼装完整的邮件报文
-	// 简单的 HTML 正文渲染
 	htmlBody := fmt.Sprintf(`<html><body><h2>%s</h2><div>%s</div></body></html>`, title, content)
-	msg := []byte(fromHeader + toHeader + subjectHeader + mimeHeader + htmlBody + "\r\n")
 
-	// 解析 Host 和 Port
-	host, port, err := net.SplitHostPort(cfg.URL)
+	host, portStr, err := net.SplitHostPort(cfg.URL)
+	port := 25
 	if err != nil {
 		host = cfg.URL
-		port = "25" // 默认 SMTP 端口
+	} else if p, err := strconv.Atoi(portStr); err == nil && p > 0 {
+		port = p
 	}
 
-	auth := smtp.PlainAuth("", cfg.Key, cfg.Secret, host)
+	mailCfg := pkgmail.Config{
+		Host:     host,
+		Port:     port,
+		Username: cfg.Key,
+		Password: cfg.Secret,
+		FromName: fromName,
+	}
 
-	// 异步超时处理
-	errChan := make(chan error, 1)
-	util.Go(func() {
-		errChan <- smtp.SendMail(host+":"+port, auth, from, []string{to}, msg)
-	})
-
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case err := <-errChan:
-		if err != nil {
-			return "", fmt.Errorf("email: send smtp mail failed: %w", err)
-		}
+	if err := pkgmail.SendMail(ctx, mailCfg, target, title, htmlBody); err != nil {
+		return "", fmt.Errorf("email: send smtp mail failed: %w", err)
 	}
 
 	return "", nil

@@ -67,3 +67,4 @@ s3_cache
 /backend/plugins/domain/upload/task/uploads/
 /backend/data/
 /backend/plugins/drivers/driver_http/dist/
+/backend/uploads/
