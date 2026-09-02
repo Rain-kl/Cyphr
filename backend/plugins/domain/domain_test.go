@@ -380,12 +380,9 @@ func TestAdminPlugin(t *testing.T) {
 	assert.True(t, hasTasks)
 	assert.True(t, hasConfigs)
 
-	// 2. Task & Schedule
-	_, ok := ctx.Tasks().Get("admin:system_cleanup")
+	// 2. Task
+	_, ok := ctx.Tasks().Get("logs:db_switch")
 	require.True(t, ok)
-	sched, ok := ctx.Schedules().Get("admin:system_cleanup")
-	require.True(t, ok)
-	assert.Equal(t, "0 4 * * *", sched.Spec)
 
 	// 3. Settings
 	schema, ok := ctx.Settings().Get("admin.system_cleanup_cron")
@@ -455,7 +452,7 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 
 	// Verify total schedules registered
 	allSchedules := ctx.Schedules().Schedules()
-	assert.GreaterOrEqual(t, len(allSchedules), 2)
+	assert.GreaterOrEqual(t, len(allSchedules), 1)
 
 	// 每个调度指向的任务类型都必须已注册 Handler，否则触发时会投递到无人处理的
 	// 任务类型，预期的清理逻辑静默失效。

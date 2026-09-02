@@ -33,13 +33,8 @@ func TestAdminPluginUnit(t *testing.T) {
 	assert.True(t, hasRobots, "admin plugin must register /robots.txt")
 
 	// Verify tasks
-	_, ok := ctx.Tasks().Get("admin:system_cleanup")
+	_, ok := ctx.Tasks().Get("logs:db_switch")
 	require.True(t, ok)
-
-	// Verify schedules
-	sched, ok := ctx.Schedules().Get("admin:system_cleanup")
-	require.True(t, ok)
-	assert.Equal(t, "0 4 * * *", sched.Spec)
 
 	// Verify settings
 	setting, ok := ctx.Settings().Get("admin.system_cleanup_cron")

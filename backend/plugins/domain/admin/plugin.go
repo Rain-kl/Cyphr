@@ -181,22 +181,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return err
 	}, extpoints.WithTaskMeta(service.LogDBSwitchMeta))
 
-	ctx.Task().Register("admin:system_cleanup", func(_ context.Context, _ []byte) error {
-		return nil
-	},
-		extpoints.WithTaskType("system_cleanup"),
-		extpoints.WithTaskName("系统垃圾清理"),
-		extpoints.WithTaskDescription("定期清理未使用上传文件、历史推送记录和过期任务执行日志"),
-		extpoints.WithTaskCategory("maintenance"),
-		extpoints.WithTaskRetry(1),
-		extpoints.WithTaskQueue("default"),
-		extpoints.WithTaskRetryable(true),
-	)
-
-	// 3. Register Cron Schedules
-	ctx.Schedule().RegisterCron("0 4 * * *", "admin:system_cleanup", map[string]string{"type": "daily"})
-
-	// 4. Register Settings Schemas
+	// 3. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "admin.system_cleanup_cron",
 		Default:     "0 4 * * *",

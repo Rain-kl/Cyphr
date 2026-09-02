@@ -221,6 +221,10 @@ func TestTaskExtension(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "order:cancel_timeout", task.Pattern)
 
+	byType, ok := tr.Get("cancel_timeout")
+	assert.True(t, ok, "Get should resolve admin type identifier")
+	assert.Equal(t, "order:cancel_timeout", byType.Pattern)
+
 	_, ok = tr.Get("unknown")
 	assert.False(t, ok)
 }

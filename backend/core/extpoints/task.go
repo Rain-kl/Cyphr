@@ -276,10 +276,17 @@ func (t *TaskRegistry) Tasks() []TaskDefinition {
 	return res
 }
 
-// Get retrieves a task definition by its pattern.
+// Get retrieves a task definition by its pattern or admin type identifier.
 func (t *TaskRegistry) Get(pattern string) (TaskDefinition, bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	td, ok := t.lookup[pattern]
-	return td, ok
+	if td, ok := t.lookup[pattern]; ok {
+		return td, true
+	}
+	for _, td := range t.tasks {
+		if td.Type == pattern {
+			return td, true
+		}
+	}
+	return TaskDefinition{}, false
 }

@@ -8,6 +8,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"context"
+	"errors"
 	"sync"
 	"time"
 )
@@ -24,15 +25,15 @@ var (
 )
 
 // DispatchTask enqueues a background task to the active in-process worker queue.
-func DispatchTask(_ context.Context, taskType string, payload []byte, source string) (string, error) {
+func DispatchTask(ctx context.Context, taskType string, payload []byte, source string) (string, error) {
 	globalMu.RLock()
 	q := globalQueue
 	globalMu.RUnlock()
 
 	if q == nil {
-		return "", nil
+		return "", errors.New("driver_inproc_worker: queue is not running")
 	}
-	return q.Enqueue(taskType, payload, source)
+	return q.Enqueue(ctx, taskType, payload, source)
 }
 
 // Option configures the in-process worker driver plugin.
@@ -118,10 +119,19 @@ func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	p.coreCtx = ctx
 
+	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
+		setDBService(db)
+	} else {
+		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
+			setDBService(db)
+		})
+	}
+
 	taskSvc := newInprocTaskService(ctx.Tasks())
 	core.Provide[contracts.TaskService](ctx, taskSvc)
 
 	ctx.OnDispose(func() error {
+		setDBService(nil)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), p.shutdownTimeout)
 		defer cancel()
 		return p.Stop(shutdownCtx)

@@ -5,7 +5,10 @@ package drivers_test
 
 import (
 	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/idgen"
+	"Wavelet/pkg/testhelper"
 	"Wavelet/plugins/drivers/driver_asynq_cron"
 	"Wavelet/plugins/drivers/driver_asynq_worker"
 	"Wavelet/plugins/drivers/driver_http"
@@ -24,7 +27,18 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
+
+type testDBService struct {
+	db *gorm.DB
+}
+
+func (m *testDBService) GORM() *gorm.DB { return m.db }
+
+func (m *testDBService) DB(ctx context.Context) *gorm.DB { return m.db.WithContext(ctx) }
+
+func (m *testDBService) Named(_ string) *gorm.DB { return m.db }
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -212,6 +226,59 @@ func TestAsynqWorkerDriverLifecycle(t *testing.T) {
 	// Idempotent Stop
 	err = d.Stop(stopCtx)
 	require.NoError(t, err)
+}
+
+func TestAsynqWorkerDispatchTracksExecution(t *testing.T) {
+	_ = idgen.Init(1)
+	testDB, mr, cleanup := testhelper.SetupTestEnvironment(t)
+	defer cleanup()
+
+	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
+	core.Provide[contracts.DBService](ctx, &testDBService{db: testDB})
+
+	var processed atomic.Bool
+	ctx.Tasks().Register("system:cleanup", func(_ context.Context, _ []byte) error {
+		processed.Store(true)
+		return nil
+	},
+		extpoints.WithTaskType("system_cleanup"),
+		extpoints.WithTaskName("系统垃圾清理"),
+		extpoints.WithTaskQueue("default"),
+		extpoints.WithTaskRetry(1),
+		extpoints.WithTaskRetryable(true),
+	)
+
+	workerPlugin := driver_asynq_worker.New(
+		driver_asynq_worker.WithRedisOpt(asynq.RedisClientOpt{Addr: mr.Addr()}),
+		driver_asynq_worker.WithConcurrency(2),
+		driver_asynq_worker.WithShutdownTimeout(2*time.Second),
+	)
+	require.NoError(t, workerPlugin.Apply(ctx))
+	require.NoError(t, workerPlugin.Start(context.Background()))
+	t.Cleanup(func() {
+		_ = workerPlugin.Stop(context.Background())
+	})
+
+	taskSvc, err := core.Inject[contracts.TaskService](ctx)
+	require.NoError(t, err)
+
+	taskID, err := taskSvc.Dispatch(context.Background(), "system_cleanup", []byte(`{}`), "manual")
+	require.NoError(t, err)
+	require.NotEmpty(t, taskID)
+
+	require.Eventually(t, func() bool {
+		return processed.Load()
+	}, 5*time.Second, 50*time.Millisecond, "asynq worker should execute dispatched func handler")
+
+	require.Eventually(t, func() bool {
+		execs, _, listErr := taskSvc.ListExecutions(context.Background(), "", "", 1, 10)
+		if listErr != nil || len(execs) == 0 {
+			return false
+		}
+		return execs[0].TaskID == taskID && execs[0].Status == "succeeded"
+	}, 5*time.Second, 50*time.Millisecond, "task execution should become succeeded after worker runs")
 }
 
 func TestAsynqCronDriverLifecycle(t *testing.T) {

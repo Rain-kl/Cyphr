@@ -192,7 +192,7 @@ func (p *Plugin) Start(_ context.Context) error {
 
 	if p.coreCtx != nil && p.coreCtx.Tasks() != nil {
 		for _, td := range p.coreCtx.Tasks().Tasks() {
-			handler, err := toAsynqHandler(td.Handler)
+			handler, err := toAsynqHandler(td.Pattern, td.Handler)
 			if err != nil {
 				return fmt.Errorf("driver_asynq_worker: invalid handler for task pattern %q: %w", td.Pattern, err)
 			}
@@ -276,21 +276,30 @@ func (p *Plugin) Mux() *asynq.ServeMux {
 	return p.mux
 }
 
-func toAsynqHandler(h any) (asynq.Handler, error) {
+func toAsynqHandler(pattern string, h any) (asynq.Handler, error) {
 	if h == nil {
 		return nil, errors.New("nil handler")
 	}
 
+	if th, ok := h.(TaskHandler); ok {
+		RegisterHandler(pattern, th)
+		return asynq.HandlerFunc(ProcessTask), nil
+	}
+
+	inner, err := toRawAsynqHandler(h)
+	if err != nil {
+		return nil, err
+	}
+	RegisterHandler(pattern, &asynqHandlerAdapter{inner: inner})
+	return asynq.HandlerFunc(ProcessTask), nil
+}
+
+func toRawAsynqHandler(h any) (asynq.Handler, error) {
 	switch fn := h.(type) {
 	case asynq.HandlerFunc:
 		return fn, nil
 	case asynq.Handler:
 		return fn, nil
-	case TaskHandler:
-		return asynq.HandlerFunc(func(c context.Context, t *asynq.Task) error {
-			RegisterHandler(t.Type(), fn)
-			return ProcessTask(c, t)
-		}), nil
 	case func(context.Context, *asynq.Task) error:
 		return asynq.HandlerFunc(fn), nil
 	case func(context.Context, []byte) error:
@@ -314,6 +323,23 @@ func toAsynqHandler(h any) (asynq.Handler, error) {
 	default:
 		return nil, fmt.Errorf("unsupported task handler type: %T", h)
 	}
+}
+
+type asynqTaskCtxKey struct{}
+
+type asynqHandlerAdapter struct {
+	inner asynq.Handler
+}
+
+func (a *asynqHandlerAdapter) Execute(ctx context.Context, payload []byte) (*TaskResult, error) {
+	t, _ := ctx.Value(asynqTaskCtxKey{}).(*asynq.Task)
+	if t == nil {
+		t = asynq.NewTask("", payload)
+	}
+	if err := a.inner.ProcessTask(ctx, t); err != nil {
+		return nil, err
+	}
+	return &TaskResult{Message: "ok"}, nil
 }
 
 type taskServiceImpl struct{}
