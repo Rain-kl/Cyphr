@@ -135,7 +135,7 @@ function solveInWorker(
 
 export async function getCapToken(scope = 'login'): Promise<string> {
   // 1. 获取难题
-  const challengeRes = await fetch('/api/cap/challenge', {
+  const challengeRes = await fetch('/api/v1/cap/challenge', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ scope }),
@@ -171,7 +171,7 @@ export async function getCapToken(scope = 'login'): Promise<string> {
   console.groupEnd();
 
   // 3. 提交答案兑换一次性凭证
-  const redeemRes = await fetch('/api/cap/redeem', {
+  const redeemRes = await fetch('/api/v1/cap/redeem', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: challenge.token, solutions, scope }),
