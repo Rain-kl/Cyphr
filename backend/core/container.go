@@ -201,13 +201,17 @@ func Using3[T1, T2, T3 any](ctx *Context, fn func(s1 T1, s2 T2, s3 T3)) error {
 
 // When registers a reactive hook that is called immediately if T is already provided,
 // or called as soon as T is provided in the future.
+//
+// Listeners are stored on the root container so they observe core.Provide, which
+// always writes to the root. Registering on a Fiber child container would miss
+// services provided by plugins that load later.
 func When[T any](ctx *Context, fn func(s T)) {
 	if ctx == nil {
 		panic("core: nil context provided to When")
 	}
 
 	targetType := reflect.TypeFor[T]()
-	c := ctx.Container()
+	c := ctx.Root().Container()
 
 	// If already ready, execute immediately
 	if s, err := Inject[T](ctx); err == nil {
@@ -222,4 +226,10 @@ func When[T any](ctx *Context, fn func(s T)) {
 			fn(typed)
 		}
 	})
+}
+
+// Bind is When with a name that matches plugin wiring: fill a dependency as
+// soon as the root container provides it.
+func Bind[T any](ctx *Context, fn func(s T)) {
+	When(ctx, fn)
 }

@@ -80,9 +80,9 @@ func TestInprocWorkerDispatchByTypeTracksExecution(t *testing.T) {
 	require.NoError(t, p.Apply(ctx))
 
 	var executedCount atomic.Int32
-	ctx.Tasks().Register("system:cleanup", func(_ context.Context, _ []byte) error {
+	ctx.Tasks().Register("system:cleanup", func(_ context.Context, _ []byte) (*contracts.TaskResultDTO, error) {
 		executedCount.Add(1)
-		return nil
+		return &contracts.TaskResultDTO{Message: "cleaned 3 files"}, nil
 	},
 		extpoints.WithTaskType("system_cleanup"),
 		extpoints.WithTaskName("系统垃圾清理"),
@@ -111,6 +111,6 @@ func TestInprocWorkerDispatchByTypeTracksExecution(t *testing.T) {
 		if listErr != nil || total == 0 || len(execs) == 0 {
 			return false
 		}
-		return execs[0].TaskID == taskID && execs[0].Status == "succeeded" && execs[0].TaskName == "系统垃圾清理"
+		return execs[0].TaskID == taskID && execs[0].Status == "succeeded" && execs[0].TaskName == "系统垃圾清理" && execs[0].Result == "cleaned 3 files"
 	}, 2*time.Second, 20*time.Millisecond, "inproc worker should persist a succeeded execution record")
 }

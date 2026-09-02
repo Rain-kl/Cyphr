@@ -239,9 +239,9 @@ func TestAsynqWorkerDispatchTracksExecution(t *testing.T) {
 	core.Provide[contracts.DBService](ctx, &testDBService{db: testDB})
 
 	var processed atomic.Bool
-	ctx.Tasks().Register("system:cleanup", func(_ context.Context, _ []byte) error {
+	ctx.Tasks().Register("system:cleanup", func(_ context.Context, _ []byte) (*contracts.TaskResultDTO, error) {
 		processed.Store(true)
-		return nil
+		return &contracts.TaskResultDTO{Message: "cleaned 3 files"}, nil
 	},
 		extpoints.WithTaskType("system_cleanup"),
 		extpoints.WithTaskName("系统垃圾清理"),
@@ -277,7 +277,7 @@ func TestAsynqWorkerDispatchTracksExecution(t *testing.T) {
 		if listErr != nil || len(execs) == 0 {
 			return false
 		}
-		return execs[0].TaskID == taskID && execs[0].Status == "succeeded"
+		return execs[0].TaskID == taskID && execs[0].Status == "succeeded" && execs[0].Result == "cleaned 3 files"
 	}, 5*time.Second, 50*time.Millisecond, "task execution should become succeeded after worker runs")
 }
 

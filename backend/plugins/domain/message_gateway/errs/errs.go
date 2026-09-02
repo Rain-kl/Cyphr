@@ -28,13 +28,15 @@ var (
 
 // User-facing validation and error message constants.
 const (
-	ErrNameRequired          = "name is required"
-	ErrTypeInvalid           = "type must be telegram or qq"
-	ErrTelegramTokenRequired = "telegram bot secret is required"   //nolint:gosec // user-facing validation text
-	ErrQQCredentialsRequired = "qq app id and secret are required" //nolint:gosec // user-facing validation text
-	ErrChannelNotFound       = "channel not found"
-	ErrChannelProbeFailed    = "channel probe failed"
-	MaskedSecret             = "********"
+	ErrNameRequired            = "name is required"
+	ErrTypeInvalid             = "type must be telegram or qq"
+	ErrTelegramTokenRequired   = "telegram bot secret is required"   //nolint:gosec // user-facing validation text
+	ErrQQCredentialsRequired   = "qq app id and secret are required" //nolint:gosec // user-facing validation text
+	ErrChannelNotFound         = "channel not found"
+	ErrChannelProbeFailed      = "channel probe failed"
+	ErrBotDispatchTextRequired = "message text is required"
+	ErrBotChannelNotRegistered = "channel adapter is not registered"
+	MaskedSecret               = "********"
 
 	ErrLoginRequired    = "login required"
 	ErrInvalidBindingID = "invalid binding id"

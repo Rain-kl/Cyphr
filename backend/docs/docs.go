@@ -5925,6 +5925,17 @@ const docTemplate = `{
                     "user"
                 ],
                 "summary": "发送邮箱验证码",
+                "parameters": [
+                    {
+                        "description": "目标邮箱",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.sendEmailCodeRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "发送成功",
@@ -5934,6 +5945,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/response.Any"
+                        }
+                    },
+                    "500": {
+                        "description": "发送失败",
                         "schema": {
                             "$ref": "#/definitions/response.Any"
                         }
@@ -8043,6 +8060,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.sendEmailCodeRequest": {
+            "type": "object",
+            "required": [
+                "email"
+            ],
+            "properties": {
+                "email": {
                     "type": "string"
                 }
             }

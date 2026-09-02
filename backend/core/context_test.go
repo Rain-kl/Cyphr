@@ -313,6 +313,46 @@ func TestContextReactiveWhen(t *testing.T) {
 	assert.True(t, immediateCalled)
 }
 
+func TestWhenObservesProvideFromForkedFiberContext(t *testing.T) {
+	root := core.NewContext(context.Background())
+	adminFiber := root.Fork()
+	lateFiber := root.Fork()
+
+	var got atomic.Bool
+	core.When[SampleService](adminFiber, func(s SampleService) {
+		if s != nil {
+			got.Store(true)
+		}
+	})
+	assert.False(t, got.Load())
+
+	core.Provide[SampleService](lateFiber, &sampleServiceImpl{})
+	assert.True(t, got.Load(), "When on a Fiber child must observe Provide on the root")
+}
+
+func TestBindIsWhen(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+	var called atomic.Bool
+	core.Bind[SampleService](ctx, func(s SampleService) {
+		called.Store(true)
+	})
+	core.Provide[SampleService](ctx, &sampleServiceImpl{})
+	assert.True(t, called.Load())
+}
+
+func TestInjectFromAppContext(t *testing.T) {
+	app := core.NewContext(context.Background())
+	core.Provide[SampleService](app, &sampleServiceImpl{prefix: "Hi:"})
+
+	req := core.WithAppContext(context.Background(), app)
+	svc, err := core.InjectFrom[SampleService](req)
+	require.NoError(t, err)
+	assert.Equal(t, "Hi: Ada", svc.Greet("Ada"))
+
+	_, err = core.InjectFrom[SampleService](context.Background())
+	assert.ErrorIs(t, err, core.ErrNilContext)
+}
+
 func TestContextDisposerLifecycle(t *testing.T) {
 	parent := core.NewContext(context.Background())
 	child := parent.Fork()

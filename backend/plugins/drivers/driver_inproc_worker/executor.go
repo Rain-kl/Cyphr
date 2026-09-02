@@ -4,11 +4,14 @@
 package driver_inproc_worker
 
 import (
+	"Wavelet/core"
+	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -40,6 +43,7 @@ type InprocQueue struct {
 	// baseCtx is the app-lifetime context captured at Start; task handlers
 	// derive their timeouts from it so shutdown cancellation propagates.
 	baseCtx context.Context
+	appCtx  *core.Context
 }
 
 // NewInprocQueue creates a new InprocQueue with a given concurrency and queue capacity.
@@ -182,10 +186,14 @@ func (q *InprocQueue) executeTask(ctx context.Context, msg TaskMessage) {
 
 	taskCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	if q.appCtx != nil {
+		taskCtx = core.WithAppContext(taskCtx, q.appCtx)
+		ctx = core.WithAppContext(ctx, q.appCtx)
+	}
 
 	q.markRunning(ctx, msg)
 	start := time.Now()
-	err := invokeHandler(taskCtx, td.Handler, msg.Payload)
+	result, err := invokeHandler(taskCtx, td.Handler, msg.Payload)
 	duration := time.Since(start)
 
 	if err != nil {
@@ -210,25 +218,29 @@ func (q *InprocQueue) executeTask(ctx context.Context, msg TaskMessage) {
 		}
 		return
 	}
-	q.succeedExecution(ctx, msg, duration)
+	q.succeedExecution(ctx, msg, duration, result)
 }
 
-func invokeHandler(ctx context.Context, handler any, payload []byte) error {
+func invokeHandler(ctx context.Context, handler any, payload []byte) (*contracts.TaskResultDTO, error) {
 	if handler == nil {
-		return errors.New("nil task handler")
+		return nil, errors.New("nil task handler")
 	}
 
 	switch fn := handler.(type) {
-	case func(context.Context, []byte) error:
+	case contracts.TaskHandler:
+		return fn.Execute(ctx, payload)
+	case func(context.Context, []byte) (*contracts.TaskResultDTO, error):
 		return fn(ctx, payload)
+	case func(context.Context, []byte) error:
+		return nil, fn(ctx, payload)
 	case func(context.Context) error:
-		return fn(ctx)
+		return nil, fn(ctx)
 	case func([]byte) error:
-		return fn(payload)
+		return nil, fn(payload)
 	case func() error:
-		return fn()
+		return nil, fn()
 	default:
-		return fmt.Errorf("unsupported handler type: %T", handler)
+		return nil, fmt.Errorf("unsupported handler type: %T", handler)
 	}
 }
 
@@ -280,16 +292,27 @@ func (q *InprocQueue) markRunning(ctx context.Context, msg TaskMessage) {
 	q.appendExecutionLog(ctx, msg.ID, fmt.Sprintf("[系统] 开始执行异步任务 [类型: %s]", msg.TaskType))
 }
 
-func (q *InprocQueue) succeedExecution(ctx context.Context, msg TaskMessage, duration time.Duration) {
+func (q *InprocQueue) succeedExecution(ctx context.Context, msg TaskMessage, duration time.Duration, result *contracts.TaskResultDTO) {
 	db := getDB(ctx)
 	if db == nil {
 		return
 	}
 	now := time.Now()
+	resultText := "ok"
+	if result != nil {
+		resultText = result.Message
+		if result.Detail != nil {
+			if s, ok := result.Detail.(string); ok && s != "" {
+				resultText = result.Message + "\n" + s
+			} else if b, err := json.Marshal(result.Detail); err == nil && len(b) > 0 && string(b) != "null" {
+				resultText = result.Message + "\n" + string(b)
+			}
+		}
+	}
 	updates := map[string]any{
 		taskExecutionColStatus: taskExecutionStatusSucceeded,
 		"error_message":        "",
-		"result":               "ok",
+		"result":               resultText,
 		"finished_at":          now,
 		"duration":             duration.Milliseconds(),
 	}

@@ -236,7 +236,7 @@ func TestUserPlugin(t *testing.T) {
 	assert.Len(t, list, 1)
 	assert.Equal(t, "bob", list[0].Username)
 
-	// 9. Tasks & Schedules
+	// 9. Tasks
 	taskDef, ok := ctx.Tasks().Get("user:send_email_code")
 	require.True(t, ok)
 	assert.Equal(t, 3, taskDef.Retry)

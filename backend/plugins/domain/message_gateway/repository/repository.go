@@ -132,6 +132,15 @@ func ListBindingsByUser(ctx context.Context, userID uint64) ([]model.MessageBind
 	return rows, nil
 }
 
+// ListBindingsByChannel lists bindings on one messaging channel.
+func ListBindingsByChannel(ctx context.Context, channelID uint64) ([]model.MessageBinding, error) {
+	var rows []model.MessageBinding
+	if err := GetDB(ctx).Where("channel_id = ?", channelID).Order("id DESC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // GetMessageBinding loads a binding by id.
 func GetMessageBinding(ctx context.Context, id uint64) (*model.MessageBinding, error) {
 	var b model.MessageBinding

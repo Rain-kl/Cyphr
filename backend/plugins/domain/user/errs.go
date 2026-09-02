@@ -40,4 +40,12 @@ const (
 	//nolint:gosec // error message, not hardcoded credentials
 	errServicePasswordTooShort = "密码长度至少为 8 位"
 	errUniqueUsernameFailed    = "failed to generate unique username"
+	errInvalidEmail            = "邮箱地址无效"
+	errInvalidEmailCode        = "验证码必须是 6 位数字"
+	errInvalidTaskPayload      = "任务参数无效"
+	errMailSubjectRequired     = "邮件主题不能为空"
+	errMailBodyRequired        = "邮件内容不能为空"
+	errSMTPNotConfigured       = "SMTP 未配置"
+	errEmailCacheUnavailable   = "缓存服务不可用，无法保存验证码"
+	errSendEmailFailed         = "邮件发送失败"
 )

@@ -119,13 +119,7 @@ func (p *Plugin) ConfigEnabled(view core.ConfigView) bool {
 func (p *Plugin) Apply(ctx *core.Context) error {
 	p.coreCtx = ctx
 
-	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		setDBService(db)
-	} else {
-		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
-			setDBService(db)
-		})
-	}
+	core.Bind[contracts.DBService](ctx, setDBService)
 
 	taskSvc := newInprocTaskService(ctx.Tasks())
 	core.Provide[contracts.TaskService](ctx, taskSvc)
@@ -150,6 +144,9 @@ func (p *Plugin) Type() core.DriverType {
 func (p *Plugin) Start(ctx context.Context) error {
 	if p.queue == nil {
 		p.queue = NewInprocQueue(p.concurrency, p.queueCapacity, p.coreCtx.Tasks())
+	}
+	if p.coreCtx != nil {
+		p.queue.appCtx = p.coreCtx.Root()
 	}
 
 	globalMu.Lock()

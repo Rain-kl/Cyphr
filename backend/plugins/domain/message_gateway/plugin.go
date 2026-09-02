@@ -10,6 +10,8 @@ import (
 	"Wavelet/core/extpoints"
 	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/util"
+	"Wavelet/plugins/domain/message_gateway/channels/qq"
+	"Wavelet/plugins/domain/message_gateway/channels/telegram"
 	"Wavelet/plugins/domain/message_gateway/handler"
 	"Wavelet/plugins/domain/message_gateway/model"
 	"Wavelet/plugins/domain/message_gateway/repository"
@@ -94,37 +96,13 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	if err := ctx.Config().Bind("app", &cfg); err == nil && cfg.SessionSecret != "" {
 		service.SetCredentialSecret(cfg.SessionSecret)
 	}
-	// 0. Bind DBService, CacheService, TaskService, UserService
-	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		repository.SetDBService(db)
-	} else {
-		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
-			repository.SetDBService(db)
-		})
-	}
-	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
+	core.Bind[contracts.DBService](ctx, repository.SetDBService)
+	core.Bind[contracts.CacheService](ctx, func(cache contracts.CacheService) {
 		repository.SetCacheService(cache)
 		service.SetCacheService(cache)
-	} else {
-		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
-			repository.SetCacheService(cache)
-			service.SetCacheService(cache)
-		})
-	}
-	if taskSvc, err := core.Inject[contracts.TaskService](ctx); err == nil && taskSvc != nil {
-		service.SetTaskService(taskSvc)
-	} else {
-		core.When[contracts.TaskService](ctx, func(taskSvc contracts.TaskService) {
-			service.SetTaskService(taskSvc)
-		})
-	}
-	if uSvc, err := core.Inject[contracts.UserService](ctx); err == nil && uSvc != nil {
-		service.SetUserService(uSvc)
-	} else {
-		core.When[contracts.UserService](ctx, func(uSvc contracts.UserService) {
-			service.SetUserService(uSvc)
-		})
-	}
+	})
+	core.Bind[contracts.TaskService](ctx, service.SetTaskService)
+	core.Bind[contracts.UserService](ctx, service.SetUserService)
 	ctx.OnDispose(func() error {
 		repository.SetDBService(nil)
 		repository.SetCacheService(nil)
@@ -159,6 +137,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 4. Register Admin Push HTTP Routes
 	handler.RegisterAdminPushRoutes(ctx.Router().Group("/api/v1/admin"), loginMW, adminMW)
 
+	service.Register(model.MessageChannelTypeTelegram, telegram.New)
+	service.Register(model.MessageChannelTypeQQ, qq.New)
+
 	const defaultTaskRetry = 3
 	pushHandler := &service.PushHandler{}
 
@@ -179,15 +160,8 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return pushHandler.Execute(c, payload)
 	}, extpoints.WithTaskMeta(service.SendNotificationMeta), extpoints.WithTaskRetry(defaultTaskRetry))
 
-	ctx.Task().Register("message_gateway:dispatch_bot_msg", func(_ context.Context, _ []byte) error {
-		return nil
-	},
-		extpoints.WithTaskType("dispatch_bot_msg"),
-		extpoints.WithTaskName("分发 Bot 消息"),
-		extpoints.WithTaskDescription("异步处理与分发 Bot 下行消息"),
-		extpoints.WithTaskCategory("messaging"),
-		extpoints.WithTaskQueue("default"),
-	)
+	ctx.Task().Register(service.TaskDispatchBotMsg, &service.BotDispatchHandler{},
+		extpoints.WithTaskMeta(service.BotDispatchMeta))
 
 	ctx.Task().Register("message_gateway:cleanup_pairing_codes", func(c context.Context, _ []byte) error {
 		return repository.DeleteExpiredPairingCodes(c)

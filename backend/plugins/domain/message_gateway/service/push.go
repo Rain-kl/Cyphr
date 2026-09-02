@@ -52,10 +52,12 @@ func GetBuiltInEvents() []model.EventMetadata {
 // PushRegistryAdapter adapts contracts.PushRegistry onto the built-in event store.
 type PushRegistryAdapter struct{}
 
+// RegisterBuiltInEvent records a built-in push event definition.
 func (PushRegistryAdapter) RegisterBuiltInEvent(meta contracts.PushEventMeta) {
 	RegisterBuiltInEvent(eventMetadataFromContract(meta))
 }
 
+// SyncEvents persists registered built-in events into the database.
 func (PushRegistryAdapter) SyncEvents(ctx context.Context) error {
 	return SyncEvents(ctx)
 }
@@ -108,7 +110,7 @@ func ListPushEvents(ctx context.Context) ([]model.PushEvent, error) {
 
 // CreatePushEvent stores a push event configuration for a built-in event or task type.
 func CreatePushEvent(ctx context.Context, req model.CreatePushEventRequest) (model.PushEvent, error) {
-	eventKey, eventName, defaultTemplateBytes, err := GetEventInfo(req)
+	eventKey, eventName, defaultTemplateBytes, err := GetEventInfo(ctx, req)
 	if err != nil {
 		return model.PushEvent{}, err
 	}
@@ -650,10 +652,10 @@ func FindBuiltInEvent(key string) (model.EventMetadata, bool) {
 
 // GetEventInfo derives the event key, display name and default template for a
 // task-completion based event or a registered built-in event key.
-func GetEventInfo(req model.CreatePushEventRequest) (string, string, []byte, error) {
+func GetEventInfo(ctx context.Context, req model.CreatePushEventRequest) (string, string, []byte, error) {
 	if req.TaskType != "" {
 		taskName := req.TaskType
-		if taskSvc := GetTaskService(); taskSvc != nil {
+		if taskSvc := GetTaskService(ctx); taskSvc != nil {
 			if meta, ok := taskSvc.GetTaskMeta(req.TaskType); ok {
 				taskName = meta.DisplayName
 			}
@@ -694,7 +696,7 @@ func EnqueuePushTask(ctx context.Context, payload model.SendPayload) error {
 	if err != nil {
 		return err
 	}
-	if taskSvc := GetTaskService(); taskSvc != nil {
+	if taskSvc := GetTaskService(ctx); taskSvc != nil {
 		_, err = taskSvc.Dispatch(ctx, "send_notification", payloadBytes, "system")
 		return err
 	}
@@ -749,13 +751,13 @@ var SendNotificationMeta = contracts.TaskMetaDTO{
 	Category:     "push",
 	SupportsTime: false,
 	MaxRetry:     3,
-	Queue:        "default",
+	Queue:        taskQueueDefault,
 	Retryable:    true,
 	Params: []contracts.TaskParamDTO{
 		{
 			Name:        "event_key",
 			Label:       "事件标识",
-			Type:        "string",
+			Type:        taskParamTypeString,
 			Required:    true,
 			Placeholder: "admin_login",
 			Description: "事件标识 (如 admin_login)",
@@ -763,7 +765,7 @@ var SendNotificationMeta = contracts.TaskMetaDTO{
 		{
 			Name:        "target",
 			Label:       "目标接收者",
-			Type:        "string",
+			Type:        taskParamTypeString,
 			Required:    false,
 			Description: "目标接收者",
 		},

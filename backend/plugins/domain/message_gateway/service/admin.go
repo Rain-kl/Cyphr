@@ -27,14 +27,14 @@ func ListDefinitions() []model.Definition {
 		{
 			Type: model.MessageChannelTypeTelegram,
 			Fields: []model.Field{
-				{Key: "token", Type: "password", Required: true},
-				{Key: "api_base", Type: "text", Required: false},
+				{Key: "token", Type: model.TypePassword, Required: true},
+				{Key: "api_base", Type: model.TypeText, Required: false},
 			},
 		},
 		{
 			Type: model.MessageChannelTypeQQ,
 			Fields: []model.Field{
-				{Key: "app_id", Type: "text", Required: true},
+				{Key: "app_id", Type: model.TypeText, Required: true},
 				{Key: "client_secret", Type: "password", Required: true},
 			},
 		},

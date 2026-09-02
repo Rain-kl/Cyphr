@@ -75,7 +75,7 @@ func IsAllowedLogOrigin(ctx context.Context, origin, host string) bool {
 
 // AccessLogs queries the analytical access log store and decorates rows with user names.
 func AccessLogs(ctx context.Context, q model.AccessLogQuery) (model.AccessLogsResponse, error) {
-	rc := GetRiskControlService()
+	rc := GetRiskControlService(ctx)
 	if rc == nil {
 		return model.AccessLogsResponse{}, errs.ErrLogStoreUnavailable
 	}
@@ -117,7 +117,7 @@ func AccessLogs(ctx context.Context, q model.AccessLogQuery) (model.AccessLogsRe
 
 // AccessLogAnalytics aggregates the daily trend of the access log store.
 func AccessLogAnalytics(ctx context.Context) (model.LogsAnalyticsResponse, error) {
-	rc := GetRiskControlService()
+	rc := GetRiskControlService(ctx)
 	if rc == nil {
 		return model.LogsAnalyticsResponse{}, errs.ErrLogStoreUnavailable
 	}

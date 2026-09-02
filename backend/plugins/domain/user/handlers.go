@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"sync"
@@ -190,10 +191,36 @@ func Logout(c *gin.Context) {
 // @Tags user
 // @Accept json
 // @Produce json
+// @Param request body user.sendEmailCodeRequest true "目标邮箱"
 // @Success 200 {object} response.Any "发送成功"
 // @Failure 400 {object} response.Any "参数错误"
+// @Failure 500 {object} response.Any "发送失败"
 // @Router /api/v1/user/send-email-code [post]
 func SendEmailCode(c *gin.Context) {
+	var req sendEmailCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.AbortBadRequest(c, errInvalidParams)
+		return
+	}
+	payload, err := json.Marshal(sendEmailCodePayload{Email: req.Email})
+	if err != nil {
+		response.AbortInternal(c, errSendEmailFailed)
+		return
+	}
+	ctx := c.Request.Context()
+	if taskSvc := getTaskService(ctx); taskSvc != nil {
+		if _, err := taskSvc.Dispatch(ctx, TaskTypeSendEmailCode, payload, "http"); err != nil {
+			logger.ErrorF(ctx, "dispatch send_email_code failed: %v", err)
+			response.AbortInternal(c, errSendEmailFailed)
+			return
+		}
+		c.JSON(http.StatusOK, response.OK(gin.H{"sent": true}))
+		return
+	}
+	if _, err := (&SendEmailCodeHandler{}).Execute(ctx, payload); err != nil {
+		response.AbortBadRequest(c, err.Error())
+		return
+	}
 	c.JSON(http.StatusOK, response.OK(gin.H{"sent": true}))
 }
 

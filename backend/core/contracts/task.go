@@ -43,6 +43,12 @@ type TaskResultDTO struct {
 	Detail  any    `json:"detail,omitempty"`
 }
 
+// TaskHandler is the preferred background task handler. Drivers invoke Execute
+// and persist Message/Detail onto the execution record.
+type TaskHandler interface {
+	Execute(ctx context.Context, payload []byte) (*TaskResultDTO, error)
+}
+
 // TaskExecutionDTO represents a single task execution record.
 type TaskExecutionDTO struct {
 	ID           uint64     `json:"id,string"`

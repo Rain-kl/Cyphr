@@ -59,14 +59,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		SetSecret([]byte(cfg.SessionSecret))
 	}
 
-	// 0. Bind DBService from Context
-	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		setDBService(db)
-	} else {
-		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
-			setDBService(db)
-		})
-	}
+	core.Bind[contracts.DBService](ctx, setDBService)
 	ctx.OnDispose(func() error {
 		setDBService(nil)
 		return nil

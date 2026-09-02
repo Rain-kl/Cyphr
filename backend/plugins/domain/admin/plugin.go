@@ -12,7 +12,6 @@ import (
 	"Wavelet/plugins/domain/admin/handler"
 	"Wavelet/plugins/domain/admin/model"
 	"Wavelet/plugins/domain/admin/service"
-	"context"
 	"embed"
 	"reflect"
 
@@ -85,56 +84,13 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	_ = ctx.Config().Bind("clickhouse", &chCfg)
 	service.SetClickHouseConfig(chCfg)
 
-	// 0. Bind Services reactively
-	if db, err := core.Inject[contracts.DBService](ctx); err == nil && db != nil {
-		service.SetDBService(db)
-	} else {
-		core.When[contracts.DBService](ctx, func(db contracts.DBService) {
-			service.SetDBService(db)
-		})
-	}
-	if cache, err := core.Inject[contracts.CacheService](ctx); err == nil && cache != nil {
-		service.SetCacheService(cache)
-	} else {
-		core.When[contracts.CacheService](ctx, func(cache contracts.CacheService) {
-			service.SetCacheService(cache)
-		})
-	}
-	if user, err := core.Inject[contracts.UserService](ctx); err == nil && user != nil {
-		service.SetUserService(user)
-	} else {
-		core.When[contracts.UserService](ctx, func(user contracts.UserService) {
-			service.SetUserService(user)
-		})
-	}
-	if auth, err := core.Inject[contracts.AuthService](ctx); err == nil && auth != nil {
-		service.SetAuthService(auth)
-	} else {
-		core.When[contracts.AuthService](ctx, func(auth contracts.AuthService) {
-			service.SetAuthService(auth)
-		})
-	}
-	if task, err := core.Inject[contracts.TaskService](ctx); err == nil && task != nil {
-		service.SetTaskService(task)
-	} else {
-		core.When[contracts.TaskService](ctx, func(task contracts.TaskService) {
-			service.SetTaskService(task)
-		})
-	}
-	if storage, err := core.Inject[contracts.StorageService](ctx); err == nil && storage != nil {
-		service.SetStorageService(storage)
-	} else {
-		core.When[contracts.StorageService](ctx, func(storage contracts.StorageService) {
-			service.SetStorageService(storage)
-		})
-	}
-	if rc, err := core.Inject[contracts.RiskControlService](ctx); err == nil && rc != nil {
-		service.SetRiskControlService(rc)
-	} else {
-		core.When[contracts.RiskControlService](ctx, func(rc contracts.RiskControlService) {
-			service.SetRiskControlService(rc)
-		})
-	}
+	core.Bind[contracts.DBService](ctx, service.SetDBService)
+	core.Bind[contracts.CacheService](ctx, service.SetCacheService)
+	core.Bind[contracts.UserService](ctx, service.SetUserService)
+	core.Bind[contracts.AuthService](ctx, service.SetAuthService)
+	core.Bind[contracts.TaskService](ctx, service.SetTaskService)
+	core.Bind[contracts.StorageService](ctx, service.SetStorageService)
+	core.Bind[contracts.RiskControlService](ctx, service.SetRiskControlService)
 	service.SetEventEmitter(ctx.Events().Emit)
 
 	ctx.OnDispose(func() error {
@@ -175,11 +131,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Router().RegisterWhitelist("/robots.txt")
 
 	// 2. Register Background Tasks
-	logSwitchHandler := &service.LogDBSwitchHandler{}
-	ctx.Task().Register(service.LogDBSwitchTask, func(c context.Context, payload []byte) error {
-		_, err := logSwitchHandler.Execute(c, payload)
-		return err
-	}, extpoints.WithTaskMeta(service.LogDBSwitchMeta))
+	ctx.Task().Register(service.LogDBSwitchTask, &service.LogDBSwitchHandler{}, extpoints.WithTaskMeta(service.LogDBSwitchMeta))
 
 	// 3. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{

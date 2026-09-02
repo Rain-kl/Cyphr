@@ -229,6 +229,22 @@ func TestTaskExtension(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestTaskRegisterRejectsNilHandler(t *testing.T) {
+	tr := extpoints.NewTaskRegistry()
+	assert.Panics(t, func() {
+		tr.Register("broken:task", nil)
+	})
+}
+
+func TestTaskRegisterRejectsDuplicateType(t *testing.T) {
+	tr := extpoints.NewTaskRegistry()
+	handler := func(ctx context.Context, payload []byte) error { return nil }
+	tr.Register("system:cleanup", handler, extpoints.WithTaskType("system_cleanup"))
+	assert.Panics(t, func() {
+		tr.Register("admin:system_cleanup", handler, extpoints.WithTaskType("system_cleanup"))
+	})
+}
+
 func TestScheduleExtension(t *testing.T) {
 	sr := extpoints.NewScheduleRegistry()
 	require.NotNil(t, sr)

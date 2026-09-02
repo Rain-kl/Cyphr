@@ -8,8 +8,10 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/util"
 	"context"
+	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -27,10 +29,8 @@ func SetDBService(s contracts.DBService) {
 }
 
 func getDB(ctx context.Context) *gorm.DB {
-	if c, ok := ctx.(*core.Context); ok && c != nil {
-		if s, err := core.Inject[contracts.DBService](c); err == nil && s != nil {
-			return s.DB(ctx)
-		}
+	if s, err := core.InjectFrom[contracts.DBService](ctx); err == nil && s != nil {
+		return s.DB(ctx)
 	}
 
 	dbMu.RLock()
@@ -178,6 +178,26 @@ func DeleteUserWithRelations(ctx context.Context, id uint64) error {
 		}
 		return tx.Where("id = ?", id).Delete(&User{}).Error
 	})
+}
+
+// ListInactiveNeverLoggedInUserIDs returns non-admin users created before cutoff
+// who have never logged in. Seeded admin/system accounts are excluded.
+func ListInactiveNeverLoggedInUserIDs(ctx context.Context, cutoff time.Time) ([]uint64, error) {
+	db := getDB(ctx)
+	if db == nil {
+		return nil, errors.New("database not available")
+	}
+	var ids []uint64
+	unixEpoch := time.Unix(0, 0).UTC()
+	err := db.Model(&User{}).
+		Where("is_admin = ? AND username NOT IN ?", false, []string{"admin", "system"}).
+		Where("created_at < ?", cutoff).
+		Where("last_login_at IS NULL OR last_login_at < ?", unixEpoch).
+		Pluck("id", &ids).Error
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 // GetFirstAdminUser 获取第一个管理员用户
