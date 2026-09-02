@@ -17,19 +17,19 @@ func VerifyMiddleware(mgr *Manager, scope string) gin.HandlerFunc {
 			return
 		}
 		if mgr == nil {
-			response.AbortUnauthorized(c, errCapTokenInvalidOrExpired)
+			response.AbortBadRequest(c, errCapTokenInvalidOrExpired)
 			return
 		}
 
 		token := c.GetHeader("X-Cap-Token")
 		if token == "" {
-			response.AbortUnauthorized(c, errCapTokenMissing)
+			response.AbortBadRequest(c, errCapTokenMissing)
 			return
 		}
 
 		valid, err := mgr.VerifyToken(c.Request.Context(), token, scope)
 		if err != nil || !valid {
-			response.AbortUnauthorized(c, errCapTokenInvalidOrExpired)
+			response.AbortBadRequest(c, errCapTokenInvalidOrExpired)
 			return
 		}
 

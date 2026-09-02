@@ -106,23 +106,17 @@ apiClient.interceptors.request.use(
   (error: unknown) => Promise.reject(error),
 );
 
-/**
- * 直接启动登录流程
- * @param currentPath - 当前路径，用于登录成功后重定向回来
- */
-function initiateLogin(currentPath: string): Promise<never> {
-  if (currentPath.startsWith('/login') || currentPath.startsWith('/callback')) {
-    return Promise.reject(new UnauthorizedError());
-  }
-
-  if (typeof window !== 'undefined') {
-    sessionStorage.setItem('redirect_after_login', currentPath);
-    const loginUrl = new URL('/login', window.location.origin);
-    loginUrl.searchParams.set('callbackUrl', currentPath);
-    window.location.href = loginUrl.toString();
-  }
-
-  return new Promise<never>(() => {});
+function isPublicAuthRequest(url?: string): boolean {
+  if (!url) return false;
+  return (
+    url.includes('/user/login') ||
+    url.includes('/user/register') ||
+    url.includes('/user/send-email-code') ||
+    url.includes('/cap/') ||
+    url.includes('/oauth/login') ||
+    url.includes('/oauth/callback') ||
+    url.includes('/oauth/sources')
+  );
 }
 
 /**
@@ -158,16 +152,22 @@ apiClient.interceptors.response.use(
       return Promise.reject(cancelError);
     }
 
-    /* 401 未授权错误 */
+    /* 401：未登录。公开认证接口只把错误交给页面；已登录态下的误报不得清 cookie 跳登录页。 */
     if (error.response?.status === 401) {
-      return initiateLogin(window.location.pathname + window.location.search);
+      const message = error.response.data?.error_msg || '未登录';
+      if (!isPublicAuthRequest(error.config?.url)) {
+        toast.error(message, { id: 'unauthorized-error' });
+      }
+      return Promise.reject(new UnauthorizedError(message));
     }
 
-    /* 403 权限不足错误 */
+    /* 403：已登录但权限不足，留在当前页。 */
     if (error.response?.status === 403) {
+      const message = error.response.data?.error_msg || '权限不足';
+      toast.error(message, { id: 'forbidden-error' });
       return Promise.reject(
         new ForbiddenError(
-          error.response.data?.error_msg || '权限不足，请过盾后重试',
+          message,
           error.response.data?.error_code,
           error.response.data?.details,
         ),

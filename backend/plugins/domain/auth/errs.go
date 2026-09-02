@@ -30,11 +30,9 @@ const (
 	errExternalAccountBindingIncomplete     = "外部帐号绑定信息不完整"
 	errExternalAccountAlreadyBoundToAnother = "该外部帐号已被其他用户绑定"
 	errExternalAccountBindingIDRequired     = "外部帐号绑定记录 ID 不能为空"
-	errAdminRequired                        = "无权访问"
-	//nolint:gosec // error message, not hardcoded credentials
-	errTokenAdminRequired = "令牌无管理员权限"
-	errBannedAccount      = "账号已被封禁"
-	errUnAuthorized       = "未登录"
+	errInsufficientPermission               = "权限不足"
+	errBannedAccount                        = "账号已被封禁"
+	errUnAuthorized                         = "未登录"
 )
 
 // Service 层与鉴权中间件内部错误文案（保持与重构前逐字一致）

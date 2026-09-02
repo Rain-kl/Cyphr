@@ -40,6 +40,7 @@ type testUser struct {
 	ID          uint64 `gorm:"primaryKey"`
 	Username    string
 	IsActive    bool
+	IsAdmin     bool
 	LastLoginAt time.Time
 }
 

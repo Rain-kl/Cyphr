@@ -162,15 +162,13 @@ func AdminRequired() gin.HandlerFunc {
 		isTokenAuth, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAuthKey)
 		isTokenAdmin, _ := ginutil.GetFromContext[bool](c, contracts.AuthTokenAdminKey)
 
-		// 如果是通过 Token 鉴权，要求该 Token 具备管理员权限或者用户本身为管理员
+		// Logged-in but lacking admin permission is 403, not 401/404.
 		if isTokenAuth && !isTokenAdmin && !user.IsAdmin {
-			response.AbortNotFound(c, errTokenAdminRequired)
+			response.AbortForbidden(c, errInsufficientPermission)
 			return
 		}
-
-		// 如果是通过 Session 鉴权，直接检查用户的 is_admin 属性
 		if !isTokenAuth && !user.IsAdmin {
-			response.AbortNotFound(c, errAdminRequired)
+			response.AbortForbidden(c, errInsufficientPermission)
 			return
 		}
 

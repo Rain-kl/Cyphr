@@ -8,6 +8,7 @@ import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/plugins/domain/upload/filesrv"
 	"Wavelet/plugins/domain/upload/handler"
 	"Wavelet/plugins/domain/upload/shared"
@@ -66,13 +67,25 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		return nil
 	})
 
-	// 0. Resolve auth service for middleware
-	var authSvc contracts.AuthService
-	if err := core.Using[contracts.AuthService](ctx, func(svc contracts.AuthService) { authSvc = svc }); err != nil {
-		return err
+	denyAuth := ginutil.AuthUnavailable()
+	loginMW := func(c *gin.Context) {
+		if svc := shared.GetAuthService(c.Request.Context()); svc != nil {
+			if mw, ok := svc.RequireAuthMiddleware().(gin.HandlerFunc); ok && mw != nil {
+				mw(c)
+				return
+			}
+		}
+		denyAuth(c)
 	}
-	loginMW := authSvc.RequireAuthMiddleware().(gin.HandlerFunc)
-	adminMW := authSvc.RequireAdminMiddleware().(gin.HandlerFunc)
+	adminMW := func(c *gin.Context) {
+		if svc := shared.GetAuthService(c.Request.Context()); svc != nil {
+			if mw, ok := svc.RequireAdminMiddleware().(gin.HandlerFunc); ok && mw != nil {
+				mw(c)
+				return
+			}
+		}
+		denyAuth(c)
+	}
 
 	// 0a. Register migrations
 	ctx.Migrations().Register("upload", uploadMigrations)
