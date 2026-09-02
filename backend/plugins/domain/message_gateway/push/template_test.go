@@ -64,6 +64,60 @@ func TestParseTemplate(t *testing.T) {
 			body:     map[string]any{"obj": map[string]any{"key": "value"}},
 			expected: `obj: {"key":"value"}`,
 		},
+		{
+			name:     "nested property from flat map",
+			template: "hello {{user.username}}",
+			body:     map[string]any{"user.username": "Alice"},
+			expected: "hello Alice",
+		},
+		{
+			name:     "nested property from nested map",
+			template: "hello {{user.username}}",
+			body:     map[string]any{"user": map[string]any{"username": "Bob"}},
+			expected: "hello Bob",
+		},
+		{
+			name:     "go template dot syntax",
+			template: "hello {{.user.username}}",
+			body:     map[string]any{"user": map[string]any{"username": "Charlie"}},
+			expected: "hello Charlie",
+		},
+		{
+			name:     "default value helper fallback",
+			template: "hello {{.nickname | default \"Guest\"}}",
+			body:     map[string]any{"nickname": ""},
+			expected: "hello Guest",
+		},
+		{
+			name:     "default value helper provided",
+			template: "hello {{.nickname | default \"Guest\"}}",
+			body:     map[string]any{"nickname": "David"},
+			expected: "hello David",
+		},
+		{
+			name:     "conditional if else true",
+			template: "{{if .is_admin}}Admin: {{.name}}{{else}}User: {{.name}}{{end}}",
+			body:     map[string]any{"is_admin": true, "name": "Eve"},
+			expected: "Admin: Eve",
+		},
+		{
+			name:     "conditional if else false",
+			template: "{{if .is_admin}}Admin: {{.name}}{{else}}User: {{.name}}{{end}}",
+			body:     map[string]any{"is_admin": false, "name": "Frank"},
+			expected: "User: Frank",
+		},
+		{
+			name:     "upper and lower helper",
+			template: "{{.title | upper}} - {{.level | lower}}",
+			body:     map[string]any{"title": "Warning", "level": "INFO"},
+			expected: "WARNING - info",
+		},
+		{
+			name:     "toJson helper",
+			template: "payload: {{toJson .data}}",
+			body:     map[string]any{"data": map[string]any{"status": "ok"}},
+			expected: `payload: {"status":"ok"}`,
+		},
 	}
 
 	for _, tt := range tests {
