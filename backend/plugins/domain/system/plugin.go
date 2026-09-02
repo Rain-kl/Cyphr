@@ -66,11 +66,6 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	})
 	ctx.Router().RegisterWhitelist("/api/v1/config/public")
 
-	// 3. Custom injection
-	ctx.Router().GET("/custom", func(c *gin.Context) {
-		c.JSON(http.StatusOK, response.OK(gin.H{"custom": true}))
-	})
-
 	return nil
 }
 

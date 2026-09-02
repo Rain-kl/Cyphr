@@ -82,8 +82,8 @@ func TestNewWaveletAppProfiles(t *testing.T) {
 			_, ok = app.Plugin("user")
 			assert.True(t, ok, "user plugin missing")
 
-			_, ok = app.Plugin("message_gateway")
-			assert.True(t, ok, "message_gateway plugin missing")
+			_, ok = app.Plugin("msg_gateway")
+			assert.True(t, ok, "msg_gateway plugin missing")
 
 			_, ok = app.Plugin("risk_control")
 			assert.True(t, ok, "risk_control plugin missing")

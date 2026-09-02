@@ -9,7 +9,7 @@ import (
 	"Wavelet/pkg/idgen"
 	"Wavelet/plugins/domain/admin"
 	"Wavelet/plugins/domain/auth"
-	"Wavelet/plugins/domain/message_gateway"
+	"Wavelet/plugins/domain/msg_gateway"
 	"Wavelet/plugins/domain/risk_control"
 	"Wavelet/plugins/domain/system"
 	"Wavelet/plugins/domain/user"
@@ -47,13 +47,13 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&user.AccessToken{},
 		&auth.AuthSource{},
 		&auth.ExternalAccount{},
-		&message_gateway.MessageChannel{},
-		&message_gateway.MessageBinding{},
-		&message_gateway.MessagePairingCode{},
+		&msg_gateway.MessageChannel{},
+		&msg_gateway.MessageBinding{},
+		&msg_gateway.MessagePairingCode{},
 		&admin.SystemConfig{},
-		&message_gateway.PushChannel{},
-		&message_gateway.PushEvent{},
-		&message_gateway.PushHistory{},
+		&msg_gateway.PushChannel{},
+		&msg_gateway.PushEvent{},
+		&msg_gateway.PushHistory{},
 	))
 
 	db.SetDB(testDB)
@@ -262,15 +262,15 @@ func TestMessageGatewayPlugin(t *testing.T) {
 	require.NoError(t, cache.New().Apply(ctx))
 	require.NoError(t, logger.New().Apply(ctx))
 
-	p := message_gateway.New()
-	assert.Equal(t, "message_gateway", p.Name())
-	assert.Equal(t, "message_gateway", p.Manifest().Name)
+	p := msg_gateway.New()
+	assert.Equal(t, "msg_gateway", p.Name())
+	assert.Equal(t, "msg_gateway", p.Manifest().Name)
 	require.NoError(t, p.Apply(ctx))
 
 	// 1. Migrations
-	entry, ok := ctx.Migrations().Get("message_gateway")
+	entry, ok := ctx.Migrations().Get("msg_gateway")
 	require.True(t, ok)
-	assert.Equal(t, "message_gateway", entry.PluginID)
+	assert.Equal(t, "msg_gateway", entry.PluginID)
 
 	// 2. Routes
 	routes := ctx.Router().Routes()
@@ -287,24 +287,24 @@ func TestMessageGatewayPlugin(t *testing.T) {
 	assert.True(t, hasBindings)
 
 	// 3. Tasks & Schedules
-	taskDef, ok := ctx.Tasks().Get("message_gateway:push_notification")
+	taskDef, ok := ctx.Tasks().Get("msg_gateway:push_notification")
 	require.True(t, ok)
 	assert.Equal(t, 3, taskDef.Retry)
 
-	schedDef, ok := ctx.Schedules().Get("message_gateway:cleanup_pairing_codes")
+	schedDef, ok := ctx.Schedules().Get("msg_gateway:cleanup_pairing_codes")
 	require.True(t, ok)
 	assert.Equal(t, "*/10 * * * *", schedDef.Spec)
 
 	// 4. EventBus Trigger
-	var receivedEvent message_gateway.PushNotificationEvent
+	var receivedEvent msg_gateway.PushNotificationEvent
 	var eventFired bool
-	ctx.Events().On("notification:push", func(c context.Context, e message_gateway.PushNotificationEvent) error {
+	ctx.Events().On("notification:push", func(c context.Context, e msg_gateway.PushNotificationEvent) error {
 		eventFired = true
 		receivedEvent = e
 		return nil
 	})
 
-	err := ctx.Events().Emit(context.Background(), "notification:push", message_gateway.PushNotificationEvent{
+	err := ctx.Events().Emit(context.Background(), "notification:push", msg_gateway.PushNotificationEvent{
 		UserID:  99,
 		Channel: "telegram",
 		Title:   "System Alert",
@@ -317,7 +317,7 @@ func TestMessageGatewayPlugin(t *testing.T) {
 	assert.Equal(t, "System Alert", receivedEvent.Title)
 
 	// 5. Settings
-	schema, ok := ctx.Settings().Get("message_gateway.pairing_code_expiry_minutes")
+	schema, ok := ctx.Settings().Get("msg_gateway.pairing_code_expiry_minutes")
 	require.True(t, ok)
 	assert.Equal(t, 15, schema.Default)
 }
@@ -480,7 +480,7 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 	// Apply Domain plugins
 	require.NoError(t, auth.New().Apply(ctx))
 	require.NoError(t, user.New().Apply(ctx))
-	require.NoError(t, message_gateway.New().Apply(ctx))
+	require.NoError(t, msg_gateway.New().Apply(ctx))
 	require.NoError(t, risk_control.New().Apply(ctx))
 	require.NoError(t, admin.New().Apply(ctx))
 

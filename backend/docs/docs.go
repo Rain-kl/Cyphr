@@ -1023,7 +1023,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.ChannelDTO"
+                                                "$ref": "#/definitions/do.ChannelDTO"
                                             }
                                         }
                                     }
@@ -1057,7 +1057,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreateChannelRequest"
+                            "$ref": "#/definitions/do.CreateChannelRequest"
                         }
                     }
                 ],
@@ -1073,7 +1073,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.ChannelDTO"
+                                            "$ref": "#/definitions/do.ChannelDTO"
                                         }
                                     }
                                 }
@@ -1118,7 +1118,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.Definition"
+                                                "$ref": "#/definitions/do.Definition"
                                             }
                                         }
                                     }
@@ -1199,7 +1199,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.UpdateChannelRequest"
+                            "$ref": "#/definitions/do.UpdateChannelRequest"
                         }
                     }
                 ],
@@ -1215,7 +1215,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.ChannelDTO"
+                                            "$ref": "#/definitions/do.ChannelDTO"
                                         }
                                     }
                                 }
@@ -1312,7 +1312,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.PushChannel"
+                                                "$ref": "#/definitions/entity.PushChannel"
                                             }
                                         }
                                     }
@@ -1346,7 +1346,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreatePushChannelRequest"
+                            "$ref": "#/definitions/do.CreatePushChannelRequest"
                         }
                     }
                 ],
@@ -1362,7 +1362,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.PushChannel"
+                                            "$ref": "#/definitions/entity.PushChannel"
                                         }
                                     }
                                 }
@@ -1422,7 +1422,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.TestPushChannelRequest"
+                            "$ref": "#/definitions/do.TestPushChannelRequest"
                         }
                     }
                 ],
@@ -1469,7 +1469,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.UpdatePushChannelRequest"
+                            "$ref": "#/definitions/do.UpdatePushChannelRequest"
                         }
                     }
                 ],
@@ -1485,7 +1485,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.PushChannel"
+                                            "$ref": "#/definitions/entity.PushChannel"
                                         }
                                     }
                                 }
@@ -1557,7 +1557,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.PushEvent"
+                                                "$ref": "#/definitions/entity.PushEvent"
                                             }
                                         }
                                     }
@@ -1591,7 +1591,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreatePushEventRequest"
+                            "$ref": "#/definitions/do.CreatePushEventRequest"
                         }
                     }
                 ],
@@ -1607,7 +1607,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.PushEvent"
+                                            "$ref": "#/definitions/entity.PushEvent"
                                         }
                                     }
                                 }
@@ -1674,7 +1674,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.UpdatePushEventRequest"
+                            "$ref": "#/definitions/do.UpdatePushEventRequest"
                         }
                     }
                 ],
@@ -1866,7 +1866,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.TestPushRequest"
+                            "$ref": "#/definitions/do.TestPushRequest"
                         }
                     }
                 ],
@@ -4588,7 +4588,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.BindingDTO"
+                                                "$ref": "#/definitions/do.BindingDTO"
                                             }
                                         }
                                     }
@@ -4628,7 +4628,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.BindRequest"
+                            "$ref": "#/definitions/do.BindRequest"
                         }
                     }
                 ],
@@ -4644,7 +4644,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.BindingDTO"
+                                            "$ref": "#/definitions/do.BindingDTO"
                                         }
                                     }
                                 }
@@ -4741,7 +4741,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/model.PublicChannelDTO"
+                                                "$ref": "#/definitions/do.PublicChannelDTO"
                                             }
                                         }
                                     }
@@ -6361,6 +6361,399 @@ const docTemplate = `{
                 }
             }
         },
+        "do.BindRequest": {
+            "type": "object",
+            "properties": {
+                "channel_id": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.BindingDTO": {
+            "type": "object",
+            "properties": {
+                "channel_id": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "channel_name": {
+                    "type": "string"
+                },
+                "channel_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "platform_user_id": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "0"
+                }
+            }
+        },
+        "do.ChannelDTO": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner_id": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "owner_scope": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.CreateChannelRequest": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.CreatePushChannelRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "type"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "other": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.CreatePushEventRequest": {
+            "type": "object",
+            "properties": {
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "event_key": {
+                    "type": "string"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "task_type": {
+                    "type": "string"
+                },
+                "template": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.Definition": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/do.Field"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.Field": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.PublicChannelDTO": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.TestPushChannelRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "other": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.TestPushRequest": {
+            "type": "object",
+            "required": [
+                "config"
+            ],
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/push.Config"
+                },
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.UpdateChannelRequest": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "extra": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.UpdatePushChannelRequest": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "other": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "do.UpdatePushEventRequest": {
+            "type": "object",
+            "required": [
+                "template"
+            ],
+            "properties": {
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "template": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.PushChannel": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "other": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.PushEvent": {
+            "type": "object",
+            "properties": {
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "event_key": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "task_type": {
+                    "type": "string"
+                },
+                "template": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.batchDownloadRequest": {
             "type": "object",
             "required": [
@@ -6562,46 +6955,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.BindRequest": {
-            "type": "object",
-            "properties": {
-                "channel_id": {
-                    "type": "string"
-                },
-                "code": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.BindingDTO": {
-            "type": "object",
-            "properties": {
-                "channel_id": {
-                    "type": "string",
-                    "example": "0"
-                },
-                "channel_name": {
-                    "type": "string"
-                },
-                "channel_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string",
-                    "example": "0"
-                },
-                "platform_user_id": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string",
-                    "example": "0"
-                }
-            }
-        },
         "model.BrowserItem": {
             "type": "object",
             "properties": {
@@ -6610,128 +6963,6 @@ const docTemplate = `{
                 },
                 "count": {
                     "type": "integer"
-                }
-            }
-        },
-        "model.ChannelDTO": {
-            "type": "object",
-            "properties": {
-                "credentials": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "extra": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "id": {
-                    "type": "string",
-                    "example": "0"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "owner_id": {
-                    "type": "string",
-                    "example": "0"
-                },
-                "owner_scope": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.CreateChannelRequest": {
-            "type": "object",
-            "properties": {
-                "credentials": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "extra": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.CreatePushChannelRequest": {
-            "type": "object",
-            "required": [
-                "name",
-                "type"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "other": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.CreatePushEventRequest": {
-            "type": "object",
-            "properties": {
-                "channels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "event_key": {
-                    "type": "string"
-                },
-                "targets": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "task_type": {
-                    "type": "string"
-                },
-                "template": {
-                    "type": "string"
                 }
             }
         },
@@ -6901,20 +7132,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.Definition": {
-            "type": "object",
-            "properties": {
-                "fields": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.Field"
-                    }
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
         "model.DispatchTaskRequest": {
             "type": "object",
             "required": [
@@ -6973,20 +7190,6 @@ const docTemplate = `{
                 },
                 "type": {
                     "description": "\"select\" 或 \"exec\"",
-                    "type": "string"
-                }
-            }
-        },
-        "model.Field": {
-            "type": "object",
-            "properties": {
-                "key": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "type": {
                     "type": "string"
                 }
             }
@@ -7066,97 +7269,6 @@ const docTemplate = `{
                 "next_cursor": {
                     "description": "用于加载更早日志的 cursor",
                     "type": "integer"
-                }
-            }
-        },
-        "model.PublicChannelDTO": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "example": "0"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.PushChannel": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "other": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.PushEvent": {
-            "type": "object",
-            "properties": {
-                "channels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "event_key": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "targets": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "task_type": {
-                    "type": "string"
-                },
-                "template": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
@@ -7415,43 +7527,6 @@ const docTemplate = `{
                 }
             }
         },
-        "model.TestPushChannelRequest": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "other": {
-                    "type": "string"
-                },
-                "target": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.TestPushRequest": {
-            "type": "object",
-            "required": [
-                "config"
-            ],
-            "properties": {
-                "config": {
-                    "$ref": "#/definitions/push.Config"
-                },
-                "target": {
-                    "type": "string"
-                }
-            }
-        },
         "model.TestSMTPRequest": {
             "type": "object",
             "required": [
@@ -7542,81 +7617,6 @@ const docTemplate = `{
                 "ttl_minutes": {
                     "type": "integer",
                     "minimum": 0
-                }
-            }
-        },
-        "model.UpdateChannelRequest": {
-            "type": "object",
-            "properties": {
-                "credentials": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "extra": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.UpdatePushChannelRequest": {
-            "type": "object",
-            "required": [
-                "type"
-            ],
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "other": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.UpdatePushEventRequest": {
-            "type": "object",
-            "required": [
-                "template"
-            ],
-            "properties": {
-                "channels": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "targets": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "template": {
-                    "type": "string"
                 }
             }
         },
@@ -7940,6 +7940,10 @@ const docTemplate = `{
                 },
                 "key": {
                     "description": "AppID 或 SMTP 用户名",
+                    "type": "string"
+                },
+                "other": {
+                    "description": "附加配置 (如 ChatID / UserKey / 扩展 JSON)",
                     "type": "string"
                 },
                 "secret": {

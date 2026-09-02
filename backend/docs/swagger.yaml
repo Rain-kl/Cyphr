@@ -204,6 +204,265 @@ definitions:
       ttl_minutes:
         type: integer
     type: object
+  do.BindRequest:
+    properties:
+      channel_id:
+        type: string
+      code:
+        type: string
+    type: object
+  do.BindingDTO:
+    properties:
+      channel_id:
+        example: "0"
+        type: string
+      channel_name:
+        type: string
+      channel_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        example: "0"
+        type: string
+      platform_user_id:
+        type: string
+      user_id:
+        example: "0"
+        type: string
+    type: object
+  do.ChannelDTO:
+    properties:
+      credentials:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        type: boolean
+      extra:
+        additionalProperties:
+          type: string
+        type: object
+      id:
+        example: "0"
+        type: string
+      name:
+        type: string
+      owner_id:
+        example: "0"
+        type: string
+      owner_scope:
+        type: string
+      type:
+        type: string
+    type: object
+  do.CreateChannelRequest:
+    properties:
+      credentials:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        type: boolean
+      extra:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  do.CreatePushChannelRequest:
+    properties:
+      description:
+        type: string
+      enabled:
+        type: boolean
+      name:
+        type: string
+      other:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    required:
+    - name
+    - type
+    type: object
+  do.CreatePushEventRequest:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      event_key:
+        type: string
+      targets:
+        items:
+          type: string
+        type: array
+      task_type:
+        type: string
+      template:
+        type: string
+    type: object
+  do.Definition:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/do.Field'
+        type: array
+      type:
+        type: string
+    type: object
+  do.Field:
+    properties:
+      key:
+        type: string
+      required:
+        type: boolean
+      type:
+        type: string
+    type: object
+  do.PublicChannelDTO:
+    properties:
+      id:
+        example: "0"
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  do.TestPushChannelRequest:
+    properties:
+      name:
+        type: string
+      other:
+        type: string
+      target:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    type: object
+  do.TestPushRequest:
+    properties:
+      config:
+        $ref: '#/definitions/push.Config'
+      target:
+        type: string
+    required:
+    - config
+    type: object
+  do.UpdateChannelRequest:
+    properties:
+      credentials:
+        additionalProperties:
+          type: string
+        type: object
+      enabled:
+        type: boolean
+      extra:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+    type: object
+  do.UpdatePushChannelRequest:
+    properties:
+      description:
+        type: string
+      enabled:
+        type: boolean
+      other:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+    required:
+    - type
+    type: object
+  do.UpdatePushEventRequest:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      targets:
+        items:
+          type: string
+        type: array
+      template:
+        type: string
+    required:
+    - template
+    type: object
+  entity.PushChannel:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: integer
+      name:
+        type: string
+      other:
+        type: string
+      token:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+    type: object
+  entity.PushEvent:
+    properties:
+      channels:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      enabled:
+        type: boolean
+      event_key:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      targets:
+        items:
+          type: string
+        type: array
+      task_type:
+        type: string
+      template:
+        type: string
+      updated_at:
+        type: string
+    type: object
   handler.batchDownloadRequest:
     properties:
       ids:
@@ -337,120 +596,12 @@ definitions:
       total:
         type: integer
     type: object
-  model.BindRequest:
-    properties:
-      channel_id:
-        type: string
-      code:
-        type: string
-    type: object
-  model.BindingDTO:
-    properties:
-      channel_id:
-        example: "0"
-        type: string
-      channel_name:
-        type: string
-      channel_type:
-        type: string
-      created_at:
-        type: string
-      id:
-        example: "0"
-        type: string
-      platform_user_id:
-        type: string
-      user_id:
-        example: "0"
-        type: string
-    type: object
   model.BrowserItem:
     properties:
       browser:
         type: string
       count:
         type: integer
-    type: object
-  model.ChannelDTO:
-    properties:
-      credentials:
-        additionalProperties:
-          type: string
-        type: object
-      enabled:
-        type: boolean
-      extra:
-        additionalProperties:
-          type: string
-        type: object
-      id:
-        example: "0"
-        type: string
-      name:
-        type: string
-      owner_id:
-        example: "0"
-        type: string
-      owner_scope:
-        type: string
-      type:
-        type: string
-    type: object
-  model.CreateChannelRequest:
-    properties:
-      credentials:
-        additionalProperties:
-          type: string
-        type: object
-      enabled:
-        type: boolean
-      extra:
-        additionalProperties:
-          type: string
-        type: object
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  model.CreatePushChannelRequest:
-    properties:
-      description:
-        type: string
-      enabled:
-        type: boolean
-      name:
-        type: string
-      other:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      url:
-        type: string
-    required:
-    - name
-    - type
-    type: object
-  model.CreatePushEventRequest:
-    properties:
-      channels:
-        items:
-          type: string
-        type: array
-      enabled:
-        type: boolean
-      event_key:
-        type: string
-      targets:
-        items:
-          type: string
-        type: array
-      task_type:
-        type: string
-      template:
-        type: string
     type: object
   model.CreateScheduleRequest:
     properties:
@@ -569,15 +720,6 @@ definitions:
       version:
         type: string
     type: object
-  model.Definition:
-    properties:
-      fields:
-        items:
-          $ref: '#/definitions/model.Field'
-        type: array
-      type:
-        type: string
-    type: object
   model.DispatchTaskRequest:
     properties:
       end_time:
@@ -617,15 +759,6 @@ definitions:
         type: array
       type:
         description: '"select" 或 "exec"'
-        type: string
-    type: object
-  model.Field:
-    properties:
-      key:
-        type: string
-      required:
-        type: boolean
-      type:
         type: string
     type: object
   model.ListUsersResponse:
@@ -678,66 +811,6 @@ definitions:
       next_cursor:
         description: 用于加载更早日志的 cursor
         type: integer
-    type: object
-  model.PublicChannelDTO:
-    properties:
-      id:
-        example: "0"
-        type: string
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  model.PushChannel:
-    properties:
-      created_at:
-        type: string
-      description:
-        type: string
-      enabled:
-        type: boolean
-      id:
-        type: integer
-      name:
-        type: string
-      other:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-      url:
-        type: string
-    type: object
-  model.PushEvent:
-    properties:
-      channels:
-        items:
-          type: string
-        type: array
-      created_at:
-        type: string
-      enabled:
-        type: boolean
-      event_key:
-        type: string
-      id:
-        type: integer
-      name:
-        type: string
-      targets:
-        items:
-          type: string
-        type: array
-      task_type:
-        type: string
-      template:
-        type: string
-      updated_at:
-        type: string
     type: object
   model.Schedule:
     properties:
@@ -910,30 +983,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  model.TestPushChannelRequest:
-    properties:
-      name:
-        type: string
-      other:
-        type: string
-      target:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      url:
-        type: string
-    type: object
-  model.TestPushRequest:
-    properties:
-      config:
-        $ref: '#/definitions/push.Config'
-      target:
-        type: string
-    required:
-    - config
-    type: object
   model.TestSMTPRequest:
     properties:
       smtp_host:
@@ -997,55 +1046,6 @@ definitions:
     required:
     - max_size_mb
     - ttl_minutes
-    type: object
-  model.UpdateChannelRequest:
-    properties:
-      credentials:
-        additionalProperties:
-          type: string
-        type: object
-      enabled:
-        type: boolean
-      extra:
-        additionalProperties:
-          type: string
-        type: object
-      name:
-        type: string
-    type: object
-  model.UpdatePushChannelRequest:
-    properties:
-      description:
-        type: string
-      enabled:
-        type: boolean
-      other:
-        type: string
-      token:
-        type: string
-      type:
-        type: string
-      url:
-        type: string
-    required:
-    - type
-    type: object
-  model.UpdatePushEventRequest:
-    properties:
-      channels:
-        items:
-          type: string
-        type: array
-      enabled:
-        type: boolean
-      targets:
-        items:
-          type: string
-        type: array
-      template:
-        type: string
-    required:
-    - template
     type: object
   model.UpdateScheduleRequest:
     properties:
@@ -1268,6 +1268,9 @@ definitions:
         type: object
       key:
         description: AppID 或 SMTP 用户名
+        type: string
+      other:
+        description: 附加配置 (如 ChatID / UserKey / 扩展 JSON)
         type: string
       secret:
         description: 签名密钥或 SMTP 密码/Token
@@ -2006,7 +2009,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.ChannelDTO'
+                    $ref: '#/definitions/do.ChannelDTO'
                   type: array
               type: object
       security:
@@ -2024,7 +2027,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.CreateChannelRequest'
+          $ref: '#/definitions/do.CreateChannelRequest'
       produces:
       - application/json
       responses:
@@ -2035,7 +2038,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.ChannelDTO'
+                  $ref: '#/definitions/do.ChannelDTO'
               type: object
         "400":
           description: Bad Request
@@ -2086,7 +2089,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.UpdateChannelRequest'
+          $ref: '#/definitions/do.UpdateChannelRequest'
       produces:
       - application/json
       responses:
@@ -2097,7 +2100,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.ChannelDTO'
+                  $ref: '#/definitions/do.ChannelDTO'
               type: object
         "400":
           description: Bad Request
@@ -2155,7 +2158,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.Definition'
+                    $ref: '#/definitions/do.Definition'
                   type: array
               type: object
       security:
@@ -2177,7 +2180,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.PushChannel'
+                    $ref: '#/definitions/entity.PushChannel'
                   type: array
               type: object
       security:
@@ -2195,7 +2198,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.CreatePushChannelRequest'
+          $ref: '#/definitions/do.CreatePushChannelRequest'
       produces:
       - application/json
       responses:
@@ -2206,7 +2209,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.PushChannel'
+                  $ref: '#/definitions/entity.PushChannel'
               type: object
       security:
       - SessionCookie: []
@@ -2251,7 +2254,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.UpdatePushChannelRequest'
+          $ref: '#/definitions/do.UpdatePushChannelRequest'
       produces:
       - application/json
       responses:
@@ -2262,7 +2265,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.PushChannel'
+                  $ref: '#/definitions/entity.PushChannel'
               type: object
       security:
       - SessionCookie: []
@@ -2295,7 +2298,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.TestPushChannelRequest'
+          $ref: '#/definitions/do.TestPushChannelRequest'
       produces:
       - application/json
       responses:
@@ -2322,7 +2325,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.PushEvent'
+                    $ref: '#/definitions/entity.PushEvent'
                   type: array
               type: object
       security:
@@ -2340,7 +2343,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.CreatePushEventRequest'
+          $ref: '#/definitions/do.CreatePushEventRequest'
       produces:
       - application/json
       responses:
@@ -2351,7 +2354,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.PushEvent'
+                  $ref: '#/definitions/entity.PushEvent'
               type: object
       security:
       - SessionCookie: []
@@ -2399,7 +2402,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.UpdatePushEventRequest'
+          $ref: '#/definitions/do.UpdatePushEventRequest'
       produces:
       - application/json
       responses:
@@ -2501,7 +2504,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.TestPushRequest'
+          $ref: '#/definitions/do.TestPushRequest'
       produces:
       - application/json
       responses:
@@ -4141,7 +4144,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.BindingDTO'
+                    $ref: '#/definitions/do.BindingDTO'
                   type: array
               type: object
         "401":
@@ -4164,7 +4167,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/model.BindRequest'
+          $ref: '#/definitions/do.BindRequest'
       produces:
       - application/json
       responses:
@@ -4175,7 +4178,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/model.BindingDTO'
+                  $ref: '#/definitions/do.BindingDTO'
               type: object
         "400":
           description: Bad Request
@@ -4233,7 +4236,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/model.PublicChannelDTO'
+                    $ref: '#/definitions/do.PublicChannelDTO'
                   type: array
               type: object
         "401":
