@@ -76,7 +76,7 @@ func (q *InprocQueue) Enqueue(ctx context.Context, taskType string, payload []by
 	}
 
 	if source == "" {
-		source = "manual"
+		source = contracts.TaskTriggerManual
 	}
 	idType := td.Type
 	if idType == "" {

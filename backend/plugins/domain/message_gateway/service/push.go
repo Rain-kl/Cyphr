@@ -697,7 +697,7 @@ func EnqueuePushTask(ctx context.Context, payload model.SendPayload) error {
 		return err
 	}
 	if taskSvc := GetTaskService(ctx); taskSvc != nil {
-		_, err = taskSvc.Dispatch(ctx, "send_notification", payloadBytes, "system")
+		_, err = taskSvc.Dispatch(ctx, "send_notification", payloadBytes, contracts.TaskTriggerSystem)
 		return err
 	}
 	return errors.New(errs.ErrTaskServiceUnavailable)

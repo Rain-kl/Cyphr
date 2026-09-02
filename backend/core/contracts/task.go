@@ -71,6 +71,14 @@ type TaskExecutionDTO struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// Canonical triggered_by values persisted on task executions and shown in admin UI.
+const (
+	TaskTriggerSystem   = "system"
+	TaskTriggerManual   = "manual"
+	TaskTriggerRetry    = "retry"
+	TaskTriggerSchedule = "schedule"
+)
+
 // TaskService defines the unified contract for dispatching and tracking background tasks.
 type TaskService interface {
 	Dispatch(ctx context.Context, taskType string, payload []byte, triggeredBy string) (string, error)

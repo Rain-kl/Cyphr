@@ -209,7 +209,7 @@ func SendEmailCode(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	if taskSvc := getTaskService(ctx); taskSvc != nil {
-		if _, err := taskSvc.Dispatch(ctx, TaskTypeSendEmailCode, payload, "http"); err != nil {
+		if _, err := taskSvc.Dispatch(ctx, TaskTypeSendEmailCode, payload, contracts.TaskTriggerSystem); err != nil {
 			logger.ErrorF(ctx, "dispatch send_email_code failed: %v", err)
 			response.AbortInternal(c, errSendEmailFailed)
 			return

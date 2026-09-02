@@ -41,7 +41,7 @@ func DispatchTask(ctx context.Context, req model.DispatchTaskRequest) (string, e
 		return "", err
 	}
 
-	taskID, err := taskSvc.Dispatch(ctx, req.TaskType, validated, "manual")
+	taskID, err := taskSvc.Dispatch(ctx, req.TaskType, validated, contracts.TaskTriggerManual)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", errs.TaskDispatchFailed, err)
 	}
@@ -110,6 +110,21 @@ func TaskExecution(ctx context.Context, id uint64) (*model.TaskExecution, error)
 	return &row, nil
 }
 
+func normalizeTaskTrigger(v string) string {
+	switch v {
+	case contracts.TaskTriggerManual, contracts.TaskTriggerSystem, contracts.TaskTriggerRetry, contracts.TaskTriggerSchedule:
+		return v
+	case "inproc_cron", "cron":
+		return contracts.TaskTriggerSchedule
+	case "http":
+		return contracts.TaskTriggerSystem
+	case "":
+		return contracts.TaskTriggerSystem
+	default:
+		return v
+	}
+}
+
 func executionFromDTO(dto contracts.TaskExecutionDTO) model.TaskExecution {
 	return model.TaskExecution{
 		ID:           dto.ID,
@@ -127,7 +142,7 @@ func executionFromDTO(dto contracts.TaskExecutionDTO) model.TaskExecution {
 		FinishedAt:   dto.FinishedAt,
 		Duration:     dto.Duration,
 		Payload:      dto.Payload,
-		TriggeredBy:  dto.TriggeredBy,
+		TriggeredBy:  normalizeTaskTrigger(dto.TriggeredBy),
 		CreatedAt:    dto.CreatedAt,
 		UpdatedAt:    dto.UpdatedAt,
 	}

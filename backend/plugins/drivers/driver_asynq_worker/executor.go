@@ -4,6 +4,7 @@
 package driver_asynq_worker
 
 import (
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
@@ -208,7 +209,7 @@ func RetryTask(ctx context.Context, id uint64) (string, error) {
 		MaxRetry:    execution.MaxRetry,
 		RetryCount:  execution.RetryCount + 1,
 		Payload:     execution.Payload,
-		TriggeredBy: "retry",
+		TriggeredBy: contracts.TaskTriggerRetry,
 	}
 
 	if err := createTaskExecution(ctx, newExecution); err != nil {
@@ -393,7 +394,7 @@ func getOrCreateTaskExecution(ctx context.Context, taskID string, t *asynq.Task,
 		MaxRetry:    meta.MaxRetry,
 		RetryCount:  0,
 		Payload:     string(payload),
-		TriggeredBy: "schedule",
+		TriggeredBy: contracts.TaskTriggerSchedule,
 		StartedAt:   &now,
 	}
 
