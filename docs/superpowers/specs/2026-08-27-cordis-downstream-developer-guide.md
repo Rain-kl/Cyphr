@@ -550,9 +550,9 @@ Wavelet/
 │       └── admin/                # 系统管理台与监控面板插件
 │
 └── downstream/                   # 【下游二开项目模板与脚手架】
-    ├── custom_plugins/           # 下游自定义业务插件
-    ├── config.yaml               # 声明启用的插件与配置文件
-    └── main.go                   # 下游项目组合启动入口
+    ├── README.md                 # 下游插件开发指南
+    └── plugins/                  # 下游自定义业务插件目录
+        └── custom_example/       # 官方标准插件开发基准模板（含完整分层结构）
 ```
 
 ### 各层职责与禁止规则 (Guardrails)：
@@ -562,11 +562,12 @@ Wavelet/
 2. **`core/contracts/`**：
    - **职责**：仅定义公开的 Go Interface 和公共 DTO。
    - **严禁**：严禁包含任何具体实现逻辑或 SQL 操作。
-3. **`plugins/`**：
-   - **职责**：所有业务逻辑和驱动实现的归宿。遵循标准分层架构（Layered Architecture / MVC 变体）。
-   - **分层模式选型**：
-     - **模式 1（极简单文件分层，微型插件专用）**：单 package 极简结构（仅单文件 `plugin.go`, `handlers.go`, `service.go`, `repository.go`, `models.go`, `errs.go`, `migrations/`）。适用于单一实体、极小代码量 (<500行) 的微型插件。
-     - **模式 2（标准独立子包分层架构，官方推荐标准）**：按职责严格物理分包（`plugin.go`, `handler/`, `service/`, `repository/`, `model/`, `errs/`, `migrations/`）。**子包内文件以纯业务实体命名（如 `user.go`、`config.go`），严禁在根包平铺 `handlers_*`、`service_*`、`repository_*` 等前缀文件**。编译器级强约束 `handler -> service -> repository -> model` 单向依赖。
+3. **`plugins/` 与 `downstream/`**：
+   - **职责**：所有业务逻辑和驱动实现的归宿。遵循统一标准分层架构（Layered Architecture / MVC 变体）。
+   - **统一分层架构与标准开发模板**：
+     - **唯一基准模板**：以 [`backend/downstream/plugins/custom_example`](file:///Users/ryan/Code/Go/Wavelet/backend/downstream/plugins/custom_example) 为全项目统一基准模板。
+     - **物理子包隔离结构**：包含 `plugin.go`, `consts/`, `controller/`, `service/`, `dao/`, `model/` [含 `entity/`, `do/`], `migrations/` [含 `postgres/`, `sqlite/`]。
+     - **命名与依赖禁令**：**严禁在根包平铺 `handlers_*`、`service_*`、`dao_*` 等前缀文件**，子包内文件直接以纯业务实体命名（如 `hello.go`、`user.go`）。严格约束 `controller -> service -> dao -> model` 单向依赖。
    - **严禁**：插件之间严禁跨包 import 内部私有代码，跨插件调用一律走 `contracts` 接口或 `EventBus`。
 
 ---

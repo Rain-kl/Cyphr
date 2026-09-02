@@ -14,50 +14,38 @@ description: "Wavelet 项目专用：当新增或修改业务 API、Handler、�
 在 Cordis 架构中，**业务 API 不再集中在旧的 `internal/router/` 或 `internal/apps/` 目录**。
 所有业务能力均封装为**高内聚、扁平自包含的插件 (Plugin)**。每个插件自主管理自身的路由声明、中间件挂载、服务逻辑、数据模型与迁移脚本。
 
-### 插件目录推荐结构 (`backend/plugins/domain/<name>/` 或下游 `custom_plugins/<name>/`)
+### 插件目录标准结构 (`backend/downstream/plugins/<name>/` 或 `backend/plugins/domain/<name>/`)
 
-#### 模式 1：极简单文件自包含（适用于极简微型插件 / 单一实体 / <500行）
-```text
-backend/plugins/domain/demo/
-├── plugin.go        # 插件入口：实现 core.Plugin，通过 ctx.Router() 挂载路由
-├── handlers.go      # HTTP 控制器单文件：参数校验、上下文提取、调用 Service、信封响应
-├── service.go       # 业务服务层单文件：纯 Go 逻辑，仅依赖 context.Context
-├── repository.go    # 数据库访问层单文件：GORM 查询、SQL 防注入与转义
-├── models.go        # GORM 数据实体定义（自带表前缀）与 DTO
-├── errs.go          # 模块内错误常量定义（camelCase 字符串）
-└── migrations/      # 专属嵌入式 Goose SQL 迁移脚本
-    └── 20260827000001_create_demo_table.sql
-```
-> ⚠️ **严禁**：当需要拆分多个 Handler/Service 文件时，**严禁在根目录平铺 `handlers_*.go`、`service_*.go`、`repository_*.go` 等前缀文件**，必须立即采用模式 2（独立子包分层）。
+所有标准插件与下游定制插件，**统一以 [`backend/downstream/plugins/custom_example`](file:///Users/ryan/Code/Go/Wavelet/backend/downstream/plugins/custom_example) 为基准模板**，严格采用物理子包隔离的分层架构：
 
-#### 模式 2：标准独立子包分层架构（适用于标准/中大型业务插件 / 官方推荐标准）
 ```text
-backend/plugins/domain/order/
+backend/downstream/plugins/custom_example/ (或 backend/plugins/domain/order/)
 ├── plugin.go           # 插件根入口：实现 core.Plugin，装配各子包并向 Cordis 注册
 │
-├── handler/            # package handler：HTTP 控制器与路由声明（或 controller/）
-│   ├── router.go       # 路由组声明与中间件挂载
-│   └── order.go        # 订单 Handler（直接以业务命名，禁止 handlers_order.go）
+├── consts/             # package consts：常量、配置键名与错误码定义
+│   └── consts.go
 │
-├── service/            # package service：业务逻辑层（用例编排、事件发布）
-│   ├── service.go      # Service 接口与组装
-│   └── order.go        # 订单业务用例实现（直接以业务命名，禁止 service_order.go）
+├── controller/         # package controller：HTTP 控制器与路由声明 (参数绑定、会话获取、信封响应)
+│   └── hello/          # 业务分组/实体子包
+│       └── hello.go    # 接口处理 Handler（直接以业务命名，禁止 controller_hello.go）
 │
-├── repository/         # package repository：数据持久化访问层 (DAL)
-│   ├── repository.go   # 仓储抽象与通用工厂
-│   └── order.go        # 订单仓储实现（直接以业务命名，禁止 repository_order.go）
+├── service/            # package service：业务逻辑层（用例编排、事务控制、事件发布）
+│   └── order.go        # 订单业务用例实现（纯 Go 逻辑，禁止依赖 *gin.Context）
 │
-├── model/              # package model (或 models/)：纯数据实体与 DTO（无外部依赖）
-│   ├── entity.go       # 数据库映射实体 (TableName() 带插件专属前缀)
-│   ├── dto.go          # 请求与响应 DTO
-│   └── events.go       # 领域事件定义
+├── dao/                # package dao：数据访问持久化层 DAL (GORM CRUD、SQL 转义防注入)
+│   └── order.go        # 订单数据访问实现（直接以业务命名，禁止 dao_order.go）
 │
-├── errs/               # package errs：错误常量与错误码 (或根目录 errs.go)
-│   └── errs.go
+├── model/              # package model：纯数据实体与 DTO（无外部依赖）
+│   ├── entity/         # 数据库映射实体 (TableName() 带插件专属前缀)
+│   │   └── order.go
+│   └── do/             # 请求 Request DTO 与响应 Response DTO、领域对象
+│       └── order.go
 │
-└── migrations/         # 专属嵌入式 Goose SQL 迁移脚本
-    └── 20260827000001_create_orders_table.sql
+└── migrations/         # 专属嵌入式 Goose SQL 双方言迁移脚本 (//go:embed)
+    ├── postgres/       # PostgreSQL 迁移脚本
+    └── sqlite/         # SQLite 迁移脚本
 ```
+> ⚠️ **严禁**：严禁在根目录平铺 `handlers_*.go`、`service_*.go`、`dao_*.go` 等前缀文件，子包内文件直接按业务实体命名。严格约束 `controller -> service -> dao -> model` 单向依赖。
 
 ---
 

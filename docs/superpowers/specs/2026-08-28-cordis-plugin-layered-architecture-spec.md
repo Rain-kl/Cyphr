@@ -6,58 +6,46 @@
 
 ---
 
-## 1. 架构总览与分型原则 (Architecture & Selection Strategy)
+## 1. 架构总览与统一标准规范 (Architecture & Unified Standard Spec)
 
-在 Wavelet 的 Cordis 微内核架构中，系统通过 **微内核 (`core/`) + 服务契约 (`core/contracts/`) + 自包含插件 (`plugins/`)** 实现高度解耦与单向依赖。
-为了规范插件内部代码组织，插件遵循 **标准分层架构（Layered Architecture / MVC 变体）**，并根据业务复杂度提供两套标准物理包结构：
-
-| 模式 | 适用场景 | 复杂度特征 | 物理结构形式 | 命名规范核心禁令 |
-| :--- | :--- | :--- | :--- | :--- |
-| **模式 1：极简单文件自包含**<br>(Single-File Flat) | 极简微型插件 | 仅有 1 个单一实体、代码量 < 500 行（如极简工具、Demo） | 单 Package，每个层级仅对应 1 个同名文件 (`handlers.go`, `service.go`, `models.go`, `repository.go`) | **严禁在根目录平铺 `handlers_*`、`service_*` 等前缀文件** |
-| **模式 2：独立子包分层架构**<br>(Strict Sub-packages) | 标准/中大型业务插件（**官方推荐标准**） | 包含多实体/多接口、代码量 ≥ 500 行（如 `upload`, `auth`, `admin`, `order` 等） | 严格按层独立子包 (`handler/`, `service/`, `repository/`, `model/`, `errs/`) | **子包内文件直接以业务命名（如 `user.go`, `config.go`），禁止带 `handler_*` / `service_*` 前缀** |
+在 Wavelet 的 Cordis 微内核架构中，系统通过 **微内核 (`core/`) + 服务契约 (`core/contracts/`) + 自包含插件 (`plugins/` 及 `downstream/plugins/`)** 实现高度解耦与单向依赖。
+所有插件统一以 [`backend/downstream/plugins/custom_example`](file:///Users/ryan/Code/Go/Wavelet/backend/downstream/plugins/custom_example) 为基准模板，严格遵循物理子包隔离的分层架构（`controller -> service -> dao -> model`）。
 
 ---
 
-## 2. 模式 1：极简单文件自包含规范 (Single-File Flat Package)
+## 2. 统一标准分层目录结构 (以 `custom_example` 为基准)
 
-仅适用于极简小型插件（整个插件代码极少且各层只有一个文件）。
-
-### 2.1 目录结构
 ```text
-backend/plugins/domain/<plugin_name>/
-├── plugin.go           # [Cordis 接入层] 实现 core.Plugin，负责 Apply 组装与扩展点注册
-├── handlers.go         # [Handler 层] 单一文件：Gin API Handler
-├── service.go          # [Service 层] 单一文件：核心业务用例
-├── repository.go       # [Repository 层] 单一文件：GORM / DB 操作
-├── models.go           # [Model 层] 单一文件：实体与 DTO
-├── errs.go             # [Error 层] 单一文件：错误常量
-├── plugin_test.go      # 插件测试
-└── migrations/         # Goose SQL 嵌入文件
-    └── 20260828000001_init_<plugin_name>.sql
-```
-
-> ⚠️ **严禁规则**：当单一文件膨胀或需要拆分多个业务实体时，**严禁在根目录创建 `handlers_user.go`, `handlers_admin.go`, `service_user.go` 等前缀文件**，必须立即重构并迁移为 **模式 2（独立子包分层架构）**！
-
----
-
-## 3. 模式 2：标准独立子包分层架构 (Standard Sub-package Architecture - 推荐规范)
-
-适用于绝大多数业务插件。各层使用独立的 Go package 物理隔离，**在子包内以纯业务实体命名文件**。
-
-### 3.1 目录结构与文件命名规约
-```text
-backend/plugins/domain/<plugin_name>/
+backend/downstream/plugins/custom_example/ (或 backend/plugins/domain/<plugin_name>/)
 ├── plugin.go              # [插件根入口] 实现 core.Plugin，装配各子包并向 Cordis 注册
 │
-├── handler/               # package handler：HTTP API 接入层（或 controller/）
-│   ├── router.go          # 路由组挂载与中间件绑定
-│   ├── auth.go            # 认证相关 Handler（直接命名为 auth.go，禁止 handlers_auth.go）
-│   ├── user.go            # 用户相关 Handler（直接命名为 user.go，禁止 handlers_user.go）
-│   ├── config.go          # 配置相关 Handler（直接命名为 config.go，禁止 handlers_config.go）
-│   └── logs.go            # 日志相关 Handler（直接命名为 logs.go，禁止 handlers_logs.go）
+├── consts/                # package consts：常量与模块内部错误码定义
+│   └── consts.go
 │
-├── service/               # package service：核心领域业务逻辑层
-│   ├── service.go         # 顶层 Service 组合与构造工厂
+├── controller/            # package controller：HTTP API 接入层 (参数绑定、会话获取、统一信封响应)
+│   └── hello/             # 业务分组/实体子包
+│       └── hello.go       # 接口处理 Handler（直接以业务命名，禁止 controller_hello.go）
+│
+├── service/               # package service：核心业务用例层 (业务用例、事务编排、事件发布)
+│   └── hello.go           # 业务用例实现（纯 Go 逻辑，禁止依赖 *gin.Context）
+│
+├── dao/                   # package dao：数据持久化访问层 DAL (GORM CRUD、SQL 转义防注入)
+│   └── hello.go           # 数据访问实现（直接以业务命名，禁止 dao_hello.go）
+│
+├── model/                 # package model：纯数据实体与传输对象 (零 Web/数据库框架依赖)
+│   ├── entity/            # 数据库映射实体 (TableName() 必须带 w_<plugin>_ 前缀)
+│   │   └── hello.go
+│   └── do/                # 领域对象、请求 Request DTO 与响应 Response DTO
+│       └── hello.go
+│
+└── migrations/            # Goose SQL 独立迁移嵌入目录 (//go:embed)
+    ├── postgres/          # PostgreSQL 专属迁移 SQL
+    │   └── 20260901000001_init.sql
+    └── sqlite/            # SQLite 专属迁移 SQL
+        └── 20260901000001_init.sql
+```
+
+> ⚠️ **严禁规则**：严禁在插件根目录下平铺 `handlers_*.go`、`service_*.go`、`dao_*.go` 等前缀文件，子包内文件直接按业务实体命名。严格约束 `controller -> service -> dao -> model` 单向依赖。
 │   ├── auth.go            # 认证业务逻辑（直接命名为 auth.go，禁止 service_auth.go）
 │   ├── user.go            # 用户业务逻辑（直接命名为 user.go，禁止 service_user.go）
 │   ├── config.go          # 配置业务逻辑（直接命名为 config.go，禁止 service_config.go）
