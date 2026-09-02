@@ -108,7 +108,7 @@ func Login(c *gin.Context) {
 	}
 
 	sess := sessions.Default(c)
-	sess.Set(contracts.AuthUserIDKey, user.ID)
+	sess.Set(contracts.AuthUserIDKey, strconv.FormatUint(user.ID, 10))
 	sess.Set(contracts.AuthUserNameKey, user.Username)
 	needChange := user.NeedChangePassword || user.IsPlaintextPassword()
 	user.NeedChangePassword = needChange
@@ -154,7 +154,7 @@ func Register(c *gin.Context) {
 	}
 
 	sess := sessions.Default(c)
-	sess.Set(contracts.AuthUserIDKey, newUser.ID)
+	sess.Set(contracts.AuthUserIDKey, strconv.FormatUint(newUser.ID, 10))
 	sess.Set(contracts.AuthUserNameKey, newUser.Username)
 	if err := sess.Save(); err != nil {
 		logger.ErrorF(c.Request.Context(), "save session failed on register: %v", err)

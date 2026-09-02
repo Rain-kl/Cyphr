@@ -146,7 +146,7 @@ type CallbackRequest struct {
 
 // BasicUserInfo 用户基本信息结构体
 type BasicUserInfo struct {
-	ID                 uint64 `json:"id"`
+	ID                 uint64 `json:"id,string"`
 	Username           string `json:"username"`
 	Nickname           string `json:"nickname"`
 	Email              string `json:"email"`

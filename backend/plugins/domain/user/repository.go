@@ -96,27 +96,6 @@ func UpdateUser(ctx context.Context, u *User) error {
 	return getDB(ctx).Save(u).Error
 }
 
-// ListUsers 分页查询用户
-func ListUsers(ctx context.Context, page, pageSize int, keyword string) ([]*User, int64, error) {
-	db := getDB(ctx).Model(&User{})
-	if keyword != "" {
-		escaped := util.EscapeLike(keyword)
-		db = db.Where("username LIKE ? ESCAPE '\\' OR nickname LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\'", "%"+escaped+"%", "%"+escaped+"%", "%"+escaped+"%")
-	}
-
-	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	var users []*User
-	offset := (page - 1) * pageSize
-	if err := db.Offset(offset).Limit(pageSize).Order("id DESC").Find(&users).Error; err != nil {
-		return nil, 0, err
-	}
-	return users, total, nil
-}
-
 // GetAccessTokenByHash 通过 Hash 查询访问令牌
 func GetAccessTokenByHash(ctx context.Context, tokenHash string) (*AccessToken, error) {
 	var token AccessToken

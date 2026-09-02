@@ -128,7 +128,7 @@ func SetLoginSession(ctx context.Context, c *gin.Context, user *contracts.UserDT
 	session.Clear()
 	rotateSessionID(session)
 
-	session.Set(UserIDKey, user.ID)
+	session.Set(UserIDKey, strconv.FormatUint(user.ID, 10))
 	session.Set(UserNameKey, user.Username)
 	if len(extras) > 0 {
 		for key, value := range extras[0] {

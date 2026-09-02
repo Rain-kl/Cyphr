@@ -66,6 +66,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## Git 提交规范
 
+每次完成一个功能点开发或修复一个问题后，务必提交 Git commit , 禁止推送远程仓库。
 遵循 Conventional Commits：`<type>(<scope>): <subject>`（例：`feat(auth): support email login`）。
 
 ## 务必阅读匹配的 Skill
