@@ -91,7 +91,8 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Migrations().Register("upload", uploadMigrations)
 
 	// 1. Register File Server Routes
-	ctx.Router().GET("/f/:id", filesrv.ServeFileByID)
+	// TIP: loginMW populates AuthUserObjKey so private files can be checked for ownership.
+	ctx.Router().GET("/f/:id", loginMW, filesrv.ServeFileByID)
 
 	// 2. Register User/Admin Upload HTTP Routes
 	uploadGroup := ctx.Router().Group("/api/v1/upload", loginMW)
