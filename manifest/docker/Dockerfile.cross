@@ -8,18 +8,16 @@
 #   TARGET_ARCH — restrict to one arch: amd64 | arm64             (default: all)
 #
 # Usage:
-#   docker build -f docker/Dockerfile.cross --output ./bin .
-#   docker build -f docker/Dockerfile.cross \
-#     --build-arg VERSION=v1.2.3 --output ./bin .
-#   docker build -f docker/Dockerfile.cross \
-#     --build-arg TARGET_OS=linux --build-arg TARGET_ARCH=arm64 \
-#     --output ./bin .
+#   docker build -f manifest/docker/Dockerfile.cross --output ./bin .
+#   docker build -f manifest/docker/Dockerfile.cross \
+#     --build-arg TARGET_OS=linux --build-arg TARGET_ARCH=amd64 --output ./bin .
+#   docker build -f manifest/docker/Dockerfile.cross \
+#     --build-arg TARGET_OS=windows --build-arg TARGET_ARCH=amd64 --output ./bin .
 #
 # Or via Makefile:
 #   make cross-build
 #   make cross-build VERSION=v1.2.3
 #   make cross-build GOOS=linux GOARCH=arm64
-#   make cross-build GOOS=darwin
 
 ARG GO_VERSION=1.25
 ARG NODE_VERSION=22

@@ -91,3 +91,32 @@ func TestSourcePrefersConfigPathEnvironmentVariable(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, ":9100", value)
 }
+
+func TestSourceFindsManifestConfigInParentDirectory(t *testing.T) {
+	tempRoot := t.TempDir()
+	manifestConfigDir := filepath.Join(tempRoot, "manifest", "config")
+	require.NoError(t, os.MkdirAll(manifestConfigDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(manifestConfigDir, "config.yaml"),
+		[]byte("app:\n  addr: \":9200\"\n"),
+		0o600,
+	))
+
+	subDir := filepath.Join(tempRoot, "backend", "cmd")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+
+	origWd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(subDir))
+	t.Cleanup(func() {
+		_ = os.Chdir(origWd)
+	})
+
+	t.Setenv("CONFIG_PATH", "")
+
+	src, err := config.NewSource()
+	require.NoError(t, err)
+	value, ok := src.Lookup("app.addr")
+	require.True(t, ok)
+	assert.Equal(t, ":9200", value)
+}

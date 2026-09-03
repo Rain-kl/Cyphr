@@ -69,15 +69,15 @@ func (s *uploadServiceImpl) RebuildStats(ctx context.Context) error {
 
 func toUploadDTO(u *models.Upload) contracts.UploadDTO {
 	return contracts.UploadDTO{
-		ID:        u.ID,
-		UserID:    u.UserID,
-		FileName:  u.FileName,
-		FilePath:  u.FilePath,
-		MimeType:  u.MimeType,
-		Size:      u.FileSize,
-		Hash:      u.Hash,
-		Status:    string(u.Status),
-		Type:      u.Type,
+		ID:       u.ID,
+		UserID:   u.UserID,
+		FileName: u.FileName,
+		FilePath: u.FilePath,
+		MimeType: u.MimeType,
+		Size:     u.FileSize,
+		Hash:     u.Hash,
+		Status:   string(u.Status),
+		Type:     u.Type,
 		Metadata: contracts.UploadMetadataDTO{
 			Width:        u.Metadata.Width,
 			Height:       u.Metadata.Height,

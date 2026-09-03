@@ -1,14 +1,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: template-single-configmap
+  name: wavelet-configmap
 data:
   config.yaml: |
-    server:
-      address:     ":8000"
-      openapiPath: "/api.json"
-      swaggerPath: "/swagger"
-
-    logger:
-      level : "all"
-      stdout: true
+    app:
+      env: "development"
+      addr: ":8000"
+      node_id: 1
+    database:
+      enabled: false
+      sqlite_path: "data/wavelet.db"
+    redis:
+      enabled: false

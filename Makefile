@@ -76,7 +76,7 @@ cross-build:
 	(version=$(or $(VERSION),dev))..."
 	@mkdir -p bin
 	docker build \
-		--file docker/Dockerfile.cross \
+		--file manifest/docker/Dockerfile.cross \
 		--target export \
 		--build-arg VERSION=$(or $(VERSION),dev) \
 		--build-arg BUILD_DATE="$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')" \

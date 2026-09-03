@@ -19,6 +19,13 @@ import (
 // DefaultFileName is the configuration file looked up when CONFIG_PATH is unset.
 const DefaultFileName = "config.yaml"
 
+// DefaultCandidates defines the prioritized list of configuration file paths looked up
+// when CONFIG_PATH is unset.
+var DefaultCandidates = []string{
+	"manifest/config/config.yaml",
+	DefaultFileName,
+}
+
 // EnvOnlyOrigin is reported by Describe when no configuration file was loaded.
 const EnvOnlyOrigin = "<env only>"
 
@@ -56,7 +63,7 @@ func NewSource(opts ...Option) (*Source, error) {
 		s.path = os.Getenv("CONFIG_PATH")
 	}
 	if s.path == "" {
-		s.path = findConfigPath(DefaultFileName)
+		s.path = findConfigPath(DefaultCandidates...)
 	}
 
 	v := viper.New()
@@ -107,20 +114,28 @@ func (s *Source) Describe() string {
 	return s.path
 }
 
-// findConfigPath searches upward from the working directory so tests and binaries run
-// from backend/ still find the repository-root configuration file.
-func findConfigPath(configPath string) string {
-	if _, err := os.Stat(configPath); err == nil {
-		return configPath
+// findConfigPath searches upward from the working directory through candidate paths so
+// tests and binaries run from subdirectories still find configuration files in manifest/config/
+// or the repository root.
+func findConfigPath(candidates ...string) string {
+	if len(candidates) == 0 {
+		return DefaultFileName
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
 	}
 
 	dir := "."
 	for range maxSearchDepth {
 		dir += "/.."
-		path := dir + "/" + configPath
-		if _, err := os.Stat(path); err == nil {
-			return path
+		for _, candidate := range candidates {
+			path := dir + "/" + candidate
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
 		}
 	}
-	return configPath
+	return candidates[0]
 }

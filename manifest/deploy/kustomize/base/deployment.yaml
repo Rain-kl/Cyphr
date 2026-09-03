@@ -1,21 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: template-single
+  name: wavelet
   labels:
-    app: template-single
+    app: wavelet
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: template-single
+      app: wavelet
   template:
     metadata:
       labels:
-        app: template-single
+        app: wavelet
     spec:
       containers:
-        - name : main
-          image: template-single
+        - name: wavelet
+          image: wavelet
           imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
 

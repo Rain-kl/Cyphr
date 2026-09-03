@@ -213,7 +213,7 @@ wavelet/
 ├── main.go                  # Entry point (delegates to internal/cmd)
 ├── config.example.yaml      # Configuration template
 ├── Makefile                 # Common commands (swagger, tidy, license, cross-build)
-├── docker/                  # Docker image build files (integrated/frontend/backend)
+├── manifest/                # Manifests: docker (compose/Dockerfiles), deploy (k8s), config
 ├── docs/                    # Swagger auto-generated docs
 ├── frontend/                # Next.js frontend application
 │   ├── app/                 # App Router pages

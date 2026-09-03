@@ -213,7 +213,7 @@ wavelet/
 ├── main.go                  # 程序入口（委托给 internal/cmd）
 ├── config.example.yaml      # 配置模板
 ├── Makefile                 # 常用命令（swagger、tidy、license、cross-build）
-├── docker/                  # Docker 镜像构建文件（集成/前端/后端）
+├── manifest/                # 项目清单与编排：docker 镜像构建/compose、deploy (k8s)、config 配置
 ├── docs/                    # Swagger 自动生成文档
 ├── frontend/                # Next.js 前端应用
 │   ├── app/                 # App Router 页面

@@ -2,7 +2,7 @@ services:
   wavelet:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: manifest/docker/Dockerfile
       args:
         VERSION: canary
     image: ghcr.io/rain-kl/wavelet:canary

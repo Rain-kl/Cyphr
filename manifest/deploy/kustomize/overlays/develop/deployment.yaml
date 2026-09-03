@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: template-single
+  name: wavelet
 spec:
   template:
     spec:
       containers:
-        - name : main
-          image: template-single:develop
+        - name: wavelet
+          image: ghcr.io/rain-kl/wavelet:canary

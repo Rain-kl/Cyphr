@@ -23,18 +23,23 @@ type UploadMetadataDTO struct {
 
 // UploadDTO represents an uploaded file record.
 type UploadDTO struct {
-	ID        uint64            `json:"id"`
-	UserID    uint64            `json:"user_id"`
-	FileName  string            `json:"file_name"`
-	FilePath  string            `json:"file_path"`
-	MimeType  string            `json:"mime_type"`
+	ID        uint64            `json:"id" gorm:"primaryKey"`
+	UserID    uint64            `json:"user_id" gorm:"index"`
+	FileName  string            `json:"file_name" gorm:"size:255"`
+	FilePath  string            `json:"file_path" gorm:"size:500"`
+	MimeType  string            `json:"mime_type" gorm:"size:100"`
 	Size      int64             `json:"size"`
-	Hash      string            `json:"hash"`
-	Status    string            `json:"status"`
-	Type      string            `json:"type"`
-	Metadata  UploadMetadataDTO `json:"metadata"`
+	Hash      string            `json:"hash" gorm:"size:64"`
+	Status    string            `json:"status" gorm:"type:varchar(20)"`
+	Type      string            `json:"type" gorm:"size:50;index"`
+	Metadata  UploadMetadataDTO `json:"metadata" gorm:"serializer:json;type:jsonb"`
 	CreatedAt time.Time         `json:"created_at"`
 	UpdatedAt time.Time         `json:"updated_at"`
+}
+
+// TableName returns the default table name for UploadDTO.
+func (UploadDTO) TableName() string {
+	return "w_uploads"
 }
 
 // OpenedUploadDTO encapsulates the retrieved object stream and its metadata.

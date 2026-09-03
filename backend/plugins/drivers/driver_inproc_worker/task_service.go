@@ -112,30 +112,25 @@ func (s *inprocTaskService) ListExecutions(ctx context.Context, taskType, status
 	return res, total, nil
 }
 
-func (s *inprocTaskService) GetExecution(ctx context.Context, id uint64) (*contracts.TaskExecutionDTO, error) {
+func findExecution(ctx context.Context, query any, args ...any) (*contracts.TaskExecutionDTO, error) {
 	db := getDB(ctx)
 	if db == nil {
 		return nil, errors.New("driver_inproc_worker: db not initialized")
 	}
 	var exec taskExecution
-	if err := db.Where("id = ?", id).First(&exec).Error; err != nil {
+	if err := db.Where(query, args...).First(&exec).Error; err != nil {
 		return nil, err
 	}
 	dto := toExecutionDTO(&exec)
 	return &dto, nil
 }
 
+func (s *inprocTaskService) GetExecution(ctx context.Context, id uint64) (*contracts.TaskExecutionDTO, error) {
+	return findExecution(ctx, "id = ?", id)
+}
+
 func (s *inprocTaskService) GetExecutionByTaskID(ctx context.Context, taskID string) (*contracts.TaskExecutionDTO, error) {
-	db := getDB(ctx)
-	if db == nil {
-		return nil, errors.New("driver_inproc_worker: db not initialized")
-	}
-	var exec taskExecution
-	if err := db.Where("task_id = ?", taskID).First(&exec).Error; err != nil {
-		return nil, err
-	}
-	dto := toExecutionDTO(&exec)
-	return &dto, nil
+	return findExecution(ctx, "task_id = ?", taskID)
 }
 
 func toExecutionDTO(exec *taskExecution) contracts.TaskExecutionDTO {
