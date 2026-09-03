@@ -68,3 +68,4 @@ s3_cache
 /backend/data/
 /backend/plugins/drivers/driver_http/dist/
 /backend/uploads/
+/backend/audio/
