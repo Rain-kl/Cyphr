@@ -9,11 +9,13 @@ import (
 	"Wavelet/transcribe/plugins/svr/dao"
 	"Wavelet/transcribe/plugins/svr/service"
 	"Wavelet/transcribe/plugins/svr/service/hub"
+	"sync"
 	"time"
 )
 
 // Controller aggregates HTTP and WebSocket endpoints for the transcribe svr plugin.
 type Controller struct {
+	mu     sync.RWMutex
 	OpenAI *OpenAIHandler
 	Job    *JobHandler
 	Agent  *AgentHandler
@@ -65,9 +67,25 @@ func (c *Controller) SetStorageService(s contracts.StorageService) {
 	}
 }
 
+// GetAuthService returns the currently configured AuthService safely.
+func (c *Controller) GetAuthService() contracts.AuthService {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.authService
+}
+
+// GetNodeService returns the currently configured NodeService safely.
+func (c *Controller) GetNodeService() service.NodeService {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.nodeService
+}
+
 // SetAuthService updates the auth service reference across handlers.
 func (c *Controller) SetAuthService(a contracts.AuthService) {
+	c.mu.Lock()
 	c.authService = a
+	c.mu.Unlock()
 	if c.OpenAI != nil {
 		c.OpenAI.authService = a
 	}
@@ -91,7 +109,9 @@ func (c *Controller) SetJobService(s service.JobService) {
 
 // SetNodeService updates the NodeService reference across handlers.
 func (c *Controller) SetNodeService(s service.NodeService) {
+	c.mu.Lock()
 	c.nodeService = s
+	c.mu.Unlock()
 	if c.Agent != nil {
 		c.Agent.nodeService = s
 	}
@@ -164,8 +184,8 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 		"/api/v1/models",
 	)
 
-	userAuthMW := UserAuthMiddleware(c.authService)
-	agentAuthMW := RequireAgentToken(c.nodeService)
+	userAuthMW := UserAuthMiddleware(c.GetAuthService)
+	agentAuthMW := RequireAgentToken(c.GetNodeService)
 
 	// 2. OpenAI-compatible transcription endpoints
 	router.POST("/v1/audio/transcriptions", c.OpenAI.HandleTranscription)

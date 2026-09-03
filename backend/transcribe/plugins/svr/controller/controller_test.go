@@ -225,6 +225,30 @@ func TestRequireAgentTokenMiddleware(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Contains(t, w.Body.String(), node.Name)
 	})
+
+	t.Run("dynamic resolution via getter -> 200 after binding", func(t *testing.T) {
+		var dynamicSvc service.NodeService
+		getter := func() service.NodeService { return dynamicSvc }
+
+		dynR := gin.New()
+		dynR.Use(response.ErrorHandlerMiddleware())
+		dynR.GET("/dyn-protected", controller.RequireAgentToken(getter), func(c *gin.Context) {
+			c.Status(http.StatusOK)
+		})
+
+		// Before service is set -> 500 errInternal
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/dyn-protected?token="+token, nil)
+		dynR.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+		// After service is bound -> 200 OK
+		dynamicSvc = env.nodeSvc
+		w = httptest.NewRecorder()
+		req, _ = http.NewRequest(http.MethodGet, "/dyn-protected?token="+token, nil)
+		dynR.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
 }
 
 // ─── OpenAI Transcription Handler Tests ───────────────────────────────────────
@@ -461,6 +485,23 @@ func TestJobHandler_ListAndDetail(t *testing.T) {
 		engine.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("GET /api/v1/jobs/:id forbidden for different user -> 403", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/jobs/%d", job1.ID), nil)
+
+		engine := gin.New()
+		engine.Use(response.ErrorHandlerMiddleware())
+		engine.Use(func(c *gin.Context) {
+			c.Set(contracts.AuthUserIDKey, uint64(9999)) // Different non-admin user
+			c.Next()
+		})
+		engine.GET("/api/v1/jobs/:id", env.ctrl.Job.GetJob)
+		engine.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+		assert.Contains(t, w.Body.String(), consts.ErrForbidden)
 	})
 }
 

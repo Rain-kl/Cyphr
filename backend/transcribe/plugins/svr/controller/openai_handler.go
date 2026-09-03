@@ -230,6 +230,9 @@ func (h *OpenAIHandler) waitForJobCompletion(c *gin.Context, jobID uint64, langu
 		return
 	}
 
+	timer := time.NewTimer(h.syncTimeout)
+	defer timer.Stop()
+
 	select {
 	case <-c.Request.Context().Done():
 		return
@@ -254,7 +257,7 @@ func (h *OpenAIHandler) waitForJobCompletion(c *gin.Context, jobID uint64, langu
 		}
 		h.renderOpenAIResponse(c, detail, responseFormat, language)
 
-	case <-time.After(h.syncTimeout):
+	case <-timer.C:
 		abortOpenAIError(c, http.StatusGatewayTimeout, "transcription timed out", "timeout_error")
 	}
 }

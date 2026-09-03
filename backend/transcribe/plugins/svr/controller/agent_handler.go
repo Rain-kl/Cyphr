@@ -170,7 +170,7 @@ func (h *AgentHandler) DownloadMedia(c *gin.Context) {
 	}
 
 	if job.AudioStoragePath == "" {
-		response.AbortNotFound(c, "media file not found")
+		response.AbortNotFound(c, consts.ErrMediaNotFound)
 		return
 	}
 
@@ -194,7 +194,7 @@ func (h *AgentHandler) DownloadMedia(c *gin.Context) {
 		return
 	}
 
-	response.AbortNotFound(c, "media file not found")
+	response.AbortNotFound(c, consts.ErrMediaNotFound)
 }
 
 func parseJobIDParam(c *gin.Context) (uint64, bool) {

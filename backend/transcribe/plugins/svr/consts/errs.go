@@ -15,13 +15,16 @@ var (
 
 // CamelCase string error codes returned to API clients.
 const (
-	ErrBindParamsFailed = "errBindParamsFailed"
-	ErrInvalidToken     = "errInvalidToken"
-	ErrNodeOffline      = "errNodeOffline"
-	ErrNodeInactive     = "errNodeInactive"
-	ErrUnauthorized     = "errUnauthorized"
-	ErrInternal         = "errInternal"
-	ErrInvalidStatus    = "errInvalidStatus"
-	ErrModelUnavailable = "errModelUnavailable"
-	ErrFileUploadFailed = "errFileUploadFailed"
+	ErrBindParamsFailed     = "errBindParamsFailed"
+	ErrInvalidToken         = "errInvalidToken"
+	ErrNodeOffline          = "errNodeOffline"
+	ErrNodeInactive         = "errNodeInactive"
+	ErrUnauthorized         = "errUnauthorized"
+	ErrInternal             = "errInternal"
+	ErrInvalidStatus        = "errInvalidStatus"
+	ErrModelUnavailable     = "errModelUnavailable"
+	ErrFileUploadFailed     = "errFileUploadFailed"
+	ErrMediaNotFound        = "errMediaNotFound"
+	ErrStreamingUnsupported = "errStreamingUnsupported"
+	ErrForbidden            = "errForbidden"
 )

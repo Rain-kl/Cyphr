@@ -63,6 +63,31 @@ func (h *JobHandler) ListJobs(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(jobs))
 }
 
+func isJobAccessible(c *gin.Context, authSvc contracts.AuthService, jobUserID, currentUID uint64) bool {
+	if jobUserID == 0 {
+		return true
+	}
+	if currentUID > 0 && currentUID == jobUserID {
+		return true
+	}
+	if authSvc != nil {
+		if u, err := authSvc.GetCurrentUser(c.Request.Context()); err == nil && u != nil && u.IsAdmin {
+			return true
+		}
+	}
+	if val, ok := c.Get(contracts.AuthTokenAdminKey); ok {
+		if isAdmin, ok := val.(bool); ok && isAdmin {
+			return true
+		}
+	}
+	if val, ok := c.Get("is_admin"); ok {
+		if isAdmin, ok := val.(bool); ok && isAdmin {
+			return true
+		}
+	}
+	return currentUID == 0 && authSvc == nil
+}
+
 // GetJob handles GET /api/v1/jobs/:id, returning detailed job information.
 func (h *JobHandler) GetJob(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -74,6 +99,12 @@ func (h *JobHandler) GetJob(c *gin.Context) {
 	job, err := h.jobService.GetJobDetail(c.Request.Context(), id)
 	if err != nil {
 		response.AbortNotFound(c, consts.ErrJobNotFound.Error())
+		return
+	}
+
+	currentUID := GetCurrentUserID(c, h.authService)
+	if !isJobAccessible(c, h.authService, job.UserID, currentUID) {
+		response.AbortForbidden(c, consts.ErrForbidden)
 		return
 	}
 
@@ -94,6 +125,12 @@ func (h *JobHandler) StreamJob(c *gin.Context) {
 		return
 	}
 
+	currentUID := GetCurrentUserID(c, h.authService)
+	if !isJobAccessible(c, h.authService, job.UserID, currentUID) {
+		response.AbortForbidden(c, consts.ErrForbidden)
+		return
+	}
+
 	// Prepare SSE response headers
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -103,7 +140,7 @@ func (h *JobHandler) StreamJob(c *gin.Context) {
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		response.AbortInternal(c, "streaming unsupported")
+		response.AbortInternal(c, consts.ErrStreamingUnsupported)
 		return
 	}
 

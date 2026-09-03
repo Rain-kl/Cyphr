@@ -6,6 +6,7 @@ package controller
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/model/do"
@@ -23,10 +24,42 @@ const (
 	ContextKeyNode = "node"
 )
 
+func resolveNodeService(provider any) service.NodeService {
+	switch p := provider.(type) {
+	case service.NodeService:
+		return p
+	case func() service.NodeService:
+		if p != nil {
+			return p()
+		}
+	}
+	return nil
+}
+
+func resolveAuthService(provider any) contracts.AuthService {
+	switch p := provider.(type) {
+	case contracts.AuthService:
+		return p
+	case func() contracts.AuthService:
+		if p != nil {
+			return p()
+		}
+	}
+	return nil
+}
+
 // RequireAgentToken verifies the agent token provided via "?token=" query parameter
 // or "Authorization: Bearer <token>" header using NodeService.
-func RequireAgentToken(nodeSvc service.NodeService) gin.HandlerFunc {
+// provider can be a service.NodeService or dynamic getter func() service.NodeService.
+func RequireAgentToken(provider any) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		nodeSvc := resolveNodeService(provider)
+		if nodeSvc == nil {
+			logger.ErrorF(c.Request.Context(), "[RequireAgentToken] nodeService unavailable")
+			response.AbortInternal(c, consts.ErrInternal)
+			return
+		}
+
 		token := strings.TrimSpace(c.Query("token"))
 		if token == "" {
 			authHeader := c.GetHeader("Authorization")
@@ -87,8 +120,10 @@ func GetNodeIDFromContext(c *gin.Context) (uint64, bool) {
 
 // UserAuthMiddleware provides user authentication by delegating to contracts.AuthService
 // or falling back to pre-injected context user IDs (for testing).
-func UserAuthMiddleware(authSvc contracts.AuthService) gin.HandlerFunc {
+// provider can be a contracts.AuthService or dynamic getter func() contracts.AuthService.
+func UserAuthMiddleware(provider any) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		authSvc := resolveAuthService(provider)
 		if authSvc != nil {
 			if mw, ok := authSvc.RequireAuthMiddleware().(gin.HandlerFunc); ok && mw != nil {
 				mw(c)
