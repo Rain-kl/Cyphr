@@ -1312,7 +1312,8 @@ definitions:
       created_at:
         type: string
       id:
-        type: integer
+        example: "0"
+        type: string
       is_admin:
         type: boolean
       masked_token:
@@ -1322,7 +1323,8 @@ definitions:
       updated_at:
         type: string
       user_id:
-        type: integer
+        example: "0"
+        type: string
     type: object
   user.changePasswordRequest:
     properties:

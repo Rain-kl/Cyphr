@@ -12,8 +12,8 @@ import (
 
 // AccessToken 个人访问令牌实体
 type AccessToken struct {
-	ID          uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID      uint64    `json:"user_id" gorm:"index;not null"`
+	ID          uint64    `json:"id,string" gorm:"primaryKey"`
+	UserID      uint64    `json:"user_id,string" gorm:"index;not null"`
 	Name        string    `json:"name" gorm:"size:128;not null"`
 	TokenHash   string    `json:"-" gorm:"size:64;uniqueIndex;not null"`
 	MaskedToken string    `json:"masked_token" gorm:"size:64;not null"`

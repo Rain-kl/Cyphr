@@ -63,7 +63,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { formatDateTime } from '@/i18n/format';
 import type { AppLocale } from '@/i18n/config';
 
-type ConfirmTarget = { id: number; name: string };
+type ConfirmTarget = { id: string | number; name: string };
 
 export function AccessTokenMain() {
   const { user } = useAuth();
@@ -76,7 +76,7 @@ export function AccessTokenMain() {
   const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
   const [tokenName, setTokenName] = React.useState('');
   const [tokenIsAdmin, setTokenIsAdmin] = React.useState(false);
-  const [copiedId, setCopiedId] = React.useState<number | null>(null);
+  const [copiedId, setCopiedId] = React.useState<string | number | null>(null);
   const [newCreatedToken, setNewCreatedToken] =
     React.useState<CreateTokenResponse | null>(null);
   const [deleteTarget, setDeleteTarget] = React.useState<ConfirmTarget | null>(
@@ -114,7 +114,7 @@ export function AccessTokenMain() {
 
   // 删除 Token
   const deleteTokenMutation = useMutation({
-    mutationFn: (id: number) => UserService.deleteAccessToken(id),
+    mutationFn: (id: string | number) => UserService.deleteAccessToken(id),
     onSuccess: () => {
       setDeleteTarget(null);
       void queryClient.invalidateQueries({
@@ -129,7 +129,7 @@ export function AccessTokenMain() {
 
   // 轮换 Token
   const rotateTokenMutation = useMutation({
-    mutationFn: (id: number) => UserService.rotateAccessToken(id),
+    mutationFn: (id: string | number) => UserService.rotateAccessToken(id),
     onSuccess: (data) => {
       setRotateTarget(null);
       setNewCreatedToken(data);
@@ -156,7 +156,7 @@ export function AccessTokenMain() {
     });
   };
 
-  const handleCopyText = async (text: string, id: number) => {
+  const handleCopyText = async (text: string, id: string | number) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
@@ -452,16 +452,24 @@ export function AccessTokenMain() {
               {/* 明文 Token 文本框 */}
               <div className='flex items-center gap-2 rounded-xl bg-primary/5 border border-dashed border-primary/30 p-3'>
                 <span className='font-mono text-xs select-all break-all flex-1 text-primary font-semibold leading-relaxed'>
-                  {newCreatedToken.token}
+                  {typeof newCreatedToken.token === 'string'
+                    ? newCreatedToken.token
+                    : newCreatedToken.raw_token || ''}
                 </span>
                 <Button
                   type='button'
                   size='icon'
                   variant='outline'
                   className='size-8 rounded-lg shrink-0 border-dashed text-primary hover:bg-primary/10 hover:border-primary/30 transition-colors'
-                  onClick={() => handleCopyText(newCreatedToken.token, 9999)}
+                  onClick={() => {
+                    const secret =
+                      typeof newCreatedToken.token === 'string'
+                        ? newCreatedToken.token
+                        : newCreatedToken.raw_token || '';
+                    void handleCopyText(secret, 'new-token');
+                  }}
                 >
-                  {copiedId === 9999 ? (
+                  {copiedId === 'new-token' ? (
                     <Check className='size-3.5 text-emerald-500' />
                   ) : (
                     <Copy className='size-3.5' />
