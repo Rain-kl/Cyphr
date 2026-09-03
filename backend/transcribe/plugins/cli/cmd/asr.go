@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -51,7 +52,14 @@ func newAsrCmd() *cobra.Command {
 					return err
 				}
 				defer cleanup()
-				uploadPath = extractedPath
+				// Rename the temp output to <name>.mp3 so the uploaded/stored file carries a real audio extension.
+				origBase := filepath.Base(filePath)
+				prettyName := origBase[:len(origBase)-len(filepath.Ext(origBase))] + ".mp3"
+				prettyPath := filepath.Join(filepath.Dir(extractedPath), prettyName)
+				if err := os.Rename(extractedPath, prettyPath); err != nil {
+					return fmt.Errorf("failed to rename extracted audio: %w", err)
+				}
+				uploadPath = prettyPath
 			case media.IsAudio(filePath):
 				uploadPath = filePath
 			default:
@@ -66,20 +74,43 @@ func newAsrCmd() *cobra.Command {
 				modelName = config.DefaultModel
 			}
 
-			cmd.Printf("Uploading %s and submitting transcription job (model: %s)...\n", filepath.Base(filePath), modelName)
+			cmd.Printf("Submitting %s for transcription (model: %s)...\n", filepath.Base(filePath), modelName)
 
-			submitReq := client.TranscriptionRequest{
-				FilePath:         uploadPath,
-				OriginalFileName: filepath.Base(filePath),
+			fileHash, fileSize, err := client.SHA256FileHex(uploadPath)
+			if err != nil {
+				return fmt.Errorf("hash media file: %w", err)
+			}
+
+			hashReq := client.HashSubmitRequest{
+				FileHash:         fileHash,
+				FileSize:         fileSize,
+				OriginalFileName: filepath.Base(uploadPath),
 				Model:            modelName,
 				Language:         asrLanguage,
 				Prompt:           asrPrompt,
 				ResponseFormat:   asrFormat,
 			}
 
-			submitResp, err := appClient.SubmitTranscription(cmd.Context(), submitReq)
+			submitResp, err := appClient.SubmitTranscriptionByHash(cmd.Context(), hashReq)
 			if err != nil {
-				return fmt.Errorf("submission failed: %w", err)
+				if !client.IsNotFoundError(err) {
+					return fmt.Errorf("submission failed: %w", err)
+				}
+				submitResp, err = appClient.SubmitTranscription(cmd.Context(), client.TranscriptionRequest{
+					FilePath:         uploadPath,
+					OriginalFileName: filepath.Base(uploadPath),
+					Model:            modelName,
+					Language:         asrLanguage,
+					Prompt:           asrPrompt,
+					ResponseFormat:   asrFormat,
+					OnProgress:       printUploadProgress,
+				})
+				fmt.Fprintln(os.Stderr)
+				if err != nil {
+					return fmt.Errorf("submission failed: %w", err)
+				}
+			} else {
+				cmd.Printf("File already exists on server, skipped upload (hash match).\n")
 			}
 
 			jobID := submitResp.JobID
@@ -118,6 +149,11 @@ func newAsrCmd() *cobra.Command {
 					cmd.Println("--------------------------------------------------")
 					cmd.Println(finishEvent.ResultText)
 					cmd.Println("--------------------------------------------------")
+					resultPath := resultFilePath(filePath, asrFormat)
+					if werr := os.WriteFile(resultPath, []byte(finishEvent.ResultText), resultFilePerm); werr != nil {
+						return fmt.Errorf("write result file: %w", werr)
+					}
+					cmd.Printf("Result saved to %s\n", resultPath)
 					return nil
 				}
 				return fmt.Errorf("job #%d failed: %s", jobID, finishEvent.ErrorMsg)
@@ -133,4 +169,42 @@ func newAsrCmd() *cobra.Command {
 	asrCmd.Flags().StringVar(&asrFormat, "format", "json", "response format (json, verbose_json, text, srt, vtt)")
 
 	return asrCmd
+}
+
+// printUploadProgress renders a single-line upload progress bar on stderr.
+// It is invoked from the upload goroutine, so it must stay allocation-light.
+func printUploadProgress(written, total int64) {
+	pct := 0.0
+	if total > 0 {
+		pct = float64(written) / float64(total) * 100
+	}
+	fmt.Fprintf(os.Stderr, "\rUploading... %5.1f%% (%s/%s)", pct, formatBytes(written), formatBytes(total))
+}
+
+// formatBytes renders a byte count in human-readable units.
+func formatBytes(n int64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1f GB", float64(n)/(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1f KB", float64(n)/(1<<10))
+	default:
+		return fmt.Sprintf("%d B", n)
+	}
+}
+
+// resultFilePath derives the result file path in the current directory:
+// same base name as the input with an extension matching the response format.
+func resultFilePath(inputPath, format string) string {
+	ext := ".txt"
+	switch format {
+	case "srt":
+		ext = ".srt"
+	case "vtt":
+		ext = ".vtt"
+	}
+	base := filepath.Base(inputPath)
+	return strings.TrimSuffix(base, filepath.Ext(base)) + ext
 }

@@ -436,6 +436,7 @@ func TestCobraCommands(t *testing.T) {
 	})
 
 	t.Run("asr command with audio file", func(t *testing.T) {
+		t.Chdir(t.TempDir()) // 结果文件落盘到隔离目录, 不污染包目录
 		dummyAudio := filepath.Join(tempDir, "sample.mp3")
 		require.NoError(t, os.WriteFile(dummyAudio, []byte("fake mp3"), 0o600))
 
@@ -445,6 +446,9 @@ func TestCobraCommands(t *testing.T) {
 		assert.Contains(t, out, "Job submitted successfully: ID #20002")
 		assert.Contains(t, out, "Finished decoding")
 		assert.Contains(t, out, "Speech recognition completed successfully.")
+		data, err := os.ReadFile("sample.txt")
+		require.NoError(t, err)
+		assert.Equal(t, "Speech recognition completed successfully.", string(data))
 	})
 
 	t.Run("asr command with unsupported file", func(t *testing.T) {
@@ -458,6 +462,7 @@ func TestCobraCommands(t *testing.T) {
 	})
 
 	t.Run("asr command with video file", func(t *testing.T) {
+		t.Chdir(t.TempDir()) // 结果文件落盘到隔离目录, 不污染包目录
 		dummyVideo := filepath.Join(tempDir, "clip.mp4")
 		require.NoError(t, os.WriteFile(dummyVideo, []byte("fake mp4 content"), 0o600))
 
@@ -477,5 +482,8 @@ func TestCobraCommands(t *testing.T) {
 		assert.Contains(t, out, "Video file detected")
 		assert.Contains(t, out, "Job submitted successfully: ID #20002")
 		assert.Contains(t, out, "Speech recognition completed successfully.")
+		data, err := os.ReadFile("clip.txt")
+		require.NoError(t, err)
+		assert.Equal(t, "Speech recognition completed successfully.", string(data))
 	})
 }

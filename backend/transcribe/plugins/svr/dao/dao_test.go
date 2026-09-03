@@ -38,6 +38,12 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 
 	applyMigration(t, db, string(content))
 
+	// v2 targets the admin-owned w_system_configs table (absent in unit tests); apply v3 model registration only.
+	qwenMigrationPath := filepath.Join("..", "migrations", "sqlite", "00003_register_qwen3_asr.sql")
+	qwenContent, err := os.ReadFile(qwenMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", qwenMigrationPath)
+	applyMigration(t, db, string(qwenContent))
+
 	return db, dbPath
 }
 
@@ -126,7 +132,7 @@ func TestModelDAO(t *testing.T) {
 	// 4. ListActive: without keyword
 	activeList, err := modelDAO.ListActive(ctx)
 	require.NoError(t, err)
-	assert.Len(t, activeList, 2) // mock-whisper-base, whisper-large-v3
+	assert.Len(t, activeList, 3) // mock-whisper-base, qwen3-asr-0.6b, whisper-large-v3
 
 	// 5. ListActive: with keyword
 	keywordList, err := modelDAO.ListActive(ctx, "large")

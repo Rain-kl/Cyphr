@@ -25,8 +25,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -44,18 +46,19 @@ func init() {
 }
 
 type testEnv struct {
-	db        *gorm.DB
-	jobDAO    dao.JobDAO
-	nodeDAO   dao.NodeDAO
-	modelDAO  dao.ModelDAO
-	hub       hub.AgentHub
-	broker    service.LogBroker
-	sched     scheduler.Scheduler
-	nodeSvc   service.NodeService
-	jobSvc    service.JobService
-	ctrl      *controller.Controller
-	engine    *gin.Engine
-	routerExt extpoints.RouterExtension
+	db         *gorm.DB
+	jobDAO     dao.JobDAO
+	nodeDAO    dao.NodeDAO
+	modelDAO   dao.ModelDAO
+	hub        hub.AgentHub
+	broker     service.LogBroker
+	sched      scheduler.Scheduler
+	nodeSvc    service.NodeService
+	jobSvc     service.JobService
+	ctrl       *controller.Controller
+	engine     *gin.Engine
+	routerExt  extpoints.RouterExtension
+	uploadMock *mockUploadService
 }
 
 func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
@@ -72,6 +75,12 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	content, err := os.ReadFile(migrationPath)
 	require.NoError(t, err, "migration file must exist at %s", migrationPath)
 	applyMigration(t, db, string(content))
+
+	// v2 targets the admin-owned w_system_configs table (absent in unit tests); apply v3 model registration only.
+	qwenMigrationPath := filepath.Join("..", "migrations", "sqlite", "00003_register_qwen3_asr.sql")
+	qwenContent, err := os.ReadFile(qwenMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", qwenMigrationPath)
+	applyMigration(t, db, string(qwenContent))
 
 	jobDAO := dao.NewJobDAO(db)
 	nodeDAO := dao.NewNodeDAO(db)
@@ -92,7 +101,8 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 		controller.WithSyncTimeout(3*time.Second),
 		controller.WithScheduler(sched),
 	)
-	ctrl.SetUploadService(&mockUploadService{})
+	uploadMock := &mockUploadService{}
+	ctrl.SetUploadService(uploadMock)
 
 	routerExt := extpoints.NewRouterRegistry()
 	ctrl.RegisterRoutes(routerExt)
@@ -112,18 +122,19 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	}
 
 	return &testEnv{
-		db:        db,
-		jobDAO:    jobDAO,
-		nodeDAO:   nodeDAO,
-		modelDAO:  modelDAO,
-		hub:       agentHub,
-		broker:    broker,
-		sched:     sched,
-		nodeSvc:   nodeSvc,
-		jobSvc:    jobSvc,
-		ctrl:      ctrl,
-		engine:    engine,
-		routerExt: routerExt,
+		db:         db,
+		jobDAO:     jobDAO,
+		nodeDAO:    nodeDAO,
+		modelDAO:   modelDAO,
+		hub:        agentHub,
+		broker:     broker,
+		sched:      sched,
+		nodeSvc:    nodeSvc,
+		jobSvc:     jobSvc,
+		ctrl:       ctrl,
+		engine:     engine,
+		routerExt:  routerExt,
+		uploadMock: uploadMock,
 	}
 }
 
@@ -131,6 +142,7 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 // It stores the last ingested file path so tests can assert on storage behaviour.
 type mockUploadService struct {
 	lastPath string
+	byHash   *contracts.UploadDTO
 }
 
 func (m *mockUploadService) GetByID(_ context.Context, _ uint64) (*contracts.UploadDTO, error) {
@@ -142,6 +154,9 @@ func (m *mockUploadService) OpenStoredUpload(_ context.Context, _ uint64) (*cont
 func (m *mockUploadService) Remove(_ context.Context, _ uint64) error                { return nil }
 func (m *mockUploadService) RemoveOwned(_ context.Context, _ uint64, _ uint64) error { return nil }
 func (m *mockUploadService) FindByHash(_ context.Context, _ string, _ int64) (*contracts.UploadDTO, error) {
+	if m.byHash != nil {
+		return m.byHash, nil
+	}
 	return nil, nil
 }
 func (m *mockUploadService) RebuildStats(_ context.Context) error { return nil }
@@ -467,6 +482,46 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 	})
 }
 
+// ─── Hash Submit (秒传) Tests ───────────────────────────────────────────────────
+
+func TestOpenAIHandler_HashSubmit(t *testing.T) {
+	env := setupTestEnv(t)
+
+	postHash := func(hash string, size int64) *httptest.ResponseRecorder {
+		form := url.Values{}
+		form.Set("file_hash", hash)
+		form.Set("file_size", strconv.FormatInt(size, 10))
+		form.Set("model", consts.DefaultModelName)
+		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("X-Async", "true")
+		w := httptest.NewRecorder()
+		env.engine.ServeHTTP(w, req)
+		return w
+	}
+
+	t.Run("unknown hash -> 404", func(t *testing.T) {
+		w := postHash("deadbeef", 123)
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("known hash reuses stored upload without file bytes", func(t *testing.T) {
+		env.uploadMock.byHash = &contracts.UploadDTO{
+			ID:       7,
+			FileName: "old.mp3",
+			FilePath: "uploads/audio/old.mp3",
+		}
+		w := postHash("cafef00d", 456)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		jobs, err := env.jobDAO.ListPendingJobs(context.Background())
+		require.NoError(t, err)
+		require.Len(t, jobs, 1)
+		assert.Equal(t, "uploads/audio/old.mp3", jobs[0].AudioStoragePath)
+		assert.Equal(t, "old.mp3", jobs[0].OriginalFileName)
+	})
+}
+
 // ─── Model Handler Tests ──────────────────────────────────────────────────────
 
 func TestModelHandler(t *testing.T) {
@@ -481,7 +536,11 @@ func TestModelHandler(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Data)
-	assert.Equal(t, consts.DefaultModelName, resp.Data[0].Name)
+	modelNames := make([]string, 0, len(resp.Data))
+	for _, m := range resp.Data {
+		modelNames = append(modelNames, m.Name)
+	}
+	assert.Contains(t, modelNames, consts.DefaultModelName)
 
 	t.Run("GET /api/v1/controller/models lists all models", func(t *testing.T) {
 		w2 := httptest.NewRecorder()

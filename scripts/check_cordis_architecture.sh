@@ -65,11 +65,11 @@ else
 fi
 
 # 1.2 core/ 禁止导入任何插件
-CORE_PLUGIN_IMPORTS=$(rg -n "\"${MODULE}/plugins/|\"${MODULE}/downstream/" \
+CORE_PLUGIN_IMPORTS=$(rg -n "\"${MODULE}/plugins/|\"${MODULE}/transcribe/" \
     "${BACKEND_DIR}/core/" --glob '*.go' -g '!*_test.go' || true)
 
 if [ -n "${CORE_PLUGIN_IMPORTS}" ]; then
-    log_fail "backend/core/ 严禁直接依赖具体插件 (plugins/ 或 downstream/):"
+    log_fail "backend/core/ 严禁直接依赖具体插件 (plugins/ 或 transcribe/):"
     echo "${CORE_PLUGIN_IMPORTS}" >&2
 else
     log_pass "backend/core/ 零插件反向依赖"
@@ -80,7 +80,7 @@ fi
 # ==============================================================================
 log_check "2. 检查契约层 (backend/core/contracts/) 抽象纯洁度..."
 
-CONTRACTS_PLUGIN_IMPORTS=$(rg -n "\"${MODULE}/plugins/|\"${MODULE}/downstream/|\"github.com/gin-gonic/gin\"|\"github.com/hibiken/asynq\"" \
+CONTRACTS_PLUGIN_IMPORTS=$(rg -n "\"${MODULE}/plugins/|\"${MODULE}/transcribe/|\"github.com/gin-gonic/gin\"|\"github.com/hibiken/asynq\"" \
     "${BACKEND_DIR}/core/contracts/" --glob '*.go' || true)
 
 if [ -n "${CONTRACTS_PLUGIN_IMPORTS}" ]; then
@@ -169,15 +169,15 @@ for category_dir in "${BACKEND_DIR}"/plugins/*/; do
     done
 done
 
-# 检查 downstream/ 下的下游插件
-if [ -d "${BACKEND_DIR}/downstream/plugins" ]; then
-    for downstream_dir in "${BACKEND_DIR}"/downstream/plugins/*/; do
-        [ -d "$downstream_dir" ] || continue
-        downstream_name=$(basename "$downstream_dir")
-        downstream_cross=$(rg -n "\"${MODULE}/plugins/" "${downstream_dir}" \
+# 检查 transcribe/ 下的下游插件
+if [ -d "${BACKEND_DIR}/transcribe/plugins" ]; then
+    for transcribe_dir in "${BACKEND_DIR}"/transcribe/plugins/*/; do
+        [ -d "$transcribe_dir" ] || continue
+        transcribe_name=$(basename "$transcribe_dir")
+        transcribe_cross=$(rg -n "\"${MODULE}/plugins/" "${transcribe_dir}" \
             -g '*.go' -g '!*_test.go' 2>/dev/null || true)
-        if [ -n "$downstream_cross" ]; then
-            CROSS_PLUGIN_IMPORTS="${CROSS_PLUGIN_IMPORTS}\n[downstream/${downstream_name} 违规直接引用内部插件实现]:\n${downstream_cross}\n"
+        if [ -n "$transcribe_cross" ]; then
+            CROSS_PLUGIN_IMPORTS="${CROSS_PLUGIN_IMPORTS}\n[transcribe/${transcribe_name} 违规直接引用内部插件实现]:\n${transcribe_cross}\n"
         fi
     done
 fi

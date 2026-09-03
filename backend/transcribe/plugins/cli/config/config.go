@@ -17,7 +17,7 @@ const (
 	// DefaultControllerURL is the default fallback URL for the transcribe controller.
 	DefaultControllerURL = "http://localhost:8080"
 	// DefaultModel is the default transcription model.
-	DefaultModel = "mock-whisper-base"
+	DefaultModel = "qwen3-asr-0.6b"
 
 	// EnvTranscribeURL overrides controller_url from environment.
 	EnvTranscribeURL = "TRANSCRIBE_URL"

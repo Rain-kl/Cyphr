@@ -6,8 +6,9 @@ package client
 
 import (
 	"bufio"
-	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"Wavelet/pkg/util"
 )
 
 const (
@@ -89,6 +92,98 @@ type TranscriptionRequest struct {
 	Prompt           string
 	ResponseFormat   string
 	Temperature      *float64
+	OnProgress       func(written, total int64)
+}
+
+// HashSubmitRequest specifies parameters for hash-based resubmission: when the
+// server already stores identical audio bytes, no file upload is needed.
+type HashSubmitRequest struct {
+	FileHash         string
+	FileSize         int64
+	OriginalFileName string
+	Model            string
+	Language         string
+	Prompt           string
+	ResponseFormat   string
+	Temperature      *float64
+}
+
+// SubmitTranscriptionByHash creates a transcription job reusing an existing upload
+// with identical content hash. The server answers 404 for unknown hashes — callers
+// use IsNotFoundError to fall back to SubmitTranscription.
+func (c *Client) SubmitTranscriptionByHash(ctx context.Context, req HashSubmitRequest) (*TranscriptionSubmitResponse, error) {
+	form := url.Values{}
+	form.Set("file_hash", req.FileHash)
+	form.Set("file_size", strconv.FormatInt(req.FileSize, 10))
+	if req.OriginalFileName != "" {
+		form.Set("original_file_name", req.OriginalFileName)
+	}
+	if req.Model != "" {
+		form.Set("model", req.Model)
+	}
+	if req.Language != "" {
+		form.Set("language", req.Language)
+	}
+	if req.Prompt != "" {
+		form.Set("prompt", req.Prompt)
+	}
+	if req.ResponseFormat != "" {
+		form.Set("response_format", req.ResponseFormat)
+	}
+	if req.Temperature != nil {
+		form.Set("temperature", strconv.FormatFloat(*req.Temperature, 'f', -1, 64))
+	}
+	httpReq, err := c.newRequest(ctx, http.MethodPost, "/api/v1/audio/transcriptions", strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	httpReq.Header.Set("X-Async", "true")
+
+	var submitResp TranscriptionSubmitResponse
+	if err := c.doJSON(httpReq, &submitResp); err != nil {
+		return nil, err
+	}
+	return &submitResp, nil
+}
+
+// IsNotFoundError reports whether err is a server 404 response (unknown content hash).
+func IsNotFoundError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "(404)")
+}
+
+// SHA256FileHex returns the hex-encoded SHA-256 digest and size of a file,
+// matching the hash algorithm the server ingest pipeline uses for dedup lookup.
+func SHA256FileHex(path string) (string, int64, error) {
+	//nolint:gosec // G304: CLI input path supplied by the user, opened read-only for hashing
+	f, err := os.Open(path)
+	if err != nil {
+		return "", 0, err
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	size, err := io.Copy(h, f)
+	if err != nil {
+		return "", 0, err
+	}
+	return hex.EncodeToString(h.Sum(nil)), size, nil
+}
+
+// progressReader wraps r and reports read progress.
+type progressReader struct {
+	reader     io.Reader
+	total      int64
+	written    int64
+	onProgress func(written, total int64)
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.reader.Read(b)
+	if n > 0 && p.onProgress != nil {
+		p.written += int64(n)
+		p.onProgress(p.written, p.total)
+	}
+	return n, err
 }
 
 // TranscriptionSubmitResponse contains job ID and status returned on submission.
@@ -267,6 +362,48 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	return models, nil
 }
 
+// writeUploadForm streams the file and transcription options into mw,
+// reporting read progress through req.OnProgress when set.
+func writeUploadForm(mw *multipart.Writer, file *os.File, fileName string, fileSize int64, req TranscriptionRequest) error {
+	part, err := mw.CreateFormFile("file", fileName)
+	if err != nil {
+		return err
+	}
+	src := io.Reader(file)
+	if req.OnProgress != nil {
+		src = &progressReader{reader: file, total: fileSize, onProgress: req.OnProgress}
+	}
+	if _, err = io.Copy(part, src); err != nil {
+		return err
+	}
+	if req.Model != "" {
+		if err = mw.WriteField("model", req.Model); err != nil {
+			return err
+		}
+	}
+	if req.Language != "" {
+		if err = mw.WriteField("language", req.Language); err != nil {
+			return err
+		}
+	}
+	if req.Prompt != "" {
+		if err = mw.WriteField("prompt", req.Prompt); err != nil {
+			return err
+		}
+	}
+	if req.ResponseFormat != "" {
+		if err = mw.WriteField("response_format", req.ResponseFormat); err != nil {
+			return err
+		}
+	}
+	if req.Temperature != nil {
+		if err = mw.WriteField("temperature", strconv.FormatFloat(*req.Temperature, 'f', -1, 64)); err != nil {
+			return err
+		}
+	}
+	return mw.Close()
+}
+
 // SubmitTranscription uploads an audio file and creates an asynchronous transcription job.
 func (c *Client) SubmitTranscription(ctx context.Context, req TranscriptionRequest) (*TranscriptionSubmitResponse, error) {
 	file, err := os.Open(req.FilePath)
@@ -275,43 +412,32 @@ func (c *Client) SubmitTranscription(ctx context.Context, req TranscriptionReque
 	}
 	defer func() { _ = file.Close() }()
 
-	bodyBuf := &bytes.Buffer{}
-	writer := multipart.NewWriter(bodyBuf)
-
 	fileName := req.OriginalFileName
 	if fileName == "" {
 		fileName = filepath.Base(req.FilePath)
 	}
-
-	part, err := writer.CreateFormFile("file", fileName)
+	fileInfo, err := file.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create multipart file part: %w", err)
-	}
-	if _, err := io.Copy(part, file); err != nil {
-		return nil, fmt.Errorf("failed to copy file to multipart: %w", err)
+		return nil, fmt.Errorf("failed to stat media file %s: %w", req.FilePath, err)
 	}
 
-	if req.Model != "" {
-		_ = writer.WriteField("model", req.Model)
-	}
-	if req.Language != "" {
-		_ = writer.WriteField("language", req.Language)
-	}
-	if req.Prompt != "" {
-		_ = writer.WriteField("prompt", req.Prompt)
-	}
-	if req.ResponseFormat != "" {
-		_ = writer.WriteField("response_format", req.ResponseFormat)
-	}
-	if req.Temperature != nil {
-		_ = writer.WriteField("temperature", strconv.FormatFloat(*req.Temperature, 'f', -1, 64))
-	}
+	// Stream the multipart body through a pipe so large uploads can report
+	// progress instead of buffering the whole file in memory.
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	writeErr := make(chan error, 1)
+	util.Go(func() {
+		werr := writeUploadForm(writer, file, fileName, fileInfo.Size(), req)
+		_ = pw.CloseWithError(werr)
+		writeErr <- werr
+	})
 
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+	httpReq, err := c.newRequest(ctx, http.MethodPost, "/api/v1/audio/transcriptions", pr)
+	if err != nil {
+		_ = pr.Close()
+		<-writeErr
+		return nil, err
 	}
-
-	httpReq, err := c.newRequest(ctx, http.MethodPost, "/api/v1/audio/transcriptions", bodyBuf)
 	if err != nil {
 		return nil, err
 	}
@@ -319,8 +445,13 @@ func (c *Client) SubmitTranscription(ctx context.Context, req TranscriptionReque
 	httpReq.Header.Set("X-Async", "true")
 
 	var submitResp TranscriptionSubmitResponse
-	if err := c.doJSON(httpReq, &submitResp); err != nil {
-		return nil, err
+	doErr := c.doJSON(httpReq, &submitResp)
+	_ = pr.Close()
+	if werr := <-writeErr; werr != nil {
+		return nil, fmt.Errorf("failed to encode multipart body: %w", werr)
+	}
+	if doErr != nil {
+		return nil, doErr
 	}
 	return &submitResp, nil
 }

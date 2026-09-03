@@ -72,10 +72,47 @@ func NewOpenAIHandler(jobSvc service.JobService, logBroker service.LogBroker, op
 	return h
 }
 
+// resolveAudioSource maps the request to a stored audio path: either reusing an
+// existing upload by content hash (no file part), or persisting the freshly
+// uploaded file. It writes the error response and returns ok=false on failure.
+func (h *OpenAIHandler) resolveAudioSource(c *gin.Context, fileHeader *multipart.FileHeader, fileHash, originalFileName string) (string, string, bool) {
+	if fileHeader != nil {
+		savedPath, saveErr := h.saveAudioFile(c, fileHeader)
+		if saveErr != nil {
+			logger.ErrorF(c.Request.Context(), "[OpenAIHandler] failed to save audio file: %v", saveErr)
+			response.AbortInternal(c, consts.ErrFileUploadFailed)
+			return "", "", false
+		}
+		if originalFileName == "" {
+			originalFileName = fileHeader.Filename
+		}
+		return savedPath, originalFileName, true
+	}
+
+	var fileSize int64
+	if n, convErr := strconv.ParseInt(strings.TrimSpace(c.PostForm("file_size")), 10, 64); convErr == nil && n > 0 {
+		fileSize = n
+	}
+	if h.uploadService == nil {
+		response.AbortInternal(c, consts.ErrInternal)
+		return "", "", false
+	}
+	existing, findErr := h.uploadService.FindByHash(c.Request.Context(), fileHash, fileSize)
+	if findErr != nil || existing == nil {
+		response.AbortNotFound(c, consts.ErrNotFound)
+		return "", "", false
+	}
+	if originalFileName == "" {
+		originalFileName = existing.FileName
+	}
+	return existing.FilePath, originalFileName, true
+}
+
 // HandleTranscription handles POST /api/v1/audio/transcriptions.
 func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
+	fileHeader, _ := c.FormFile("file")
+	fileHash := strings.TrimSpace(c.PostForm("file_hash"))
+	if fileHeader == nil && fileHash == "" {
 		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
 		return
 	}
@@ -100,11 +137,11 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 		}
 	}
 
-	// Persist uploaded audio file
-	storagePath, err := h.saveAudioFile(c, fileHeader)
-	if err != nil {
-		logger.ErrorF(c.Request.Context(), "[OpenAIHandler] failed to save audio file: %v", err)
-		response.AbortInternal(c, consts.ErrFileUploadFailed)
+	// Resolve audio bytes: reuse an existing upload by content hash (no file part),
+	// or persist the freshly uploaded file.
+	originalFileName := strings.TrimSpace(c.PostForm("original_file_name"))
+	storagePath, originalFileName, ok := h.resolveAudioSource(c, fileHeader, fileHash, originalFileName)
+	if !ok {
 		return
 	}
 
@@ -115,7 +152,7 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 		Model:            modelName,
 		TaskType:         consts.TaskTypeASR,
 		AudioStoragePath: storagePath,
-		OriginalFileName: fileHeader.Filename,
+		OriginalFileName: originalFileName,
 		Language:         language,
 		Prompt:           prompt,
 		ResponseFormat:   responseFormat,

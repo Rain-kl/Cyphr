@@ -19,7 +19,7 @@ const (
 
 // Model constants.
 const (
-	DefaultModelName = "mock-whisper-base"
+	DefaultModelName = "qwen3-asr-0.6b"
 )
 
 // Token constants.

@@ -23,6 +23,11 @@ var (
 	appClient *client.Client
 )
 
+const (
+	// resultFilePerm keeps transcribed text readable only by the file owner.
+	resultFilePerm = 0o600
+)
+
 // NewRootCmd creates and returns the root command for the transcribe CLI.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
