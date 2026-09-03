@@ -12,6 +12,7 @@ import (
 	"Wavelet/plugins/domain/msg_gateway"
 	"Wavelet/plugins/domain/risk_control"
 	"Wavelet/plugins/domain/system"
+	"Wavelet/plugins/domain/upload"
 	"Wavelet/plugins/domain/user"
 	"Wavelet/plugins/infra/cache"
 	"Wavelet/plugins/infra/logger"
@@ -23,6 +24,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
@@ -51,9 +53,12 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&msg_gateway.MessageBinding{},
 		&msg_gateway.MessagePairingCode{},
 		&admin.SystemConfig{},
+		&admin.TaskExecution{},
 		&msg_gateway.PushChannel{},
 		&msg_gateway.PushEvent{},
 		&msg_gateway.PushHistory{},
+		&upload.Upload{},
+		&upload.UploadStat{},
 	))
 
 	db.SetDB(testDB)
@@ -392,7 +397,7 @@ func TestAdminPlugin(t *testing.T) {
 	// 3. Settings
 	schema, ok := ctx.Settings().Get("admin.system_cleanup_cron")
 	require.True(t, ok)
-	assert.Equal(t, "0 4 * * *", schema.Default)
+	assert.Equal(t, "0 3 * * *", schema.Default)
 
 	provider, err := core.Inject[contracts.PublicConfigProvider](ctx)
 	require.NoError(t, err)
@@ -530,5 +535,127 @@ func TestAllDomainPluginsCombined(t *testing.T) {
 	assert.GreaterOrEqual(t, len(allSettings), 7)
 
 	// Clean shutdown
+	require.NoError(t, ctx.Dispose())
+}
+
+func TestSystemCleanupEventDrivenCoordination(t *testing.T) {
+	ctx := core.NewContext(context.Background())
+	ctx.Config().SetSource(core.NewMapSource(nil))
+	require.NoError(t, ctx.Config().Resolve())
+	testDB := setupTestDB(t)
+
+	// Apply Infra & Domain plugins
+	require.NoError(t, db.New(db.WithDB(testDB)).Apply(ctx))
+	require.NoError(t, cache.New().Apply(ctx))
+	require.NoError(t, logger.New().Apply(ctx))
+	require.NoError(t, storage.New().Apply(ctx))
+
+	require.NoError(t, user.New().Apply(ctx))
+	require.NoError(t, msg_gateway.New().Apply(ctx))
+	require.NoError(t, upload.New().Apply(ctx))
+	require.NoError(t, admin.New().Apply(ctx))
+
+	// 1. Seed old and recent task executions (admin domain)
+	now := time.Now()
+	oldTime := now.Add(-10 * 24 * time.Hour)
+	recentTime := now.Add(-1 * time.Hour)
+
+	oldExec := admin.TaskExecution{
+		ID:        101,
+		TaskID:    "task-old-exec",
+		TaskType:  "test_task",
+		Status:    "success",
+		CreatedAt: oldTime,
+	}
+	recentExec := admin.TaskExecution{
+		ID:        102,
+		TaskID:    "task-recent-exec",
+		TaskType:  "test_task",
+		Status:    "success",
+		CreatedAt: recentTime,
+	}
+	require.NoError(t, testDB.Create(&oldExec).Error)
+	require.NoError(t, testDB.Model(&oldExec).UpdateColumn("created_at", oldTime).Error)
+	require.NoError(t, testDB.Create(&recentExec).Error)
+
+	// 2. Seed old and recent push histories (msg_gateway domain, 30 days retention)
+	oldHistoryTime := now.Add(-40 * 24 * time.Hour)
+	oldHistory := msg_gateway.PushHistory{
+		EventKey:  "login",
+		Channel:   "telegram",
+		Target:    "123",
+		Title:     "Old login",
+		Content:   "Old content",
+		Level:     "info",
+		Status:    "success",
+		CreatedAt: oldHistoryTime,
+	}
+	recentHistory := msg_gateway.PushHistory{
+		EventKey:  "login",
+		Channel:   "telegram",
+		Target:    "123",
+		Title:     "Recent login",
+		Content:   "Recent content",
+		Level:     "info",
+		Status:    "success",
+		CreatedAt: recentTime,
+	}
+	require.NoError(t, testDB.Create(&oldHistory).Error)
+	require.NoError(t, testDB.Model(&oldHistory).UpdateColumn("created_at", oldHistoryTime).Error)
+	require.NoError(t, testDB.Create(&recentHistory).Error)
+
+	// 3. Seed old pending upload and recent pending upload (upload domain)
+	oldUpload := upload.Upload{
+		ID:        901,
+		UserID:    1,
+		FileName:  "old.png",
+		FilePath:  "uploads/old.png",
+		FileSize:  100,
+		Status:    upload.UploadStatusPending,
+		CreatedAt: now.Add(-2 * time.Hour),
+	}
+	recentUpload := upload.Upload{
+		ID:        902,
+		UserID:    1,
+		FileName:  "recent.png",
+		FilePath:  "uploads/recent.png",
+		FileSize:  100,
+		Status:    upload.UploadStatusPending,
+		CreatedAt: now.Add(-10 * time.Minute),
+	}
+	require.NoError(t, testDB.Create(&oldUpload).Error)
+	require.NoError(t, testDB.Model(&oldUpload).UpdateColumn("created_at", now.Add(-2*time.Hour)).Error)
+	require.NoError(t, testDB.Create(&recentUpload).Error)
+
+	// Dispatch admin system cleanup task handler
+	taskDef, ok := ctx.Tasks().Get("system:cleanup")
+	require.True(t, ok, "system:cleanup task must be registered in admin")
+	require.NotNil(t, taskDef.Handler)
+
+	type resultExecutor interface {
+		Execute(ctx context.Context, payload []byte) (*contracts.TaskResultDTO, error)
+	}
+	handler, ok := taskDef.Handler.(resultExecutor)
+	require.True(t, ok)
+
+	res, err := handler.Execute(context.Background(), nil)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	// Verify Admin cleanup: old task execution deleted, recent remains
+	var execCount int64
+	testDB.Model(&admin.TaskExecution{}).Count(&execCount)
+	assert.Equal(t, int64(1), execCount)
+
+	// Verify MsgGateway cleanup: old push history deleted, recent remains
+	var historyCount int64
+	testDB.Model(&msg_gateway.PushHistory{}).Count(&historyCount)
+	assert.Equal(t, int64(1), historyCount)
+
+	// Verify Upload cleanup: old pending upload deleted, recent remains
+	var uploadCount int64
+	testDB.Model(&upload.Upload{}).Count(&uploadCount)
+	assert.Equal(t, int64(1), uploadCount)
+
 	require.NoError(t, ctx.Dispose())
 }

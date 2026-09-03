@@ -255,3 +255,13 @@ func CreatePushHistoryRecord(ctx context.Context, history *entity.PushHistory) e
 func PushHistoryQuery(ctx context.Context) *gorm.DB {
 	return GetDB(ctx).Model(&entity.PushHistory{})
 }
+
+// DeletePushHistoriesBeforeRecord deletes push history records created before cutoff time.
+func DeletePushHistoriesBeforeRecord(ctx context.Context, cutoff time.Time) (int64, error) {
+	db := GetDB(ctx)
+	if db == nil {
+		return 0, nil
+	}
+	result := db.Where("created_at < ?", cutoff).Delete(&entity.PushHistory{})
+	return result.RowsAffected, result.Error
+}

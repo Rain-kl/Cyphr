@@ -21,6 +21,7 @@ import (
 	"context"
 	"embed"
 	"reflect"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -202,6 +203,13 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Events().On(contracts.EventTopicTaskCompleted, func(c context.Context, e contracts.TaskCompletedEvent) error {
 		service.HandleTaskCompleted(c, e)
 		return nil
+	})
+
+	// 8.1 Register system cleanup event listener
+	ctx.Events().On(contracts.EventTopicSystemCleanup, func(c context.Context, _ contracts.SystemCleanupEvent) error {
+		const defaultPushHistoryRetention = 30 * 24 * time.Hour
+		_, err := service.CleanupPushHistories(c, defaultPushHistoryRetention)
+		return err
 	})
 
 	// 9. Register built-in domain events and provide PushRegistry

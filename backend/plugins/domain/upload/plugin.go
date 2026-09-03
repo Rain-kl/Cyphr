@@ -13,6 +13,7 @@ import (
 	"Wavelet/plugins/domain/upload/handler"
 	"Wavelet/plugins/domain/upload/shared"
 	"Wavelet/plugins/domain/upload/task"
+	"context"
 	"embed"
 	"reflect"
 
@@ -126,8 +127,11 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Task().Register(task.StorageMigrationTask, &task.MigrationHandler{}, extpoints.WithTaskMeta(task.StorageMigrationMeta), extpoints.WithTaskRetry(defaultSingleRetry))
 	ctx.Task().Register(task.WarmImageCacheTask, &task.WarmImageCacheHandler{}, extpoints.WithTaskMeta(task.WarmImageCacheMeta), extpoints.WithTaskRetry(1))
 
-	// 4. Register Cron Schedule
-	ctx.Schedule().RegisterCron("0 3 * * *", task.SystemCleanupTask, nil)
+	// 4. Register Event Listeners for domain events
+	ctx.Events().On(contracts.EventTopicSystemCleanup, func(c context.Context, _ contracts.SystemCleanupEvent) error {
+		_, _, err := task.CleanupOrphanUploads(c)
+		return err
+	})
 
 	// 5. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{

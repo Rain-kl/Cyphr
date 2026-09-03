@@ -10,6 +10,7 @@ import (
 	"Wavelet/plugins/domain/msg_gateway/model/entity"
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -93,4 +94,52 @@ func TestPushEventDAO_CRUD(t *testing.T) {
 	require.NoError(t, dao.DeletePushEventRecord(ctx, &ev))
 	_, err = dao.GetPushEventByIDRecord(ctx, ev.ID)
 	assert.Error(t, err)
+}
+
+func TestPushHistoryDAO_Cleanup(t *testing.T) {
+	_ = idgen.Init(1)
+	db, _, cleanup := testhelper.SetupTestEnvironment(t)
+	defer cleanup()
+	require.NoError(t, db.AutoMigrate(&entity.PushHistory{}))
+
+	dao.SetDBServiceForTest(stubDBService{db: db})
+	t.Cleanup(func() { dao.SetDBServiceForTest(nil) })
+
+	ctx := context.Background()
+
+	now := time.Now()
+	oldTime := now.Add(-40 * 24 * time.Hour)
+	recentTime := now.Add(-5 * 24 * time.Hour)
+
+	oldHistory := entity.PushHistory{
+		EventKey:  "login",
+		Channel:   "telegram",
+		Target:    "123",
+		Title:     "Old login",
+		Content:   "Old content",
+		Level:     "info",
+		Status:    "success",
+		CreatedAt: oldTime,
+	}
+	recentHistory := entity.PushHistory{
+		EventKey:  "login",
+		Channel:   "telegram",
+		Target:    "123",
+		Title:     "Recent login",
+		Content:   "Recent content",
+		Level:     "info",
+		Status:    "success",
+		CreatedAt: recentTime,
+	}
+	require.NoError(t, db.Create(&oldHistory).Error)
+	require.NoError(t, db.Create(&recentHistory).Error)
+
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	deleted, err := dao.DeletePushHistoriesBeforeRecord(ctx, cutoff)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), deleted)
+
+	var count int64
+	db.Model(&entity.PushHistory{}).Count(&count)
+	assert.Equal(t, int64(1), count)
 }

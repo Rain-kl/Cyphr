@@ -21,6 +21,12 @@ import (
 // SystemConfig aliases model.SystemConfig for external compatibility.
 type SystemConfig = model.SystemConfig
 
+// TaskExecution aliases model.TaskExecution for external compatibility.
+type TaskExecution = model.TaskExecution
+
+// Schedule aliases model.Schedule for external compatibility.
+type Schedule = model.Schedule
+
 //go:embed migrations/*/*.sql
 var adminMigrations embed.FS
 
@@ -132,12 +138,17 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Router().RegisterWhitelist("/robots.txt")
 
 	// 2. Register Background Tasks
+	const defaultCleanupRetry = 3
 	ctx.Task().Register(service.LogDBSwitchTask, &service.LogDBSwitchHandler{}, extpoints.WithTaskMeta(service.LogDBSwitchMeta))
+	ctx.Task().Register(service.SystemCleanupTask, &service.SystemCleanupHandler{}, extpoints.WithTaskMeta(service.SystemCleanupMeta), extpoints.WithTaskRetry(defaultCleanupRetry))
+
+	// 2.1 Register Cron Schedule
+	ctx.Schedule().RegisterCron("0 3 * * *", service.SystemCleanupTask, nil)
 
 	// 3. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "admin.system_cleanup_cron",
-		Default:     "0 4 * * *",
+		Default:     "0 3 * * *",
 		Description: "Cron expression for nightly system logs and expired tokens cleanup",
 		Type:        "string",
 		Category:    "maintenance",

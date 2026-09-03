@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 )
 
 const (
@@ -173,4 +174,16 @@ func RecordPushHistory(ctx context.Context, req do.SendPayload, status, errMsg s
 // ListPushHistories returns a paginated push delivery audit page.
 func ListPushHistories(ctx context.Context, filter do.PushHistoryListFilter) (int64, []entity.PushHistory, error) {
 	return dao.ListPushHistoriesRecord(ctx, filter)
+}
+
+// CleanupPushHistories removes push delivery audit records older than the retention duration.
+func CleanupPushHistories(ctx context.Context, retention time.Duration) (int64, error) {
+	cutoff := time.Now().Add(-retention)
+	deleted, err := dao.DeletePushHistoriesBeforeRecord(ctx, cutoff)
+	if err != nil {
+		logger.WarnF(ctx, "[Push] 清理历史推送日志失败: %v", err)
+		return 0, err
+	}
+	logger.InfoF(ctx, "[Push] 已清理 %s 前推送历史日志，共 %d 条", cutoff.Format(time.RFC3339), deleted)
+	return deleted, nil
 }

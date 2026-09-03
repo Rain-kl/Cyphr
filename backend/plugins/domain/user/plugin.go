@@ -151,6 +151,13 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Task().Register(TaskCleanupInactive, &CleanupInactiveHandler{},
 		extpoints.WithTaskMeta(CleanupInactiveMeta))
 
+	// 4.1 Register Event Listeners for domain events
+	ctx.Events().On(contracts.EventTopicSystemCleanup, func(c context.Context, _ contracts.SystemCleanupEvent) error {
+		handler := &CleanupInactiveHandler{}
+		_, err := handler.Execute(c, nil)
+		return err
+	})
+
 	// 5. Register Settings Schemas
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "user.registration_enabled",

@@ -36,11 +36,13 @@ func TestAdminPluginUnit(t *testing.T) {
 	// Verify tasks
 	_, ok := ctx.Tasks().Get("logs:db_switch")
 	require.True(t, ok)
+	_, ok = ctx.Tasks().Get("system:cleanup")
+	require.True(t, ok)
 
 	// Verify settings
 	setting, ok := ctx.Settings().Get("admin.system_cleanup_cron")
 	require.True(t, ok)
-	assert.Equal(t, "0 4 * * *", setting.Default)
+	assert.Equal(t, "0 3 * * *", setting.Default)
 
 	provider, err := core.Inject[contracts.PublicConfigProvider](ctx)
 	require.NoError(t, err)
