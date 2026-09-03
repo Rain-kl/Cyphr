@@ -8,9 +8,9 @@ import "time"
 
 // JobEntity represents a transcription job.
 type JobEntity struct {
-	ID               uint64     `json:"id" gorm:"primaryKey"`
-	UserID           uint64     `json:"user_id" gorm:"not null;index:idx_t_jobs_user_status,priority:1"`
-	NodeID           *uint64    `json:"node_id"`
+	ID               uint64     `json:"id,string" gorm:"primaryKey"`
+	UserID           uint64     `json:"user_id,string" gorm:"not null;index:idx_t_jobs_user_status,priority:1"`
+	NodeID           *uint64    `json:"node_id,string,omitempty"`
 	ModelName        string     `json:"model_name" gorm:"size:64;not null"`
 	TaskType         string     `json:"task_type" gorm:"size:32;not null;default:'asr'"`
 	Status           string     `json:"status" gorm:"size:32;not null;default:'pending';index:idx_t_jobs_user_status,priority:2"`

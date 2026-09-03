@@ -46,7 +46,7 @@ type APIResponse struct {
 
 // ModelInfo represents available transcription model metadata.
 type ModelInfo struct {
-	ID          uint64    `json:"id"`
+	ID          uint64    `json:"id,string"`
 	Name        string    `json:"name"`
 	TaskType    string    `json:"task_type"`
 	Description string    `json:"description"`
@@ -56,9 +56,9 @@ type ModelInfo struct {
 
 // JobInfo represents transcription job detail.
 type JobInfo struct {
-	ID               uint64     `json:"id"`
-	UserID           uint64     `json:"user_id,omitempty"`
-	NodeID           *uint64    `json:"node_id,omitempty"`
+	ID               uint64     `json:"id,string"`
+	UserID           uint64     `json:"user_id,string,omitempty"`
+	NodeID           *uint64    `json:"node_id,string,omitempty"`
 	Model            string     `json:"model"`
 	TaskType         string     `json:"task_type,omitempty"`
 	Status           string     `json:"status"`
@@ -93,8 +93,39 @@ type TranscriptionRequest struct {
 
 // TranscriptionSubmitResponse contains job ID and status returned on submission.
 type TranscriptionSubmitResponse struct {
-	JobID  uint64 `json:"job_id"`
+	JobID  uint64 `json:"job_id,string"`
 	Status string `json:"status"`
+}
+
+// UnmarshalJSON supports decoding JobID from either a JSON string or a number.
+func (r *TranscriptionSubmitResponse) UnmarshalJSON(data []byte) error {
+	type Alias TranscriptionSubmitResponse
+	aux := struct {
+		RawJobID any `json:"job_id"`
+		*Alias
+	}{
+		Alias: (*Alias)(r),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	switch v := aux.RawJobID.(type) {
+	case string:
+		id, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			return err
+		}
+		r.JobID = id
+	case float64:
+		if v >= 0 {
+			r.JobID = uint64(v)
+		}
+	case int64:
+		if v >= 0 {
+			r.JobID = uint64(v)
+		}
+	}
+	return nil
 }
 
 // LogEvent represents a single progress log received via SSE stream.

@@ -8,7 +8,7 @@ import "time"
 
 // NodeEntity represents an inference worker node registered in the system.
 type NodeEntity struct {
-	ID          uint64     `json:"id" gorm:"primaryKey"`
+	ID          uint64     `json:"id,string" gorm:"primaryKey"`
 	Name        string     `json:"name" gorm:"size:64;not null"`
 	TokenHash   string     `json:"token_hash" gorm:"size:64;uniqueIndex;not null"`
 	TokenPrefix string     `json:"token_prefix" gorm:"size:16;not null"`

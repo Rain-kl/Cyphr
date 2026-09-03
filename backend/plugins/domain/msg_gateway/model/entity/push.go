@@ -12,7 +12,7 @@ import (
 
 // PushChannel 消息通道实体
 type PushChannel struct {
-	ID          uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
+	ID          uint64    `json:"id,string" gorm:"primaryKey;autoIncrement"`
 	Name        string    `json:"name" gorm:"size:100;not null"`
 	Description string    `json:"description" gorm:"size:255"`
 	Type        string    `json:"type" gorm:"size:50;not null;index"`
@@ -44,7 +44,7 @@ func (c *PushChannel) Validate() error {
 
 // PushEvent 系统通知事件实体
 type PushEvent struct {
-	ID        uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
+	ID        uint64    `json:"id,string" gorm:"primaryKey;autoIncrement"`
 	EventKey  string    `json:"event_key" gorm:"uniqueIndex;size:80;not null"`
 	Name      string    `json:"name" gorm:"size:100;not null"`
 	TaskType  string    `json:"task_type" gorm:"size:100;index;not null;default:''"`
@@ -76,7 +76,7 @@ func (e *PushEvent) Validate() error {
 
 // PushHistory 推送日志/历史实体
 type PushHistory struct {
-	ID        uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
+	ID        uint64    `json:"id,string" gorm:"primaryKey;autoIncrement"`
 	EventKey  string    `json:"event_key" gorm:"size:80;not null;index"`
 	Channel   string    `json:"channel" gorm:"size:50;not null;index"`
 	Target    string    `json:"target" gorm:"size:255;not null"`

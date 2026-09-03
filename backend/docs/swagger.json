@@ -6510,7 +6510,8 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "is_active": {
                     "type": "boolean"
@@ -6684,7 +6685,8 @@
                     "type": "boolean"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "name": {
                     "type": "string"
@@ -6725,7 +6727,8 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "name": {
                     "type": "string"
@@ -7144,7 +7147,8 @@
                     "type": "string"
                 },
                 "user_id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 }
             }
         },
@@ -7498,7 +7502,8 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "is_system": {
                     "type": "boolean"

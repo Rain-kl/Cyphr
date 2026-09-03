@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export interface PushEvent {
-  id: number;
+  id: string | number;
   event_key: string;
   name: string;
   task_type?: string;
@@ -15,7 +15,7 @@ export interface PushEvent {
 }
 
 export interface PushHistory {
-  id: number;
+  id: string | number;
   event_key: string;
   channel: string;
   target: string;
@@ -81,7 +81,7 @@ export interface CreatePushEventRequest {
 }
 
 export interface PushChannel {
-  id: number;
+  id: string | number;
   name: string;
   description?: string;
   type: string;

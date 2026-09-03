@@ -77,7 +77,7 @@ func (SystemConfig) TableName() string {
 
 // Template 邮件/消息模板实体
 type Template struct {
-	ID          uint64    `json:"id" gorm:"primaryKey;autoIncrement"`
+	ID          uint64    `json:"id,string" gorm:"primaryKey;autoIncrement"`
 	Key         string    `json:"key" gorm:"uniqueIndex;size:80;not null"`
 	Name        string    `json:"name" gorm:"size:100;not null"`
 	Type        string    `json:"type" gorm:"size:20;not null;default:'email'"`

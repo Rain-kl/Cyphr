@@ -6517,7 +6517,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "is_active": {
                     "type": "boolean"
@@ -6691,7 +6692,8 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "name": {
                     "type": "string"
@@ -6732,7 +6734,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "name": {
                     "type": "string"
@@ -7151,7 +7154,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 }
             }
         },
@@ -7505,7 +7509,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string",
+                    "example": "0"
                 },
                 "is_system": {
                     "type": "boolean"

@@ -94,8 +94,13 @@ export function SettingsTab() {
   });
 
   const updateChannelMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateChannelRequest }) =>
-      PushService.updateChannel(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string | number;
+      data: UpdateChannelRequest;
+    }) => PushService.updateChannel(id, data),
     onSuccess: () => {
       toast.success(t('channelUpdateSuccess'));
       queryClient.invalidateQueries({ queryKey: ['admin', 'push-channels'] });
@@ -107,7 +112,7 @@ export function SettingsTab() {
   });
 
   const deleteChannelMutation = useMutation({
-    mutationFn: (id: number) => PushService.deleteChannel(id),
+    mutationFn: (id: string | number) => PushService.deleteChannel(id),
     onSuccess: () => {
       setDeleteTarget(null);
       toast.success(t('channelDeleteSuccess'));

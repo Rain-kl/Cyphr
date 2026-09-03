@@ -51,7 +51,7 @@ export class PushService extends BaseService {
    * 更新指定通知事件配置
    */
   static async updateEvent(
-    id: number,
+    id: string | number,
     data: UpdatePushEventRequest,
   ): Promise<void> {
     return this.put<void>(
@@ -63,14 +63,14 @@ export class PushService extends BaseService {
   /**
    * 删除指定通知事件配置
    */
-  static async deleteEvent(id: number): Promise<void> {
+  static async deleteEvent(id: string | number): Promise<void> {
     return this.delete<void>(`/events/${id}`);
   }
 
   /**
    * 快捷切换事件启用状态
    */
-  static async toggleEvent(id: number): Promise<boolean> {
+  static async toggleEvent(id: string | number): Promise<boolean> {
     return this.post<boolean>(`/events/${id}/toggle`);
   }
 
@@ -114,7 +114,7 @@ export class PushService extends BaseService {
    * 更新指定消息通道
    */
   static async updateChannel(
-    id: number,
+    id: string | number,
     data: UpdateChannelRequest,
   ): Promise<PushChannel> {
     return this.put<PushChannel>(
@@ -126,7 +126,7 @@ export class PushService extends BaseService {
   /**
    * 删除指定消息通道
    */
-  static async deleteChannel(id: number): Promise<void> {
+  static async deleteChannel(id: string | number): Promise<void> {
     return this.delete<void>(`/channels/${id}`);
   }
 

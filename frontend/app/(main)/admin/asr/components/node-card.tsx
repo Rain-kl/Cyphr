@@ -32,8 +32,8 @@ interface NodeCardProps {
   node: NodeDTO;
   onOpenDetails: (node: NodeDTO) => void;
   onOpenLoadModel: (node: NodeDTO) => void;
-  onUnloadModel: (nodeId: number, modelName: string) => void;
-  onDeleteNode: (nodeId: number) => void;
+  onUnloadModel: (nodeId: string | number, modelName: string) => void;
+  onDeleteNode: (nodeId: string | number) => void;
 }
 
 export function NodeCard({

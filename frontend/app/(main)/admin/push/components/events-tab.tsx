@@ -120,8 +120,13 @@ export function EventsTab() {
 
   // --- 修改保存事件 Mutation ---
   const updateEventMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdatePushEventRequest }) =>
-      PushService.updateEvent(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string | number;
+      data: UpdatePushEventRequest;
+    }) => PushService.updateEvent(id, data),
     onSuccess: () => {
       toast.success(t('eventUpdateSuccess'));
       queryClient.invalidateQueries({ queryKey: ['admin', 'push-events'] });
@@ -133,7 +138,7 @@ export function EventsTab() {
   });
 
   const toggleEventMutation = useMutation({
-    mutationFn: (id: number) => PushService.toggleEvent(id),
+    mutationFn: (id: string | number) => PushService.toggleEvent(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'push-events'] });
     },
@@ -160,7 +165,7 @@ export function EventsTab() {
   });
 
   const deleteEventMutation = useMutation({
-    mutationFn: (id: number) => PushService.deleteEvent(id),
+    mutationFn: (id: string | number) => PushService.deleteEvent(id),
     onSuccess: () => {
       setDeleteTarget(null);
       toast.success(t('configDeleteSuccess'));

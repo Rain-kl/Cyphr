@@ -70,7 +70,10 @@ export function NodesTab() {
     return () => clearInterval(timer);
   }, [keyword]);
 
-  const handleUnloadModel = async (nodeId: number, modelName: string) => {
+  const handleUnloadModel = async (
+    nodeId: string | number,
+    modelName: string,
+  ) => {
     try {
       await AdminTranscribeService.unloadModel(nodeId, modelName);
       toast.success(`Unload command dispatched for ${modelName}`);
@@ -81,7 +84,7 @@ export function NodesTab() {
     }
   };
 
-  const handleDeleteNode = async (nodeId: number) => {
+  const handleDeleteNode = async (nodeId: string | number) => {
     try {
       await AdminTranscribeService.deleteNode(nodeId);
       toast.success(t('deleteSuccess'));

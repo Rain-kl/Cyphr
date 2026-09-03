@@ -8,7 +8,7 @@ import "time"
 
 // ModelDTO represents model information.
 type ModelDTO struct {
-	ID          uint64    `json:"id,omitempty"`
+	ID          uint64    `json:"id,string,omitempty"`
 	Name        string    `json:"name"`
 	TaskType    string    `json:"task_type"`
 	Description string    `json:"description"`
@@ -35,7 +35,7 @@ type SystemStatsDTO struct {
 
 // NodeDTO represents node information returned in listings and detail views.
 type NodeDTO struct {
-	ID           uint64          `json:"id"`
+	ID           uint64          `json:"id,string"`
 	Name         string          `json:"name"`
 	TokenPrefix  string          `json:"token_prefix"`
 	IsActive     bool            `json:"is_active"`
@@ -50,7 +50,7 @@ type NodeDTO struct {
 
 // NodeCreatedDTO contains node details along with the one-time raw token.
 type NodeCreatedDTO struct {
-	ID          uint64    `json:"id"`
+	ID          uint64    `json:"id,string"`
 	Name        string    `json:"name"`
 	AgentToken  string    `json:"agent_token"`
 	TokenPrefix string    `json:"token_prefix"`
@@ -69,9 +69,9 @@ type LoadModelRequest struct {
 
 // JobDTO represents transcription job information.
 type JobDTO struct {
-	ID               uint64     `json:"id"`
-	UserID           uint64     `json:"user_id,omitempty"`
-	NodeID           *uint64    `json:"node_id,omitempty"`
+	ID               uint64     `json:"id,string"`
+	UserID           uint64     `json:"user_id,string,omitempty"`
+	NodeID           *uint64    `json:"node_id,string,omitempty"`
 	Model            string     `json:"model"`
 	TaskType         string     `json:"task_type,omitempty"`
 	Status           string     `json:"status"`
@@ -97,7 +97,7 @@ type JobListDTO struct {
 
 // CreateJobRequest represents job creation payload.
 type CreateJobRequest struct {
-	UserID           uint64  `json:"user_id"`
+	UserID           uint64  `json:"user_id,string,omitempty"`
 	Model            string  `json:"model"`
 	TaskType         string  `json:"task_type"`
 	AudioStoragePath string  `json:"audio_storage_path"`
@@ -183,7 +183,7 @@ type WSMessage struct {
 
 // DispatchJobPayload represents payload for dispatch_job command.
 type DispatchJobPayload struct {
-	JobID     uint64 `json:"job_id"`
+	JobID     uint64 `json:"job_id,string"`
 	ModelName string `json:"model_name"`
 	TaskType  string `json:"task_type"`
 	Language  string `json:"language,omitempty"`

@@ -149,7 +149,7 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 	// Check if asynchronous job mode is requested
 	if strings.EqualFold(c.GetHeader("X-Async"), "true") {
 		c.JSON(http.StatusOK, response.OK(gin.H{
-			"job_id": job.ID,
+			"job_id": strconv.FormatUint(job.ID, 10),
 			"status": consts.StatusPending,
 		}))
 		return

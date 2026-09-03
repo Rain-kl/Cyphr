@@ -33,7 +33,7 @@ interface NodeDetailDrawerProps {
   node: NodeDTO | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUnloadModel?: (nodeId: number, modelName: string) => void;
+  onUnloadModel?: (nodeId: string | number, modelName: string) => void;
 }
 
 export function NodeDetailDrawer({

@@ -151,7 +151,7 @@ type PushHistoryListFilter struct {
 
 // PushNotificationEvent defines the payload for eventbus notification trigger.
 type PushNotificationEvent struct {
-	UserID   uint64         `json:"user_id"`
+	UserID   uint64         `json:"user_id,string"`
 	Channel  string         `json:"channel"`
 	Title    string         `json:"title"`
 	Content  string         `json:"content"`

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export interface ModelDTO {
-  id: number;
+  id: string | number;
   name: string;
   task_type: string;
   description: string;
@@ -22,7 +22,7 @@ export interface SystemStatsDTO {
 }
 
 export interface NodeDTO {
-  id: number;
+  id: string | number;
   name: string;
   token_prefix: string;
   is_active: boolean;
@@ -36,7 +36,7 @@ export interface NodeDTO {
 }
 
 export interface NodeCreatedDTO {
-  id: number;
+  id: string | number;
   name: string;
   agent_token: string;
   token_prefix: string;
@@ -65,9 +65,9 @@ export interface VerboseJSONResult {
 }
 
 export interface JobDTO {
-  id: number;
-  user_id: number;
-  node_id?: number;
+  id: string | number;
+  user_id: string | number;
+  node_id?: string | number;
   original_file_name: string;
   audio_storage_path?: string;
   model: string;
@@ -105,6 +105,6 @@ export interface ListJobsParams {
 }
 
 export interface ListAllJobsParams extends ListJobsParams {
-  node_id?: number;
-  user_id?: number;
+  node_id?: string | number;
+  user_id?: string | number;
 }

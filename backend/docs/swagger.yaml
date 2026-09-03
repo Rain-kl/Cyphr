@@ -308,7 +308,8 @@ definitions:
       icon_url:
         type: string
       id:
-        type: integer
+        example: "0"
+        type: string
       is_active:
         type: boolean
       name:
@@ -422,7 +423,8 @@ definitions:
       enabled:
         type: boolean
       id:
-        type: integer
+        example: "0"
+        type: string
       name:
         type: string
       other:
@@ -449,7 +451,8 @@ definitions:
       event_key:
         type: string
       id:
-        type: integer
+        example: "0"
+        type: string
       name:
         type: string
       targets:
@@ -731,7 +734,8 @@ definitions:
       task_type:
         type: string
       user_id:
-        type: integer
+        example: "0"
+        type: string
     required:
     - task_type
     type: object
@@ -969,7 +973,8 @@ definitions:
       description:
         type: string
       id:
-        type: integer
+        example: "0"
+        type: string
       is_system:
         type: boolean
       key:

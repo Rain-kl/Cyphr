@@ -8,7 +8,7 @@ import "time"
 
 // ModelEntity represents a transcription model registered in the system.
 type ModelEntity struct {
-	ID          uint64    `json:"id" gorm:"primaryKey"`
+	ID          uint64    `json:"id,string" gorm:"primaryKey"`
 	Name        string    `json:"name" gorm:"size:64;uniqueIndex;not null"`
 	TaskType    string    `json:"task_type" gorm:"size:32;not null;default:'asr'"`
 	Description string    `json:"description" gorm:"type:text"`

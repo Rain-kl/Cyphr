@@ -22,7 +22,7 @@ export interface AudioPlayerRef {
 }
 
 interface AudioPlayerProps {
-  jobId: number;
+  jobId: string | number;
   onTimeUpdate?: (currentTime: number) => void;
 }
 

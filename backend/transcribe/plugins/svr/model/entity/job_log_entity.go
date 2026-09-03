@@ -8,8 +8,8 @@ import "time"
 
 // JobLogEntity represents an execution log entry for a transcription job.
 type JobLogEntity struct {
-	ID        uint64    `json:"id" gorm:"primaryKey"`
-	JobID     uint64    `json:"job_id" gorm:"not null;index:idx_t_job_logs_job_id_seq,priority:1"`
+	ID        uint64    `json:"id,string" gorm:"primaryKey"`
+	JobID     uint64    `json:"job_id,string" gorm:"not null;index:idx_t_job_logs_job_id_seq,priority:1"`
 	Seq       int       `json:"seq" gorm:"not null;index:idx_t_job_logs_job_id_seq,priority:2"`
 	Progress  int       `json:"progress" gorm:"not null;default:0"`
 	Message   string    `json:"message" gorm:"type:text;not null"`
