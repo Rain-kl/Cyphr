@@ -9,19 +9,32 @@ import (
 	"time"
 )
 
+// UploadMetadataDTO represents upload metadata JSON.
+type UploadMetadataDTO struct {
+	Width        int            `json:"width,omitempty"`
+	Height       int            `json:"height,omitempty"`
+	Duration     float64        `json:"duration,omitempty"`
+	OriginalMime string         `json:"original_mime,omitempty"`
+	UserAgent    string         `json:"user_agent,omitempty"`
+	ClientIP     string         `json:"client_ip,omitempty"`
+	Bucket       string         `json:"bucket,omitempty"`
+	Extra        map[string]any `json:"extra,omitempty"`
+}
+
 // UploadDTO represents an uploaded file record.
 type UploadDTO struct {
-	ID        uint64    `json:"id"`
-	UserID    uint64    `json:"user_id"`
-	FileName  string    `json:"file_name"`
-	FilePath  string    `json:"file_path"`
-	MimeType  string    `json:"mime_type"`
-	Size      int64     `json:"size"`
-	Hash      string    `json:"hash"`
-	Status    string    `json:"status"`
-	Type      string    `json:"type"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint64            `json:"id"`
+	UserID    uint64            `json:"user_id"`
+	FileName  string            `json:"file_name"`
+	FilePath  string            `json:"file_path"`
+	MimeType  string            `json:"mime_type"`
+	Size      int64             `json:"size"`
+	Hash      string            `json:"hash"`
+	Status    string            `json:"status"`
+	Type      string            `json:"type"`
+	Metadata  UploadMetadataDTO `json:"metadata"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
 }
 
 // OpenedUploadDTO encapsulates the retrieved object stream and its metadata.

@@ -78,6 +78,16 @@ func toUploadDTO(u *models.Upload) contracts.UploadDTO {
 		Hash:      u.Hash,
 		Status:    string(u.Status),
 		Type:      u.Type,
+		Metadata: contracts.UploadMetadataDTO{
+			Width:        u.Metadata.Width,
+			Height:       u.Metadata.Height,
+			Duration:     u.Metadata.Duration,
+			OriginalMime: u.Metadata.OriginalMime,
+			UserAgent:    u.Metadata.UserAgent,
+			ClientIP:     u.Metadata.ClientIP,
+			Bucket:       u.Metadata.Bucket,
+			Extra:        u.Metadata.Extra,
+		},
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}
