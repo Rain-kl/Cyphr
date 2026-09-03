@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -34,6 +33,7 @@ var (
 	asrPrompt    string
 	asrFormat    string
 	asrOutputDir string
+	asrDetach    bool
 )
 
 // NewAsrCmd creates and returns the asr command.
@@ -62,6 +62,14 @@ func NewAsrCmd() *cobra.Command {
 
 			jobID := submitResp.JobID
 			cmd.Printf("Job submitted successfully: ID #%d (status: %s)\n", jobID, submitResp.Status)
+
+			if asrDetach {
+				cmd.Printf("Job is running in background.\n")
+				cmd.Printf("You can follow live logs with: cyphr jobs log %d -f\n", jobID)
+				cmd.Printf("Or download results when completed with: cyphr jobs get %d\n", jobID)
+				return nil
+			}
+
 			cmd.Printf("Streaming logs (Press Ctrl+C to detach without canceling the job)...\n\n")
 
 			streamCtx, stopSignal := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
@@ -102,7 +110,8 @@ func NewAsrCmd() *cobra.Command {
 	asrCmd.Flags().StringVarP(&asrLanguage, "lang", "l", "", "spoken audio language code (e.g. en, zh)")
 	asrCmd.Flags().StringVar(&asrPrompt, "prompt", "", "optional prompt or vocabulary guidance")
 	asrCmd.Flags().StringVar(&asrFormat, "format", "json", "response format (json, verbose_json, text, srt, vtt)")
-	asrCmd.Flags().StringVarP(&asrOutputDir, "output-dir", "d", "", "directory to save output files (default: current directory)")
+	asrCmd.Flags().StringVarP(&asrOutputDir, "output", "o", "", "directory to save output files (default: current directory)")
+	asrCmd.Flags().BoolVarP(&asrDetach, "detach", "d", false, "run job in background without blocking terminal")
 
 	return asrCmd
 }
@@ -195,105 +204,15 @@ func handleCompletedJob(ctx context.Context, cmd *cobra.Command, filePath string
 	cmd.Println(finishEvent.ResultText)
 	cmd.Println("--------------------------------------------------")
 
-	outDir := asrOutputDir
-	if outDir != "" {
-		if err := os.MkdirAll(outDir, dirPerm); err != nil {
-			return fmt.Errorf("create output directory: %w", err)
-		}
-	}
-
 	baseName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
-	var txtPath, srtPath string
-	if outDir != "" {
-		txtPath = filepath.Join(outDir, baseName+".txt")
-		srtPath = filepath.Join(outDir, baseName+".srt")
-	} else {
-		txtPath = baseName + ".txt"
-		srtPath = baseName + ".srt"
-	}
-
-	if werr := os.WriteFile(txtPath, []byte(finishEvent.ResultText), resultFilePerm); werr != nil {
-		return fmt.Errorf("write txt result file: %w", werr)
-	}
-	cmd.Printf("Text result saved to %s\n", txtPath)
-
 	openAIResp := finishEvent.OpenAIResponse
 	if openAIResp == nil {
 		if jobDetail, gerr := appClient.GetJob(ctx, jobID); gerr == nil && jobDetail != nil {
 			openAIResp = jobDetail.OpenAIResponse
 		}
 	}
-	srtContent := buildSRTContent(finishEvent.ResultText, openAIResp, finishEvent.Duration)
-	if werr := os.WriteFile(srtPath, []byte(srtContent), resultFilePerm); werr != nil {
-		return fmt.Errorf("write srt result file: %w", werr)
-	}
-	cmd.Printf("SRT result saved to %s\n", srtPath)
-	return nil
-}
 
-type segmentEntry struct {
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Text  string  `json:"text"`
-}
-
-func parseSegments(rawResp any) []segmentEntry {
-	if rawResp == nil {
-		return nil
-	}
-	var verbose struct {
-		Segments []segmentEntry `json:"segments"`
-	}
-	b, err := json.Marshal(rawResp)
-	if err != nil {
-		return nil
-	}
-	if err := json.Unmarshal(b, &verbose); err != nil {
-		return nil
-	}
-	return verbose.Segments
-}
-
-// formatSRTTime formats seconds into SRT timestamp format 00:00:00,000.
-func formatSRTTime(seconds float64) string {
-	if seconds < 0 {
-		seconds = 0
-	}
-	h := int(seconds) / secPerHour
-	m := (int(seconds) % secPerHour) / secPerMin
-	s := int(seconds) % secPerMin
-	ms := int((seconds - float64(int(seconds))) * msPerSecond)
-	return fmt.Sprintf("%02d:%02d:%02d,%03d", h, m, s, ms)
-}
-
-// buildSRTContent constructs subtitle entries from OpenAI verbose_json segments or full text fallback.
-func buildSRTContent(resultText string, rawResp any, totalDuration float64) string {
-	segments := parseSegments(rawResp)
-	if len(segments) > 0 {
-		var sb strings.Builder
-		idx := 1
-		for _, seg := range segments {
-			trimmed := strings.TrimSpace(seg.Text)
-			if trimmed == "" {
-				continue
-			}
-			fmt.Fprintf(&sb, "%d\n%s --> %s\n%s\n\n", idx, formatSRTTime(seg.Start), formatSRTTime(seg.End), trimmed)
-			idx++
-		}
-		if sb.Len() > 0 {
-			return strings.TrimRight(sb.String(), "\n") + "\n"
-		}
-	}
-
-	trimmed := strings.TrimSpace(resultText)
-	if trimmed == "" {
-		return ""
-	}
-	endSec := totalDuration
-	if endSec <= 0 {
-		endSec = 5.0
-	}
-	return fmt.Sprintf("1\n00:00:00,000 --> %s\n%s\n", formatSRTTime(endSec), trimmed)
+	return saveJobResults(cmd, baseName, asrOutputDir, finishEvent.ResultText, openAIResp, finishEvent.Duration)
 }
 
 // printUploadProgress renders a single-line upload progress bar on stderr.

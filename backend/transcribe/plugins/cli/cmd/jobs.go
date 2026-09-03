@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"text/tabwriter"
 	"time"
@@ -41,6 +43,7 @@ func NewJobsCmd() *cobra.Command {
 
 	jobsCmd.AddCommand(newJobsListCmd())
 	jobsCmd.AddCommand(newJobsLogCmd())
+	jobsCmd.AddCommand(newJobsGetCmd())
 
 	return jobsCmd
 }
@@ -195,4 +198,46 @@ func newJobsLogCmd() *cobra.Command {
 	logCmd.Flags().BoolVarP(&followLogs, "follow", "f", false, "follow live log stream until completion")
 
 	return logCmd
+}
+
+func newJobsGetCmd() *cobra.Command {
+	var getOutputDir string
+	getCmd := &cobra.Command{
+		Use:   "get <job_id>",
+		Short: "Download completed job results (txt and srt) to local directory",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			jobID, err := strconv.ParseUint(args[0], 10, 64)
+			if err != nil {
+				return fmt.Errorf("invalid job ID '%s': must be a positive integer", args[0])
+			}
+
+			job, err := appClient.GetJob(cmd.Context(), jobID)
+			if err != nil {
+				return fmt.Errorf("failed to get job #%d: %w", jobID, err)
+			}
+
+			if job.Status != client.StatusCompleted {
+				if job.Status == client.StatusFailed {
+					return fmt.Errorf("job #%d failed with error: %s", jobID, job.ErrorMsg)
+				}
+				return fmt.Errorf("job #%d is not completed yet (current status: %s, progress: %d%%)", jobID, job.Status, job.Progress)
+			}
+
+			baseName := ""
+			if job.OriginalFileName != "" {
+				baseName = strings.TrimSuffix(filepath.Base(job.OriginalFileName), filepath.Ext(job.OriginalFileName))
+			}
+			if baseName == "" {
+				baseName = fmt.Sprintf("job_%d", jobID)
+			}
+
+			cmd.Printf("Downloading results for job #%d (%s)...\n", jobID, baseName)
+			return saveJobResults(cmd, baseName, getOutputDir, job.ResultText, job.OpenAIResponse, job.Duration)
+		},
+	}
+
+	getCmd.Flags().StringVarP(&getOutputDir, "output-dir", "d", "", "directory to save output files (default: current directory)")
+
+	return getCmd
 }

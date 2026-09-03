@@ -354,13 +354,27 @@ func TestCobraCommands(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error_msg": "",
 			"data": client.JobInfo{
-				ID:         20002,
-				Model:      "mock-whisper-base",
-				Status:     "completed",
-				Progress:   100,
-				Duration:   4.20,
-				ResultText: "Speech recognition completed successfully.",
-				CreatedAt:  time.Now(),
+				ID:               20002,
+				Model:            "mock-whisper-base",
+				Status:           "completed",
+				Progress:         100,
+				Duration:         4.20,
+				OriginalFileName: "voice.mp3",
+				ResultText:       "Speech recognition completed successfully.",
+				CreatedAt:        time.Now(),
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/v1/jobs/20003", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error_msg": "",
+			"data": client.JobInfo{
+				ID:        20003,
+				Model:     "mock-whisper-base",
+				Status:    "running",
+				Progress:  45,
+				CreatedAt: time.Now(),
 			},
 		})
 	})
@@ -470,11 +484,53 @@ func TestCobraCommands(t *testing.T) {
 		require.NoError(t, os.WriteFile(dummyAudio, []byte("fake mp3"), 0o600))
 
 		root := NewRootCmd()
-		out, err := executeCommand(root, "asr", dummyAudio, "-d", outDir, "--config", cfgFile)
+		out, err := executeCommand(root, "asr", dummyAudio, "-o", outDir, "--config", cfgFile)
 		require.NoError(t, err)
 		assert.Contains(t, out, "Job submitted successfully: ID #20002")
 		assert.FileExists(t, filepath.Join(outDir, "sample_dir.txt"))
 		assert.FileExists(t, filepath.Join(outDir, "sample_dir.srt"))
+	})
+
+	t.Run("asr command with detach flag", func(t *testing.T) {
+		dummyAudio := filepath.Join(tempDir, "sample_detach.mp3")
+		require.NoError(t, os.WriteFile(dummyAudio, []byte("fake mp3"), 0o600))
+
+		root := NewRootCmd()
+		out, err := executeCommand(root, "asr", dummyAudio, "-d", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Job submitted successfully: ID #20002")
+		assert.Contains(t, out, "Job is running in background")
+		assert.Contains(t, out, "cyphr jobs get 20002")
+	})
+
+	t.Run("jobs get command for completed job", func(t *testing.T) {
+		t.Chdir(t.TempDir())
+		root := NewRootCmd()
+		out, err := executeCommand(root, "jobs", "get", "20002", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Downloading results for job #20002")
+		assert.FileExists(t, "voice.txt")
+		assert.FileExists(t, "voice.srt")
+		data, err := os.ReadFile("voice.txt")
+		require.NoError(t, err)
+		assert.Equal(t, "Speech recognition completed successfully.", string(data))
+	})
+
+	t.Run("jobs get command with custom directory", func(t *testing.T) {
+		outDir := filepath.Join(t.TempDir(), "downloaded")
+		root := NewRootCmd()
+		out, err := executeCommand(root, "jobs", "get", "20002", "-d", outDir, "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Downloading results for job #20002")
+		assert.FileExists(t, filepath.Join(outDir, "voice.txt"))
+		assert.FileExists(t, filepath.Join(outDir, "voice.srt"))
+	})
+
+	t.Run("jobs get command for uncompleted job", func(t *testing.T) {
+		root := NewRootCmd()
+		_, err := executeCommand(root, "jobs", "get", "20003", "--config", cfgFile)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not completed yet")
 	})
 
 	t.Run("asr command with unsupported file", func(t *testing.T) {
