@@ -11,6 +11,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/dao"
 	"Wavelet/transcribe/plugins/svr/model/do"
 	"Wavelet/transcribe/plugins/svr/model/entity"
+	"Wavelet/transcribe/plugins/svr/service/hub"
 	"Wavelet/transcribe/plugins/svr/service/scheduler"
 	"context"
 	"encoding/json"
@@ -34,18 +35,23 @@ type DefaultJobService struct {
 	modelDAO  dao.ModelDAO
 	scheduler scheduler.Scheduler
 	logBroker LogBroker
+	agentHub  hub.AgentHub
 }
 
 var _ JobService = (*DefaultJobService)(nil)
 
 // NewJobService creates a new DefaultJobService instance.
-func NewJobService(jobDAO dao.JobDAO, modelDAO dao.ModelDAO, sched scheduler.Scheduler, logBroker LogBroker) *DefaultJobService {
-	return &DefaultJobService{
+func NewJobService(jobDAO dao.JobDAO, modelDAO dao.ModelDAO, sched scheduler.Scheduler, logBroker LogBroker, agentHub ...hub.AgentHub) *DefaultJobService {
+	svc := &DefaultJobService{
 		jobDAO:    jobDAO,
 		modelDAO:  modelDAO,
 		scheduler: sched,
 		logBroker: logBroker,
 	}
+	if len(agentHub) > 0 {
+		svc.agentHub = agentHub[0]
+	}
+	return svc
 }
 
 // CreateJob validates the request, records a pending job in the database, and kicks off the scheduler.
@@ -69,9 +75,10 @@ func (s *DefaultJobService) CreateJob(ctx context.Context, req *do.CreateJobRequ
 		return nil, errors.New(consts.ErrBindParamsFailed)
 	}
 
-	// Validate model exists if modelDAO is provided
+	// Validate model exists and is active if modelDAO is provided
 	if s.modelDAO != nil {
-		if _, err := s.modelDAO.GetByName(ctx, modelName); err != nil {
+		model, err := s.modelDAO.GetByName(ctx, modelName)
+		if err != nil || !model.IsActive {
 			return nil, errors.New(consts.ErrModelUnavailable)
 		}
 	}
@@ -184,6 +191,11 @@ func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *
 		return errors.New(consts.ErrBindParamsFailed)
 	}
 
+	job, err := s.jobDAO.GetByID(ctx, jobID)
+	if err != nil {
+		return consts.ErrJobNotFound
+	}
+
 	status := req.Status
 	if status != consts.StatusCompleted && status != consts.StatusFailed {
 		status = consts.StatusCompleted
@@ -199,6 +211,13 @@ func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *
 
 	if err := s.jobDAO.UpdateCompletion(ctx, jobID, status, req.DurationSeconds, req.ResultText, resultJSON, req.ErrorMsg); err != nil {
 		return err
+	}
+
+	// Decrement node session running jobs counter if session exists
+	if job.NodeID != nil && s.agentHub != nil {
+		if sess, ok := s.agentHub.GetSession(*job.NodeID); ok {
+			sess.DecrementRunningJobs()
+		}
 	}
 
 	// Broadcast finish event
@@ -238,6 +257,13 @@ func (s *DefaultJobService) CancelJob(ctx context.Context, id uint64) error {
 
 	if err := s.jobDAO.UpdateStatus(ctx, id, consts.StatusFailed); err != nil {
 		return err
+	}
+
+	// Decrement node session running jobs counter if session exists
+	if job.NodeID != nil && s.agentHub != nil {
+		if sess, ok := s.agentHub.GetSession(*job.NodeID); ok {
+			sess.DecrementRunningJobs()
+		}
 	}
 
 	if s.logBroker != nil {

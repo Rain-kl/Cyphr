@@ -532,7 +532,7 @@ func TestJobService(t *testing.T) {
 	agentHub := hub.NewAgentHub(jobDAO)
 	sched := scheduler.NewScheduler(jobDAO, agentHub)
 	broker := service.NewLogBroker()
-	jobSvc := service.NewJobService(jobDAO, modelDAO, sched, broker)
+	jobSvc := service.NewJobService(jobDAO, modelDAO, sched, broker, agentHub)
 	ctx := context.Background()
 
 	t.Run("create and get job detail", func(t *testing.T) {
@@ -559,6 +559,22 @@ func TestJobService(t *testing.T) {
 		_, err = jobSvc.GetJobDetail(ctx, 99999999)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, consts.ErrJobNotFound)
+
+		// Inactive model rejection
+		inactiveModel := &entity.ModelEntity{
+			Name:     "inactive-test-model",
+			TaskType: consts.TaskTypeASR,
+			IsActive: false,
+		}
+		require.NoError(t, modelDAO.Create(ctx, inactiveModel))
+		_, err = jobSvc.CreateJob(ctx, &do.CreateJobRequest{
+			UserID:           1001,
+			Model:            "inactive-test-model",
+			AudioStoragePath: "/storage/inactive.mp3",
+			OriginalFileName: "inactive.mp3",
+		})
+		require.Error(t, err)
+		assert.Equal(t, consts.ErrModelUnavailable, err.Error())
 	})
 
 	t.Run("list jobs with pagination", func(t *testing.T) {
@@ -633,6 +649,12 @@ func TestJobService(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		// Assign running job to session
+		sess := hub.NewAgentSession(404, "node-404", "127.0.0.1", newMockWSConn())
+		sess.IncrementRunningJobs()
+		agentHub.RegisterSession(sess)
+		require.NoError(t, jobDAO.UpdateNodeID(ctx, job.ID, 404, consts.StatusRunning))
+
 		finishCh, cancel := broker.SubscribeFinish(job.ID)
 		defer cancel()
 
@@ -663,6 +685,9 @@ func TestJobService(t *testing.T) {
 		assert.Equal(t, 12.3, detail.Duration)
 		assert.NotNil(t, detail.CompletedAt)
 		assert.NotNil(t, detail.OpenAIResponse)
+
+		// Verify session running jobs decremented
+		assert.Equal(t, 0, sess.GetRunningJobs())
 	})
 
 	t.Run("cancel active job", func(t *testing.T) {
@@ -673,6 +698,12 @@ func TestJobService(t *testing.T) {
 			OriginalFileName: "cancel.mp3",
 		})
 		require.NoError(t, err)
+
+		// Assign running job to session
+		sess := hub.NewAgentSession(505, "node-505", "127.0.0.1", newMockWSConn())
+		sess.IncrementRunningJobs()
+		agentHub.RegisterSession(sess)
+		require.NoError(t, jobDAO.UpdateNodeID(ctx, job.ID, 505, consts.StatusRunning))
 
 		finishCh, cancel := broker.SubscribeFinish(job.ID)
 		defer cancel()
@@ -691,6 +722,9 @@ func TestJobService(t *testing.T) {
 		detail, err := jobSvc.GetJobDetail(ctx, job.ID)
 		require.NoError(t, err)
 		assert.Equal(t, consts.StatusFailed, detail.Status)
+
+		// Verify session running jobs decremented
+		assert.Equal(t, 0, sess.GetRunningJobs())
 
 		// Cancelling an already failed job errors with ErrInvalidStatus
 		err = jobSvc.CancelJob(ctx, job.ID)

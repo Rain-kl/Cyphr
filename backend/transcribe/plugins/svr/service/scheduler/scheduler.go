@@ -126,7 +126,9 @@ func (s *DefaultScheduler) dispatchJob(ctx context.Context, jobID uint64, modelN
 
 	if err := s.agentHub.BroadcastToNode(targetNode.NodeID, dispatchMsg); err != nil {
 		// Roll back job status to pending if broadcast failed
-		_ = s.jobDAO.UpdateNodeID(ctx, jobID, 0, consts.StatusPending)
+		if rollbackErr := s.jobDAO.UpdateNodeID(ctx, jobID, 0, consts.StatusPending); rollbackErr != nil {
+			logger.ErrorF(ctx, "[Scheduler] failed to rollback job %d to pending: %v", jobID, rollbackErr)
+		}
 		return err
 	}
 
