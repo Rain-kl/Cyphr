@@ -69,3 +69,7 @@ s3_cache
 /backend/plugins/drivers/driver_http/dist/
 /backend/uploads/
 /backend/audio/
+
+# local model weights (downloaded, never commit)
+/models/
+/backend/agent/models/
