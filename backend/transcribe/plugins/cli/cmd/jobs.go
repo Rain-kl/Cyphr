@@ -32,7 +32,8 @@ var (
 	followLogs   bool
 )
 
-func newJobsCmd() *cobra.Command {
+// NewJobsCmd creates and returns the jobs command.
+func NewJobsCmd() *cobra.Command {
 	jobsCmd := &cobra.Command{
 		Use:   "jobs",
 		Short: "Manage and inspect transcription jobs",

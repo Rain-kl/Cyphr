@@ -15,13 +15,15 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	clicmd "Wavelet/transcribe/plugins/cli/cmd"
 )
 
 const traceShutdownTimeout = 10 * time.Second
 
 type hostConfig struct {
 	App struct {
-		AppName string `config:"app_name" env:"APP_NAME" default:"Wavelet"`
+		AppName string `config:"app_name" env:"APP_NAME" default:"cyphr"`
 		Env     string `config:"env" env:"APP_ENV" default:"production"`
 		NodeID  int64  `config:"node_id" env:"APP_NODE_ID" default:"1"`
 		Addr    string `config:"addr" env:"APP_ADDR" default:"127.0.0.1:3000"`
@@ -43,7 +45,8 @@ type hostConfig struct {
 }
 
 var rootCmd = &cobra.Command{
-	Use: "wavelet",
+	Use:     "cyphr",
+	Aliases: []string{"wavelet"},
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		src, err := config.NewSource()
 		if err != nil {
@@ -99,6 +102,7 @@ func init() {
 
 	// 集中将子命令注册到根命令，以解决 Cobra 的 unknown command 校验限制
 	rootCmd.AddCommand(allCmd, apiCmd, workerCmd, schedulerCmd)
+	rootCmd.AddCommand(clicmd.NewLoginCmd(), clicmd.NewAsrCmd(), clicmd.NewJobsCmd(), clicmd.NewModelsCmd())
 }
 
 // Execute 执行根命令

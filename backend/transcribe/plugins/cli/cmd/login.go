@@ -75,7 +75,8 @@ func resolveLoginToken(cmd *cobra.Command, r *bufio.Reader) string {
 	return targetToken
 }
 
-func newLoginCmd() *cobra.Command {
+// NewLoginCmd creates and returns the login command.
+func NewLoginCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate and configure connection to the transcribe controller",

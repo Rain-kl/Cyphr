@@ -36,7 +36,8 @@ var (
 	asrOutputDir string
 )
 
-func newAsrCmd() *cobra.Command {
+// NewAsrCmd creates and returns the asr command.
+func NewAsrCmd() *cobra.Command {
 	asrCmd := &cobra.Command{
 		Use:   "asr [flags] <filepath>",
 		Short: "Transcribe an audio or video media file",

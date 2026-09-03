@@ -41,10 +41,12 @@ code-check:
 
 build-backend:
 	@echo "==> Building backend version=$(VERSION) build_date=$(BUILD_DATE)..."
+	@mkdir -p bin
 	cd backend && go build \
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
-		-o ../bin/wavelet \
+		-o ../bin/cyphr \
 		main.go
+	@ln -sf cyphr bin/wavelet 2>/dev/null || cp bin/cyphr bin/wavelet
 
 build-cli:
 	@mkdir -p bin

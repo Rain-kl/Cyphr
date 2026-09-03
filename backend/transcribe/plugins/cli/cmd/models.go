@@ -10,7 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newModelsCmd() *cobra.Command {
+// NewModelsCmd creates and returns the models command.
+func NewModelsCmd() *cobra.Command {
 	modelsCmd := &cobra.Command{
 		Use:     "models",
 		Aliases: []string{"model"},

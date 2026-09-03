@@ -59,10 +59,10 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&overrideURL, "url", "", "controller server URL")
 	rootCmd.PersistentFlags().StringVar(&overrideToken, "token", "", "access token for authentication")
 
-	rootCmd.AddCommand(newLoginCmd())
-	rootCmd.AddCommand(newAsrCmd())
-	rootCmd.AddCommand(newJobsCmd())
-	rootCmd.AddCommand(newModelsCmd())
+	rootCmd.AddCommand(NewLoginCmd())
+	rootCmd.AddCommand(NewAsrCmd())
+	rootCmd.AddCommand(NewJobsCmd())
+	rootCmd.AddCommand(NewModelsCmd())
 
 	return rootCmd
 }
