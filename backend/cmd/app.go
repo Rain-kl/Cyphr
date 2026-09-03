@@ -34,6 +34,8 @@ import (
 	"github.com/pressly/goose/v3"
 	goosedb "github.com/pressly/goose/v3/database"
 
+	"Wavelet/transcribe/plugins/svr"
+
 	infradb "Wavelet/plugins/infra/database"
 )
 
@@ -99,7 +101,7 @@ func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
 		driver_inproc_cron.New(),
 	)
 
-	// 3. Register all 7 domain business plugins (admin first to ensure schema and base config tables exist)
+	// 3. Register all domain business plugins (admin first to ensure schema and base config tables exist)
 	app.Use(
 		admin.New(),
 		user.New(),
@@ -108,6 +110,7 @@ func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
 		risk_control.New(),
 		upload.New(),
 		system.New(),
+		svr.New(),
 	)
 
 	// 4. Bind Goose migration engine

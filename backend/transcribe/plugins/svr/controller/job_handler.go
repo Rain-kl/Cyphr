@@ -1,0 +1,180 @@
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
+package controller
+
+import (
+	"Wavelet/core/contracts"
+	"Wavelet/pkg/logger"
+	"Wavelet/pkg/response"
+	"Wavelet/transcribe/plugins/svr/consts"
+	"Wavelet/transcribe/plugins/svr/model/do"
+	"Wavelet/transcribe/plugins/svr/service"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+)
+
+// JobHandler handles user job queries and SSE streaming.
+type JobHandler struct {
+	jobService  service.JobService
+	logBroker   service.LogBroker
+	authService contracts.AuthService
+}
+
+// NewJobHandler creates a new JobHandler instance.
+func NewJobHandler(jobSvc service.JobService, logBroker service.LogBroker, authSvc ...contracts.AuthService) *JobHandler {
+	h := &JobHandler{
+		jobService: jobSvc,
+		logBroker:  logBroker,
+	}
+	if len(authSvc) > 0 {
+		h.authService = authSvc[0]
+	}
+	return h
+}
+
+// ListJobs handles GET /api/v1/jobs, returning paginated jobs for current user.
+func (h *JobHandler) ListJobs(c *gin.Context) {
+	userID := GetCurrentUserID(c, h.authService)
+
+	page := 1
+	if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
+		page = p
+	}
+
+	pageSize := 20
+	if ps, err := strconv.Atoi(c.Query("page_size")); err == nil && ps > 0 {
+		pageSize = ps
+	}
+
+	status := c.Query("status")
+
+	jobs, err := h.jobService.ListJobs(c.Request.Context(), userID, page, pageSize, status)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[JobHandler] list jobs failed: %v", err)
+		response.AbortInternal(c, consts.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(jobs))
+}
+
+// GetJob handles GET /api/v1/jobs/:id, returning detailed job information.
+func (h *JobHandler) GetJob(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	job, err := h.jobService.GetJobDetail(c.Request.Context(), id)
+	if err != nil {
+		response.AbortNotFound(c, consts.ErrJobNotFound.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(job))
+}
+
+// StreamJob handles GET /api/v1/jobs/:id/stream, streaming SSE log events and completion.
+func (h *JobHandler) StreamJob(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	job, err := h.jobService.GetJobDetail(c.Request.Context(), id)
+	if err != nil {
+		response.AbortNotFound(c, consts.ErrJobNotFound.Error())
+		return
+	}
+
+	// Prepare SSE response headers
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		response.AbortInternal(c, "streaming unsupported")
+		return
+	}
+
+	// 1. Flush historical logs from DB
+	if logs, logErr := h.jobService.GetJobLogs(c.Request.Context(), id); logErr == nil && len(logs) > 0 {
+		for _, logMsg := range logs {
+			data, _ := json.Marshal(logMsg)
+			_, _ = fmt.Fprintf(c.Writer, "event: log\ndata: %s\n\n", data)
+		}
+		flusher.Flush()
+	}
+
+	// 2. If job is already finished, write finish event and terminate
+	if job.Status == consts.StatusCompleted || job.Status == consts.StatusFailed {
+		finishMsg := do.FinishMessage{
+			Status:     job.Status,
+			Duration:   job.Duration,
+			ResultText: job.ResultText,
+			ErrorMsg:   job.ErrorMsg,
+		}
+		data, _ := json.Marshal(finishMsg)
+		_, _ = fmt.Fprintf(c.Writer, "event: finish\ndata: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
+	// 3. For ongoing jobs, subscribe to LogBroker for real-time events
+	if h.logBroker == nil {
+		return
+	}
+
+	logCh, cancelLogs := h.logBroker.Subscribe(id)
+	defer cancelLogs()
+
+	finishCh, cancelFinish := h.logBroker.SubscribeFinish(id)
+	defer cancelFinish()
+
+	// Double-check if job completed right after subscribing to avoid lost updates
+	if latest, detailErr := h.jobService.GetJobDetail(c.Request.Context(), id); detailErr == nil {
+		if latest.Status == consts.StatusCompleted || latest.Status == consts.StatusFailed {
+			finishMsg := do.FinishMessage{
+				Status:     latest.Status,
+				Duration:   latest.Duration,
+				ResultText: latest.ResultText,
+				ErrorMsg:   latest.ErrorMsg,
+			}
+			data, _ := json.Marshal(finishMsg)
+			_, _ = fmt.Fprintf(c.Writer, "event: finish\ndata: %s\n\n", data)
+			flusher.Flush()
+			return
+		}
+	}
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case logMsg, chOk := <-logCh:
+			if !chOk {
+				continue
+			}
+			data, _ := json.Marshal(logMsg)
+			_, _ = fmt.Fprintf(c.Writer, "event: log\ndata: %s\n\n", data)
+			flusher.Flush()
+		case finishMsg, chOk := <-finishCh:
+			if chOk {
+				data, _ := json.Marshal(finishMsg)
+				_, _ = fmt.Fprintf(c.Writer, "event: finish\ndata: %s\n\n", data)
+				flusher.Flush()
+			}
+			return
+		}
+	}
+}

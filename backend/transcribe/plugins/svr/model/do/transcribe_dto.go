@@ -73,6 +73,7 @@ type JobDTO struct {
 	Progress         int        `json:"progress"`
 	Duration         float64    `json:"duration"`
 	OriginalFileName string     `json:"original_file_name"`
+	AudioStoragePath string     `json:"audio_storage_path,omitempty"`
 	ResultText       string     `json:"result_text,omitempty"`
 	OpenAIResponse   any        `json:"openai_response,omitempty"`
 	ErrorMsg         string     `json:"error_msg,omitempty"`

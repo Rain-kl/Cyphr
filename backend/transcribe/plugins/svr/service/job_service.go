@@ -25,6 +25,7 @@ type JobService interface {
 	GetJobDetail(ctx context.Context, id uint64) (*do.JobDTO, error)
 	ListJobs(ctx context.Context, uid uint64, page, size int, status ...string) (*do.JobListDTO, error)
 	AppendLogs(ctx context.Context, jobID uint64, req *do.AgentLogBatchRequest) error
+	GetJobLogs(ctx context.Context, jobID uint64) ([]do.LogMessage, error)
 	CompleteJob(ctx context.Context, jobID uint64, req *do.AgentCompleteRequest) error
 	CancelJob(ctx context.Context, id uint64) error
 }
@@ -184,6 +185,24 @@ func (s *DefaultJobService) AppendLogs(ctx context.Context, jobID uint64, req *d
 	return nil
 }
 
+// GetJobLogs retrieves historical log entries for a job formatted as LogMessages.
+func (s *DefaultJobService) GetJobLogs(ctx context.Context, jobID uint64) ([]do.LogMessage, error) {
+	logs, err := s.jobDAO.GetLogsByJobID(ctx, jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]do.LogMessage, len(logs))
+	for i, l := range logs {
+		result[i] = do.LogMessage{
+			Seq:      l.Seq,
+			Progress: l.Progress,
+			Message:  l.Message,
+		}
+	}
+	return result, nil
+}
+
 // CompleteJob records the transcription results, notifies SSE subscribers of completion,
 // and schedules any waiting pending jobs.
 func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *do.AgentCompleteRequest) error {
@@ -288,6 +307,7 @@ func (s *DefaultJobService) toJobDTO(job *entity.JobEntity) *do.JobDTO {
 		Progress:         job.Progress,
 		Duration:         job.DurationSeconds,
 		OriginalFileName: job.OriginalFileName,
+		AudioStoragePath: job.AudioStoragePath,
 		ResultText:       job.ResultText,
 		ErrorMsg:         job.ErrorMsg,
 		CreatedAt:        job.CreatedAt,
