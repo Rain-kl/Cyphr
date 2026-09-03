@@ -5,6 +5,9 @@ package contracts
 
 import (
 	"context"
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 )
@@ -19,6 +22,27 @@ type UploadMetadataDTO struct {
 	ClientIP     string         `json:"client_ip,omitempty"`
 	Bucket       string         `json:"bucket,omitempty"`
 	Extra        map[string]any `json:"extra,omitempty"`
+}
+
+// Value implements the driver.Valuer interface for database serialization.
+func (m UploadMetadataDTO) Value() (driver.Value, error) {
+	return json.Marshal(m)
+}
+
+// Scan implements the sql.Scanner interface for database deserialization.
+func (m *UploadMetadataDTO) Scan(value any) error {
+	if value == nil {
+		*m = UploadMetadataDTO{}
+		return nil
+	}
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, m)
+	case string:
+		return json.Unmarshal([]byte(v), m)
+	default:
+		return fmt.Errorf("cannot scan type %T into UploadMetadataDTO", value)
+	}
 }
 
 // UploadDTO represents an uploaded file record.
