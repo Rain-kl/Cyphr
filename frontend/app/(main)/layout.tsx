@@ -1,7 +1,5 @@
 'use client';
 
-import { motion } from 'motion/react';
-import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { AppSidebar } from '@/components/layout/sidebar';
 import { SiteHeader } from '@/components/layout/header';
@@ -13,7 +11,6 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
   const [isFullWidth, setIsFullWidth] = useState(false);
 
   useAuthRedirect();
@@ -37,18 +34,7 @@ export default function MainLayout({
           <div
             className={`w-full mx-auto px-4 sm:px-6 md:px-8 lg:px-12 min-w-0 transition-all duration-300 ease-in-out ${!isFullWidth ? 'max-w-[1320px]' : 'max-w-full'}`}
           >
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{
-                duration: 0.5,
-                ease: 'easeOut',
-              }}
-              className='w-full'
-            >
-              {children}
-            </motion.div>
+            {children}
           </div>
         </div>
       </SidebarInset>
