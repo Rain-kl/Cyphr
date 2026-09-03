@@ -161,6 +161,7 @@ func setupE2EEnv(t *testing.T) *e2eEnv {
 		agentHub,
 		broker,
 		controller.WithSyncTimeout(5*time.Second),
+		controller.WithScheduler(sched),
 	)
 	ctrl.SetAuthService(authSvc)
 	// Reconfigure localDir on OpenAIHandler
@@ -626,7 +627,7 @@ func TestE2E_JobStreamingHistorical(t *testing.T) {
 	job, err := env.jobSvc.CreateJob(ctx, &do.CreateJobRequest{
 		UserID:           1001,
 		Model:            consts.DefaultModelName,
-		AudioStoragePath: "/tmp/fake.wav",
+		AudioStoragePath: filepath.Join(t.TempDir(), "fake.wav"),
 		OriginalFileName: "historical.wav",
 	})
 	require.NoError(t, err)

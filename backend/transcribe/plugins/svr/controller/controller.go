@@ -9,6 +9,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/dao"
 	"Wavelet/transcribe/plugins/svr/service"
 	"Wavelet/transcribe/plugins/svr/service/hub"
+	"Wavelet/transcribe/plugins/svr/service/scheduler"
 	"sync"
 	"time"
 )
@@ -24,10 +25,18 @@ type Controller struct {
 
 	nodeService service.NodeService
 	authService contracts.AuthService
+	scheduler   scheduler.Scheduler
 }
 
 // Option configures optional services on Controller.
 type Option func(*Controller)
+
+// WithScheduler configures the scheduler on the controller.
+func WithScheduler(s scheduler.Scheduler) Option {
+	return func(c *Controller) {
+		c.SetScheduler(s)
+	}
+}
 
 // WithStorageService configures contracts.StorageService on the controller.
 func WithStorageService(s contracts.StorageService) Option {
@@ -144,6 +153,16 @@ func (c *Controller) SetLogBroker(b service.LogBroker) {
 	}
 	if c.Job != nil {
 		c.Job.logBroker = b
+	}
+}
+
+// SetScheduler updates the scheduler reference across handlers.
+func (c *Controller) SetScheduler(s scheduler.Scheduler) {
+	c.mu.Lock()
+	c.scheduler = s
+	c.mu.Unlock()
+	if c.Agent != nil {
+		c.Agent.SetScheduler(s)
 	}
 }
 

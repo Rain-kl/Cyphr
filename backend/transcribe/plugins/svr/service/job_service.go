@@ -220,6 +220,10 @@ func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *
 		return consts.ErrJobNotFound
 	}
 
+	if job.Status == consts.StatusCompleted || job.Status == consts.StatusFailed {
+		return nil // safely ignore idempotently to avoid double-decrementing node session running jobs or overwriting cancelled status
+	}
+
 	status := req.Status
 	if status != consts.StatusCompleted && status != consts.StatusFailed {
 		status = consts.StatusCompleted

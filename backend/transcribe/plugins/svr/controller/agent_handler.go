@@ -7,16 +7,19 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
+	"Wavelet/pkg/util"
 	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/model/do"
 	"Wavelet/transcribe/plugins/svr/service"
 	"Wavelet/transcribe/plugins/svr/service/hub"
+	"Wavelet/transcribe/plugins/svr/service/scheduler"
 	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -24,10 +27,12 @@ import (
 
 // AgentHandler handles communication with distributed worker agents.
 type AgentHandler struct {
+	mu             sync.RWMutex
 	agentHub       hub.AgentHub
 	nodeService    service.NodeService
 	jobService     service.JobService
 	storageService contracts.StorageService
+	scheduler      scheduler.Scheduler
 	upgrader       websocket.Upgrader
 }
 
@@ -38,6 +43,38 @@ type AgentOption func(*AgentHandler)
 func WithAgentStorageService(s contracts.StorageService) AgentOption {
 	return func(h *AgentHandler) {
 		h.storageService = s
+	}
+}
+
+// WithAgentScheduler configures the task scheduler on the agent handler.
+func WithAgentScheduler(s scheduler.Scheduler) AgentOption {
+	return func(h *AgentHandler) {
+		h.scheduler = s
+	}
+}
+
+// SetScheduler updates the task scheduler reference.
+func (h *AgentHandler) SetScheduler(s scheduler.Scheduler) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.scheduler = s
+}
+
+func (h *AgentHandler) getScheduler() scheduler.Scheduler {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.scheduler
+}
+
+func (h *AgentHandler) triggerSchedule(ctx context.Context) {
+	sched := h.getScheduler()
+	if sched != nil {
+		schedCtx := context.WithoutCancel(ctx)
+		util.Go(func() {
+			if err := sched.SchedulePendingJobs(schedCtx); err != nil {
+				logger.ErrorF(schedCtx, "[AgentHandler] trigger schedule failed: %v", err)
+			}
+		})
 	}
 }
 
@@ -92,6 +129,7 @@ func (h *AgentHandler) HandleWS(c *gin.Context) {
 	defer h.agentHub.UnregisterSession(node.ID)
 
 	_ = h.nodeService.UpdateLastSeen(c.Request.Context(), node.ID, clientIP)
+	h.triggerSchedule(c.Request.Context())
 
 	for {
 		var msg do.WSMessage
@@ -103,7 +141,7 @@ func (h *AgentHandler) HandleWS(c *gin.Context) {
 		case "heartbeat":
 			h.processHeartbeat(c.Request.Context(), sess, node.ID, clientIP, msg.Payload)
 		case "model_status":
-			h.processModelStatus(sess, msg.Payload)
+			h.processModelStatus(c.Request.Context(), sess, msg.Payload)
 		}
 	}
 }
@@ -130,6 +168,7 @@ func (h *AgentHandler) processHeartbeat(ctx context.Context, sess *hub.AgentSess
 
 	sess.UpdateHeartbeat(models, payload.RunningJobs, payload.System)
 	_ = h.nodeService.UpdateLastSeen(ctx, nodeID, ip)
+	h.triggerSchedule(ctx)
 }
 
 type modelStatusPayload struct {
@@ -137,7 +176,7 @@ type modelStatusPayload struct {
 	LoadedModels []string `json:"loaded_models"`
 }
 
-func (h *AgentHandler) processModelStatus(sess *hub.AgentSession, raw any) {
+func (h *AgentHandler) processModelStatus(ctx context.Context, sess *hub.AgentSession, raw any) {
 	var payload modelStatusPayload
 	if raw != nil {
 		if bytes, err := json.Marshal(raw); err == nil {
@@ -153,6 +192,7 @@ func (h *AgentHandler) processModelStatus(sess *hub.AgentSession, raw any) {
 	if len(models) > 0 {
 		sess.UpdateHeartbeat(models, sess.GetRunningJobs(), sess.GetSystemStats())
 	}
+	h.triggerSchedule(ctx)
 }
 
 // DownloadMedia handles GET /api/v1/agent/jobs/:id/media, serving audio files to authorized agents.

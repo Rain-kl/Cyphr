@@ -89,6 +89,7 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 		agentHub,
 		broker,
 		controller.WithSyncTimeout(3*time.Second),
+		controller.WithScheduler(sched),
 	)
 
 	routerExt := extpoints.NewRouterRegistry()
@@ -802,6 +803,62 @@ func TestAgentHandler_WebSocket(t *testing.T) {
 
 	_, stillActive := env.hub.GetSession(node.ID)
 	assert.False(t, stillActive, "session should be unregistered after connection close")
+}
+
+func TestAgentHandler_TriggerScheduleOnAgentConnect(t *testing.T) {
+	env := setupTestEnv(t)
+	ctx := context.Background()
+
+	// 1. Submit a job when no agent is online -> stays pending
+	job, err := env.jobSvc.CreateJob(ctx, &do.CreateJobRequest{
+		UserID:           1001,
+		Model:            consts.DefaultModelName,
+		AudioStoragePath: filepath.Join(t.TempDir(), "pending.wav"),
+		OriginalFileName: "pending.wav",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, consts.StatusPending, job.Status)
+
+	// 2. An agent registers and connects
+	node, token, err := env.nodeSvc.CreateNode(ctx, "schedule-trigger-node")
+	require.NoError(t, err)
+
+	server := httptest.NewServer(env.engine)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/api/v1/agent/ws?token=" + token
+	dialer := websocket.Dialer{HandshakeTimeout: 3 * time.Second}
+	wsConn, _, err := dialer.Dial(wsURL, nil)
+	require.NoError(t, err)
+	defer func() { _ = wsConn.Close() }()
+
+	// 3. Agent reports loaded model via heartbeat
+	hbMsg := do.WSMessage{
+		Type: "heartbeat",
+		Payload: map[string]any{
+			"loaded_models": []string{consts.DefaultModelName},
+			"running_jobs":  0,
+		},
+	}
+	err = wsConn.WriteJSON(hbMsg)
+	require.NoError(t, err)
+
+	// 4. Verify agent receives dispatch_job command because triggerSchedule was called
+	var dispatchedMsg do.WSMessage
+	err = wsConn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	require.NoError(t, err)
+	err = wsConn.ReadJSON(&dispatchedMsg)
+	require.NoError(t, err)
+	assert.Equal(t, "dispatch_job", dispatchedMsg.Action)
+
+	// 5. Verify job status updated in DB
+	detail, err := env.jobSvc.GetJobDetail(ctx, job.ID)
+	require.NoError(t, err)
+	assert.Equal(t, consts.StatusRunning, detail.Status)
+	assert.Equal(t, &node.ID, detail.NodeID)
+
+	_ = wsConn.Close()
+	time.Sleep(50 * time.Millisecond)
 }
 
 // ─── Test WSConn Mock Helper ──────────────────────────────────────────────────

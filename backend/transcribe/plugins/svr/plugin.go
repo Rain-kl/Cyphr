@@ -12,6 +12,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/service"
 	"Wavelet/transcribe/plugins/svr/service/hub"
 	"Wavelet/transcribe/plugins/svr/service/scheduler"
+	"context"
 	"embed"
 	"sync"
 	"time"
@@ -22,21 +23,28 @@ import (
 //go:embed migrations/*
 var migrationsFS embed.FS
 
+const (
+	watchdogInterval = 5 * time.Second
+	offlineTimeout   = 15 * time.Second
+)
+
 // Plugin implements core.Plugin for transcribe server plugin.
 type Plugin struct {
-	mu          sync.RWMutex
-	db          *gorm.DB
-	storageSvc  contracts.StorageService
-	authSvc     contracts.AuthService
-	agentHub    hub.AgentHub
-	logBroker   service.LogBroker
-	scheduler   scheduler.Scheduler
-	jobService  service.JobService
-	nodeService service.NodeService
-	modelDAO    dao.ModelDAO
-	nodeDAO     dao.NodeDAO
-	jobDAO      dao.JobDAO
-	ctrl        *controller.Controller
+	mu           sync.RWMutex
+	watchdogOnce sync.Once
+	appCtx       context.Context
+	db           *gorm.DB
+	storageSvc   contracts.StorageService
+	authSvc      contracts.AuthService
+	agentHub     hub.AgentHub
+	logBroker    service.LogBroker
+	scheduler    scheduler.Scheduler
+	jobService   service.JobService
+	nodeService  service.NodeService
+	modelDAO     dao.ModelDAO
+	nodeDAO      dao.NodeDAO
+	jobDAO       dao.JobDAO
+	ctrl         *controller.Controller
 }
 
 // Option configures Plugin instances.
@@ -81,6 +89,13 @@ func WithNodeService(s service.NodeService) Option {
 func WithModelDAO(d dao.ModelDAO) Option {
 	return func(p *Plugin) {
 		p.modelDAO = d
+	}
+}
+
+// WithScheduler allows injecting custom Scheduler instance.
+func WithScheduler(s scheduler.Scheduler) Option {
+	return func(p *Plugin) {
+		p.scheduler = s
 	}
 }
 
@@ -146,11 +161,31 @@ func (p *Plugin) initDAOsAndServices(db *gorm.DB) {
 		p.ctrl.SetModelDAO(p.modelDAO)
 		p.ctrl.SetAgentHub(p.agentHub)
 		p.ctrl.SetLogBroker(p.logBroker)
+		p.ctrl.SetScheduler(p.scheduler)
 	}
+
+	p.startWatchdog()
+}
+
+func (p *Plugin) startWatchdog() {
+	if p.agentHub == nil {
+		return
+	}
+	p.watchdogOnce.Do(func() {
+		watchCtx := p.appCtx
+		if watchCtx == nil {
+			watchCtx = context.Background()
+		}
+		p.agentHub.StartWatchdog(watchCtx, watchdogInterval, offlineTimeout)
+	})
 }
 
 // Apply registers routes, migrations and services into the Cordis micro-kernel Context.
 func (p *Plugin) Apply(ctx *core.Context) error {
+	p.mu.Lock()
+	p.appCtx = ctx.GoContext()
+	p.mu.Unlock()
+
 	// 1. Register Goose migrations embedded from migrations/
 	ctx.Migrations().Register("transcribe_svr", migrationsFS)
 
@@ -214,6 +249,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		p.agentHub,
 		p.logBroker,
 	)
+	if p.scheduler != nil {
+		p.ctrl.SetScheduler(p.scheduler)
+	}
 	if p.storageSvc != nil {
 		p.ctrl.SetStorageService(p.storageSvc)
 	}
@@ -223,13 +261,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	p.ctrl.RegisterRoutes(ctx.Router())
 
 	// 7. Start AgentHub watchdog
-	const (
-		watchdogInterval = 5 * time.Second
-		heartbeatTimeout = 15 * time.Second
-	)
-	if p.agentHub != nil {
-		p.agentHub.StartWatchdog(ctx.GoContext(), watchdogInterval, heartbeatTimeout)
-	}
+	p.startWatchdog()
 
 	ctx.OnDispose(func() error {
 		p.mu.RLock()

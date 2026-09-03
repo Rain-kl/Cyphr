@@ -688,6 +688,15 @@ func TestJobService(t *testing.T) {
 
 		// Verify session running jobs decremented
 		assert.Equal(t, 0, sess.GetRunningJobs())
+
+		// Verify idempotency: completing an already completed job safely returns nil without double-decrementing
+		err = jobSvc.CompleteJob(ctx, job.ID, &do.AgentCompleteRequest{
+			Status:          consts.StatusCompleted,
+			DurationSeconds: 99.9,
+			ResultText:      "duplicate completion",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, sess.GetRunningJobs())
 	})
 
 	t.Run("cancel active job", func(t *testing.T) {
@@ -730,5 +739,17 @@ func TestJobService(t *testing.T) {
 		err = jobSvc.CancelJob(ctx, job.ID)
 		require.Error(t, err)
 		assert.Equal(t, consts.ErrInvalidStatus, err.Error())
+
+		// Completing an already cancelled (failed) job safely returns nil idempotently
+		err = jobSvc.CompleteJob(ctx, job.ID, &do.AgentCompleteRequest{
+			Status:          consts.StatusCompleted,
+			DurationSeconds: 10.0,
+			ResultText:      "late result",
+		})
+		require.NoError(t, err)
+
+		detail, err = jobSvc.GetJobDetail(ctx, job.ID)
+		require.NoError(t, err)
+		assert.Equal(t, consts.StatusFailed, detail.Status)
 	})
 }
