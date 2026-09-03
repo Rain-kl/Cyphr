@@ -108,7 +108,12 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	ctrl.RegisterRoutes(routerExt)
 
 	engine := gin.New()
-	engine.Use(gin.Recovery(), response.ErrorHandlerMiddleware())
+	engine.Use(gin.Recovery(), response.ErrorHandlerMiddleware(), func(c *gin.Context) {
+		if auth := c.GetHeader("Authorization"); auth == "Bearer test-user-token" {
+			c.Set(contracts.AuthUserIDKey, uint64(1001))
+		}
+		c.Next()
+	})
 
 	for _, rd := range routerExt.Routes() {
 		allHandlers := make([]gin.HandlerFunc, 0, len(rd.Middlewares)+len(rd.Handlers))
@@ -342,6 +347,13 @@ func TestRequireAgentTokenMiddleware(t *testing.T) {
 func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 	env := setupTestEnv(t)
 
+	t.Run("anonymous request -> 401 unauthorized", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", nil)
+		env.engine.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
+
 	t.Run("missing file -> 400", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		body := &bytes.Buffer{}
@@ -350,6 +362,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.Close()
 
 		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
+		req.Header.Set("Authorization", "Bearer test-user-token")
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		env.engine.ServeHTTP(w, req)
 
@@ -366,6 +379,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.Close()
 
 		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
+		req.Header.Set("Authorization", "Bearer test-user-token")
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		env.engine.ServeHTTP(w, req)
 
@@ -383,6 +397,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.Close()
 
 		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
+		req.Header.Set("Authorization", "Bearer test-user-token")
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		req.Header.Set("X-Async", "true")
 		env.engine.ServeHTTP(w, req)
@@ -406,6 +421,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.Close()
 
 		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
+		req.Header.Set("Authorization", "Bearer test-user-token")
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		// Goroutine simulating worker completion
@@ -446,6 +462,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.Close()
 
 		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
+		req.Header.Set("Authorization", "Bearer test-user-token")
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		go func() {
@@ -487,12 +504,15 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 func TestOpenAIHandler_HashSubmit(t *testing.T) {
 	env := setupTestEnv(t)
 
-	postHash := func(hash string, size int64) *httptest.ResponseRecorder {
+	postHash := func(hash string, size int64, auth bool) *httptest.ResponseRecorder {
 		form := url.Values{}
 		form.Set("file_hash", hash)
 		form.Set("file_size", strconv.FormatInt(size, 10))
 		form.Set("model", consts.DefaultModelName)
 		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", strings.NewReader(form.Encode()))
+		if auth {
+			req.Header.Set("Authorization", "Bearer test-user-token")
+		}
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("X-Async", "true")
 		w := httptest.NewRecorder()
@@ -500,8 +520,13 @@ func TestOpenAIHandler_HashSubmit(t *testing.T) {
 		return w
 	}
 
+	t.Run("anonymous hash submit -> 401", func(t *testing.T) {
+		w := postHash("deadbeef", 123, false)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
+
 	t.Run("unknown hash -> 404", func(t *testing.T) {
-		w := postHash("deadbeef", 123)
+		w := postHash("deadbeef", 123, true)
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
@@ -511,7 +536,7 @@ func TestOpenAIHandler_HashSubmit(t *testing.T) {
 			FileName: "old.mp3",
 			FilePath: "uploads/audio/old.mp3",
 		}
-		w := postHash("cafef00d", 456)
+		w := postHash("cafef00d", 456, true)
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		jobs, err := env.jobDAO.ListPendingJobs(context.Background())

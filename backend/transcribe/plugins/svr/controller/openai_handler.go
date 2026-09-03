@@ -146,6 +146,10 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 	}
 
 	userID := GetCurrentUserID(c, h.authService)
+	if userID == 0 {
+		response.AbortUnauthorized(c, consts.ErrUnauthorized)
+		return
+	}
 
 	jobReq := &do.CreateJobRequest{
 		UserID:           userID,

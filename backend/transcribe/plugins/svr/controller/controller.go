@@ -214,14 +214,13 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 	// 1. Register whitelist paths that bypass user login authentication
 	router.RegisterWhitelist(
 		"/api/v1/agent/*",
-		"/api/v1/audio/transcriptions",
 	)
 
 	userAuthMW := UserAuthMiddleware(c.GetAuthService)
 	agentAuthMW := RequireAgentToken(c.GetNodeService)
 
-	// 2. Transcription endpoint
-	router.POST("/api/v1/audio/transcriptions", c.OpenAI.HandleTranscription)
+	// 2. Transcription endpoint (protected by user authentication)
+	router.POST("/api/v1/audio/transcriptions", userAuthMW, c.OpenAI.HandleTranscription)
 
 	// 3. Model listing endpoint (protected by user authentication)
 	router.GET("/api/v1/models", userAuthMW, c.Model.ListModels)

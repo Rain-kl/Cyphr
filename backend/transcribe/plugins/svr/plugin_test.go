@@ -70,7 +70,7 @@ func TestSvrPlugin_LifecycleAndRegistration(t *testing.T) {
 	// Verify whitelisted routes
 	whitelisted := app.Context().Router().Whitelist()
 	assert.Contains(t, whitelisted, "/api/v1/agent/*")
-	assert.Contains(t, whitelisted, "/api/v1/audio/transcriptions")
+	assert.NotContains(t, whitelisted, "/api/v1/audio/transcriptions")
 	assert.NotContains(t, whitelisted, "/api/v1/models")
 
 	// Verify routes registered

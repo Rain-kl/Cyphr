@@ -190,10 +190,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 1. Register Goose migrations embedded from migrations/
 	ctx.Migrations().Register("transcribe_svr", migrationsFS)
 
-	// 2. Register route whitelist so agent endpoints and public API are not intercepted with 401
+	// 2. Register route whitelist so agent endpoints are not intercepted with 401
 	ctx.Router().RegisterWhitelist(
 		"/api/v1/agent/*",
-		"/api/v1/audio/transcriptions",
 	)
 
 	// 3. Resolve or bind DBService
