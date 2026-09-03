@@ -174,8 +174,13 @@ func (s *DefaultJobService) AppendLogs(ctx context.Context, jobID uint64, req *d
 
 	// Fan out to active SSE subscribers via LogBroker
 	if s.logBroker != nil {
-		for _, item := range req.Logs {
+		for i, item := range req.Logs {
+			seq := 0
+			if i < len(logEntities) {
+				seq = logEntities[i].Seq
+			}
 			s.logBroker.Publish(jobID, do.LogMessage{
+				Seq:      seq,
 				Progress: req.Progress,
 				Message:  item.Message,
 			})
