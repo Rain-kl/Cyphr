@@ -1,7 +1,7 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package cap
+package auth
 
 import (
 	"Wavelet/pkg/response"
@@ -14,12 +14,12 @@ import (
 
 func TestVerifyMiddlewareMissingTokenIsBadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	restore := InstallTestRuntimeSettings(RuntimeSettings{LoginEnabled: true})
+	restore := InstallCapTestRuntimeSettings(CapRuntimeSettings{LoginEnabled: true})
 	t.Cleanup(restore)
 
 	engine := gin.New()
 	engine.Use(response.ErrorHandlerMiddleware())
-	engine.POST("/register", VerifyMiddleware(GetDefaultManager(), "register"), func(c *gin.Context) {
+	engine.POST("/register", VerifyCaptchaMiddleware(GetDefaultCapManager(), "register"), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
@@ -27,6 +27,6 @@ func TestVerifyMiddlewareMissingTokenIsBadRequest(t *testing.T) {
 	rec := httptest.NewRecorder()
 	engine.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf("VerifyMiddleware() status = %d, want %d", rec.Code, http.StatusBadRequest)
+		t.Errorf("VerifyCaptchaMiddleware() status = %d, want %d", rec.Code, http.StatusBadRequest)
 	}
 }

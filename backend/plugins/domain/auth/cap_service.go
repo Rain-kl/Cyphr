@@ -1,11 +1,10 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-// Package cap provides CAPTCHA and proof-of-work (PoW) verification services.
-package cap
+package auth
 
 import (
-	"Wavelet/plugins/domain/cap/pow"
+	"Wavelet/plugins/domain/auth/pow"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -22,23 +21,23 @@ const (
 	valuePartsCount      = 2  // 存储值由 scope 和过期时间组成
 )
 
-// Manager orchestrates challenge generation and solution validation.
-type Manager struct {
+// CaptchaManager orchestrates challenge generation and solution validation.
+type CaptchaManager struct {
 	secret []byte
 	store  pow.Store
 }
 
-// NewManager creates a new CAPTCHA Manager.
-func NewManager(secret []byte, store pow.Store) *Manager {
-	return &Manager{
+// NewCaptchaManager creates a new CAPTCHA Manager.
+func NewCaptchaManager(secret []byte, store pow.Store) *CaptchaManager {
+	return &CaptchaManager{
 		secret: secret,
 		store:  store,
 	}
 }
 
 // Generate creates a challenge response.
-func (m *Manager) Generate(ctx context.Context, scope string) (*pow.ChallengeResponse, error) {
-	settings, err := CurrentSettings(ctx)
+func (m *CaptchaManager) Generate(ctx context.Context, scope string) (*pow.ChallengeResponse, error) {
+	settings, err := CurrentCapSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +52,7 @@ func (m *Manager) Generate(ctx context.Context, scope string) (*pow.ChallengeRes
 }
 
 // Redeem verifies PoW solutions and returns a one-time redeem token.
-func (m *Manager) Redeem(ctx context.Context, token string, solutions []int, scope string) (*RedeemResponse, error) {
+func (m *CaptchaManager) Redeem(ctx context.Context, token string, solutions []int, scope string) (*RedeemResponse, error) {
 	sigHex := pow.JwtSigHex(token)
 	if sigHex == "" {
 		return &RedeemResponse{Success: false, Error: redeemErrInvalidToken}, nil
@@ -80,7 +79,7 @@ func (m *Manager) Redeem(ctx context.Context, token string, solutions []int, sco
 		return &RedeemResponse{Success: false, Error: redeemErrAlreadyRedeemed}, nil
 	}
 
-	settings, err := CurrentSettings(ctx)
+	settings, err := CurrentCapSettings(ctx)
 	if err != nil {
 		return &RedeemResponse{Success: false, Error: redeemErrSettingsLoad}, err
 	}
@@ -106,7 +105,7 @@ func (m *Manager) Redeem(ctx context.Context, token string, solutions []int, sco
 }
 
 // VerifyToken validates and consumes the redeem token (single-use).
-func (m *Manager) VerifyToken(ctx context.Context, token, expectedScope string) (bool, error) {
+func (m *CaptchaManager) VerifyToken(ctx context.Context, token, expectedScope string) (bool, error) {
 	if token == "" {
 		return false, nil
 	}
@@ -160,23 +159,33 @@ func sGetAndDelete(ctx context.Context, store pow.Store, key string) (string, bo
 }
 
 var (
-	defaultManagerMu sync.RWMutex
-	defaultManager   *Manager
+	defaultCapManagerMu sync.RWMutex
+	defaultCapManager   *CaptchaManager
 )
 
-// SetSecret sets the shared secret used by the default manager.
-func SetSecret(secret []byte) {
-	defaultManagerMu.Lock()
-	defer defaultManagerMu.Unlock()
+// SetCapSecret sets the shared secret used by the default CAPTCHA manager.
+func SetCapSecret(secret []byte) {
+	defaultCapManagerMu.Lock()
+	defer defaultCapManagerMu.Unlock()
 	if len(secret) > 0 {
 		store := pow.NewMemoryStore(1 * time.Minute)
-		defaultManager = NewManager(secret, store)
+		defaultCapManager = NewCaptchaManager(secret, store)
 	}
 }
 
-// GetDefaultManager yields the global singleton CAPTCHA manager.
-func GetDefaultManager() *Manager {
-	defaultManagerMu.RLock()
-	defer defaultManagerMu.RUnlock()
-	return defaultManager
+// GetDefaultCapManager yields the global singleton CAPTCHA manager.
+func GetDefaultCapManager() *CaptchaManager {
+	defaultCapManagerMu.RLock()
+	defer defaultCapManagerMu.RUnlock()
+	return defaultCapManager
 }
+
+type captchaService struct{}
+
+func (captchaService) VerifyMiddleware(scope string) any {
+	return VerifyCaptchaMiddleware(GetDefaultCapManager(), scope)
+}
+
+func (captchaService) ChallengeHandler() any { return Challenge }
+
+func (captchaService) RedeemHandler() any { return Redeem }

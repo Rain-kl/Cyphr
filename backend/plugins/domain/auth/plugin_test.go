@@ -161,4 +161,25 @@ func TestAuthPluginUnit(t *testing.T) {
 	current, err := authSvc.GetCurrentUser(userCtx)
 	require.NoError(t, err)
 	assert.Equal(t, user.ID, current.ID)
+
+	// Test CaptchaService injection
+	capSvc, err := core.Inject[contracts.CaptchaService](ctx)
+	require.NoError(t, err)
+	assert.NotNil(t, capSvc)
+	assert.NotNil(t, capSvc.ChallengeHandler())
+	assert.NotNil(t, capSvc.RedeemHandler())
+	assert.NotNil(t, capSvc.VerifyMiddleware("login"))
+
+	// Verify CAPTCHA routes registered
+	var foundChallenge, foundRedeem bool
+	for _, rd := range ctx.Router().Routes() {
+		if rd.Path == "/api/v1/cap/challenge" {
+			foundChallenge = true
+		}
+		if rd.Path == "/api/v1/cap/redeem" {
+			foundRedeem = true
+		}
+	}
+	assert.True(t, foundChallenge, "expected /api/v1/cap/challenge route")
+	assert.True(t, foundRedeem, "expected /api/v1/cap/redeem route")
 }

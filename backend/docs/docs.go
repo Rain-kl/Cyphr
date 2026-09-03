@@ -4397,7 +4397,7 @@ const docTemplate = `{
                         "name": "request",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/cap.challengeRequest"
+                            "$ref": "#/definitions/auth.challengeRequest"
                         }
                     }
                 ],
@@ -4413,7 +4413,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/cap.ChallengeResponse"
+                                            "$ref": "#/definitions/auth.ChallengeResponse"
                                         }
                                     }
                                 }
@@ -4446,7 +4446,7 @@ const docTemplate = `{
                         "name": "request",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/cap.challengeRequest"
+                            "$ref": "#/definitions/auth.challengeRequest"
                         }
                     }
                 ],
@@ -4462,7 +4462,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/cap.ChallengeResponse"
+                                            "$ref": "#/definitions/auth.ChallengeResponse"
                                         }
                                     }
                                 }
@@ -4498,7 +4498,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/cap.redeemRequest"
+                            "$ref": "#/definitions/auth.redeemRequest"
                         }
                     }
                 ],
@@ -4514,7 +4514,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/cap.RedeemResponse"
+                                            "$ref": "#/definitions/auth.RedeemResponse"
                                         }
                                     }
                                 }
@@ -6134,26 +6134,7 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.OAuthAuthorizeResponse": {
-            "type": "object",
-            "properties": {
-                "authorize_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.OAuthCallbackResult": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/auth.BasicUserInfo"
-                }
-            }
-        },
-        "cap.ChallengeResponse": {
+        "auth.ChallengeResponse": {
             "type": "object",
             "properties": {
                 "challenge": {
@@ -6179,7 +6160,26 @@ const docTemplate = `{
                 }
             }
         },
-        "cap.RedeemResponse": {
+        "auth.OAuthAuthorizeResponse": {
+            "type": "object",
+            "properties": {
+                "authorize_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.OAuthCallbackResult": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/auth.BasicUserInfo"
+                }
+            }
+        },
+        "auth.RedeemResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -6196,7 +6196,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cap.challengeRequest": {
+        "auth.challengeRequest": {
             "type": "object",
             "properties": {
                 "scope": {
@@ -6204,7 +6204,7 @@ const docTemplate = `{
                 }
             }
         },
-        "cap.redeemRequest": {
+        "auth.redeemRequest": {
             "type": "object",
             "required": [
                 "solutions",

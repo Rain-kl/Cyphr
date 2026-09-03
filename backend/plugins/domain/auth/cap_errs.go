@@ -1,8 +1,7 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-// Package cap 提供人机验证中间件
-package cap
+package auth
 
 // HTTP 响应错误文案
 const (

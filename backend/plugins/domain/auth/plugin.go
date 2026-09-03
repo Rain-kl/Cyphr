@@ -85,6 +85,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	var cfg SessionConfig
 	if err := ctx.Config().Bind("app", &cfg); err == nil {
 		SetSessionConfig(cfg)
+		if cfg.SessionSecret != "" {
+			SetCapSecret([]byte(cfg.SessionSecret))
+		}
 	}
 
 	core.Bind[contracts.DBService](ctx, setDBService)
@@ -100,7 +103,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	// 1. Register migrations
 	ctx.Migrations().Register("auth", authMigrations)
 
-	// 2. Initialize and provide AuthService & AuthRegistry
+	// 2. Initialize and provide AuthService, AuthRegistry & CaptchaService
 	if p.authSvc == nil {
 		p.authSvc = newAuthService()
 	}
@@ -110,6 +113,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 
 	core.Provide[contracts.AuthService](ctx, p.authSvc)
 	core.Provide[contracts.AuthRegistry](ctx, p.authRegistry)
+	core.Provide[contracts.CaptchaService](ctx, captchaService{})
 
 	// 2.1 Register Public / Auth Whitelist Endpoints
 	publicEndpoints := []string{
@@ -144,20 +148,47 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 	ctx.Router().GET("/api/v1/user-info", LoginRequired(), UserInfo)
 
+	// 3.1 Register CAPTCHA HTTP Routes
+	capGroup := ctx.Router().Group("/api/v1/cap")
+	{
+		capGroup.GET("/challenge", Challenge)
+		capGroup.POST("/challenge", Challenge)
+		capGroup.POST("/redeem", Redeem)
+	}
+
 	// 4. Register Settings Schemas
+	const (
+		settingTypeInteger      = "integer"
+		settingCategorySecurity = "security"
+	)
+
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "auth.session_age",
 		Default:     86400 * 7,
 		Description: "Default session lifetime in seconds",
-		Type:        "integer",
-		Category:    "security",
+		Type:        settingTypeInteger,
+		Category:    settingCategorySecurity,
 	})
 	ctx.Settings().Register(extpoints.SettingSchema{
 		Key:         "auth.login_rate_limit_max_attempts",
 		Default:     5,
 		Description: "Max login failure attempts before temporary IP lock",
-		Type:        "integer",
-		Category:    "security",
+		Type:        settingTypeInteger,
+		Category:    settingCategorySecurity,
+	})
+	ctx.Settings().Register(extpoints.SettingSchema{
+		Key:         "cap.login_enabled",
+		Default:     false,
+		Description: "Whether to require CAPTCHA verification for user login",
+		Type:        "boolean",
+		Category:    settingCategorySecurity,
+	})
+	ctx.Settings().Register(extpoints.SettingSchema{
+		Key:         "cap.challenge_count",
+		Default:     1,
+		Description: "Number of PoW puzzle challenges to solve",
+		Type:        settingTypeInteger,
+		Category:    settingCategorySecurity,
 	})
 
 	// 5. Register Event Listeners for domain events
@@ -169,6 +200,10 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Events().On(contracts.EventTopicUserDeleted, func(c context.Context, e contracts.UserDeletedEvent) error {
 		InvalidateCachedUser(c, e.TargetUserID)
 		return nil
+	})
+
+	ctx.Events().On(contracts.EventTopicConfigChanged, func(_ any) {
+		InvalidateCapRuntimeSettings()
 	})
 
 	return nil

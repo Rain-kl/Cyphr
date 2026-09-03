@@ -8,7 +8,6 @@ import (
 	"Wavelet/core/contracts"
 	"Wavelet/plugins/domain/admin"
 	"Wavelet/plugins/domain/auth"
-	"Wavelet/plugins/domain/cap"
 	"Wavelet/plugins/domain/msg_gateway"
 	"Wavelet/plugins/domain/risk_control"
 	"Wavelet/plugins/domain/system"
@@ -100,7 +99,7 @@ func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
 		driver_inproc_cron.New(),
 	)
 
-	// 3. Register all 8 domain business plugins (admin first to ensure schema and base config tables exist)
+	// 3. Register all 7 domain business plugins (admin first to ensure schema and base config tables exist)
 	app.Use(
 		admin.New(),
 		user.New(),
@@ -108,7 +107,6 @@ func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
 		msg_gateway.New(),
 		risk_control.New(),
 		upload.New(),
-		cap.New(),
 		system.New(),
 	)
 

@@ -1,7 +1,7 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package cap
+package auth
 
 import (
 	"Wavelet/pkg/response"
@@ -9,10 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// VerifyMiddleware returns a Gin middleware that checks and consumes the X-Cap-Token header.
-func VerifyMiddleware(mgr *Manager, scope string) gin.HandlerFunc {
+// VerifyCaptchaMiddleware returns a Gin middleware that checks and consumes the X-Cap-Token header.
+func VerifyCaptchaMiddleware(mgr *CaptchaManager, scope string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !ProtectionEnabled(c.Request.Context()) {
+		if !CapProtectionEnabled(c.Request.Context()) {
 			c.Next()
 			return
 		}

@@ -1,10 +1,10 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package cap
+package auth
 
 import (
-	"Wavelet/plugins/domain/cap/pow"
+	"Wavelet/plugins/domain/auth/pow"
 )
 
 // ChallengeResponse is a local type alias for the pow.ChallengeResponse struct
@@ -30,8 +30,8 @@ type RedeemResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// configRecord maps the columns selected from the system config table.
-type configRecord struct {
+// capConfigRecord maps the columns selected from the system config table.
+type capConfigRecord struct {
 	Key   string `gorm:"column:key"`
 	Value string `gorm:"column:value"`
 }

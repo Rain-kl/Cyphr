@@ -1,7 +1,7 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package cap
+package auth
 
 import (
 	"Wavelet/pkg/logger"
@@ -18,7 +18,7 @@ import (
 // @Accept json
 // @Produce json
 // @Param request body challengeRequest false "可选范围限制参数"
-// @Success 200 {object} response.Any{data=cap.ChallengeResponse} "成功返回 PoW 难题"
+// @Success 200 {object} response.Any{data=auth.ChallengeResponse} "成功返回 PoW 难题"
 // @Failure 500 {object} response.Any "内部服务错误"
 // @Router /api/v1/cap/challenge [get]
 // @Router /api/v1/cap/challenge [post]
@@ -30,7 +30,7 @@ func Challenge(c *gin.Context) {
 		req.Scope = "login"
 	}
 
-	mgr := GetDefaultManager()
+	mgr := GetDefaultCapManager()
 	if mgr == nil {
 		response.AbortInternal(c, errCapNotConfigured)
 		return
@@ -52,7 +52,7 @@ func Challenge(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body redeemRequest true "难题 Token 与解答 solutions 数组"
-// @Success 200 {object} response.Any{data=cap.RedeemResponse} "核销成功，返回 X-Cap-Token"
+// @Success 200 {object} response.Any{data=auth.RedeemResponse} "核销成功，返回 X-Cap-Token"
 // @Failure 400 {object} response.Any "参数错误或核销失败"
 // @Failure 500 {object} response.Any "内部服务错误"
 // @Router /api/v1/cap/redeem [post]
@@ -67,7 +67,7 @@ func Redeem(c *gin.Context) {
 		req.Scope = "login"
 	}
 
-	mgr := GetDefaultManager()
+	mgr := GetDefaultCapManager()
 	if mgr == nil {
 		response.AbortInternal(c, errCapNotConfigured)
 		return

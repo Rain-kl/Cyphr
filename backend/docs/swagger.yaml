@@ -55,19 +55,7 @@ definitions:
     - code
     - state
     type: object
-  auth.OAuthAuthorizeResponse:
-    properties:
-      authorize_url:
-        type: string
-    type: object
-  auth.OAuthCallbackResult:
-    properties:
-      status:
-        type: string
-      user:
-        $ref: '#/definitions/auth.BasicUserInfo'
-    type: object
-  cap.ChallengeResponse:
+  auth.ChallengeResponse:
     properties:
       challenge:
         properties:
@@ -84,7 +72,19 @@ definitions:
       token:
         type: string
     type: object
-  cap.RedeemResponse:
+  auth.OAuthAuthorizeResponse:
+    properties:
+      authorize_url:
+        type: string
+    type: object
+  auth.OAuthCallbackResult:
+    properties:
+      status:
+        type: string
+      user:
+        $ref: '#/definitions/auth.BasicUserInfo'
+    type: object
+  auth.RedeemResponse:
     properties:
       error:
         type: string
@@ -95,12 +95,12 @@ definitions:
       token:
         type: string
     type: object
-  cap.challengeRequest:
+  auth.challengeRequest:
     properties:
       scope:
         type: string
     type: object
-  cap.redeemRequest:
+  auth.redeemRequest:
     properties:
       scope:
         type: string
@@ -4031,7 +4031,7 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/cap.challengeRequest'
+          $ref: '#/definitions/auth.challengeRequest'
       produces:
       - application/json
       responses:
@@ -4042,7 +4042,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/cap.ChallengeResponse'
+                  $ref: '#/definitions/auth.ChallengeResponse'
               type: object
         "500":
           description: 内部服务错误
@@ -4060,7 +4060,7 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/cap.challengeRequest'
+          $ref: '#/definitions/auth.challengeRequest'
       produces:
       - application/json
       responses:
@@ -4071,7 +4071,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/cap.ChallengeResponse'
+                  $ref: '#/definitions/auth.ChallengeResponse'
               type: object
         "500":
           description: 内部服务错误
@@ -4091,7 +4091,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/cap.redeemRequest'
+          $ref: '#/definitions/auth.redeemRequest'
       produces:
       - application/json
       responses:
@@ -4102,7 +4102,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/cap.RedeemResponse'
+                  $ref: '#/definitions/auth.RedeemResponse'
               type: object
         "400":
           description: 参数错误或核销失败
