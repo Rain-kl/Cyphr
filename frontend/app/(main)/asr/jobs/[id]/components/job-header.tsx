@@ -86,7 +86,7 @@ export function JobHeader({ job }: JobHeaderProps) {
   };
 
   const isVideo = Boolean(
-    job.original_file_name.match(/\.(mp4|mkv|mov|flv|webm)$/i),
+    job.original_file_name?.match(/\.(mp4|mkv|mov|flv|webm)$/i),
   );
 
   return (

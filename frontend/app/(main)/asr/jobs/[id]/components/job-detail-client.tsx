@@ -70,7 +70,10 @@ export function JobDetailClient() {
       },
       (finishedJob) => {
         if (finishedJob) {
-          setJob(finishedJob);
+          // SSE finish event is a partial FinishMessage (no file name etc.): merge it
+          // into the existing job instead of replacing, otherwise fields like
+          // original_file_name become undefined and crash the header.
+          setJob((prev) => (prev ? { ...prev, ...finishedJob } : finishedJob));
         } else {
           fetchJob();
         }
