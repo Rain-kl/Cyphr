@@ -57,12 +57,6 @@ const MENU_GROUPS: MenuGroup[] = [
         description: '音视频语音识别与转录任务',
         icon: AudioWaveform,
       },
-      {
-        path: '/files',
-        label: '我的文件',
-        description: '用户个人文件管理与上传',
-        icon: FolderOpen,
-      },
     ],
   },
   {

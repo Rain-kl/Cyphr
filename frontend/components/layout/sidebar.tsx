@@ -78,7 +78,6 @@ type NavItem = {
 
 const navMainItems: NavItem[] = [
   { titleKey: 'asr', url: '/asr', icon: AudioWaveform },
-  { titleKey: 'myFiles', url: '/files', icon: FolderOpen },
 ];
 
 const cyphrItems: NavItem[] = [
