@@ -1,351 +1,284 @@
-# wavelet
+# Cyphr
 
-🚀 A modern, production-ready full-stack boilerplate for building scalable web applications
+🚀 Modern, Production-Grade Distributed Speech Recognition & Audio Transcription Platform
 
-[中文](./README_zh.md)
+[English](./README.md) · [简体中文](./README_zh.md)
 
-[![License: Apache2.0](https://img.shields.io/badge/License-Apache2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Version](https://img.shields.io/badge/Go-1.25+-blue.svg)](https://golang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-blue.svg)](https://reactjs.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8.svg?logo=go)](https://golang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python)](https://python.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
+
+---
 
 ## 📖 Introduction
 
-**wavelet** is a generic, production-ready full-stack boilerplate built with **Go (Gin + GORM)** on the backend and **Next.js (App Router + Shadcn UI)** on the frontend. It ships with everything you need to bootstrap a modern SaaS, internal tool, or developer platform — without the boilerplate headaches.
+**Cyphr** (formerly Transcribe) is a high-performance, production-ready **distributed Speech-to-Text (ASR) and audio/video transcription SaaS platform**.
 
-The project was designed from the ground up to be **framework-first and business-agnostic**: plug in your own domain logic while reusing the battle-tested infrastructure that comes out of the box.
+Built with a cleanly decoupled three-tier architecture:
+1. **Control Center (Server / Controller)**: Powered by Go, Gin, GORM, and the Cordis microkernel plugin system;
+2. **Inference Compute Nodes (Python Agents)**: Powered by Python 3.12+ and `uv`, equipped with live hardware probing (CPU, RAM, GPU, and VRAM);
+3. **Modern Web Console**: Built on Next.js 16 (Turbopack), React 19, and Shadcn UI;
+4. **Standalone CLI Tool**: A lightweight, cross-platform Go binary (`bin/cyphr`, with alias `transcribe`).
 
-### ✨ Key Features
+Cyphr is natively **OpenAI-compatible**, making it an ideal open-source foundation for enterprise-grade self-hosted transcription clusters managing models like Whisper, FunASR, Qwen-ASR, and custom speech engines.
 
-- 🔐 **Multi-auth System** — Local password login/registration + pluggable OIDC/OAuth2 providers (supports multiple auth sources simultaneously)
-- 🗝️ **Personal Access Tokens** — API key management for programmatic access; supports `Authorization: Bearer` and `X-Access-Token` headers
-- 👤 **User Management** — Admin panel for listing, searching, filtering, enabling/disabling user accounts
-- ⚙️ **Dynamic System Config** — Key-value system configuration management with live reload, controllable from the admin UI
-- 📋 **Async Task Queue** — Background job processing with [Asynq](https://github.com/hibiken/asynq) (Redis-backed), including a scheduling dashboard
-- 📁 **S3 File Storage** — Unified file upload/download via S3-compatible APIs with local disk cache
-- 📊 **Observability** — Structured logging (Zap) + distributed tracing (OpenTelemetry)
-- 🎨 **Modern UI** — Responsive, dark-mode-ready design system built with Tailwind CSS 4 and Shadcn UI
-- 📖 **Built-in Documentation** — Integrated docs portal with usage guides, API reference, privacy policy, and terms of service
+---
+
+## ✨ Key Features
+
+- 🎙️ **Full OpenAI Transcription API Compatibility**  
+  Native `/api/v1/audio/transcriptions` endpoint supporting standard parameters (`model`, `language`, `temperature`, `prompt`, `response_format`), allowing drop-in replacement for applications using the official OpenAI SDK.
+
+- ⚡ **Distributed Inference & Elastic Worker Topology**  
+  Complete separation of control plane and compute nodes. Python agents connect over long-lived WebSockets with heartbeat telemetry, while an intelligent scheduler dynamically routes jobs based on GPU/CPU utilization and model affinity.
+
+- 📡 **Real-Time Bidirectional & Streaming Protocols**  
+  - **Control Plane**: Real-time WebSocket signaling for heartbeats, job dispatch, and hot model loading/unloading;
+  - **Log Stream**: Server-Sent Events (SSE) for zero-polling real-time progress and transcribed text streaming.
+
+- 🖥️ **Modern Full-Featured Web Console**  
+  Built with Next.js 16 App Router, Tailwind CSS 4, and Shadcn UI:
+  - **ASR Job Hall**: Global job listing, live status indicators, and multi-parameter filtering;
+  - **Node Cockpit**: Live telemetry drawers showing CPU, RAM, and GPU memory utilization;
+  - **Model Management**: Global activation toggles, live model mounting and unloading;
+  - **Job Deep Inspector**: Audio playback & download, segment inspection, and raw JSON analysis.
+
+- 💻 **Independent & Powerful CLI Client**  
+  A standalone Go binary (`bin/cyphr`):
+  - Local media format probing and automated `ffmpeg` stream extraction and compression;
+  - Asynchronous submission with clean terminal loading spinners;
+  - Real-time SSE log tailing (supports graceful Ctrl+C detachment without killing the job);
+  - Historical job management and transcription file exports.
+
+- 🔒 **Orthogonal Dual-Credential Security Model**  
+  - **User Access Tokens**: Used by end users and CLI tools for regular API access;
+  - **Agent Node Tokens**: High-entropy single-use credentials generated by admins; stored only as SHA-256 hashes to prevent cross-tenant privilege escalation.
+
+- 📦 **Managed Platform Storage (Zero Disk Fallback)**  
+  Audio files are ingested and tracked via the platform storage domain (supporting local and S3-compatible backends like MinIO or AWS S3), eliminating rogue temp files and providing unified file management.
+
+---
 
 ## 🏗️ Architecture Overview
 
+### Topology Diagram
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│                      Cyphr Control Plane                         │
+│                                                                  │
+│   ┌─────────────────────┐   ┌────────────────────────────────┐   │
+│   │  OpenAI API / Jobs  │   │     Node & Model Scheduler     │   │
+│   └──────────┬──────────┘   └───────────────┬────────────────┘   │
+│              │ (User Token)                 │ (Agent Token)      │
+└──────────────┼──────────────────────────────┼────────────────────┘
+               │                              │ (WebSocket + HTTP)
+       ┌───────┴────────┐                     ▼
+       │  Client Layer  │          ┌──────────────────────┐
+       │                │          │  Python Worker Nodes │
+       │ • Web Console  │          │                      │
+       │ • Cyphr CLI    │          │ • Node 01 (GPU A10)  │
+       │ • Custom API   │          │ • Node 02 (GPU 4090) │
+       │ • OpenAI SDK   │          │ • Node 03 (CPU Only) │
+       └────────────────┘          └──────────────────────┘
 ```
-┌─────────────────┐    ┌─────────────────────────────┐    ┌─────────────────┐
-│   Frontend      │    │          Backend             │    │   Database      │
-│   (Next.js)     │◄──►│           (Go)               │◄──►│  (PostgreSQL)   │
-│                 │    │                              │    │                 │
-│ • React 19      │    │ • Gin HTTP Framework         │    │ • PostgreSQL    │
-│ • TypeScript    │    │ • GORM ORM                   │    │ • Redis Cache   │
-│ • Tailwind 4    │    │ • Multi-provider Auth        │    │                 │
-│ • Shadcn UI     │    │ • AccessToken Middleware     │    │                 │
-│                 │    │ • Asynq Task Queue           │    │                 │
-│                 │    │ • OpenTelemetry Tracing      │    │                 │
-│                 │    │ • Swagger API Docs           │    │                 │
-└─────────────────┘    └─────────────────────────────┘    └─────────────────┘
-                                      │
-                           ┌──────────┴──────────┐
-                           │   Multi-Process CLI  │
-                           │  (Cobra + Viper)     │
-                           │ • api      (HTTP)    │
-                           │ • worker   (Queue)   │
-                           │ • scheduler(Cron)    │
-                           └─────────────────────┘
+
+### End-to-End Sequence
+
+```text
+Client (Web / CLI)                 Controller (Server)                 Worker Agent
+     │                                     │                                  │
+     │                                     │<========= [WS Connect] ==========│ (Agent Token Auth)
+     │                                     │<========= [WS Heartbeat] ========│ (CPU/RAM/GPU Telemetry)
+     │                                     │                                  │
+     │── 1. Submit Audio (POST /api/v1) ───>│                                  │
+     │                                     │── 2. Ingest to Platform Store ───│
+     │                                     │── 3. Create Job (status=pending)─│
+     │<── 4. Return Job ID ────────────────│                                  │
+     │                                     │── 5. Scheduler Selects Node ─────│
+     │── 6. Stream Logs (GET /stream) ────>│                                  │
+     │                                     │════════ [WS: dispatch_job] ═════>│ (Job Metadata & Media URL)
+     │                                     │                                  │── 7. Stream Download Media
+     │                                     │<── 8. Batch Logs (POST /logs) ───│── 8. Multi-Stage Inference
+     │<══ 9. SSE Broadcast Progress ═══════│                                  │
+     │                                     │<── 10. Finish (POST /complete) ──│── 10. Generate Output JSON
+     │                                     │── 11. Mark Job as Completed ─────│
+     │<══ 12. SSE Terminal Text Event ═════│                                  │
 ```
+
+---
 
 ## 🛠️ Tech Stack
 
-### Backend
-- **[Go 1.25+](https://go.dev/doc)** — Primary language
-- **[Gin](https://github.com/gin-gonic/gin)** — HTTP web framework
-- **[GORM](https://github.com/go-gorm/gorm)** — ORM with PostgreSQL & ClickHouse support
-- **[Redis](https://github.com/redis/redis)** — Cache, session store, and task queue backend
-- **[Asynq](https://github.com/hibiken/asynq)** — Distributed task queue (Redis-backed)
-- **[Cobra + Viper](https://github.com/spf13/cobra)** — CLI entrypoint and configuration management
-- **[OpenTelemetry](https://opentelemetry.io)** — Distributed tracing and observability
-- **[Zap](https://github.com/uber-go/zap)** — Structured, high-performance logging
-- **[Swagger (Swaggo)](https://github.com/swaggo/swag)** — Auto-generated API documentation
-- **[AWS SDK v2](https://github.com/aws/aws-sdk-go-v2)** — S3-compatible file storage
-- **[Snowflake](https://github.com/bwmarrin/snowflake)** — Distributed ID generation
+| Layer | Technologies | Description |
+| :--- | :--- | :--- |
+| **Backend Core** | Go 1.25+, Gin, GORM | High-concurrency RESTful APIs, data persistence |
+| **Microkernel** | Cordis Plugin Architecture | Decoupled modules communicating via `contracts` |
+| **Frontend Web** | Next.js 16 (Turbopack), React 19, TypeScript | Responsive Web console and admin workspace |
+| **UI & Styling** | Tailwind CSS 4, Shadcn UI, Motion | Modern dark-mode-ready design system |
+| **Localization**| next-intl | Comprehensive bilingual i18n (English / Chinese) |
+| **Inference Agent** | Python 3.12+, uv, psutil, pynvml | Async worker node with live hardware telemetry |
+| **Multimedia** | FFmpeg / ffprobe | Media probing, audio extraction & compression |
+| **CLI Tool** | Cobra, Viper | Lightweight standalone cross-platform client |
+| **Databases** | PostgreSQL, SQLite, S3 Compatible | Enterprise data storage and unified object store |
 
-### Frontend
-- **[Next.js 16](https://github.com/vercel/next.js)** — React framework with App Router
-- **[React 19](https://github.com/facebook/react)** — UI library
-- **[TypeScript](https://github.com/microsoft/TypeScript)** — Type safety
-- **[Tailwind CSS 4](https://github.com/tailwindlabs/tailwindcss)** — Utility-first styling
-- **[Shadcn UI](https://github.com/shadcn-ui/ui)** — Accessible, composable component library
-- **[Lucide Icons](https://github.com/lucide-icons/lucide)** — Icon library
-
-## 📋 Requirements
-
-- **Go** >= 1.25
-- **Node.js** >= 18.0
-- **PostgreSQL** >= 14
-- **Redis** >= 6.0
-- **pnpm** >= 8.0 (recommended)
+---
 
 ## 🚀 Quick Start
 
-### 1. Clone the Repository
+### 1. Prerequisites
+
+- **Go** >= 1.25
+- **Node.js** >= 18.0 & **pnpm** >= 9.0
+- **Python** >= 3.12 & [uv](https://docs.astral.sh/uv/) package manager
+- **FFmpeg** (optional, recommended for CLI local audio compression)
+
+### 2. Run the Server and Frontend
 
 ```bash
-git clone https://github.com/Rain-kl/Wavelet.git refreshing
-cd refreshing
+# 1. Clone the repository
+git clone https://github.com/Rain-kl/Cyphr.git
+cd Cyphr
+
+# 2. Configure environment
+cp .env.example .env
+
+# 3. Install frontend dependencies
+cd frontend && pnpm install && cd ..
+
+# 4. Start backend and frontend development servers concurrently
+make dev
 ```
 
-### 2. Configure Environment
+Once started:
+- **Web Console**: `http://localhost:3000`
+- **Default Admin Account**: `admin` / `admin123`
+- **Backend API**: `http://localhost:8080`
+- **Swagger Documentation**: `http://localhost:8080/swagger/index.html`
+
+### 3. Start a Python Worker Agent
+
+On a machine with GPU (or CPU) resources:
 
 ```bash
-cp config.example.yaml config.yaml
+# Navigate to the agent directory
+cd backend/agent
+
+# Sync environment with uv
+uv sync
+
+# Configure agent connection and token (obtained via Web Console -> ASR Admin -> Nodes)
+export AGENT_SERVER_URL="http://localhost:8080"
+export AGENT_TOKEN="agt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export AGENT_NODE_NAME="worker-node-01"
+
+# Launch the agent
+uv run python -m src.main
 ```
 
-Edit `config.yaml` to configure your database and Redis. OIDC auth sources are configured at runtime in the admin settings page.
+### 4. Use the Standalone CLI
 
-### 3. Initialize Database
+Build the CLI binary:
 
 ```bash
-# Start local dependencies (PostgreSQL + Redis)
-docker compose up -d
+# Compile the CLI binary to bin/cyphr
+make build-cli
 
-# Optional: also start ClickHouse
-docker compose --profile clickhouse up -d
+# Login and save access credentials (create a User Access Token in User Settings)
+./bin/cyphr login --url http://localhost:8080 --token usr_your_personal_token
 
-# If you use an external PostgreSQL instance instead of Docker, create the database manually
-createdb -h <host> -p 5432 -U postgres refreshing
+# List available models
+./bin/cyphr models
 
-# Database schema is auto-migrated on first startup
+# Submit an audio file for transcription with real-time SSE logging
+./bin/cyphr asr /path/to/meeting.mp4 --model mock-whisper-base
+
+# Inspect historical jobs
+./bin/cyphr jobs ls
 ```
 
-### 4. Start the Backend
+---
+
+## 🔌 OpenAI-Compatible API Example
+
+Cyphr supports standard OpenAI audio transcription endpoints:
+
+### Using cURL
 
 ```bash
-# Install Go dependencies
-go mod tidy
-
-# Generate Swagger API documentation
-make swagger
-
-# Start the HTTP API server
-go run main.go api
+curl -X POST http://localhost:8080/api/v1/audio/transcriptions \
+  -H "Authorization: Bearer <YOUR_USER_ACCESS_TOKEN>" \
+  -F "file=@/path/to/audio.mp3" \
+  -F "model=mock-whisper-base" \
+  -F "response_format=verbose_json"
 ```
 
-> The backend also supports separate `scheduler` and `worker` processes for async task processing:
-> ```bash
-> go run main.go scheduler   # Cron job scheduler
-> go run main.go worker      # Asynq task worker
-> ```
+### Using Official OpenAI Python SDK
 
-### 5. Start the Frontend
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/api/v1",
+    api_key="<YOUR_USER_ACCESS_TOKEN>"
+)
+
+with open("meeting.wav", "rb") as audio_file:
+    transcript = client.audio.transcriptions.create(
+        model="mock-whisper-base",
+        file=audio_file,
+        response_format="verbose_json"
+    )
+
+print(transcript.text)
+```
+
+---
+
+## 📋 Common Makefile Commands
 
 ```bash
-cd frontend
-
-# Install dependencies
-pnpm install
-
-# Start dev server (Turbopack)
-pnpm dev
+make dev             # Start both backend and frontend development servers
+make dev-b           # Start backend server only (go run main.go all)
+make dev-f           # Start frontend server only (pnpm dev)
+make build-cli       # Build the standalone CLI client to bin/cyphr
+make build-backend   # Build the backend binary to bin/cyphr
+make build-embedded  # Build embedded binary containing frontend static bundle
+make code-check      # Run Cordis architectural verification, linters, and type-checks
+make format          # Format Go and TypeScript/React codebases
+make swagger         # Regenerate Swagger API documentation from annotations
 ```
 
-### 6. Access the Application
+---
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:3000 |
-| Swagger API Docs | http://localhost:8000/swagger/index.html |
-| Health Check | http://localhost:8000/api/health |
+## 🗂️ Project Structure
 
-## ⚙️ Configuration
-
-Key configuration options (see `config.example.yaml` for the full reference):
-
-| Option | Description | Example |
-|--------|-------------|---------|
-| `app.addr` | Backend listen address | `:8000` |
-| `database.host` | PostgreSQL host | `127.0.0.1` |
-| `database.database` | Database name | `refreshing` |
-| `redis.host` | Redis host | `127.0.0.1` |
-| `storage.endpoint` | S3-compatible endpoint | `s3.amazonaws.com` |
-
-## 🔧 Development Guide
-
-### Backend
-
-```bash
-# Run API server
-go run main.go api
-
-# Run task scheduler
-go run main.go scheduler
-
-# Run async worker
-go run main.go worker
-
-# Regenerate Swagger docs (required after controller changes)
-make swagger
-
-# Format & vet code
-make tidy
+```text
+Cyphr/
+├── backend/                  # Backend Go project root
+│   ├── cmd/                  # CLI service entrypoints & subcommands
+│   ├── core/                 # Microkernel contracts and runtime context
+│   ├── plugins/              # Business domain and infrastructure plugins
+│   ├── transcribe/           # Cyphr transcribe domain plugins
+│   │   ├── plugins/svr/      # Server controller, Hub, Scheduler, DAO
+│   │   ├── plugins/cli/      # Cobra CLI command implementations
+│   │   └── tests/            # End-to-end (E2E) integration test suite
+│   └── agent/                # Distributed inference node (Python 3.12+ / uv)
+├── frontend/                 # Frontend Next.js project root
+│   ├── app/                  # Next.js 16 App Router (User & Admin views)
+│   ├── components/           # UI components (Shadcn UI & domain components)
+│   ├── lib/services/         # API service wrappers
+│   └── messages/             # i18n dictionaries (en / zh)
+├── docs/                     # Architectural design specifications & white papers
+├── manifest/                 # Container and deployment configurations (Docker)
+└── scripts/                  # Architecture verification and helper scripts
 ```
 
-### Frontend
-
-```bash
-cd frontend
-
-# Development mode (Turbopack)
-pnpm dev
-
-# Production build
-pnpm build
-
-# Start production server
-pnpm start
-
-# Lint & format
-pnpm lint
-pnpm format
-```
-
-## 📁 Project Structure
-
-```
-wavelet/
-├── main.go                  # Entry point (delegates to internal/cmd)
-├── Makefile                 # Common commands (swagger, tidy, license, cross-build)
-├── manifest/                # Manifests: docker (Dockerfiles), deploy (k8s), config (default/override)
-├── docs/                    # Swagger auto-generated docs
-├── frontend/                # Next.js frontend application
-│   ├── app/                 # App Router pages
-│   ├── components/          # React components (ui, common, layout)
-│   ├── lib/services/        # API service layer
-│   └── types/               # TypeScript type definitions
-└── internal/                # Go backend (private)
-    ├── cmd/                 # CLI commands (api, scheduler, worker)
-    ├── apps/                # Business modules (oauth, user, admin, upload)
-    ├── model/               # GORM entities and business methods
-    ├── router/              # HTTP route registration
-    ├── task/                # Async task definitions and workers
-    ├── db/                  # Database and Redis initialization
-    ├── storage/             # S3 file storage abstraction
-    └── common/              # Shared utilities and response helpers
-```
-
-## 📚 API Documentation
-
-Swagger API documentation is auto-generated and available once the backend is running:
-
-```
-http://localhost:8000/swagger/index.html
-```
-
-The built-in frontend docs portal at `/docs` includes:
-- **Usage Guide** — Step-by-step walkthrough for getting started
-- **API Reference** — Detailed interface documentation
-- **Privacy Policy** — Template privacy policy (customize as needed)
-- **Terms of Service** — Template terms of service
-
-## 🧪 Testing
-
-```bash
-# Backend tests
-go test ./...
-
-# Frontend lint
-cd frontend && pnpm lint
-```
-
-## 🚀 Deployment
-
-### Cross-platform Binary
-
-Build static binaries for all 6 targets (Linux / macOS / Windows × amd64 / arm64) with a single command.
-The compiled frontend is embedded in every binary — no separate deployment needed.
-
-**Prerequisites:** Docker with BuildKit enabled (Docker 23+ defaults to on).
-
-```bash
-# Build all 6 binaries → ./bin/
-make cross-build
-
-# Stamp a release version
-make cross-build VERSION=v1.2.3
-
-# Build only a specific OS (both architectures)
-make cross-build GOOS=linux
-make cross-build GOOS=darwin
-make cross-build GOOS=windows
-
-# Build only a specific architecture (all OSes)
-make cross-build GOARCH=amd64
-make cross-build GOARCH=arm64
-
-# Combine filters — single binary
-make cross-build GOOS=linux GOARCH=arm64
-make cross-build GOOS=darwin GOARCH=amd64 VERSION=v1.2.3
-```
-
-Output files in `./bin/`:
-
-| File | Platform |
-|------|----------|
-| `wavelet_linux_amd64` | Linux x86-64 |
-| `wavelet_linux_arm64` | Linux ARM64 |
-| `wavelet_darwin_amd64` | macOS Intel |
-| `wavelet_darwin_arm64` | macOS Apple Silicon |
-| `wavelet_windows_amd64.exe` | Windows x86-64 |
-| `wavelet_windows_arm64.exe` | Windows ARM64 |
-
-> The version string is accessible at runtime via `wavelet --version`.
-
-### Docker
-
-```bash
-# Build image
-docker build -t refreshing .
-
-# Run (pass your config as a volume mount)
-docker run -d -p 8000:8000 \
-  -v $(pwd)/config.yaml:/app/config.yaml \
-  refreshing api
-```
-
-### Production
-
-1. Build the frontend:
-   ```bash
-   cd frontend && pnpm build
-   ```
-
-2. Compile the backend:
-   ```bash
-   go build -o refreshing main.go
-   ```
-
-3. Configure `config.yaml` for production.
-
-4. Start services:
-   ```bash
-   ./refreshing api        # HTTP API
-   ./refreshing scheduler  # Cron scheduler (optional)
-   ./refreshing worker     # Task worker (optional)
-   ```
-
-## 🤝 Contributing
-
-We welcome contributions! Please read the following before submitting code:
-
-- [Contributing Guidelines](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Contributor License Agreement](CLA.md)
-
-### Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -am 'Add your feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
-5. Open a Pull Request
+---
 
 ## 📄 License
 
-This project is licensed under the [Apache 2.0 License](LICENSE).
+This project is licensed under the [Apache 2.0 License](./LICENSE).

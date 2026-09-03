@@ -1,351 +1,283 @@
-# wavelet
+# Cyphr
 
-🚀 现代化、生产就绪的全栈应用脚手架
+🚀 现代化、生产级分布式智能语音识别与音频转录平台
 
-[English](./README.md)
+[English](./README.md) · [简体中文](./README_zh.md)
 
-[![License: Apache2.0](https://img.shields.io/badge/License-Apache2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Version](https://img.shields.io/badge/Go-1.25+-blue.svg)](https://golang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19-blue.svg)](https://reactjs.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8.svg?logo=go)](https://golang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB.svg?logo=python)](https://python.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
 
-## 📖 项目简介
+---
 
-**wavelet** 是一个通用型、生产就绪的现代全栈脚手架，后端采用 **Go（Gin + GORM）**，前端采用 **Next.js（App Router + Shadcn UI）**。项目开箱即用，内置构建现代 SaaS、内部工具或开发者平台所需的核心基础设施。
+## 📖 平台简介
 
-项目设计理念是 **框架优先、业务中立**：您可以在沿用经过实战检验的底层基础设施的同时，自由接入自己的业务逻辑。
+**Cyphr**（原 Transcribe）是一套专为高性能、大规模生产环境打造的**分布式智能语音识别 (ASR) 与音视频转录 SaaS 平台**。
 
-### ✨ 主要特性
+项目采用清晰解耦的三层架构设计：服务端控制中心（Go + Gin + GORM + Cordis 插件体系）、推理计算节点（Python + uv + 智能硬件感知）、现代化管理与操作控制台（Next.js 16 + React 19 + Shadcn UI），并配套独立的轻量级跨平台命令行工具（Cyphr CLI）。
 
-- 🔐 **多认证方式** — 本地账号密码登录/注册 + 可插拔 OIDC/OAuth2 认证源（支持同时配置多个认证源）
-- 🗝️ **个人访问令牌** — API Key 管理，支持程序化接口访问；兼容 `Authorization: Bearer` 和 `X-Access-Token` 请求头
-- 👤 **用户管理** — 管理后台提供用户列表、搜索筛选、启用/禁用账号等功能
-- ⚙️ **动态系统配置** — KV 系统配置管理，支持实时变更，可通过管理后台界面直接操作
-- 📋 **异步任务队列** — 基于 [Asynq](https://github.com/hibiken/asynq)（Redis 驱动）的后台任务处理系统，含任务调度面板
-- 📁 **S3 文件存储** — 通过 S3 兼容 API 统一处理文件上传/下载，支持本地磁盘缓存
-- 📊 **可观测性** — 结构化日志（Zap）+ 分布式链路追踪（OpenTelemetry）
-- 🎨 **现代化 UI** — 基于 Tailwind CSS 4 和 Shadcn UI 构建的响应式、支持深色模式的设计系统
-- 📖 **内置文档中心** — 集成文档门户，包含使用指南、接口文档、隐私政策和服务条款
+平台天然兼容 **OpenAI 音频转录 API 标准**，能够作为企业自建私有化转录集群的核心引擎，实现对 Whisper、FunASR、Qwen-ASR 等主流开源或专有语音模型的统一纳管、弹性调度与高并发作业处理。
 
-## 🏗️ 架构概览
+---
 
+## ✨ 核心特性
+
+- 🎙️ **完全兼容 OpenAI 转录标准**  
+  原生提供 `/api/v1/audio/transcriptions` 接口，入参与出参严格对齐 OpenAI 规范（支持 `json`、`verbose_json`、`text` 格式），现有基于 OpenAI SDK 的应用无缝平滑迁移。
+
+- ⚡ **分布式推理调度与拓扑弹性伸缩**  
+  控制面与算力面彻底解耦。支持任意数量的 Python 推理节点（Agent）主动通过 WebSocket 建立长连集群，动态感知 CPU、内存、GPU（NVIDIA VRAM）实时利用率，配合内置调度器实现智能路由与最优负载均衡。
+
+- 📡 **双向实时通道与流式响应**  
+  - **控制通道**：基于 WebSocket 的双向心跳、作业派发、模型热挂载与卸载信令机制；
+  - **日志通道**：基于 Server-Sent Events (SSE) 的实时转录进度及分块文本流式广播，告别轮询开销。
+
+- 🖥️ **现代化全功能管理控制台 (Web Console)**  
+  基于 Next.js 16 App Router、Tailwind CSS 4 与 Shadcn UI 打造。提供：
+  - **ASR 作业大厅**：平台全局转录任务实时多维过滤检索与状态机视图；
+  - **算力节点驾驶舱**：硬件实时遥测抽屉（CPU、RAM、GPU 占用及显存监控）；
+  - **模型热管控**：模型一键启停、节点模型定向挂载与动态卸载；
+  - **深度作业分析器 (Job Deep Inspector)**：单作业原声音频在线播放与下载、转录分词段落、原始结果 JSON 深度透视。
+
+- 💻 **全能且独立的命令行客户端 (Cyphr CLI)**  
+  独立的 Go 二进制程序（`bin/cyphr`，兼容别名 `transcribe`）：
+  - 本地智能音视频探测与自动 `ffmpeg` 无损抽流压缩；
+  - 异步任务一键提交并附带终端优雅加载条；
+  - 实时流式日志查看（支持 Ctrl+C 中断不影响后台任务执行）；
+  - 历史作业查询与转录文件本地导出。
+
+- 🔒 **严格的双轨正交安全隔离体系**  
+  - **用户凭据 (User Access Token)**：管理常规用户业务接口与 CLI 操作；
+  - **节点凭据 (Agent Node Token)**：控制面生成的强熵一次性密钥，服务端仅存 SHA-256 哈希，物理级杜绝横向越权。
+
+- 📦 **企业级通用文件对象存储 (Platform Ingest)**  
+  音频文件统一受控托管于平台级存储引擎（支持本地存储与各类 S3 兼容对象存储），杜绝孤岛临时文件落地，提供完整的存储生命周期管理与去重治理。
+
+---
+
+## 🏗️ 整体架构与流程
+
+### 2.1 拓扑架构
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│                        Cyphr 控制面集群                           │
+│                                                                  │
+│   ┌─────────────────────┐   ┌────────────────────────────────┐   │
+│   │  OpenAI API / Jobs  │   │     Node & Model Scheduler     │   │
+│   └──────────┬──────────┘   └───────────────┬────────────────┘   │
+│              │ (User Token)                 │ (Agent Token)      │
+└──────────────┼──────────────────────────────┼────────────────────┘
+               │                              │ (WebSocket + HTTP)
+       ┌───────┴────────┐                     ▼
+       │  用户接入层     │          ┌──────────────────────┐
+       │                │          │  Python Worker Nodes │
+       │ • Web Console  │          │                      │
+       │ • Cyphr CLI    │          │ • Node 01 (GPU A10)  │
+       │ • API Client   │          │ • Node 02 (GPU 4090) │
+       │ • OpenAI SDK   │          │ • Node 03 (CPU Only) │
+       └────────────────┘          └──────────────────────┘
 ```
-┌─────────────────┐    ┌─────────────────────────────┐    ┌─────────────────┐
-│   前端           │    │            后端              │    │   数据库         │
-│   (Next.js)     │◄──►│           (Go)               │◄──►│  (PostgreSQL)   │
-│                 │    │                              │    │                 │
-│ • React 19      │    │ • Gin HTTP 框架              │    │ • PostgreSQL    │
-│ • TypeScript    │    │ • GORM ORM                   │    │ • Redis 缓存    │
-│ • Tailwind 4    │    │ • 多认证源适配               │    │                 │
-│ • Shadcn UI     │    │ • AccessToken 中间件         │    │                 │
-│                 │    │ • Asynq 任务队列             │    │                 │
-│                 │    │ • OpenTelemetry 链路追踪     │    │                 │
-│                 │    │ • Swagger 接口文档           │    │                 │
-└─────────────────┘    └─────────────────────────────┘    └─────────────────┘
-                                      │
-                           ┌──────────┴──────────┐
-                           │   多进程 CLI 入口    │
-                           │  (Cobra + Viper)     │
-                           │ • api      (HTTP)    │
-                           │ • worker   (队列)    │
-                           │ • scheduler(定时)    │
-                           └─────────────────────┘
+
+### 2.2 核心作业时序图 (End-to-End Sequence)
+
+```text
+客户端 (Web / CLI)                 控制端 (Controller)                 推理节点 (Agent)
+     │                                     │                                  │
+     │                                     │<========= [WS Connect] ==========│ (节点凭据鉴权长连)
+     │                                     │<========= [WS Heartbeat] ========│ (实时上报 CPU/GPU/模型)
+     │                                     │                                  │
+     │── 1. 提交音频 (POST /api/v1/...) ───>│                                  │
+     │                                     │── 2. 受控入库 (Platform Storage) ─│
+     │                                     │── 3. 创建 Job (status=pending) ───│
+     │<── 4. 返回 Job ID ──────────────────│                                  │
+     │                                     │── 5. 调度器匹配就绪节点 ─────────│
+     │── 6. 订阅日志 (GET /jobs/:id/stream) >│                                  │
+     │                                     │════════ [WS: dispatch_job] ═════>│ (下发作业参数与媒体地址)
+     │                                     │                                  │── 7. 流式下载音频媒体
+     │                                     │<── 8. 分批上报日志 (POST /logs) ─│── 8. 启动模型多阶段推理
+     │<══ 9. SSE 实时推送日志与进度 ═══════│                                  │
+     │                                     │<── 10. 任务结算 (POST /complete) ─│── 10. 生成 OpenAI 结果
+     │                                     │── 11. 状态流转为 completed ──────│
+     │<══ 12. SSE 收到完成信号与最终文本 ══│                                  │
 ```
 
-## 🛠️ 技术栈
+---
 
-### 后端
-- **[Go 1.25+](https://go.dev/doc)** — 主语言
-- **[Gin](https://github.com/gin-gonic/gin)** — HTTP Web 框架
-- **[GORM](https://github.com/go-gorm/gorm)** — ORM，支持 PostgreSQL 和 ClickHouse
-- **[Redis](https://github.com/redis/redis)** — 缓存、Session 存储、任务队列后端
-- **[Asynq](https://github.com/hibiken/asynq)** — 分布式任务队列（Redis 驱动）
-- **[Cobra + Viper](https://github.com/spf13/cobra)** — CLI 入口 + 配置管理
-- **[OpenTelemetry](https://opentelemetry.io)** — 分布式链路追踪与可观测性
-- **[Zap](https://github.com/uber-go/zap)** — 结构化高性能日志
-- **[Swagger (Swaggo)](https://github.com/swaggo/swag)** — 自动生成 API 文档
-- **[AWS SDK v2](https://github.com/aws/aws-sdk-go-v2)** — S3 兼容文件存储
-- **[Snowflake](https://github.com/bwmarrin/snowflake)** — 分布式 ID 生成
+## 🛠️ 技术栈清单
 
-### 前端
-- **[Next.js 16](https://github.com/vercel/next.js)** — React 框架（App Router）
-- **[React 19](https://github.com/facebook/react)** — UI 库
-- **[TypeScript](https://github.com/microsoft/TypeScript)** — 类型安全
-- **[Tailwind CSS 4](https://github.com/tailwindlabs/tailwindcss)** — 原子化 CSS 框架
-- **[Shadcn UI](https://github.com/shadcn-ui/ui)** — 可访问、可组合的组件库
-- **[Lucide Icons](https://github.com/lucide-icons/lucide)** — 图标库
+| 层次 | 核心技术 | 说明 |
+| :--- | :--- | :--- |
+| **后端核心** | Go 1.25+, Gin, GORM | 高并发服务端、RESTful API、数据持久化 |
+| **微内核架构** | Cordis 插件体系, Go Submodules | 模块化解耦，面向 `contracts` 接口编程 |
+| **前端控制台** | Next.js 16 (Turbopack), React 19, TypeScript | 现代化响应式 Web 控制台与管理系统 |
+| **样式与组件** | Tailwind CSS 4, Shadcn UI, Motion | 精致现代的主题设计与动态流式交互 |
+| **国际化** | next-intl | 完整的中文 / 英文双语即时切换 |
+| **推理 Agent** | Python 3.12+, uv, psutil, pynvml | 异步高性能长连 Worker、系统硬件动态感知 |
+| **多媒体编解码** | FFmpeg / ffprobe | 音视频文件探测、无损重采样与格式压缩 |
+| **CLI 命令行** | Cobra, Viper | 独立轻量级跨平台二进制客户端 |
+| **数据与存储** | PostgreSQL, SQLite, S3 Compatible Store | 业务数据存储与分布式对象存储适配 |
 
-## 📋 环境要求
+---
+
+## 🚀 快速上手
+
+### 1. 环境准备
 
 - **Go** >= 1.25
-- **Node.js** >= 18.0
-- **PostgreSQL** >= 14
-- **Redis** >= 6.0
-- **pnpm** >= 8.0（推荐）
+- **Node.js** >= 18.0 & **pnpm** >= 9.0
+- **Python** >= 3.12 & [uv](https://docs.astral.sh/uv/) 包管理器
+- **FFmpeg**（可选，CLI 本地音频压缩转码必需）
 
-## 🚀 快速开始
-
-### 1. 克隆仓库
+### 2. 启动控制中心服务端与前端
 
 ```bash
-git clone https://github.com/Rain-kl/Wavelet.git refreshing
-cd refreshing
+# 1. 克隆代码仓库
+git clone https://github.com/Rain-kl/Cyphr.git
+cd Cyphr
+
+# 2. 配置环境变量
+cp .env.example .env
+
+# 3. 安装前端依赖
+cd frontend && pnpm install && cd ..
+
+# 4. 同时启动后端与前端开发服务
+make dev
 ```
 
-### 2. 配置环境
+服务启动后，打开浏览器访问：
+- **Web 控制台**：`http://localhost:3000`
+- **默认管理员账号**：`admin` / `admin123`
+- **后台 API 接口**：`http://localhost:8080`
+- **Swagger API 文档**：`http://localhost:8080/swagger/index.html`
+
+### 3. 部署并启动推理节点 (Agent)
+
+在 GPU 计算服务器或本地机器运行推理 Agent：
 
 ```bash
-cp config.example.yaml config.yaml
+# 进入 Agent 目录
+cd backend/agent
+
+# 使用 uv 快速同步环境与依赖
+uv sync
+
+# 配置 Agent 连接地址与节点 Token (在 Web 控制台「ASR 管理 -> 节点管理」中点击「创建节点」获取)
+export AGENT_SERVER_URL="http://localhost:8080"
+export AGENT_TOKEN="agt_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export AGENT_NODE_NAME="worker-node-01"
+
+# 启动推理 Agent
+uv run python -m src.main
 ```
+Agent 启动后会自动向控制中心发起 WebSocket 连接并上报硬件遥测信息。
 
-编辑 `config.yaml`，配置数据库和 Redis。OIDC 认证源统一在管理后台的系统设置页面运行时配置。
+### 4. 使用 Cyphr 命令行客户端 (CLI)
 
-### 3. 初始化数据库
+构建独立的 CLI 二进制文件：
 
 ```bash
-# 启动本地依赖服务（PostgreSQL + Redis）
-docker compose up -d
+# 编译命令行工具到 bin/cyphr
+make build-cli
 
-# 可选：同时启动 ClickHouse
-docker compose --profile clickhouse up -d
+# 登录控制中心并保存访问凭据 (在个人设置页获取 User Access Token)
+./bin/cyphr login --url http://localhost:8080 --token usr_your_personal_token
 
-# 如果使用外部 PostgreSQL，而不是 Docker 内置服务，则手动创建数据库
-createdb -h <主机> -p 5432 -U postgres refreshing
+# 查看集群可用模型
+./bin/cyphr models
 
-# 数据库表结构在首次启动时自动迁移，无需手动执行
+# 一键转录音视频文件（自动检测、压制并实时打印 SSE 日志）
+./bin/cyphr asr /path/to/meeting.mp4 --model mock-whisper-base
+
+# 查看历史转录作业
+./bin/cyphr jobs ls
 ```
 
-### 4. 启动后端
+---
+
+## 🔌 OpenAI 兼容接口调用示例
+
+Cyphr 服务端支持标准的 OpenAI 音频转录调用方式：
+
+### 示例 1：使用 cURL
 
 ```bash
-# 安装 Go 依赖
-go mod tidy
-
-# 生成 Swagger 接口文档
-make swagger
-
-# 启动 HTTP API 服务器
-go run main.go api
+curl -X POST http://localhost:8080/api/v1/audio/transcriptions \
+  -H "Authorization: Bearer <YOUR_USER_ACCESS_TOKEN>" \
+  -F "file=@/path/to/audio.mp3" \
+  -F "model=mock-whisper-base" \
+  -F "response_format=verbose_json"
 ```
 
-> 后端也支持独立运行 `scheduler` 和 `worker` 进程来处理异步任务：
-> ```bash
-> go run main.go scheduler   # 定时任务调度器
-> go run main.go worker      # Asynq 任务处理工作进程
-> ```
+### 示例 2：使用官方 OpenAI Python SDK
 
-### 5. 启动前端
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/api/v1",
+    api_key="<YOUR_USER_ACCESS_TOKEN>"
+)
+
+with open("meeting.wav", "rb") as audio_file:
+    transcript = client.audio.transcriptions.create(
+        model="mock-whisper-base",
+        file=audio_file,
+        response_format="verbose_json"
+    )
+
+print(transcript.text)
+```
+
+---
+
+## 📋 常用工程指令 (Makefile)
+
+项目根目录提供了全面的 Makefile 指令：
 
 ```bash
-cd frontend
-
-# 安装依赖
-pnpm install
-
-# 启动开发服务器（Turbopack）
-pnpm dev
+make dev             # 并行启动前端与后端开发服务
+make dev-b           # 单独启动后端服务 (go run main.go all)
+make dev-f           # 单独启动前端服务 (pnpm dev)
+make build-cli       # 构建独立的命令行客户端 bin/cyphr
+make build-backend   # 编译纯后端二进制 bin/cyphr
+make build-embedded  # 将前端静态产物整体内嵌打包入单一可执行文件 bin/cyphr
+make code-check      # 执行代码质量与架构合规性门禁 (Cordis 隔离性 + golangci-lint + tsc + eslint)
+make format          # 格式化所有后端 Go 代码与前端代码
+make swagger         # 根据后端注释重新生成 Swagger API 文档
 ```
 
-### 6. 访问应用
+---
 
-| 服务 | 地址 |
-|------|------|
-| 前端界面 | http://localhost:3000 |
-| Swagger 接口文档 | http://localhost:8000/swagger/index.html |
-| 健康检查 | http://localhost:8000/api/health |
+## 🗂️ 目录结构说明
 
-## ⚙️ 配置说明
-
-主要配置项（完整说明请参考 `config.example.yaml`）：
-
-| 配置项 | 说明 | 示例 |
-|--------|------|------|
-| `app.addr` | 后端监听地址 | `:8000` |
-| `database.host` | PostgreSQL 主机 | `127.0.0.1` |
-| `database.database` | 数据库名称 | `refreshing` |
-| `redis.host` | Redis 主机 | `127.0.0.1` |
-| `storage.endpoint` | S3 兼容存储端点 | `s3.amazonaws.com` |
-
-## 🔧 开发指南
-
-### 后端
-
-```bash
-# 运行 API 服务器
-go run main.go api
-
-# 运行定时任务调度器
-go run main.go scheduler
-
-# 运行异步任务工作进程
-go run main.go worker
-
-# 修改 Controller 后重新生成 Swagger 文档（必须执行）
-make swagger
-
-# 代码格式化与检查
-make tidy
+```text
+Cyphr/
+├── backend/                  # 后端工程根目录
+│   ├── cmd/                  # 命令行服务入口与子命令
+│   ├── core/                 # 微内核契约与插件运行时上下文
+│   ├── plugins/              # 核心业务域与基础设施插件
+│   ├── transcribe/           # Transcribe 专有业务域插件
+│   │   ├── plugins/svr/      # 控制中心插件 (Controller, Hub, Scheduler, DAO)
+│   │   ├── plugins/cli/      # 命令行工具实现代码 (Cobra commands, client)
+│   │   └── tests/            # 平台端到端 (E2E) 测试套件
+│   └── agent/                # 分布式推理节点实现 (Python 3.12+ / uv)
+├── frontend/                 # 前端工程根目录
+│   ├── app/                  # Next.js 16 App Router (用户工作台与管理员控制台)
+│   ├── components/           # UI 组件库 (Shadcn UI & 业务自定义组件)
+│   ├── lib/services/         # 前端 API 统一封装
+│   └── messages/             # 多语言国际化字典 (zh / en)
+├── docs/                     # 架构规格说明书与设计白皮书
+├── manifest/                 # 容器构建与部署配置文件 (Docker, Kubernetes)
+└── scripts/                  # 架构合规性检查与自动化工具脚本
 ```
 
-### 前端
+---
 
-```bash
-cd frontend
+## 📄 开源许可证
 
-# 开发模式（Turbopack）
-pnpm dev
-
-# 构建生产版本
-pnpm build
-
-# 启动生产服务器
-pnpm start
-
-# 代码 Lint 和格式化
-pnpm lint
-pnpm format
-```
-
-## 📁 项目结构
-
-```
-wavelet/
-├── main.go                  # 程序入口（委托给 internal/cmd）
-├── Makefile                 # 常用命令（swagger、tidy、license、cross-build）
-├── manifest/                # 项目清单与编排：docker 镜像构建、deploy (k8s)、config 配置（默认/覆盖）
-├── docs/                    # Swagger 自动生成文档
-├── frontend/                # Next.js 前端应用
-│   ├── app/                 # App Router 页面
-│   ├── components/          # React 组件（ui、common、layout）
-│   ├── lib/services/        # API 服务层
-│   └── types/               # TypeScript 类型定义
-└── internal/                # Go 后端（private）
-    ├── cmd/                 # CLI 命令（api、scheduler、worker）
-    ├── apps/                # 业务模块（oauth、user、admin、upload）
-    ├── model/               # GORM 实体与业务方法
-    ├── router/              # HTTP 路由注册
-    ├── task/                # 异步任务定义与工作进程
-    ├── db/                  # 数据库与 Redis 初始化
-    ├── storage/             # S3 文件存储抽象层
-    └── common/              # 公共工具与响应封装
-```
-
-## 📚 接口文档
-
-Swagger 接口文档在后端启动后自动可用：
-
-```
-http://localhost:8000/swagger/index.html
-```
-
-前端文档中心（路径 `/docs`）内置以下内容：
-- **使用指南** — 分步入门教程
-- **接口文档** — 详细接口说明
-- **隐私政策** — 隐私政策模板（请按需自定义）
-- **服务条款** — 服务条款模板
-
-## 🧪 测试
-
-```bash
-# 后端测试
-go test ./...
-
-# 前端 Lint
-cd frontend && pnpm lint
-```
-
-## 🚀 部署
-
-### 跨平台二进制编译
-
-一条命令构建全部 6 个平台的静态二进制文件（Linux / macOS / Windows × amd64 / arm64）。
-前端已内嵌到每个二进制文件中，无需单独部署。
-
-**前提条件：** 已安装 Docker 且启用 BuildKit（Docker 23+ 默认开启）。
-
-```bash
-# 构建全部 6 个二进制文件 → ./bin/
-make cross-build
-
-# 指定版本号
-make cross-build VERSION=v1.2.3
-
-# 只构建指定系统（两种架构均会构建）
-make cross-build GOOS=linux
-make cross-build GOOS=darwin
-make cross-build GOOS=windows
-
-# 只构建指定架构（所有系统均会构建）
-make cross-build GOARCH=amd64
-make cross-build GOARCH=arm64
-
-# 同时指定系统和架构 — 只生成单个文件
-make cross-build GOOS=linux GOARCH=arm64
-make cross-build GOOS=darwin GOARCH=amd64 VERSION=v1.2.3
-```
-
-输出到 `./bin/` 目录：
-
-| 文件名 | 平台 |
-|--------|------|
-| `wavelet_linux_amd64` | Linux x86-64 |
-| `wavelet_linux_arm64` | Linux ARM64 |
-| `wavelet_darwin_amd64` | macOS Intel |
-| `wavelet_darwin_arm64` | macOS Apple Silicon |
-| `wavelet_windows_amd64.exe` | Windows x86-64 |
-| `wavelet_windows_arm64.exe` | Windows ARM64 |
-
-> 版本号可通过 `wavelet --version` 在运行时查看。
-
-### Docker
-
-```bash
-# 构建镜像
-docker build -t refreshing .
-
-# 运行（通过卷挂载传入配置文件）
-docker run -d -p 8000:8000 \
-  -v $(pwd)/config.yaml:/app/config.yaml \
-  refreshing api
-```
-
-### 生产环境
-
-1. 构建前端资源：
-   ```bash
-   cd frontend && pnpm build
-   ```
-
-2. 编译后端程序：
-   ```bash
-   go build -o refreshing main.go
-   ```
-
-3. 配置生产环境的 `config.yaml`。
-
-4. 启动服务：
-   ```bash
-   ./refreshing api        # HTTP API
-   ./refreshing scheduler  # 定时调度器（可选）
-   ./refreshing worker     # 任务工作进程（可选）
-   ```
-
-## 🤝 贡献指南
-
-我们欢迎社区贡献！请在提交代码前阅读以下文档：
-
-- [贡献指南](CONTRIBUTING.md)
-- [行为准则](CODE_OF_CONDUCT.md)
-- [贡献者许可协议](CLA.md)
-
-### 贡献流程
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/your-feature`)
-3. 提交更改 (`git commit -am 'Add your feature'`)
-4. 推送到分支 (`git push origin feature/your-feature`)
-5. 创建 Pull Request
-
-## 📄 许可证
-
-本项目基于 [Apache 2.0 许可证](LICENSE) 开源。
+本项目基于 [Apache 2.0 License](./LICENSE) 协议开源。
