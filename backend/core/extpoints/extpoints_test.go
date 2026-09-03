@@ -379,7 +379,7 @@ func TestContextExtensionPointsIntegration(t *testing.T) {
 func TestExtensionPointsUnregister(t *testing.T) {
 	ctx := core.NewContext(context.Background())
 
-	// 1. Router unregister
+	// 1. Router unregister (routes, middlewares, whitelist)
 	rd := ctx.Router().GET("/temp", "temp_handler")
 	assert.Greater(t, rd.ID, uint64(0))
 	assert.Len(t, ctx.Router().Routes(), 1)
@@ -390,6 +390,20 @@ func TestExtensionPointsUnregister(t *testing.T) {
 	assert.Len(t, ctx.Router().Routes(), 1)
 	assert.True(t, ctx.Router().UnregisterByID(rd2.ID))
 	assert.Len(t, ctx.Router().Routes(), 0)
+
+	ctx.Router().Use("mw1")
+	assert.Len(t, ctx.Router().Middlewares(), 1)
+	if reg, ok := ctx.Router().(*extpoints.RouterRegistry); ok {
+		ids := reg.UseWithID("mw2")
+		assert.Len(t, ctx.Router().Middlewares(), 2)
+		assert.True(t, ctx.Router().UnregisterMiddlewareByID(ids[0]))
+		assert.Len(t, ctx.Router().Middlewares(), 1)
+	}
+
+	ctx.Router().RegisterWhitelist("/api/v1/temp/*")
+	assert.True(t, ctx.Router().IsWhitelisted("/api/v1/temp/item"))
+	ctx.Router().UnregisterWhitelist("/api/v1/temp/*")
+	assert.False(t, ctx.Router().IsWhitelisted("/api/v1/temp/item"))
 
 	// 2. Task unregister
 	ctx.Task().Register("temp:task", "handler")

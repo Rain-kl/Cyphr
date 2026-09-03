@@ -39,17 +39,26 @@ type RouterExtension interface {
 	Middlewares() []any
 	Unregister(method, path string) bool
 	UnregisterByID(id uint64) bool
+	UnregisterMiddlewareByID(id uint64) bool
 	RegisterWhitelist(patterns ...string)
+	UnregisterWhitelist(patterns ...string)
 	Whitelist() []string
 	IsWhitelisted(path string) bool
+}
+
+// middlewareDefinition holds an assigned ID and handler for registered middleware.
+type middlewareDefinition struct {
+	ID      uint64
+	Handler any
 }
 
 // RouterRegistry implements RouterExtension as the root route and middleware collector.
 type RouterRegistry struct {
 	mu          sync.RWMutex
 	nextID      uint64
+	nextMWID    uint64
 	routes      []RouteDefinition
-	middlewares []any
+	middlewares []middlewareDefinition
 	whitelist   PathWhitelist
 }
 
@@ -60,17 +69,48 @@ func NewRouterRegistry() *RouterRegistry {
 
 // Use registers global middlewares to the router.
 func (r *RouterRegistry) Use(middlewares ...any) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.middlewares = append(r.middlewares, middlewares...)
+	r.UseWithID(middlewares...)
 }
 
-// Middlewares returns a copy of registered root middlewares.
+// UseWithID registers global middlewares to the router and returns their assigned IDs.
+func (r *RouterRegistry) UseWithID(middlewares ...any) []uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	ids := make([]uint64, 0, len(middlewares))
+	for _, mw := range middlewares {
+		r.nextMWID++
+		r.middlewares = append(r.middlewares, middlewareDefinition{
+			ID:      r.nextMWID,
+			Handler: mw,
+		})
+		ids = append(ids, r.nextMWID)
+	}
+	return ids
+}
+
+// UnregisterMiddlewareByID removes a registered global middleware by its unique ID.
+func (r *RouterRegistry) UnregisterMiddlewareByID(id uint64) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for i, mw := range r.middlewares {
+		if mw.ID == id {
+			r.middlewares = append(r.middlewares[:i], r.middlewares[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// Middlewares returns a copy of registered root middleware handlers.
 func (r *RouterRegistry) Middlewares() []any {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	res := make([]any, len(r.middlewares))
-	copy(res, r.middlewares)
+	for i, mw := range r.middlewares {
+		res[i] = mw.Handler
+	}
 	return res
 }
 
@@ -196,6 +236,11 @@ func (r *RouterRegistry) RegisterWhitelist(patterns ...string) {
 	r.whitelist.Add(patterns...)
 }
 
+// UnregisterWhitelist removes path patterns from the whitelist.
+func (r *RouterRegistry) UnregisterWhitelist(patterns ...string) {
+	r.whitelist.Remove(patterns...)
+}
+
 // Whitelist returns a copy of all registered whitelist path patterns.
 func (r *RouterRegistry) Whitelist() []string {
 	return r.whitelist.Patterns()
@@ -267,6 +312,11 @@ func (g *RouterGroup) UnregisterByID(id uint64) bool {
 	return g.registry.UnregisterByID(id)
 }
 
+// UnregisterMiddlewareByID removes a middleware by ID via the root registry.
+func (g *RouterGroup) UnregisterMiddlewareByID(id uint64) bool {
+	return g.registry.UnregisterMiddlewareByID(id)
+}
+
 // GET registers a GET route in this group.
 func (g *RouterGroup) GET(path string, handlers ...any) RouteDefinition {
 	return g.Handle("GET", path, handlers...)
@@ -328,6 +378,13 @@ func (g *RouterGroup) Middlewares() []any {
 func (g *RouterGroup) RegisterWhitelist(patterns ...string) {
 	for _, p := range patterns {
 		g.registry.RegisterWhitelist(joinPaths(g.prefix, p))
+	}
+}
+
+// UnregisterWhitelist removes path patterns under this group prefix from the whitelist.
+func (g *RouterGroup) UnregisterWhitelist(patterns ...string) {
+	for _, p := range patterns {
+		g.registry.UnregisterWhitelist(joinPaths(g.prefix, p))
 	}
 }
 
@@ -463,6 +520,27 @@ func (w *PathWhitelist) Replace(patterns ...string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.patterns = compiled
+}
+
+// Remove removes matching patterns from the whitelist.
+func (w *PathWhitelist) Remove(patterns ...string) {
+	if len(patterns) == 0 {
+		return
+	}
+	targets := make(map[string]struct{}, len(patterns))
+	for _, p := range patterns {
+		targets[cleanPath(p)] = struct{}{}
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	filtered := w.patterns[:0]
+	for _, p := range w.patterns {
+		if _, remove := targets[p.raw]; !remove {
+			filtered = append(filtered, p)
+		}
+	}
+	w.patterns = filtered
 }
 
 // Match reports whether path matches any registered pattern. Equivalent to calling
