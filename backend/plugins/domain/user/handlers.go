@@ -441,6 +441,7 @@ func CreateAccessToken(c *gin.Context) {
 	}
 
 	token := AccessToken{
+		ID:          idgen.NextUint64ID(),
 		UserID:      userID,
 		Name:        req.Name,
 		TokenHash:   tokenHash,
@@ -454,8 +455,9 @@ func CreateAccessToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response.OK(gin.H{
-		"token":     token,
+		"token":     rawToken,
 		"raw_token": rawToken,
+		"record":    token,
 	}))
 }
 
@@ -535,7 +537,8 @@ func RotateAccessToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response.OK(gin.H{
-		"token":     token,
+		"token":     rawToken,
 		"raw_token": rawToken,
+		"record":    token,
 	}))
 }

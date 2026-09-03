@@ -33,7 +33,7 @@
 
 | 后端 API 路由 | 请求方法 | 功能说明 | 对应前端界面操作点 |
 | :--- | :--- | :--- | :--- |
-| `POST /v1/audio/transcriptions` | POST (Multipart) | 创建转录任务 (带 `X-Async: true`) | `/asr` 的「新建转录」弹窗提交 |
+| `POST /api/v1/audio/transcriptions` | POST (Multipart) | 创建转录任务 (带 `X-Async: true`) | `/asr` 的「新建转录」弹窗提交 |
 | `GET /api/v1/jobs` | GET | 分页查询当前用户任务列表 | `/asr` 的任务大盘数据表格 |
 | `GET /api/v1/jobs/:id` | GET | 查询单任务详情与转录文本 | `/asr/jobs/[id]` 详情与管理员详情抽屉 |
 | `GET /api/v1/jobs/:id/stream` | GET (SSE) | 实时消费任务日志与进度事件流 | `/asr/jobs/[id]` 实时控制台终端与运行中状态 |

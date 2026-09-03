@@ -85,7 +85,7 @@ func NewOpenAIHandler(jobSvc service.JobService, logBroker service.LogBroker, op
 	return h
 }
 
-// HandleTranscription handles POST /v1/audio/transcriptions and /api/v1/audio/transcriptions.
+// HandleTranscription handles POST /api/v1/audio/transcriptions.
 func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {

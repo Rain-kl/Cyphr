@@ -39,8 +39,8 @@ CLI (User)                   Controller (Server)                 Python Agent
     |                                 |                                |
     |--- 1. transcribe asr <file> --->|                                |
     |   (ffmpeg 本地提取转为 mp3)     |                                |
-    |   (POST /v1/audio/transcriptions|                                |
-    |    Header: X-Async: true)       |                                |
+    |   (POST /api/v1/audio/          |                                |
+    |    transcriptions, X-Async:true)|                                |
     |                                 |-- 2. 保存音频至 Storage        |
     |                                 |-- 3. 创建 Job (status=pending)-|
     |<-- 4. 返回 { "job_id": 10001 } -|                                |
@@ -74,7 +74,7 @@ CLI (User)                   Controller (Server)                 Python Agent
 - **验证机制**：基于 `contracts.AuthService.VerifyToken` 解析出当前操作的 `UserDTO`。
 - **作用范围**：
   - `CLI 工具`：`transcribe login` 输入并保存在本地配置。
-  - 用户接口：`POST /v1/audio/transcriptions`、`GET /api/v1/jobs`、`GET /api/v1/jobs/:id`、`GET /api/v1/jobs/:id/stream`、`GET /api/v1/models`。
+  - 用户接口：`POST /api/v1/audio/transcriptions`、`GET /api/v1/jobs`、`GET /api/v1/jobs/:id`、`GET /api/v1/jobs/:id/stream`、`GET /api/v1/models`。
 
 ### 3.2 节点侧凭据 (Agent Node Token)
 - **生成途径**：管理员在管理控制台（`/api/v1/controller/nodes`）点击「新增节点」时由服务端生成高熵密钥（格式为 `agt_<32位随机16进制>`）。
@@ -90,7 +90,7 @@ CLI (User)                   Controller (Server)                 Python Agent
 
 所有接口去除冗余的 `/transcribe` 前缀；管理端接口统一使用 `/controller/` 命名空间。
 
-### 4.1 OpenAI 兼容转录接口 (`POST /v1/audio/transcriptions`)
+### 4.1 OpenAI 兼容转录接口 (`POST /api/v1/audio/transcriptions`)
 - **请求方法**：`POST`
 - **鉴权**：User Access Token (`Authorization: Bearer <user_token>`)
 - **Content-Type**：`multipart/form-data`
@@ -505,7 +505,7 @@ controller/
 │   ├── admin_node_handler.go   # /api/v1/controller/nodes 相关 Handler
 │   ├── agent_handler.go        # /api/v1/agent/ws 及 HTTP 日志/完成 Handler
 │   ├── job_handler.go          # /api/v1/jobs 列表与 SSE /stream Handler
-│   └── openai_handler.go       # /v1/audio/transcriptions 兼容 Handler
+│   └── openai_handler.go       # /api/v1/audio/transcriptions 兼容 Handler
 ├── service/
 │   ├── hub/
 │   │   ├── agent_hub.go        # 内存长连管理池，心跳与保活看门狗
@@ -657,7 +657,7 @@ backend/agent/
          `ffmpeg -i <input> -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 48k <tmp.mp3>`
          将视频转为单声道 16kHz 优化的临时音频文件，极大降低网络带宽与上传耗时。
 2. **任务上传与提交**：
-   - 构造 multipart 表单，设置 Header `X-Async: true`，发起 `POST /v1/audio/transcriptions`；
+   - 构造 multipart 表单，设置 Header `X-Async: true`，发起 `POST /api/v1/audio/transcriptions`；
    - 获得 Controller 返回的 `job_id`，控制台打印：
      `✓ 任务已成功提交！Job ID: 10001`
      `正在连接实时日志流... (可随时按 Ctrl+C 退出，后台任务不会中断)`

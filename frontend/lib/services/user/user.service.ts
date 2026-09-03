@@ -1,8 +1,8 @@
 import { BaseService } from '../core/base.service';
 
 export interface AccessToken {
-  id: number;
-  user_id: number;
+  id: string | number;
+  user_id: string | number;
   name: string;
   masked_token: string;
   is_admin: boolean;
@@ -12,7 +12,8 @@ export interface AccessToken {
 
 export interface CreateTokenResponse {
   token: string;
-  record: AccessToken;
+  record?: AccessToken;
+  raw_token?: string;
 }
 
 /**
@@ -48,7 +49,7 @@ export class UserService extends BaseService {
    * 删除一个 AccessToken
    * @param id - 令牌 ID
    */
-  static async deleteAccessToken(id: number): Promise<string> {
+  static async deleteAccessToken(id: string | number): Promise<string> {
     return this.delete<string>(`/access-tokens/${id}`);
   }
 
@@ -56,7 +57,9 @@ export class UserService extends BaseService {
    * 轮换一个 AccessToken 密钥
    * @param id - 令牌 ID
    */
-  static async rotateAccessToken(id: number): Promise<CreateTokenResponse> {
+  static async rotateAccessToken(
+    id: string | number,
+  ): Promise<CreateTokenResponse> {
     return this.post<CreateTokenResponse>(`/access-tokens/${id}/rotate`);
   }
 }

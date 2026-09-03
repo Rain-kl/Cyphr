@@ -511,7 +511,7 @@ func TestE2E_FullAsyncPipeline(t *testing.T) {
 }
 
 // TestE2E_SynchronousTranscriptionPipeline tests the synchronous blocking mode
-// of /v1/audio/transcriptions where the caller blocks waiting for background agent completion.
+// of /api/v1/audio/transcriptions where the caller blocks waiting for background agent completion.
 func TestE2E_SynchronousTranscriptionPipeline(t *testing.T) {
 	env := setupE2EEnv(t)
 	defer env.server.Close()
@@ -598,10 +598,10 @@ func TestE2E_SynchronousTranscriptionPipeline(t *testing.T) {
 		}
 	}()
 
-	// 3. Synchronous POST /v1/audio/transcriptions (no X-Async header)
+	// 3. Synchronous POST /api/v1/audio/transcriptions (no X-Async header)
 	bodyBuf, contentType := createMultipartAudio(t, "sync_test.wav", []byte("audio payload"))
 
-	syncReq, err := http.NewRequest(http.MethodPost, env.server.URL+"/v1/audio/transcriptions", bodyBuf)
+	syncReq, err := http.NewRequest(http.MethodPost, env.server.URL+"/api/v1/audio/transcriptions", bodyBuf)
 	require.NoError(t, err)
 	syncReq.Header.Set("Content-Type", contentType)
 	syncReq.Header.Set("Authorization", "Bearer mock-e2e-user-token")

@@ -108,8 +108,8 @@ func TestClientOperations(t *testing.T) {
 		})
 	})
 
-	// POST /v1/audio/transcriptions
-	mux.HandleFunc("/v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
+	// POST /api/v1/audio/transcriptions
+	mux.HandleFunc("/api/v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
@@ -318,7 +318,7 @@ func TestCobraCommands(t *testing.T) {
 		})
 	})
 
-	mux.HandleFunc("/v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"error_msg": "",
 			"data": map[string]any{

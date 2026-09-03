@@ -31,7 +31,7 @@ export class TranscribeService extends BaseService {
 
     const response = await apiClient.post<
       ApiResponse<{ job_id: number; status: string }>
-    >('/v1/audio/transcriptions', formData, config);
+    >('/api/v1/audio/transcriptions', formData, config);
     return response.data.data;
   }
 

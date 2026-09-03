@@ -264,7 +264,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.WriteField("model", consts.DefaultModelName)
 		_ = writer.Close()
 
-		req, _ := http.NewRequest(http.MethodPost, "/v1/audio/transcriptions", body)
+		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		env.engine.ServeHTTP(w, req)
 
@@ -280,7 +280,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.WriteField("model", "nonexistent-model-xyz")
 		_ = writer.Close()
 
-		req, _ := http.NewRequest(http.MethodPost, "/v1/audio/transcriptions", body)
+		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		env.engine.ServeHTTP(w, req)
 
@@ -297,7 +297,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.WriteField("language", "zh")
 		_ = writer.Close()
 
-		req, _ := http.NewRequest(http.MethodPost, "/v1/audio/transcriptions", body)
+		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		req.Header.Set("X-Async", "true")
 		env.engine.ServeHTTP(w, req)
@@ -320,7 +320,7 @@ func TestOpenAIHandler_AsyncAndSync(t *testing.T) {
 		_ = writer.WriteField("response_format", "json")
 		_ = writer.Close()
 
-		req, _ := http.NewRequest(http.MethodPost, "/v1/audio/transcriptions", body)
+		req, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		// Goroutine simulating worker completion

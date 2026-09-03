@@ -13,7 +13,7 @@
 - 遵循 Cordis 微内核架构：插件间严禁非法直接 import 内部私有实现，面向 contracts 编程。
 - 遵循单一所有者原则：数据表使用 `t_` 前缀（`t_models`, `t_nodes`, `t_jobs`, `t_job_logs`），由 Controller 插件独占维护。
 - 禁止 GORM AutoMigrate，数据表结构统一由 Goose SQL 迁移维护并嵌入二进制。
-- API 路由规范：彻底移除 `/transcribe` 前缀；管理端使用 `/controller/` 命名空间；转录接口对齐 OpenAI `/v1/audio/transcriptions` 规范。
+- API 路由规范：彻底移除 `/transcribe` 前缀；管理端使用 `/controller/` 命名空间；转录接口使用 `/api/v1/audio/transcriptions`。
 - CLI 独立纯净构建：`make build-cli` 输出 `bin/transcribe`，严禁打包服务端重度依赖。
 - 提交规范：每个功能点完成后执行 Git commit，遵循 Conventional Commits：`<type>(<scope>): <subject>`，禁止 push 远程。
 
@@ -98,7 +98,7 @@
 
 **Files:**
 - Create: `backend/transcribe/plugins/svr/controller/middleware.go` (Agent Token 鉴权中间件)
-- Create: `backend/transcribe/plugins/svr/controller/openai_handler.go` (`POST /v1/audio/transcriptions`)
+- Create: `backend/transcribe/plugins/svr/controller/openai_handler.go` (`POST /api/v1/audio/transcriptions`)
 - Create: `backend/transcribe/plugins/svr/controller/job_handler.go` (`GET /api/v1/jobs`, `GET /api/v1/jobs/:id`, `GET /api/v1/jobs/:id/stream`)
 - Create: `backend/transcribe/plugins/svr/controller/agent_handler.go` (`GET /api/v1/agent/ws`, `GET /api/v1/agent/jobs/:id/media`, `POST /api/v1/agent/jobs/:id/logs`, `POST /api/v1/agent/jobs/:id/complete`)
 - Create: `backend/transcribe/plugins/svr/controller/controller_node_handler.go` (`GET /api/v1/controller/nodes`, `POST /api/v1/controller/nodes`, `POST /api/v1/controller/nodes/:id/load-model`, `POST /api/v1/controller/nodes/:id/unload-model`)

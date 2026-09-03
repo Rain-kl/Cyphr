@@ -280,7 +280,7 @@ func (c *Client) SubmitTranscription(ctx context.Context, req TranscriptionReque
 		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	httpReq, err := c.newRequest(ctx, http.MethodPost, "/v1/audio/transcriptions", bodyBuf)
+	httpReq, err := c.newRequest(ctx, http.MethodPost, "/api/v1/audio/transcriptions", bodyBuf)
 	if err != nil {
 		return nil, err
 	}
