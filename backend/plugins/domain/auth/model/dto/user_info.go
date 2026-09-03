@@ -48,7 +48,7 @@ func BuildBasicUserInfo(user *contracts.UserDTO, needChange bool) BasicUserInfo 
 
 // LoginRequiredAuditLog 审计日志结构体
 type LoginRequiredAuditLog struct {
-	UserID     uint64 `json:"user_id"`
+	UserID     uint64 `json:"user_id,string"`
 	Username   string `json:"username"`
 	ClientIP   string `json:"client_ip"`
 	Method     string `json:"method"`

@@ -10,7 +10,7 @@ import "encoding/json"
 type OAuthStatePayload struct {
 	SourceName  string `json:"source_name"`
 	Purpose     string `json:"purpose"`
-	UserID      uint64 `json:"user_id,omitempty"`
+	UserID      uint64 `json:"user_id,string,omitempty"`
 	SessionHash string `json:"session_hash"`
 }
 

@@ -16,7 +16,7 @@ var authSourceNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$
 
 // AuthSource 认证源实体
 type AuthSource struct {
-	ID                     uint64    `json:"id" gorm:"primaryKey"`
+	ID                     uint64    `json:"id,string" gorm:"primaryKey"`
 	Name                   string    `json:"name" gorm:"uniqueIndex;size:80;not null"`
 	Type                   string    `json:"type" gorm:"size:20;not null"`
 	DisplayName            string    `json:"display_name" gorm:"size:100"`

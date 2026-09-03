@@ -6,7 +6,7 @@ package do
 
 // CachedToken represents the minimal cached representation of an access token.
 type CachedToken struct {
-	ID      uint64 `json:"id"`
-	UserID  uint64 `json:"user_id"`
+	ID      uint64 `json:"id,string"`
+	UserID  uint64 `json:"user_id,string"`
 	IsAdmin bool   `json:"is_admin"`
 }

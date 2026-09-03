@@ -19,8 +19,8 @@ type AccessLogFilterDTO struct {
 
 // AccessLogDTO represents a single access log entry.
 type AccessLogDTO struct {
-	ID        uint64    `json:"id"`
-	UserID    uint64    `json:"user_id"`
+	ID        uint64    `json:"id,string"`
+	UserID    uint64    `json:"user_id,string"`
 	IP        string    `json:"ip"`
 	UserAgent string    `json:"user_agent"`
 	Method    string    `json:"method"`

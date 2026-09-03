@@ -31,7 +31,7 @@ type UserDTO struct {
 
 // OAuthUserInfoDTO contains user identity claims obtained from an OAuth provider.
 type OAuthUserInfoDTO struct {
-	ID                uint64 `json:"id"`
+	ID                uint64 `json:"id,string"`
 	Sub               string `json:"sub"`
 	Username          string `json:"username"`
 	PreferredUsername string `json:"preferred_username"`

@@ -6,7 +6,7 @@ package dto
 
 // AuthSourceView 登录源展示信息
 type AuthSourceView struct {
-	ID                     uint64 `json:"id"`
+	ID                     uint64 `json:"id,string"`
 	Name                   string `json:"name"`
 	Type                   string `json:"type"`
 	DisplayName            string `json:"display_name"`
@@ -34,8 +34,8 @@ type CallbackRequest struct {
 
 // ExternalAccountView 外部帐号绑定视图（脱敏展示用）
 type ExternalAccountView struct {
-	ID               uint64 `json:"id"`
-	AuthSourceID     uint64 `json:"auth_source_id"`
+	ID               uint64 `json:"id,string"`
+	AuthSourceID     uint64 `json:"auth_source_id,string"`
 	AuthSourceName   string `json:"auth_source_name"`
 	AuthSourceType   string `json:"auth_source_type"`
 	AuthSourceLabel  string `json:"auth_source_label"`

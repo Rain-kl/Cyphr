@@ -47,8 +47,8 @@ func (m *UploadMetadataDTO) Scan(value any) error {
 
 // UploadDTO represents an uploaded file record.
 type UploadDTO struct {
-	ID        uint64            `json:"id"`
-	UserID    uint64            `json:"user_id"`
+	ID        uint64            `json:"id,string"`
+	UserID    uint64            `json:"user_id,string"`
 	FileName  string            `json:"file_name"`
 	FilePath  string            `json:"file_path"`
 	MimeType  string            `json:"mime_type"`
