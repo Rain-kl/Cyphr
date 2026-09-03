@@ -28,6 +28,7 @@ import {
   UserMessageGatewayService,
 } from './message-gateway';
 import { PushService } from './push';
+import { AdminTranscribeService, TranscribeService } from './transcribe';
 import { AdminUploadService, UploadService } from './upload';
 import { UserService } from './user';
 
@@ -49,6 +50,8 @@ const services = {
   push: PushService,
   adminMessageGateway: AdminMessageGatewayService,
   userMessageGateway: UserMessageGatewayService,
+  transcribe: TranscribeService,
+  adminTranscribe: AdminTranscribeService,
 } as const;
 
 export default services;
@@ -195,3 +198,19 @@ export type {
   UpdatePushEventRequest,
   TestPushRequest,
 } from './push';
+export {
+  TranscribeService,
+  AdminTranscribeService,
+} from './transcribe';
+export type {
+  ModelDTO,
+  NodeDTO,
+  NodeCreatedDTO,
+  JobDTO,
+  JobListDTO,
+  LogMessage,
+  TranscriptSegment,
+  VerboseJSONResult,
+  ListJobsParams,
+  ListAllJobsParams,
+} from './transcribe';

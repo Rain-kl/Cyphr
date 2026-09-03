@@ -45,9 +45,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   ArrowUpRight,
+  AudioWaveform,
   Bell,
   ChevronDown,
   Code,
+  Cpu,
   CreditCard,
   Database,
   FileQuestionMark,
@@ -76,11 +78,13 @@ type NavItem = {
 
 const navMainItems: NavItem[] = [
   { titleKey: 'home', url: '/home', icon: Home },
+  { titleKey: 'asr', url: '/asr', icon: AudioWaveform },
   { titleKey: 'myFiles', url: '/files', icon: FolderOpen },
 ];
 
 const adminItems: NavItem[] = [
   { titleKey: 'users', url: '/admin/users', icon: UserRound },
+  { titleKey: 'adminAsr', url: '/admin/asr', icon: Cpu },
   { titleKey: 'tasks', url: '/admin/tasks', icon: Layers },
   { titleKey: 'storage', url: '/admin/files', icon: FolderOpen },
   { titleKey: 'database', url: '/admin/database', icon: Database },
