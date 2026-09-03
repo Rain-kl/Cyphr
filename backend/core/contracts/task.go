@@ -71,11 +71,6 @@ type TaskExecutionDTO struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
-// TableName returns the default table name for TaskExecutionDTO.
-func (TaskExecutionDTO) TableName() string {
-	return "w_task_executions"
-}
-
 // Canonical triggered_by values persisted on task executions and shown in admin UI.
 const (
 	TaskTriggerSystem   = "system"

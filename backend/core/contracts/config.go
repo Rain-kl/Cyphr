@@ -10,18 +10,13 @@ import (
 
 // SystemConfigDTO represents a system configuration key-value entry.
 type SystemConfigDTO struct {
-	Key         string    `json:"key" gorm:"primaryKey;column:key;size:255"`
-	Value       string    `json:"value" gorm:"column:value;type:text"`
-	Type        string    `json:"type" gorm:"column:type;size:50"`
-	Visibility  int       `json:"visibility" gorm:"column:visibility"`
-	Description string    `json:"description" gorm:"column:description;size:500"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"column:updated_at"`
-	CreatedAt   time.Time `json:"created_at" gorm:"column:created_at"`
-}
-
-// TableName returns the default table name for SystemConfigDTO.
-func (SystemConfigDTO) TableName() string {
-	return "w_system_configs"
+	Key         string    `json:"key"`
+	Value       string    `json:"value"`
+	Type        string    `json:"type"`
+	Visibility  int       `json:"visibility"`
+	Description string    `json:"description"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // SystemConfigService defines the unified contract for querying and mutating system configurations.
