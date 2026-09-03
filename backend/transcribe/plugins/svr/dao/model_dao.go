@@ -15,6 +15,8 @@ import (
 type ModelDAO interface {
 	GetByName(ctx context.Context, name string) (*entity.ModelEntity, error)
 	ListActive(ctx context.Context, keyword ...string) ([]entity.ModelEntity, error)
+	ListAll(ctx context.Context, keyword ...string) ([]entity.ModelEntity, error)
+	UpdateStatus(ctx context.Context, id uint64, isActive bool) error
 	Create(ctx context.Context, model *entity.ModelEntity) error
 }
 
@@ -39,10 +41,12 @@ func (d *GormModelDAO) GetByName(ctx context.Context, name string) (*entity.Mode
 	return &m, nil
 }
 
-// ListActive lists all active models, with optional keyword filtering.
-func (d *GormModelDAO) ListActive(ctx context.Context, keyword ...string) ([]entity.ModelEntity, error) {
+func (d *GormModelDAO) findModels(ctx context.Context, onlyActive bool, keyword ...string) ([]entity.ModelEntity, error) {
 	var list []entity.ModelEntity
-	query := d.db.WithContext(ctx).Where("is_active = ?", true)
+	query := d.db.WithContext(ctx).Model(&entity.ModelEntity{})
+	if onlyActive {
+		query = query.Where("is_active = ?", true)
+	}
 	if len(keyword) > 0 && keyword[0] != "" {
 		escaped := util.EscapeLike(keyword[0])
 		query = query.Where("name LIKE ? ESCAPE '\\'", "%"+escaped+"%")
@@ -51,6 +55,28 @@ func (d *GormModelDAO) ListActive(ctx context.Context, keyword ...string) ([]ent
 		return nil, err
 	}
 	return list, nil
+}
+
+// ListActive lists all active models, with optional keyword filtering.
+func (d *GormModelDAO) ListActive(ctx context.Context, keyword ...string) ([]entity.ModelEntity, error) {
+	return d.findModels(ctx, true, keyword...)
+}
+
+// ListAll lists all models with optional keyword filtering.
+func (d *GormModelDAO) ListAll(ctx context.Context, keyword ...string) ([]entity.ModelEntity, error) {
+	return d.findModels(ctx, false, keyword...)
+}
+
+// UpdateStatus updates the active status of a model.
+func (d *GormModelDAO) UpdateStatus(ctx context.Context, id uint64, isActive bool) error {
+	res := d.db.WithContext(ctx).Model(&entity.ModelEntity{}).Where("id = ?", id).Update("is_active", isActive)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return mapNotFound(gorm.ErrRecordNotFound)
+	}
+	return nil
 }
 
 // Create inserts a new model.

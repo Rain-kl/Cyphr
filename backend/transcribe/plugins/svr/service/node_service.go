@@ -30,6 +30,7 @@ type NodeService interface {
 	GetNode(ctx context.Context, id uint64) (*do.NodeDTO, error)
 	ListNodes(ctx context.Context, keyword ...string) ([]do.NodeDTO, error)
 	UpdateLastSeen(ctx context.Context, id uint64, ip string) error
+	DeleteNode(ctx context.Context, id uint64) error
 }
 
 // DefaultNodeService implements NodeService.
@@ -124,6 +125,14 @@ func (s *DefaultNodeService) ListNodes(ctx context.Context, keyword ...string) (
 // UpdateLastSeen updates the node's last active timestamp and IP address.
 func (s *DefaultNodeService) UpdateLastSeen(ctx context.Context, id uint64, ip string) error {
 	return s.nodeDAO.UpdateLastSeen(ctx, id, ip)
+}
+
+// DeleteNode removes a node by ID and unregisters active session if online.
+func (s *DefaultNodeService) DeleteNode(ctx context.Context, id uint64) error {
+	if s.agentHub != nil {
+		s.agentHub.UnregisterSession(id)
+	}
+	return s.nodeDAO.Delete(ctx, id)
 }
 
 func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {

@@ -235,7 +235,22 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 	{
 		nodeGroup.GET("", c.Node.ListNodes)
 		nodeGroup.POST("", c.Node.CreateNode)
+		nodeGroup.GET("/:id", c.Node.GetNode)
+		nodeGroup.DELETE("/:id", c.Node.DeleteNode)
 		nodeGroup.POST("/:id/load-model", c.Node.LoadModel)
 		nodeGroup.POST("/:id/unload-model", c.Node.UnloadModel)
+	}
+
+	// 7. Controller model management endpoints
+	modelCtrlGroup := router.Group("/api/v1/controller/models", userAuthMW)
+	{
+		modelCtrlGroup.GET("", c.Model.ListAllModels)
+		modelCtrlGroup.PUT("/:id/status", c.Model.ToggleModelStatus)
+	}
+
+	// 8. Controller all jobs endpoint
+	jobCtrlGroup := router.Group("/api/v1/controller/jobs", userAuthMW)
+	{
+		jobCtrlGroup.GET("", c.Job.ListAllJobs)
 	}
 }

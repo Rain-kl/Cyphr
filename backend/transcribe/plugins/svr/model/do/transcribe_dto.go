@@ -17,6 +17,11 @@ type ModelDTO struct {
 	UpdatedAt   time.Time `json:"updated_at,omitempty"`
 }
 
+// ToggleModelStatusRequest represents model status update payload.
+type ToggleModelStatusRequest struct {
+	IsActive bool `json:"is_active"`
+}
+
 // SystemStatsDTO holds hardware/system utilization stats.
 type SystemStatsDTO struct {
 	CPUPercent       float64 `json:"cpu_percent"`

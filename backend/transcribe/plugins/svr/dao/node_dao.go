@@ -19,6 +19,7 @@ type NodeDAO interface {
 	ListAll(ctx context.Context, keyword ...string) ([]entity.NodeEntity, error)
 	Create(ctx context.Context, node *entity.NodeEntity) error
 	UpdateLastSeen(ctx context.Context, id uint64, ip string) error
+	Delete(ctx context.Context, id uint64) error
 }
 
 // GormNodeDAO implements NodeDAO using GORM.
@@ -83,6 +84,18 @@ func (d *GormNodeDAO) UpdateLastSeen(ctx context.Context, id uint64, ip string) 
 		updates["last_ip"] = ip
 	}
 	res := d.db.WithContext(ctx).Model(&entity.NodeEntity{}).Where("id = ?", id).Updates(updates)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return mapNotFound(gorm.ErrRecordNotFound)
+	}
+	return nil
+}
+
+// Delete removes a node record by ID.
+func (d *GormNodeDAO) Delete(ctx context.Context, id uint64) error {
+	res := d.db.WithContext(ctx).Where("id = ?", id).Delete(&entity.NodeEntity{})
 	if res.Error != nil {
 		return res.Error
 	}

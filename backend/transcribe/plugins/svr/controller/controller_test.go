@@ -412,6 +412,45 @@ func TestModelHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Data)
 	assert.Equal(t, consts.DefaultModelName, resp.Data[0].Name)
+
+	t.Run("GET /api/v1/controller/models lists all models", func(t *testing.T) {
+		w2 := httptest.NewRecorder()
+		req2, _ := http.NewRequest(http.MethodGet, "/api/v1/controller/models", nil)
+		engine := gin.New()
+		engine.GET("/api/v1/controller/models", env.ctrl.Model.ListAllModels)
+		engine.ServeHTTP(w2, req2)
+
+		assert.Equal(t, http.StatusOK, w2.Code)
+		var resp2 response.Response[[]do.ModelDTO]
+		err2 := json.Unmarshal(w2.Body.Bytes(), &resp2)
+		require.NoError(t, err2)
+		require.NotEmpty(t, resp2.Data)
+	})
+
+	t.Run("PUT /api/v1/controller/models/:id/status toggles model active state", func(t *testing.T) {
+		modelID := resp.Data[0].ID
+		engine := gin.New()
+		engine.PUT("/api/v1/controller/models/:id/status", env.ctrl.Model.ToggleModelStatus)
+
+		// Disable model
+		w3 := httptest.NewRecorder()
+		req3, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/controller/models/%d/status", modelID), strings.NewReader(`{"is_active": false}`))
+		req3.Header.Set("Content-Type", "application/json")
+		engine.ServeHTTP(w3, req3)
+		assert.Equal(t, http.StatusOK, w3.Code)
+
+		// Check status in DB
+		m, err := env.modelDAO.GetByName(context.Background(), resp.Data[0].Name)
+		require.NoError(t, err)
+		assert.False(t, m.IsActive)
+
+		// Re-enable model
+		w4 := httptest.NewRecorder()
+		req4, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/controller/models/%d/status", modelID), strings.NewReader(`{"is_active": true}`))
+		req4.Header.Set("Content-Type", "application/json")
+		engine.ServeHTTP(w4, req4)
+		assert.Equal(t, http.StatusOK, w4.Code)
+	})
 }
 
 // ─── Job Handler & SSE Streaming Tests ────────────────────────────────────────
@@ -503,6 +542,22 @@ func TestJobHandler_ListAndDetail(t *testing.T) {
 
 		assert.Equal(t, http.StatusForbidden, w.Code)
 		assert.Contains(t, w.Body.String(), consts.ErrForbidden)
+	})
+
+	t.Run("GET /api/v1/controller/jobs lists jobs across all users for admin", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, "/api/v1/controller/jobs?page=1&page_size=10", nil)
+
+		engine := gin.New()
+		engine.Use(response.ErrorHandlerMiddleware())
+		engine.GET("/api/v1/controller/jobs", env.ctrl.Job.ListAllJobs)
+		engine.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp response.Response[do.JobListDTO]
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		assert.True(t, resp.Data.Total >= 2)
 	})
 }
 
@@ -659,6 +714,38 @@ func TestControllerNodeHandler(t *testing.T) {
 		engine.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
 		require.Len(t, mockConn.getSentMessages(), 2)
+	})
+
+	t.Run("get node details and delete node", func(t *testing.T) {
+		node, _, err := env.nodeSvc.CreateNode(ctx, "temp-delete-node")
+		require.NoError(t, err)
+
+		engine := gin.New()
+		engine.Use(response.ErrorHandlerMiddleware())
+		engine.GET("/api/v1/controller/nodes/:id", env.ctrl.Node.GetNode)
+		engine.DELETE("/api/v1/controller/nodes/:id", env.ctrl.Node.DeleteNode)
+
+		// 1. GET node details -> 200
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/controller/nodes/%d", node.ID), nil)
+		engine.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		var getResp response.Response[do.NodeDTO]
+		err = json.Unmarshal(w.Body.Bytes(), &getResp)
+		require.NoError(t, err)
+		assert.Equal(t, "temp-delete-node", getResp.Data.Name)
+
+		// 2. DELETE node -> 200
+		w = httptest.NewRecorder()
+		req, _ = http.NewRequest(http.MethodDelete, fmt.Sprintf("/api/v1/controller/nodes/%d", node.ID), nil)
+		engine.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		// 3. GET deleted node -> 404
+		w = httptest.NewRecorder()
+		req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/controller/nodes/%d", node.ID), nil)
+		engine.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 }
 

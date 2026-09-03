@@ -27,4 +27,5 @@ const (
 	ErrMediaNotFound        = "errMediaNotFound"
 	ErrStreamingUnsupported = "errStreamingUnsupported"
 	ErrForbidden            = "errForbidden"
+	ErrNotFound             = "errNotFound"
 )

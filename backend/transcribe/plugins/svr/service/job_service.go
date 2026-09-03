@@ -24,6 +24,7 @@ type JobService interface {
 	CreateJob(ctx context.Context, req *do.CreateJobRequest) (*do.JobDTO, error)
 	GetJobDetail(ctx context.Context, id uint64) (*do.JobDTO, error)
 	ListJobs(ctx context.Context, uid uint64, page, size int, status ...string) (*do.JobListDTO, error)
+	ListAllJobs(ctx context.Context, page, size int, status string, nodeID, userID uint64, keyword ...string) (*do.JobListDTO, error)
 	AppendLogs(ctx context.Context, jobID uint64, req *do.AgentLogBatchRequest) error
 	GetJobLogs(ctx context.Context, jobID uint64) ([]do.LogMessage, error)
 	CompleteJob(ctx context.Context, jobID uint64, req *do.AgentCompleteRequest) error
@@ -135,6 +136,34 @@ func (s *DefaultJobService) ListJobs(ctx context.Context, uid uint64, page, size
 	}
 
 	jobs, total, err := s.jobDAO.ListByUserID(ctx, uid, page, size, st)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]do.JobDTO, 0, len(jobs))
+	for i := range jobs {
+		dto := s.toJobDTO(&jobs[i])
+		items = append(items, *dto)
+	}
+
+	return &do.JobListDTO{
+		Items:    items,
+		Total:    total,
+		Page:     page,
+		PageSize: size,
+	}, nil
+}
+
+// ListAllJobs lists jobs across all users with filters for admin inspection.
+func (s *DefaultJobService) ListAllJobs(ctx context.Context, page, size int, status string, nodeID, userID uint64, keyword ...string) (*do.JobListDTO, error) {
+	if page < 1 {
+		page = 1
+	}
+	if size <= 0 {
+		size = 20
+	}
+
+	jobs, total, err := s.jobDAO.ListAll(ctx, page, size, status, nodeID, userID, keyword...)
 	if err != nil {
 		return nil, err
 	}

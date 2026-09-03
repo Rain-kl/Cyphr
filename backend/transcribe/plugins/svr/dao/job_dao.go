@@ -20,6 +20,7 @@ type JobDAO interface {
 	Create(ctx context.Context, job *entity.JobEntity) error
 	GetByID(ctx context.Context, id uint64) (*entity.JobEntity, error)
 	ListByUserID(ctx context.Context, uid uint64, page, size int, status string, keyword ...string) ([]entity.JobEntity, int64, error)
+	ListAll(ctx context.Context, page, size int, status string, nodeID, userID uint64, keyword ...string) ([]entity.JobEntity, int64, error)
 	UpdateStatus(ctx context.Context, id uint64, status string) error
 	AppendLogs(ctx context.Context, jobID uint64, logs []entity.JobLogEntity) error
 	GetLogsByJobID(ctx context.Context, jobID uint64) ([]entity.JobLogEntity, error)
@@ -74,9 +75,50 @@ func (d *GormJobDAO) ListByUserID(ctx context.Context, uid uint64, page, size in
 	}
 	offset := (page - 1) * size
 
-	query := d.db.WithContext(ctx).Model(&entity.JobEntity{}).Where("user_id = ?", uid)
+	query := d.db.WithContext(ctx).Model(&entity.JobEntity{})
+	if uid > 0 {
+		query = query.Where("user_id = ?", uid)
+	}
 	if status != "" {
 		query = query.Where("status = ?", status)
+	}
+	if len(keyword) > 0 && keyword[0] != "" {
+		escaped := util.EscapeLike(keyword[0])
+		query = query.Where("original_file_name LIKE ? ESCAPE '\\'", "%"+escaped+"%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var list []entity.JobEntity
+	if err := query.Order("id DESC").Offset(offset).Limit(size).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return list, total, nil
+}
+
+// ListAll lists jobs across all users with pagination and optional filters.
+func (d *GormJobDAO) ListAll(ctx context.Context, page, size int, status string, nodeID, userID uint64, keyword ...string) ([]entity.JobEntity, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if size <= 0 {
+		size = 20
+	}
+	offset := (page - 1) * size
+
+	query := d.db.WithContext(ctx).Model(&entity.JobEntity{})
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if nodeID > 0 {
+		query = query.Where("node_id = ?", nodeID)
+	}
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
 	}
 	if len(keyword) > 0 && keyword[0] != "" {
 		escaped := util.EscapeLike(keyword[0])

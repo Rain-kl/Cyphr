@@ -63,6 +63,41 @@ func (h *JobHandler) ListJobs(c *gin.Context) {
 	c.JSON(http.StatusOK, response.OK(jobs))
 }
 
+// ListAllJobs handles GET /api/v1/controller/jobs, returning paginated jobs across all users for admin.
+func (h *JobHandler) ListAllJobs(c *gin.Context) {
+	page := 1
+	if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
+		page = p
+	}
+
+	pageSize := 20
+	if ps, err := strconv.Atoi(c.Query("page_size")); err == nil && ps > 0 {
+		pageSize = ps
+	}
+
+	status := c.Query("status")
+	keyword := c.Query("keyword")
+
+	var nodeID uint64
+	if nid, err := strconv.ParseUint(c.Query("node_id"), 10, 64); err == nil {
+		nodeID = nid
+	}
+
+	var userID uint64
+	if uid, err := strconv.ParseUint(c.Query("user_id"), 10, 64); err == nil {
+		userID = uid
+	}
+
+	jobs, err := h.jobService.ListAllJobs(c.Request.Context(), page, pageSize, status, nodeID, userID, keyword)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[JobHandler] list all jobs failed: %v", err)
+		response.AbortInternal(c, consts.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(jobs))
+}
+
 func isJobAccessible(c *gin.Context, authSvc contracts.AuthService, jobUserID, currentUID uint64) bool {
 	if jobUserID == 0 {
 		return true

@@ -10,6 +10,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/model/do"
 	"Wavelet/transcribe/plugins/svr/service"
 	"Wavelet/transcribe/plugins/svr/service/hub"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -66,6 +67,45 @@ func (h *NodeHandler) CreateNode(c *gin.Context) {
 		TokenPrefix: nodeDTO.TokenPrefix,
 		CreatedAt:   nodeDTO.CreatedAt,
 	}))
+}
+
+// GetNode handles GET /api/v1/controller/nodes/:id, returning detailed node info.
+func (h *NodeHandler) GetNode(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	nodeDTO, err := h.nodeService.GetNode(c.Request.Context(), nodeID)
+	if err != nil {
+		if errors.Is(err, consts.ErrNodeNotFound) {
+			response.AbortNotFound(c, consts.ErrNotFound)
+			return
+		}
+		logger.ErrorF(c.Request.Context(), "[NodeHandler] get node failed: %v", err)
+		response.AbortInternal(c, consts.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(nodeDTO))
+}
+
+// DeleteNode handles DELETE /api/v1/controller/nodes/:id, deleting a node and evicting sessions.
+func (h *NodeHandler) DeleteNode(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	if err := h.nodeService.DeleteNode(c.Request.Context(), nodeID); err != nil {
+		logger.ErrorF(c.Request.Context(), "[NodeHandler] delete node failed: %v", err)
+		response.AbortInternal(c, consts.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OKNil())
 }
 
 func (h *NodeHandler) sendModelCommand(c *gin.Context, action string) {
