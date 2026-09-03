@@ -83,7 +83,7 @@ func loggerMiddleware() gin.HandlerFunc {
 		// 排除健康检查接口
 		healthPath := getAPIPrefix() + "/health"
 		if c.Request.URL.Path != healthPath {
-			logger.InfoF(
+			logger.DebugF(
 				ctx,
 				"[LoggerMiddleware] %s %s\nStartTime: %s\nEndTime: %s\nLatency: %d\nClientIP: %s\nResponse: %d %d",
 				c.Request.Method,
