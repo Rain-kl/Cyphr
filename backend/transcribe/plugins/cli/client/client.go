@@ -25,6 +25,9 @@ import (
 const (
 	defaultHTTPTimeout = 60 * time.Second
 
+	scannerInitBufferSize = 64 * 1024
+	scannerMaxTokenSize   = 10 * 1024 * 1024
+
 	// StatusPending represents a pending job status.
 	StatusPending = "pending"
 	// StatusRunning represents an actively running job status.
@@ -79,12 +82,13 @@ type JobListResponse struct {
 
 // TranscriptionRequest specifies parameters for submitting a transcription job.
 type TranscriptionRequest struct {
-	FilePath       string
-	Model          string
-	Language       string
-	Prompt         string
-	ResponseFormat string
-	Temperature    *float64
+	FilePath         string
+	OriginalFileName string
+	Model            string
+	Language         string
+	Prompt           string
+	ResponseFormat   string
+	Temperature      *float64
 }
 
 // TranscriptionSubmitResponse contains job ID and status returned on submission.
@@ -202,6 +206,12 @@ func decodeResponseData(bodyBytes []byte, target any) error {
 		if err := json.Unmarshal(envelope.Data, target); err != nil {
 			return fmt.Errorf("failed to decode data field: %w", err)
 		}
+		return nil
+	}
+
+	// If envelope data is empty and there's no error_msg, attempt direct unmarshal into target
+	if directErr := json.Unmarshal(bodyBytes, target); directErr != nil {
+		return directErr
 	}
 	return nil
 }
@@ -237,7 +247,12 @@ func (c *Client) SubmitTranscription(ctx context.Context, req TranscriptionReque
 	bodyBuf := &bytes.Buffer{}
 	writer := multipart.NewWriter(bodyBuf)
 
-	part, err := writer.CreateFormFile("file", filepath.Base(req.FilePath))
+	fileName := req.OriginalFileName
+	if fileName == "" {
+		fileName = filepath.Base(req.FilePath)
+	}
+
+	part, err := writer.CreateFormFile("file", fileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create multipart file part: %w", err)
 	}
@@ -358,6 +373,8 @@ func (c *Client) StreamJobLogs(
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	buf := make([]byte, scannerInitBufferSize)
+	scanner.Buffer(buf, scannerMaxTokenSize)
 	var currentEvent string
 	var dataLines []string
 

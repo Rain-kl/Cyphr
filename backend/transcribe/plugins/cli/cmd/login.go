@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -15,16 +16,11 @@ import (
 	"Wavelet/transcribe/plugins/cli/config"
 )
 
-var (
-	loginURL   string
-	loginToken string
-)
-
-func promptInput(r io.Reader, w io.Writer, prompt, defaultVal string) string {
+func promptInput(r *bufio.Reader, w io.Writer, prompt, defaultVal string) string {
 	_, _ = fmt.Fprint(w, prompt)
-	scanner := bufio.NewScanner(r)
-	if scanner.Scan() {
-		val := strings.TrimSpace(scanner.Text())
+	line, err := r.ReadString('\n')
+	if err == nil || len(line) > 0 {
+		val := strings.TrimSpace(line)
 		if val != "" {
 			return val
 		}
@@ -32,31 +28,56 @@ func promptInput(r io.Reader, w io.Writer, prompt, defaultVal string) string {
 	return defaultVal
 }
 
+func resolveLoginURL(cmd *cobra.Command, r *bufio.Reader) string {
+	urlFlag := cmd.Flags().Lookup("url")
+	urlExplicit := (urlFlag != nil && urlFlag.Changed) || strings.TrimSpace(os.Getenv(config.EnvTranscribeURL)) != ""
+	if !urlExplicit {
+		promptDefault := config.DefaultControllerURL
+		if appConfig != nil && appConfig.ControllerURL != "" {
+			promptDefault = appConfig.ControllerURL
+		}
+		return promptInput(r, cmd.OutOrStdout(), fmt.Sprintf("Controller URL [%s]: ", promptDefault), promptDefault)
+	}
+
+	targetURL := overrideURL
+	if targetURL == "" && appConfig != nil {
+		targetURL = appConfig.ControllerURL
+	}
+	if targetURL == "" {
+		targetURL = config.DefaultControllerURL
+	}
+	return targetURL
+}
+
+func resolveLoginToken(cmd *cobra.Command, r *bufio.Reader) string {
+	tokenFlag := cmd.Flags().Lookup("token")
+	tokenExplicit := (tokenFlag != nil && tokenFlag.Changed) || strings.TrimSpace(os.Getenv(config.EnvTranscribeToken)) != ""
+	if !tokenExplicit {
+		defaultToken := ""
+		if appConfig != nil {
+			defaultToken = appConfig.AccessToken
+		}
+		return promptInput(r, cmd.OutOrStdout(), "Access Token: ", defaultToken)
+	}
+
+	targetToken := overrideToken
+	if targetToken == "" && appConfig != nil {
+		targetToken = appConfig.AccessToken
+	}
+	return targetToken
+}
+
 func newLoginCmd() *cobra.Command {
-	loginCmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "login",
 		Short: "Authenticate and configure connection to the transcribe controller",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			targetURL := strings.TrimSpace(loginURL)
-			if targetURL == "" && appConfig != nil {
-				targetURL = appConfig.ControllerURL
-			}
-			if targetURL == "" {
-				targetURL = promptInput(cmd.InOrStdin(), cmd.OutOrStdout(), fmt.Sprintf("Controller URL [%s]: ", config.DefaultControllerURL), config.DefaultControllerURL)
-			}
-
-			targetToken := strings.TrimSpace(loginToken)
-			if targetToken == "" && appConfig != nil {
-				targetToken = appConfig.AccessToken
-			}
-			if targetToken == "" {
-				targetToken = promptInput(cmd.InOrStdin(), cmd.OutOrStdout(), "Access Token: ", "")
-			}
-
-			targetURL = strings.TrimRight(strings.TrimSpace(targetURL), "/")
+			inReader := bufio.NewReader(cmd.InOrStdin())
+			targetURL := strings.TrimRight(strings.TrimSpace(resolveLoginURL(cmd, inReader)), "/")
 			if targetURL == "" {
 				targetURL = config.DefaultControllerURL
 			}
+			targetToken := strings.TrimSpace(resolveLoginToken(cmd, inReader))
 
 			// Validate credentials by pinging controller models endpoint
 			testClient := client.New(targetURL, targetToken)
@@ -86,9 +107,4 @@ func newLoginCmd() *cobra.Command {
 			return nil
 		},
 	}
-
-	loginCmd.Flags().StringVar(&loginURL, "url", "", "transcribe controller URL")
-	loginCmd.Flags().StringVar(&loginToken, "token", "", "user or agent access token")
-
-	return loginCmd
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"Wavelet/transcribe/plugins/cli/client"
+	"Wavelet/transcribe/plugins/cli/config"
 	"Wavelet/transcribe/plugins/cli/media"
 )
 
@@ -62,17 +63,18 @@ func newAsrCmd() *cobra.Command {
 				modelName = appConfig.DefaultModel
 			}
 			if modelName == "" {
-				modelName = "mock-whisper-base"
+				modelName = config.DefaultModel
 			}
 
 			cmd.Printf("Uploading %s and submitting transcription job (model: %s)...\n", filepath.Base(filePath), modelName)
 
 			submitReq := client.TranscriptionRequest{
-				FilePath:       uploadPath,
-				Model:          modelName,
-				Language:       asrLanguage,
-				Prompt:         asrPrompt,
-				ResponseFormat: asrFormat,
+				FilePath:         uploadPath,
+				OriginalFileName: filepath.Base(filePath),
+				Model:            modelName,
+				Language:         asrLanguage,
+				Prompt:           asrPrompt,
+				ResponseFormat:   asrFormat,
 			}
 
 			submitResp, err := appClient.SubmitTranscription(cmd.Context(), submitReq)

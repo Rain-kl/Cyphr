@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,13 +26,19 @@ import (
 )
 
 func executeCommand(root *cobra.Command, args ...string) (output string, err error) {
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetErr(buf)
+	return executeCommandWithInput(root, "", args...)
+}
+
+func executeCommandWithInput(root *cobra.Command, input string, args ...string) (output string, err error) {
+	inBuf := bytes.NewBufferString(input)
+	outBuf := new(bytes.Buffer)
+	root.SetIn(inBuf)
+	root.SetOut(outBuf)
+	root.SetErr(outBuf)
 	root.SetArgs(args)
 
 	err = root.Execute()
-	return buf.String(), err
+	return outBuf.String(), err
 }
 
 func TestConfigLoadAndSave(t *testing.T) {
@@ -205,6 +212,20 @@ func TestClientOperations(t *testing.T) {
 		})
 	})
 
+	// GET /api/v1/jobs/10002/stream (large payload > 64KB)
+	mux.HandleFunc("/api/v1/jobs/10002/stream", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, _ := w.(http.Flusher)
+		largeText := strings.Repeat("A very long transcription segment with details. ", 2000)
+		finishData, _ := json.Marshal(client.FinishEvent{
+			Status:     "completed",
+			Duration:   120.0,
+			ResultText: largeText,
+		})
+		_, _ = fmt.Fprintf(w, "event: finish\ndata: %s\n\n", finishData)
+		flusher.Flush()
+	})
+
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -267,6 +288,21 @@ func TestClientOperations(t *testing.T) {
 		require.NotNil(t, receivedFinish)
 		assert.Equal(t, "completed", receivedFinish.Status)
 		assert.Contains(t, receivedFinish.ResultText, "Hello world")
+	})
+
+	t.Run("StreamJobLogs with large payload >64KB", func(t *testing.T) {
+		var receivedFinish *client.FinishEvent
+		err := cli.StreamJobLogs(
+			context.Background(),
+			10002,
+			nil,
+			func(finish client.FinishEvent) {
+				receivedFinish = &finish
+			},
+		)
+		require.NoError(t, err)
+		require.NotNil(t, receivedFinish)
+		assert.Greater(t, len(receivedFinish.ResultText), 65536)
 	})
 }
 
@@ -363,6 +399,22 @@ func TestCobraCommands(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, server.URL, loaded.ControllerURL)
 		assert.Equal(t, "tok-123", loaded.AccessToken)
+	})
+
+	t.Run("interactive login prompt", func(t *testing.T) {
+		interactiveCfg := filepath.Join(tempDir, "interactive_cli_config.yaml")
+		root := NewRootCmd()
+		input := fmt.Sprintf("%s\ninteractive-token-456\n", server.URL)
+		out, err := executeCommandWithInput(root, input, "login", "--config", interactiveCfg)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Controller URL [")
+		assert.Contains(t, out, "Access Token:")
+		assert.Contains(t, out, "Successfully logged in")
+
+		loaded, err := config.Load(interactiveCfg)
+		require.NoError(t, err)
+		assert.Equal(t, server.URL, loaded.ControllerURL)
+		assert.Equal(t, "interactive-token-456", loaded.AccessToken)
 	})
 
 	t.Run("jobs ls command", func(t *testing.T) {
