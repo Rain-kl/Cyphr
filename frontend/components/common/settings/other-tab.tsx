@@ -3,16 +3,18 @@
 import { ComponentType, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  AudioWaveform,
   Bell,
   Code,
+  Cpu,
   CreditCard,
   Database,
   FileText,
   FolderOpen,
-  Home,
   Info,
   Layers,
   LayoutList,
+  Server,
   Settings,
   ShieldCheck,
   Terminal,
@@ -50,16 +52,39 @@ const MENU_GROUPS: MenuGroup[] = [
     name: '基础菜单',
     items: [
       {
-        path: '/home',
-        label: '首页',
-        description: '系统控制台/个人首页',
-        icon: Home,
+        path: '/asr',
+        label: 'ASR 转录',
+        description: '音视频语音识别与转录任务',
+        icon: AudioWaveform,
       },
       {
         path: '/files',
         label: '我的文件',
         description: '用户个人文件管理与上传',
         icon: FolderOpen,
+      },
+    ],
+  },
+  {
+    name: 'Cyphr 管理',
+    items: [
+      {
+        path: '/admin/asr',
+        label: '转录管理',
+        description: '全平台 ASR 作业监控与深度透视',
+        icon: AudioWaveform,
+      },
+      {
+        path: '/admin/nodes',
+        label: '节点管理',
+        description: '推理 Agent 节点监控、硬件遥测与调度',
+        icon: Server,
+      },
+      {
+        path: '/admin/models',
+        label: '模型管理',
+        description: '语音识别模型库及全局启停开关',
+        icon: Cpu,
       },
     ],
   },

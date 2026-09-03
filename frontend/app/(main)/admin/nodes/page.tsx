@@ -5,13 +5,13 @@
 
 import * as React from 'react';
 import { RequireAuth } from '@/components/auth/require-auth';
-import { AudioWaveform } from 'lucide-react';
+import { Server } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 
-import { AllJobsTab } from './components/all-jobs-tab';
+import { NodesTab } from '../asr/components/nodes-tab';
 
-export default function AdminASRPage() {
+export default function AdminNodesPage() {
   const t = useTranslations('adminAsr');
 
   return (
@@ -25,21 +25,22 @@ export default function AdminASRPage() {
         {/* Title Header */}
         <div className='flex flex-col md:flex-row md:items-center justify-between gap-4'>
           <div className='flex items-center gap-2'>
-            <AudioWaveform className='size-5 text-primary' />
+            <Server className='size-5 text-primary' />
             <div>
               <h1 className='text-2xl font-semibold tracking-tight'>
-                {t('tabJobs')}
+                {t('tabNodes')}
               </h1>
               <p className='text-xs text-muted-foreground mt-0.5'>
-                {t('subtitle')}
+                {t('nodesSubtitle') ||
+                  '分布式推理 Agent 节点监控、实时硬件遥测与调度管理'}
               </p>
             </div>
           </div>
         </div>
 
-        {/* All Jobs Management */}
+        {/* Nodes Content */}
         <div className='w-full'>
-          <AllJobsTab />
+          <NodesTab />
         </div>
       </motion.div>
     </RequireAuth>

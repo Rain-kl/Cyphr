@@ -1,15 +1,8 @@
-'use client';
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
 
-import { HeroSection } from '@/components/home/hero-section';
-import { DeveloperSection } from '@/components/home/developer-section';
-import { FooterSection } from '@/components/home/footer-section';
+import { redirect } from 'next/navigation';
 
-export default function HomePage() {
-  return (
-    <div className='relative w-full min-h-screen bg-transparent text-foreground font-sans overflow-x-hidden selection:bg-primary selection:text-primary-foreground z-10'>
-      <HeroSection />
-      <DeveloperSection />
-      <FooterSection />
-    </div>
-  );
+export default function RootPage() {
+  redirect('/asr');
 }

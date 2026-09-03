@@ -45,14 +45,14 @@ export interface SearchItem {
  * 包含所有可搜索的页面和功能
  */
 export const searchData: SearchItem[] = [
-  // ==================== 首页 ====================
+  // ==================== ASR 转录 ====================
   {
-    id: 'home',
-    title: '首页',
-    description: '返回首页控制台',
-    url: '/home',
+    id: 'asr',
+    title: 'ASR 转录',
+    description: '音视频语音识别与转录任务',
+    url: '/asr',
     category: 'page',
-    keywords: ['home', '主页', '首页', 'dashboard'],
+    keywords: ['asr', '语音', '转录', 'transcribe', 'audio', 'video'],
   },
 
   // ==================== 文档库 ====================
@@ -130,6 +130,30 @@ export const searchData: SearchItem[] = [
     url: '/admin/users',
     category: 'admin',
     keywords: ['admin', '管理员', '用户', '管理', 'users', 'status'],
+  },
+  {
+    id: 'admin-asr',
+    title: 'ASR 转录管理',
+    description: '全平台转录任务流水线与状态大盘 (管理员专属)',
+    url: '/admin/asr',
+    category: 'admin',
+    keywords: ['admin', '管理员', 'asr', '转录', 'jobs', '任务'],
+  },
+  {
+    id: 'admin-nodes',
+    title: '推理节点管理',
+    description: '查看 Agent 算力节点实时硬件遥测与调度 (管理员专属)',
+    url: '/admin/nodes',
+    category: 'admin',
+    keywords: ['admin', '管理员', 'nodes', '节点', 'agent', 'gpu', 'cpu'],
+  },
+  {
+    id: 'admin-models',
+    title: '模型库管理',
+    description: '管理平台语音模型可用性与热挂载 (管理员专属)',
+    url: '/admin/models',
+    category: 'admin',
+    keywords: ['admin', '管理员', 'models', '模型', 'whisper', 'load'],
   },
   {
     id: 'admin-tasks',

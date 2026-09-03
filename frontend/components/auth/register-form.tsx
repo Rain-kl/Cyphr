@@ -25,7 +25,7 @@ function getRedirectTarget(searchParams: ReturnType<typeof useSearchParams>) {
     typeof window === 'undefined'
       ? null
       : sessionStorage.getItem('redirect_after_login');
-  return safeRedirectTarget(callbackUrl || storedRedirect || '/home');
+  return safeRedirectTarget(callbackUrl || storedRedirect || '/asr');
 }
 
 function configBool(value: string | undefined, fallback: boolean) {

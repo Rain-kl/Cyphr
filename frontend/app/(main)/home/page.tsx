@@ -1,5 +1,8 @@
-import { HomeMain } from '@/components/common/home/home-main';
+// Copyright 2026 Arctel.net
+// SPDX-License-Identifier: Apache-2.0
+
+import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  return <HomeMain />;
+  redirect('/asr');
 }

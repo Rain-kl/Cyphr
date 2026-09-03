@@ -56,7 +56,7 @@ export function ForbiddenPage() {
               {t('previousPage')}
             </Button>
 
-            <Link href='/home'>
+            <Link href='/asr'>
               <Button
                 variant='default'
                 size='sm'

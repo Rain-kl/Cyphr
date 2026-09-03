@@ -44,7 +44,7 @@ export function LoginPage() {
   const resolveRedirectTarget = useCallback(() => {
     const callbackUrl = searchParams.get('callbackUrl');
     const storedRedirect = sessionStorage.getItem('redirect_after_login');
-    const target = callbackUrl || storedRedirect || '/home';
+    const target = callbackUrl || storedRedirect || '/asr';
 
     if (storedRedirect) {
       sessionStorage.removeItem('redirect_after_login');

@@ -105,7 +105,7 @@ export function generateTransactionCacheKey(params: {
  */
 export function safeRedirectTarget(
   url: string | null | undefined,
-  fallback = '/home',
+  fallback = '/asr',
 ): string {
   if (!url) return fallback;
 

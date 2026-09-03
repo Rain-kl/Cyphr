@@ -128,7 +128,7 @@ async function proxyApiToBackend(request: NextRequest): Promise<NextResponse> {
   if (isDocumentNavigation(request)) {
     if (upstream.status === 401) {
       const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', '/home');
+      loginUrl.searchParams.set('callbackUrl', '/asr');
       return NextResponse.redirect(loginUrl);
     }
     if (upstream.status === 403) {

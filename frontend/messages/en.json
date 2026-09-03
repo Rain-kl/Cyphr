@@ -20,7 +20,9 @@
       "asr": "ASR",
       "myFiles": "My Files",
       "users": "Users",
-      "adminAsr": "ASR Management",
+      "adminAsr": "Transcriptions",
+      "adminNodes": "Nodes",
+      "adminModels": "Models",
       "tasks": "Tasks",
       "storage": "Storage",
       "database": "Database",
@@ -34,6 +36,7 @@
       "usageDocs": "User Guide"
     },
     "groups": {
+      "cyphr": "Cyphr",
       "admin": "Admin",
       "docs": "Docs"
     },
@@ -2020,6 +2023,8 @@
   "adminAsr": {
     "title": "ASR Cluster Management",
     "subtitle": "Agent node monitoring, hardware telemetry, model dispatch and platform jobs panorama",
+    "nodesSubtitle": "Distributed inference worker monitoring, live hardware telemetry, and dispatch",
+    "modelsSubtitle": "Speech recognition model registry, global active toggles, and live dispatch",
     "tabNodes": "Node Management",
     "tabModels": "Model Management",
     "tabJobs": "All Jobs Panorama",

@@ -55,10 +55,10 @@ import {
   FileQuestionMark,
   FileText,
   FolderOpen,
-  Home,
   Layers,
   LogOut,
   MessagesSquare,
+  Server,
   Settings,
   ShieldCheck,
   Terminal,
@@ -77,14 +77,18 @@ type NavItem = {
 };
 
 const navMainItems: NavItem[] = [
-  { titleKey: 'home', url: '/home', icon: Home },
   { titleKey: 'asr', url: '/asr', icon: AudioWaveform },
   { titleKey: 'myFiles', url: '/files', icon: FolderOpen },
 ];
 
+const cyphrItems: NavItem[] = [
+  { titleKey: 'adminAsr', url: '/admin/asr', icon: AudioWaveform },
+  { titleKey: 'adminNodes', url: '/admin/nodes', icon: Server },
+  { titleKey: 'adminModels', url: '/admin/models', icon: Cpu },
+];
+
 const adminItems: NavItem[] = [
   { titleKey: 'users', url: '/admin/users', icon: UserRound },
-  { titleKey: 'adminAsr', url: '/admin/asr', icon: Cpu },
   { titleKey: 'tasks', url: '/admin/tasks', icon: Layers },
   { titleKey: 'storage', url: '/admin/files', icon: FolderOpen },
   { titleKey: 'database', url: '/admin/database', icon: Database },
@@ -201,6 +205,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navMainFiltered = React.useMemo(() => {
     const displayConfig = parseMenuDisplayConfig(config?.menu_display_config);
     return navMainItems.filter((item) => displayConfig[item.url] !== false);
+  }, [config]);
+
+  const cyphrFiltered = React.useMemo(() => {
+    const displayConfig = parseMenuDisplayConfig(config?.menu_display_config);
+    return cyphrItems.filter((item) => displayConfig[item.url] !== false);
   }, [config]);
 
   const adminFiltered = React.useMemo(() => {
@@ -387,6 +396,38 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <SidebarMenuButton
                           tooltip={title}
                           isActive={pathname === item.url}
+                          asChild
+                        >
+                          <Link href={item.url} onClick={handleCloseSidebar}>
+                            {item.icon && <item.icon />}
+                            <span>{title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+
+          {user?.is_admin && cyphrFiltered.length > 0 && (
+            <SidebarGroup className='py-0 pt-4'>
+              <SidebarGroupLabel className='text-xs font-normal text-muted-foreground'>
+                {t('groups.cyphr')}
+              </SidebarGroupLabel>
+              <SidebarGroupContent className='py-1'>
+                <SidebarMenu className='gap-1'>
+                  {cyphrFiltered.map((item) => {
+                    const title = t(`nav.${item.titleKey}`);
+                    return (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton
+                          tooltip={title}
+                          isActive={
+                            pathname === item.url ||
+                            pathname.startsWith(`${item.url}/`)
+                          }
                           asChild
                         >
                           <Link href={item.url} onClick={handleCloseSidebar}>
