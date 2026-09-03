@@ -31,8 +31,9 @@ build-embedded:
 	cd backend && go build \
 		-tags embed_frontend \
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
-		-o ../bin/wavelet \
+		-o ../bin/cyphr \
 		main.go
+	@ln -sf cyphr bin/wavelet 2>/dev/null || cp bin/cyphr bin/wavelet
 
 code-check:
 	@scripts/check_cordis_architecture.sh
