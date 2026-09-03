@@ -22,7 +22,18 @@ import { TranscriptViewer } from './transcript-viewer';
 
 export function JobDetailClient() {
   const params = useParams();
-  const rawId = params?.id ? String(params.id) : '';
+  const rawId = React.useMemo(() => {
+    if (params?.id && params.id !== '0') {
+      return String(params.id);
+    }
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/asr\/jobs\/([^/?#]+)/);
+      if (match && match[1] && match[1] !== '0') {
+        return match[1];
+      }
+    }
+    return params?.id ? String(params.id) : '';
+  }, [params?.id]);
 
   const [job, setJob] = React.useState<JobDTO | null>(null);
   const [logs, setLogs] = React.useState<LogMessage[]>([]);
