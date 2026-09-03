@@ -194,7 +194,6 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	ctx.Router().RegisterWhitelist(
 		"/api/v1/agent/*",
 		"/api/v1/audio/transcriptions",
-		"/api/v1/models",
 	)
 
 	// 3. Resolve or bind DBService

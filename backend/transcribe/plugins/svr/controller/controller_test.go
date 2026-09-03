@@ -527,9 +527,24 @@ func TestOpenAIHandler_HashSubmit(t *testing.T) {
 func TestModelHandler(t *testing.T) {
 	env := setupTestEnv(t)
 
+	// 1. Unauthenticated request -> 401
+	wUnauth := httptest.NewRecorder()
+	reqUnauth, _ := http.NewRequest(http.MethodGet, "/api/v1/models", nil)
+	env.engine.ServeHTTP(wUnauth, reqUnauth)
+	assert.Equal(t, http.StatusUnauthorized, wUnauth.Code)
+
+	// 2. Authenticated request -> 200
+	authEngine := gin.New()
+	authEngine.Use(func(c *gin.Context) {
+		c.Set(contracts.AuthUserIDKey, uint64(1001))
+		c.Next()
+	})
+	userAuthMW := controller.UserAuthMiddleware(env.ctrl.GetAuthService)
+	authEngine.GET("/api/v1/models", userAuthMW, env.ctrl.Model.ListModels)
+
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/api/v1/models", nil)
-	env.engine.ServeHTTP(w, req)
+	authEngine.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var resp response.Response[[]do.ModelDTO]

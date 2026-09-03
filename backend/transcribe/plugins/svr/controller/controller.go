@@ -215,7 +215,6 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 	router.RegisterWhitelist(
 		"/api/v1/agent/*",
 		"/api/v1/audio/transcriptions",
-		"/api/v1/models",
 	)
 
 	userAuthMW := UserAuthMiddleware(c.GetAuthService)
@@ -224,8 +223,8 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 	// 2. Transcription endpoint
 	router.POST("/api/v1/audio/transcriptions", c.OpenAI.HandleTranscription)
 
-	// 3. Model listing endpoint
-	router.GET("/api/v1/models", c.Model.ListModels)
+	// 3. Model listing endpoint (protected by user authentication)
+	router.GET("/api/v1/models", userAuthMW, c.Model.ListModels)
 
 	// 4. Job query and streaming endpoints
 	jobGroup := router.Group("/api/v1/jobs", userAuthMW)
