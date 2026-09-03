@@ -5,11 +5,16 @@ package upload
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/plugins/domain/upload/ingest"
 	"Wavelet/plugins/domain/upload/models"
 	"Wavelet/plugins/domain/upload/repository"
 	"Wavelet/plugins/domain/upload/shared"
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
 )
 
 type uploadServiceImpl struct{}
@@ -65,6 +70,44 @@ func (s *uploadServiceImpl) FindByHash(ctx context.Context, hash string, size in
 
 func (s *uploadServiceImpl) RebuildStats(ctx context.Context) error {
 	return RebuildUploadStats(ctx)
+}
+
+func (s *uploadServiceImpl) Ingest(ctx context.Context, req contracts.UploadIngestRequest) (*contracts.UploadDTO, error) {
+	if req.Reader == nil {
+		return nil, errors.New("upload: ingest reader is required")
+	}
+
+	// Buffer full body to compute SHA-256 hash required by ingest package.
+	var buf bytes.Buffer
+	size, err := io.Copy(&buf, req.Reader)
+	if err != nil {
+		return nil, err
+	}
+	if req.Size > 0 && size != req.Size {
+		return nil, errors.New("upload: ingest size mismatch")
+	}
+
+	hashWriter := sha256.New()
+	_, _ = hashWriter.Write(buf.Bytes())
+	fileHash := hex.EncodeToString(hashWriter.Sum(nil))
+
+	result, err := ingest.Ingest(ctx, ingest.Request{
+		UserID:             req.UserID,
+		Type:               req.Type,
+		Reader:             bytes.NewReader(buf.Bytes()),
+		Size:               size,
+		FileName:           req.FileName,
+		MimeType:           req.MimeType,
+		Extension:          req.Extension,
+		Hash:               fileHash,
+		Policy:             ingest.PolicyDedupNewRecord,
+		SkipExtensionCheck: req.SkipExtensionCheck,
+	})
+	if err != nil {
+		return nil, err
+	}
+	dto := toUploadDTO(&result.Upload)
+	return &dto, nil
 }
 
 func toUploadDTO(u *models.Upload) contracts.UploadDTO {

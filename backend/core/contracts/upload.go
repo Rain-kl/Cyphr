@@ -69,6 +69,19 @@ type OpenedUploadDTO struct {
 	ContentLength int64
 }
 
+// UploadIngestRequest describes a programmatic file ingest operation via UploadService.
+type UploadIngestRequest struct {
+	UserID    uint64
+	Type      string
+	FileName  string
+	MimeType  string
+	Extension string
+	Reader    io.Reader
+	Size      int64
+	// SkipExtensionCheck bypasses the configured upload extension whitelist.
+	SkipExtensionCheck bool
+}
+
 // UploadService defines the unified contract for managed file uploads and media entities.
 type UploadService interface {
 	GetByID(ctx context.Context, id uint64) (*UploadDTO, error)
@@ -77,4 +90,6 @@ type UploadService interface {
 	RemoveOwned(ctx context.Context, id uint64, userID uint64) error
 	FindByHash(ctx context.Context, hash string, size int64) (*UploadDTO, error)
 	RebuildStats(ctx context.Context) error
+	// Ingest stores a file into the platform upload domain with deduplication and w_uploads record creation.
+	Ingest(ctx context.Context, req UploadIngestRequest) (*UploadDTO, error)
 }
