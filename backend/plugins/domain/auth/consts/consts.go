@@ -1,11 +1,10 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package auth
+// Package consts defines constants, keys, and TTL values for the auth domain plugin.
+package consts
 
-import (
-	"time"
-)
+import "time"
 
 // Session and Context Keys
 const (
@@ -14,7 +13,7 @@ const (
 	UserObjKey      = "user_obj"
 	TokenAuthKey    = "token_auth"          // 标记当前请求是否通过 Access Token 鉴权
 	TokenAdminKey   = "token_admin"         // Access Token 本身是否具有管理员权限
-	SessionTokenKey = "oauth_session_token" //nolint:gosec // false positive: this is a session key, not hardcoded credentials
+	SessionTokenKey = "oauth_session_token" //nolint:gosec // false positive: session state key
 	PasswordHashKey = "password_hash"
 	SystemUsername  = "system"
 )
@@ -23,8 +22,8 @@ const (
 const (
 	OAuthStateCacheKeyFormat     = "oauth:state:%s"
 	OAuthStateCacheKeyExpiration = 10 * time.Minute
-	oauthStateLimitKeyFormat     = "oauth:state:limit:%s"
-	oauthStateLimitMax           = 10
+	OAuthStateLimitKeyFormat     = "oauth:state:limit:%s"
+	OAuthStateLimitMax           = 10
 )
 
 // OAuth Purpose Constants
@@ -36,4 +35,10 @@ const (
 // Auth Source Types
 const (
 	AuthSourceTypeOIDC = "oidc"
+)
+
+// Cache TTLs
+const (
+	TokenCacheTTL = 5 * time.Minute
+	UserCacheTTL  = 5 * time.Minute
 )

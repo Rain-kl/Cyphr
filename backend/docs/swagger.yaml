@@ -1,119 +1,5 @@
 basePath: /
 definitions:
-  auth.AuthSourceView:
-    properties:
-      client_secret_configured:
-        type: boolean
-      display_name:
-        type: string
-      icon_url:
-        type: string
-      id:
-        type: integer
-      is_active:
-        type: boolean
-      name:
-        type: string
-      type:
-        type: string
-    type: object
-  auth.BasicUserInfo:
-    properties:
-      avatar_url:
-        type: string
-      bio:
-        type: string
-      email:
-        type: string
-      gender:
-        type: string
-      id:
-        example: "0"
-        type: string
-      is_admin:
-        type: boolean
-      location:
-        type: string
-      need_change_password:
-        type: boolean
-      nickname:
-        type: string
-      phone:
-        type: string
-      username:
-        type: string
-      website:
-        type: string
-    type: object
-  auth.CallbackRequest:
-    properties:
-      code:
-        type: string
-      state:
-        type: string
-    required:
-    - code
-    - state
-    type: object
-  auth.ChallengeResponse:
-    properties:
-      challenge:
-        properties:
-          c:
-            type: integer
-          d:
-            type: integer
-          s:
-            type: integer
-        type: object
-      expires:
-        description: ms timestamp
-        type: integer
-      token:
-        type: string
-    type: object
-  auth.OAuthAuthorizeResponse:
-    properties:
-      authorize_url:
-        type: string
-    type: object
-  auth.OAuthCallbackResult:
-    properties:
-      status:
-        type: string
-      user:
-        $ref: '#/definitions/auth.BasicUserInfo'
-    type: object
-  auth.RedeemResponse:
-    properties:
-      error:
-        type: string
-      expires:
-        type: integer
-      success:
-        type: boolean
-      token:
-        type: string
-    type: object
-  auth.challengeRequest:
-    properties:
-      scope:
-        type: string
-    type: object
-  auth.redeemRequest:
-    properties:
-      scope:
-        type: string
-      solutions:
-        items:
-          type: integer
-        type: array
-      token:
-        type: string
-    required:
-    - solutions
-    - token
-    type: object
   contracts.AuthSourceDTO:
     properties:
       client_id:
@@ -412,6 +298,120 @@ definitions:
         type: string
     required:
     - template
+    type: object
+  dto.AuthSourceView:
+    properties:
+      client_secret_configured:
+        type: boolean
+      display_name:
+        type: string
+      icon_url:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  dto.BasicUserInfo:
+    properties:
+      avatar_url:
+        type: string
+      bio:
+        type: string
+      email:
+        type: string
+      gender:
+        type: string
+      id:
+        example: "0"
+        type: string
+      is_admin:
+        type: boolean
+      location:
+        type: string
+      need_change_password:
+        type: boolean
+      nickname:
+        type: string
+      phone:
+        type: string
+      username:
+        type: string
+      website:
+        type: string
+    type: object
+  dto.CallbackRequest:
+    properties:
+      code:
+        type: string
+      state:
+        type: string
+    required:
+    - code
+    - state
+    type: object
+  dto.ChallengeRequest:
+    properties:
+      scope:
+        type: string
+    type: object
+  dto.ChallengeResponse:
+    properties:
+      challenge:
+        properties:
+          c:
+            type: integer
+          d:
+            type: integer
+          s:
+            type: integer
+        type: object
+      expires:
+        description: ms timestamp
+        type: integer
+      token:
+        type: string
+    type: object
+  dto.OAuthAuthorizeResponse:
+    properties:
+      authorize_url:
+        type: string
+    type: object
+  dto.OAuthCallbackResult:
+    properties:
+      status:
+        type: string
+      user:
+        $ref: '#/definitions/dto.BasicUserInfo'
+    type: object
+  dto.RedeemRequest:
+    properties:
+      scope:
+        type: string
+      solutions:
+        items:
+          type: integer
+        type: array
+      token:
+        type: string
+    required:
+    - solutions
+    - token
+    type: object
+  dto.RedeemResponse:
+    properties:
+      error:
+        type: string
+      expires:
+        type: integer
+      success:
+        type: boolean
+      token:
+        type: string
     type: object
   entity.PushChannel:
     properties:
@@ -4031,7 +4031,7 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/auth.challengeRequest'
+          $ref: '#/definitions/dto.ChallengeRequest'
       produces:
       - application/json
       responses:
@@ -4042,7 +4042,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.ChallengeResponse'
+                  $ref: '#/definitions/dto.ChallengeResponse'
               type: object
         "500":
           description: 内部服务错误
@@ -4060,7 +4060,7 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/auth.challengeRequest'
+          $ref: '#/definitions/dto.ChallengeRequest'
       produces:
       - application/json
       responses:
@@ -4071,7 +4071,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.ChallengeResponse'
+                  $ref: '#/definitions/dto.ChallengeResponse'
               type: object
         "500":
           description: 内部服务错误
@@ -4091,7 +4091,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.redeemRequest'
+          $ref: '#/definitions/dto.RedeemRequest'
       produces:
       - application/json
       responses:
@@ -4102,7 +4102,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.RedeemResponse'
+                  $ref: '#/definitions/dto.RedeemResponse'
               type: object
         "400":
           description: 参数错误或核销失败
@@ -4271,7 +4271,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.OAuthAuthorizeResponse'
+                  $ref: '#/definitions/dto.OAuthAuthorizeResponse'
               type: object
         "400":
           description: 认证源不存在或未启用
@@ -4295,7 +4295,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.CallbackRequest'
+          $ref: '#/definitions/dto.CallbackRequest'
       produces:
       - application/json
       responses:
@@ -4306,7 +4306,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.OAuthCallbackResult'
+                  $ref: '#/definitions/dto.OAuthCallbackResult'
               type: object
         "400":
           description: state 无效、参数错误或认证源错误
@@ -4399,7 +4399,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.OAuthAuthorizeResponse'
+                  $ref: '#/definitions/dto.OAuthAuthorizeResponse'
               type: object
         "400":
           description: 认证源不存在或未配置
@@ -4450,7 +4450,7 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/auth.AuthSourceView'
+                    $ref: '#/definitions/dto.AuthSourceView'
                   type: array
               type: object
       summary: 获取可用登录源
@@ -4469,7 +4469,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.BasicUserInfo'
+                  $ref: '#/definitions/dto.BasicUserInfo'
               type: object
         "401":
           description: 未登录
@@ -4656,7 +4656,7 @@ paths:
             - $ref: '#/definitions/response.Any'
             - properties:
                 data:
-                  $ref: '#/definitions/auth.BasicUserInfo'
+                  $ref: '#/definitions/dto.BasicUserInfo'
               type: object
         "401":
           description: 未登录

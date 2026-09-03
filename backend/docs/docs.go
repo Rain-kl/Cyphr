@@ -4397,7 +4397,7 @@ const docTemplate = `{
                         "name": "request",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/auth.challengeRequest"
+                            "$ref": "#/definitions/dto.ChallengeRequest"
                         }
                     }
                 ],
@@ -4413,7 +4413,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.ChallengeResponse"
+                                            "$ref": "#/definitions/dto.ChallengeResponse"
                                         }
                                     }
                                 }
@@ -4446,7 +4446,7 @@ const docTemplate = `{
                         "name": "request",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/auth.challengeRequest"
+                            "$ref": "#/definitions/dto.ChallengeRequest"
                         }
                     }
                 ],
@@ -4462,7 +4462,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.ChallengeResponse"
+                                            "$ref": "#/definitions/dto.ChallengeResponse"
                                         }
                                     }
                                 }
@@ -4498,7 +4498,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.redeemRequest"
+                            "$ref": "#/definitions/dto.RedeemRequest"
                         }
                     }
                 ],
@@ -4514,7 +4514,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.RedeemResponse"
+                                            "$ref": "#/definitions/dto.RedeemResponse"
                                         }
                                     }
                                 }
@@ -4778,7 +4778,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.CallbackRequest"
+                            "$ref": "#/definitions/dto.CallbackRequest"
                         }
                     }
                 ],
@@ -4794,7 +4794,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.OAuthCallbackResult"
+                                            "$ref": "#/definitions/dto.OAuthCallbackResult"
                                         }
                                     }
                                 }
@@ -4948,7 +4948,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.OAuthAuthorizeResponse"
+                                            "$ref": "#/definitions/dto.OAuthAuthorizeResponse"
                                         }
                                     }
                                 }
@@ -5037,7 +5037,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/auth.AuthSourceView"
+                                                "$ref": "#/definitions/dto.AuthSourceView"
                                             }
                                         }
                                     }
@@ -5075,7 +5075,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                            "$ref": "#/definitions/dto.BasicUserInfo"
                                         }
                                     }
                                 }
@@ -5128,7 +5128,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.OAuthAuthorizeResponse"
+                                            "$ref": "#/definitions/dto.OAuthAuthorizeResponse"
                                         }
                                     }
                                 }
@@ -5445,7 +5445,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/auth.BasicUserInfo"
+                                            "$ref": "#/definitions/dto.BasicUserInfo"
                                         }
                                     }
                                 }
@@ -6051,180 +6051,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "auth.AuthSourceView": {
-            "type": "object",
-            "properties": {
-                "client_secret_configured": {
-                    "type": "boolean"
-                },
-                "display_name": {
-                    "type": "string"
-                },
-                "icon_url": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.BasicUserInfo": {
-            "type": "object",
-            "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "bio": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "gender": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string",
-                    "example": "0"
-                },
-                "is_admin": {
-                    "type": "boolean"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "need_change_password": {
-                    "type": "boolean"
-                },
-                "nickname": {
-                    "type": "string"
-                },
-                "phone": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                },
-                "website": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.CallbackRequest": {
-            "type": "object",
-            "required": [
-                "code",
-                "state"
-            ],
-            "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "state": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.ChallengeResponse": {
-            "type": "object",
-            "properties": {
-                "challenge": {
-                    "type": "object",
-                    "properties": {
-                        "c": {
-                            "type": "integer"
-                        },
-                        "d": {
-                            "type": "integer"
-                        },
-                        "s": {
-                            "type": "integer"
-                        }
-                    }
-                },
-                "expires": {
-                    "description": "ms timestamp",
-                    "type": "integer"
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.OAuthAuthorizeResponse": {
-            "type": "object",
-            "properties": {
-                "authorize_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.OAuthCallbackResult": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/auth.BasicUserInfo"
-                }
-            }
-        },
-        "auth.RedeemResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "expires": {
-                    "type": "integer"
-                },
-                "success": {
-                    "type": "boolean"
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.challengeRequest": {
-            "type": "object",
-            "properties": {
-                "scope": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.redeemRequest": {
-            "type": "object",
-            "required": [
-                "solutions",
-                "token"
-            ],
-            "properties": {
-                "scope": {
-                    "type": "string"
-                },
-                "solutions": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "token": {
-                    "type": "string"
-                }
-            }
-        },
         "contracts.AuthSourceDTO": {
             "type": "object",
             "properties": {
@@ -6674,6 +6500,180 @@ const docTemplate = `{
                     }
                 },
                 "template": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.AuthSourceView": {
+            "type": "object",
+            "properties": {
+                "client_secret_configured": {
+                    "type": "boolean"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "icon_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.BasicUserInfo": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "bio": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "0"
+                },
+                "is_admin": {
+                    "type": "boolean"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "need_change_password": {
+                    "type": "boolean"
+                },
+                "nickname": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CallbackRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "state"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ChallengeRequest": {
+            "type": "object",
+            "properties": {
+                "scope": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.ChallengeResponse": {
+            "type": "object",
+            "properties": {
+                "challenge": {
+                    "type": "object",
+                    "properties": {
+                        "c": {
+                            "type": "integer"
+                        },
+                        "d": {
+                            "type": "integer"
+                        },
+                        "s": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "expires": {
+                    "description": "ms timestamp",
+                    "type": "integer"
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OAuthAuthorizeResponse": {
+            "type": "object",
+            "properties": {
+                "authorize_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.OAuthCallbackResult": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.BasicUserInfo"
+                }
+            }
+        },
+        "dto.RedeemRequest": {
+            "type": "object",
+            "required": [
+                "solutions",
+                "token"
+            ],
+            "properties": {
+                "scope": {
+                    "type": "string"
+                },
+                "solutions": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.RedeemResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "integer"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "token": {
                     "type": "string"
                 }
             }

@@ -1,15 +1,31 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package auth
+// Package controller provides HTTP handlers and middlewares for the auth plugin.
+package controller
 
 import (
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
+	"Wavelet/plugins/domain/auth/consts"
+	"Wavelet/plugins/domain/auth/model/dto"
+	"Wavelet/plugins/domain/auth/service"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+// CaptchaHandler handles CAPTCHA challenge and redeem endpoints.
+type CaptchaHandler struct {
+	capMgr *service.CaptchaManager
+}
+
+// NewCaptchaHandler creates a new CaptchaHandler.
+func NewCaptchaHandler(mgr *service.CaptchaManager) *CaptchaHandler {
+	return &CaptchaHandler{
+		capMgr: mgr,
+	}
+}
 
 // Challenge 生成 PoW 人机验证难题
 // @Summary 生成人机验证难题
@@ -17,28 +33,27 @@ import (
 // @Tags cap
 // @Accept json
 // @Produce json
-// @Param request body challengeRequest false "可选范围限制参数"
-// @Success 200 {object} response.Any{data=auth.ChallengeResponse} "成功返回 PoW 难题"
+// @Param request body dto.ChallengeRequest false "可选范围限制参数"
+// @Success 200 {object} response.Any{data=dto.ChallengeResponse} "成功返回 PoW 难题"
 // @Failure 500 {object} response.Any "内部服务错误"
 // @Router /api/v1/cap/challenge [get]
 // @Router /api/v1/cap/challenge [post]
-func Challenge(c *gin.Context) {
-	var req challengeRequest
+func (h *CaptchaHandler) Challenge(c *gin.Context) {
+	var req dto.ChallengeRequest
 	_ = c.ShouldBind(&req) // 允许不传 body，默认使用 login scope
 
 	if req.Scope == "" {
 		req.Scope = "login"
 	}
 
-	mgr := GetDefaultCapManager()
-	if mgr == nil {
-		response.AbortInternal(c, errCapNotConfigured)
+	if h.capMgr == nil {
+		response.AbortInternal(c, consts.ErrCapNotConfigured)
 		return
 	}
-	resp, err := mgr.Generate(c.Request.Context(), req.Scope)
+	resp, err := h.capMgr.Generate(c.Request.Context(), req.Scope)
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "Generate cap challenge failed: %v", err)
-		response.AbortInternal(c, errChallengeGenerateFailed)
+		response.AbortInternal(c, consts.ErrChallengeGenerateFailed)
 		return
 	}
 
@@ -51,15 +66,15 @@ func Challenge(c *gin.Context) {
 // @Tags cap
 // @Accept json
 // @Produce json
-// @Param request body redeemRequest true "难题 Token 与解答 solutions 数组"
-// @Success 200 {object} response.Any{data=auth.RedeemResponse} "核销成功，返回 X-Cap-Token"
+// @Param request body dto.RedeemRequest true "难题 Token 与解答 solutions 数组"
+// @Success 200 {object} response.Any{data=dto.RedeemResponse} "核销成功，返回 X-Cap-Token"
 // @Failure 400 {object} response.Any "参数错误或核销失败"
 // @Failure 500 {object} response.Any "内部服务错误"
 // @Router /api/v1/cap/redeem [post]
-func Redeem(c *gin.Context) {
-	var req redeemRequest
+func (h *CaptchaHandler) Redeem(c *gin.Context) {
+	var req dto.RedeemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.AbortBadRequest(c, errInvalidRequestParams)
+		response.AbortBadRequest(c, consts.ErrInvalidRequestParams)
 		return
 	}
 
@@ -67,15 +82,14 @@ func Redeem(c *gin.Context) {
 		req.Scope = "login"
 	}
 
-	mgr := GetDefaultCapManager()
-	if mgr == nil {
-		response.AbortInternal(c, errCapNotConfigured)
+	if h.capMgr == nil {
+		response.AbortInternal(c, consts.ErrCapNotConfigured)
 		return
 	}
-	resp, err := mgr.Redeem(c.Request.Context(), req.Token, req.Solutions, req.Scope)
+	resp, err := h.capMgr.Redeem(c.Request.Context(), req.Token, req.Solutions, req.Scope)
 	if err != nil {
 		logger.ErrorF(c.Request.Context(), "Redeem cap solutions failed: %v", err)
-		response.AbortInternal(c, errSolutionVerifyFailed)
+		response.AbortInternal(c, consts.ErrSolutionVerifyFailed)
 		return
 	}
 

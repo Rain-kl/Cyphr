@@ -1,11 +1,13 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-package auth
+// Package controller provides HTTP handlers and middlewares for the auth plugin.
+package controller
 
 import (
 	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
+	"Wavelet/plugins/domain/auth/model/dto"
 	"context"
 	"encoding/json"
 
@@ -17,7 +19,7 @@ func LogForAudit(ctx context.Context, user *contracts.UserDTO, c *gin.Context) {
 	if user == nil || c == nil {
 		return
 	}
-	auditLog := loginRequiredAuditLog{
+	auditLog := dto.LoginRequiredAuditLog{
 		UserID:     user.ID,
 		Username:   user.Username,
 		ClientIP:   c.ClientIP(),
