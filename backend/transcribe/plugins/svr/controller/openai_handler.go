@@ -10,31 +10,26 @@ import (
 	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/model/do"
 	"Wavelet/transcribe/plugins/svr/service"
-	"fmt"
+	"errors"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
-const (
-	defaultSyncTimeout = 300 * time.Second
-	localDirPerm       = 0o750
-)
+const defaultSyncTimeout = 300 * time.Second
 
 // OpenAIHandler handles OpenAI-compatible audio transcription endpoints.
 type OpenAIHandler struct {
 	jobService     service.JobService
 	storageService contracts.StorageService
+	uploadService  contracts.UploadService
 	logBroker      service.LogBroker
 	authService    contracts.AuthService
-	localDir       string
 	syncTimeout    time.Duration
 }
 
@@ -55,13 +50,6 @@ func WithAuthService(a contracts.AuthService) OpenAIOption {
 	}
 }
 
-// WithLocalDir configures the fallback local directory for saving uploaded audio.
-func WithLocalDir(dir string) OpenAIOption {
-	return func(h *OpenAIHandler) {
-		h.localDir = dir
-	}
-}
-
 // WithOpenAISyncTimeout sets the maximum duration to wait for synchronous transcription completion.
 func WithOpenAISyncTimeout(d time.Duration) OpenAIOption {
 	return func(h *OpenAIHandler) {
@@ -74,7 +62,6 @@ func NewOpenAIHandler(jobSvc service.JobService, logBroker service.LogBroker, op
 	h := &OpenAIHandler{
 		jobService:  jobSvc,
 		logBroker:   logBroker,
-		localDir:    filepath.Join(os.TempDir(), "transcribe_media"),
 		syncTimeout: defaultSyncTimeout,
 	}
 	for _, opt := range opts {
@@ -160,32 +147,38 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 }
 
 func (h *OpenAIHandler) saveAudioFile(c *gin.Context, fileHeader *multipart.FileHeader) (string, error) {
-	ext := filepath.Ext(fileHeader.Filename)
-	uniqueName := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), uuid.New().String()[:8], ext)
-
-	if h.storageService != nil {
-		f, err := fileHeader.Open()
-		if err != nil {
-			return "", err
-		}
-		defer func() { _ = f.Close() }()
-
-		key := fmt.Sprintf("audio/%s", uniqueName)
-		putRes, err := h.storageService.Put(c.Request.Context(), key, f, fileHeader.Size, fileHeader.Header.Get("Content-Type"))
-		if err == nil && putRes.Key != "" {
-			return putRes.Key, nil
-		}
-		logger.WarnF(c.Request.Context(), "[OpenAIHandler] storage Put failed, falling back to local: %v", err)
+	if h.uploadService == nil {
+		return "", errors.New("upload service not available")
 	}
 
-	if err := os.MkdirAll(h.localDir, localDirPerm); err != nil {
+	f, err := fileHeader.Open()
+	if err != nil {
 		return "", err
 	}
-	destPath := filepath.Join(h.localDir, uniqueName)
-	if err := c.SaveUploadedFile(fileHeader, destPath); err != nil {
+	defer func() { _ = f.Close() }()
+
+	ext := strings.TrimPrefix(filepath.Ext(fileHeader.Filename), ".")
+	mimeType := fileHeader.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	userID := GetCurrentUserID(c, h.authService)
+
+	result, err := h.uploadService.Ingest(c.Request.Context(), contracts.UploadIngestRequest{
+		UserID:             userID,
+		Type:               "audio",
+		FileName:           fileHeader.Filename,
+		MimeType:           mimeType,
+		Extension:          ext,
+		Reader:             f,
+		Size:               fileHeader.Size,
+		SkipExtensionCheck: true,
+	})
+	if err != nil {
 		return "", err
 	}
-	return destPath, nil
+	return result.FilePath, nil
 }
 
 func abortOpenAIError(c *gin.Context, statusCode int, errMsg, errType string) {

@@ -15,9 +15,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/service/scheduler"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 
@@ -214,27 +212,24 @@ func (h *AgentHandler) DownloadMedia(c *gin.Context) {
 		return
 	}
 
-	// 1. Try resolving via platform StorageService
-	if h.storageService != nil {
-		obj, err := h.storageService.Get(c.Request.Context(), job.AudioStoragePath)
-		if err == nil && obj != nil && obj.Body != nil {
-			defer func() { _ = obj.Body.Close() }()
-			contentType := obj.ContentType
-			if contentType == "" {
-				contentType = "application/octet-stream"
-			}
-			c.DataFromReader(http.StatusOK, obj.ContentLength, contentType, obj.Body, nil)
-			return
-		}
-	}
-
-	// 2. Fallback to local filesystem path
-	if _, statErr := os.Stat(job.AudioStoragePath); !errors.Is(statErr, os.ErrNotExist) {
-		c.File(job.AudioStoragePath)
+	if h.storageService == nil {
+		response.AbortNotFound(c, consts.ErrMediaNotFound)
 		return
 	}
 
-	response.AbortNotFound(c, consts.ErrMediaNotFound)
+	obj, err := h.storageService.Get(c.Request.Context(), job.AudioStoragePath)
+	if err != nil || obj == nil || obj.Body == nil {
+		logger.WarnF(c.Request.Context(), "[AgentHandler] failed to retrieve media from storage: %v", err)
+		response.AbortNotFound(c, consts.ErrMediaNotFound)
+		return
+	}
+	defer func() { _ = obj.Body.Close() }()
+
+	contentType := obj.ContentType
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	c.DataFromReader(http.StatusOK, obj.ContentLength, contentType, obj.Body, nil)
 }
 
 func parseJobIDParam(c *gin.Context) (uint64, bool) {

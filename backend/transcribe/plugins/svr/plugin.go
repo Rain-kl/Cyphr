@@ -35,6 +35,7 @@ type Plugin struct {
 	appCtx       context.Context
 	db           *gorm.DB
 	storageSvc   contracts.StorageService
+	uploadSvc    contracts.UploadService
 	authSvc      contracts.AuthService
 	agentHub     hub.AgentHub
 	logBroker    service.LogBroker
@@ -209,31 +210,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 		}
 	})
 
-	// 4. Resolve or bind StorageService
-	if storageSvc, err := core.Inject[contracts.StorageService](ctx); err == nil && storageSvc != nil {
-		p.storageSvc = storageSvc
-	}
-	core.Bind[contracts.StorageService](ctx, func(svc contracts.StorageService) {
-		p.mu.Lock()
-		p.storageSvc = svc
-		p.mu.Unlock()
-		if p.ctrl != nil {
-			p.ctrl.SetStorageService(svc)
-		}
-	})
-
-	// 5. Resolve or bind AuthService
-	if authSvc, err := core.Inject[contracts.AuthService](ctx); err == nil && authSvc != nil {
-		p.authSvc = authSvc
-	}
-	core.Bind[contracts.AuthService](ctx, func(svc contracts.AuthService) {
-		p.mu.Lock()
-		p.authSvc = svc
-		p.mu.Unlock()
-		if p.ctrl != nil {
-			p.ctrl.SetAuthService(svc)
-		}
-	})
+	p.bindExternalServices(ctx)
 
 	// Ensure in-memory broker exists even if DB is bound asynchronously
 	if p.logBroker == nil {
@@ -254,6 +231,9 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	if p.storageSvc != nil {
 		p.ctrl.SetStorageService(p.storageSvc)
 	}
+	if p.uploadSvc != nil {
+		p.ctrl.SetUploadService(p.uploadSvc)
+	}
 	if p.authSvc != nil {
 		p.ctrl.SetAuthService(p.authSvc)
 	}
@@ -273,4 +253,44 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	})
 
 	return nil
+}
+
+// bindExternalServices resolves StorageService, UploadService and AuthService from
+// the context eagerly (if already provided) and reactively via core.Bind.
+func (p *Plugin) bindExternalServices(ctx *core.Context) {
+	if svc, err := core.Inject[contracts.StorageService](ctx); err == nil && svc != nil {
+		p.storageSvc = svc
+	}
+	core.Bind[contracts.StorageService](ctx, func(svc contracts.StorageService) {
+		p.mu.Lock()
+		p.storageSvc = svc
+		p.mu.Unlock()
+		if p.ctrl != nil {
+			p.ctrl.SetStorageService(svc)
+		}
+	})
+
+	if svc, err := core.Inject[contracts.UploadService](ctx); err == nil && svc != nil {
+		p.uploadSvc = svc
+	}
+	core.Bind[contracts.UploadService](ctx, func(svc contracts.UploadService) {
+		p.mu.Lock()
+		p.uploadSvc = svc
+		p.mu.Unlock()
+		if p.ctrl != nil {
+			p.ctrl.SetUploadService(svc)
+		}
+	})
+
+	if svc, err := core.Inject[contracts.AuthService](ctx); err == nil && svc != nil {
+		p.authSvc = svc
+	}
+	core.Bind[contracts.AuthService](ctx, func(svc contracts.AuthService) {
+		p.mu.Lock()
+		p.authSvc = svc
+		p.mu.Unlock()
+		if p.ctrl != nil {
+			p.ctrl.SetAuthService(svc)
+		}
+	})
 }

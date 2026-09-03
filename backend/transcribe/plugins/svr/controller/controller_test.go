@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -91,6 +92,7 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 		controller.WithSyncTimeout(3*time.Second),
 		controller.WithScheduler(sched),
 	)
+	ctrl.SetUploadService(&mockUploadService{})
 
 	routerExt := extpoints.NewRouterRegistry()
 	ctrl.RegisterRoutes(routerExt)
@@ -123,6 +125,74 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 		engine:    engine,
 		routerExt: routerExt,
 	}
+}
+
+// mockUploadService is a minimal in-memory UploadService for controller tests.
+// It stores the last ingested file path so tests can assert on storage behaviour.
+type mockUploadService struct {
+	lastPath string
+}
+
+func (m *mockUploadService) GetByID(_ context.Context, _ uint64) (*contracts.UploadDTO, error) {
+	return nil, nil
+}
+func (m *mockUploadService) OpenStoredUpload(_ context.Context, _ uint64) (*contracts.OpenedUploadDTO, error) {
+	return nil, nil
+}
+func (m *mockUploadService) Remove(_ context.Context, _ uint64) error                { return nil }
+func (m *mockUploadService) RemoveOwned(_ context.Context, _ uint64, _ uint64) error { return nil }
+func (m *mockUploadService) FindByHash(_ context.Context, _ string, _ int64) (*contracts.UploadDTO, error) {
+	return nil, nil
+}
+func (m *mockUploadService) RebuildStats(_ context.Context) error { return nil }
+func (m *mockUploadService) Ingest(_ context.Context, req contracts.UploadIngestRequest) (*contracts.UploadDTO, error) {
+	m.lastPath = "uploads/test/" + req.FileName
+	return &contracts.UploadDTO{
+		ID:       1,
+		FileName: req.FileName,
+		FilePath: m.lastPath,
+		MimeType: req.MimeType,
+	}, nil
+}
+
+// mockStorageService is a minimal StorageService for agent handler tests.
+type mockStorageService struct {
+	data map[string][]byte
+}
+
+func newMockStorageService() *mockStorageService {
+	return &mockStorageService{data: make(map[string][]byte)}
+}
+
+func (m *mockStorageService) Put(_ context.Context, key string, body io.Reader, _ int64, _ string) (contracts.StoragePutResult, error) {
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return contracts.StoragePutResult{}, err
+	}
+	m.data[key] = content
+	return contracts.StoragePutResult{Key: key}, nil
+}
+
+func (m *mockStorageService) Get(_ context.Context, key string) (*contracts.StorageObject, error) {
+	content, ok := m.data[key]
+	if !ok {
+		return nil, fmt.Errorf("key not found: %s", key)
+	}
+	return &contracts.StorageObject{
+		Key:           key,
+		Body:          io.NopCloser(bytes.NewReader(content)),
+		ContentLength: int64(len(content)),
+		ContentType:   "audio/mpeg",
+	}, nil
+}
+
+func (m *mockStorageService) Delete(_ context.Context, key string) error {
+	delete(m.data, key)
+	return nil
+}
+
+func (m *mockStorageService) Ingest(_ context.Context, _ io.Reader, _ contracts.IngestOptions) (*contracts.IngestResult, error) {
+	return nil, fmt.Errorf("not supported in mock")
 }
 
 func toTestGinHandler(h any) gin.HandlerFunc {
@@ -755,17 +825,16 @@ func TestAgentHandler_HTTP(t *testing.T) {
 	env := setupTestEnv(t)
 	ctx := context.Background()
 
-	// Create temp audio file for media download test
-	tmpFile, err := os.CreateTemp("", "test_audio_*.mp3")
-	require.NoError(t, err)
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-	_, _ = tmpFile.WriteString("fake audio binary data content")
-	_ = tmpFile.Close()
+	// Inject a mock storage service so DownloadMedia can serve audio bytes.
+	mockStorage := newMockStorageService()
+	const audioKey = "audio/test/sample.mp3"
+	mockStorage.data[audioKey] = []byte("fake audio binary data content")
+	env.ctrl.SetStorageService(mockStorage)
 
 	job, err := env.jobSvc.CreateJob(ctx, &do.CreateJobRequest{
 		UserID:           3001,
 		Model:            consts.DefaultModelName,
-		AudioStoragePath: tmpFile.Name(),
+		AudioStoragePath: audioKey,
 		OriginalFileName: "sample.mp3",
 	})
 	require.NoError(t, err)

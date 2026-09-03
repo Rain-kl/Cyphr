@@ -50,6 +50,15 @@ func WithStorageService(s contracts.StorageService) Option {
 	}
 }
 
+// WithUploadService configures contracts.UploadService on the controller.
+func WithUploadService(s contracts.UploadService) Option {
+	return func(c *Controller) {
+		if c.OpenAI != nil {
+			c.OpenAI.uploadService = s
+		}
+	}
+}
+
 // WithSyncTimeout configures synchronous wait timeout on OpenAIHandler.
 func WithSyncTimeout(d time.Duration) Option {
 	return func(c *Controller) {
@@ -73,6 +82,13 @@ func (c *Controller) SetStorageService(s contracts.StorageService) {
 	}
 	if c.Agent != nil {
 		c.Agent.storageService = s
+	}
+}
+
+// SetUploadService updates the upload service reference on the OpenAI handler.
+func (c *Controller) SetUploadService(s contracts.UploadService) {
+	if c.OpenAI != nil {
+		c.OpenAI.uploadService = s
 	}
 }
 

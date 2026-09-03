@@ -109,6 +109,90 @@ func (m *mockAuthService) ToggleAuthSource(_ context.Context, _ uint64) (*contra
 	return nil, nil
 }
 
+// ─── Mock UploadService + StorageService pair ────────────────────────────────
+// Both share an in-memory store so that Ingest() writes bytes that DownloadMedia() can later serve.
+
+type e2eMediaStore struct {
+	mu   sync.Mutex
+	data map[string][]byte
+}
+
+func newE2EMediaStore() *e2eMediaStore {
+	return &e2eMediaStore{data: make(map[string][]byte)}
+}
+
+func (s *e2eMediaStore) put(key string, content []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[key] = content
+}
+
+func (s *e2eMediaStore) get(key string) ([]byte, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, ok := s.data[key]
+	return v, ok
+}
+
+type e2eMockUploadService struct{ store *e2eMediaStore }
+
+func (m *e2eMockUploadService) GetByID(_ context.Context, _ uint64) (*contracts.UploadDTO, error) {
+	return nil, nil
+}
+func (m *e2eMockUploadService) OpenStoredUpload(_ context.Context, _ uint64) (*contracts.OpenedUploadDTO, error) {
+	return nil, nil
+}
+func (m *e2eMockUploadService) Remove(_ context.Context, _ uint64) error { return nil }
+func (m *e2eMockUploadService) RemoveOwned(_ context.Context, _ uint64, _ uint64) error {
+	return nil
+}
+func (m *e2eMockUploadService) FindByHash(_ context.Context, _ string, _ int64) (*contracts.UploadDTO, error) {
+	return nil, nil
+}
+func (m *e2eMockUploadService) RebuildStats(_ context.Context) error { return nil }
+func (m *e2eMockUploadService) Ingest(_ context.Context, req contracts.UploadIngestRequest) (*contracts.UploadDTO, error) {
+	key := "uploads/audio/" + req.FileName
+	if req.Reader != nil {
+		content, err := io.ReadAll(req.Reader)
+		if err == nil {
+			m.store.put(key, content)
+		}
+	}
+	return &contracts.UploadDTO{
+		ID:       1,
+		FileName: req.FileName,
+		FilePath: key,
+		MimeType: req.MimeType,
+	}, nil
+}
+
+type e2eMockStorageService struct{ store *e2eMediaStore }
+
+func (m *e2eMockStorageService) Put(_ context.Context, key string, body io.Reader, _ int64, _ string) (contracts.StoragePutResult, error) {
+	content, err := io.ReadAll(body)
+	if err != nil {
+		return contracts.StoragePutResult{}, err
+	}
+	m.store.put(key, content)
+	return contracts.StoragePutResult{Key: key}, nil
+}
+func (m *e2eMockStorageService) Get(_ context.Context, key string) (*contracts.StorageObject, error) {
+	content, ok := m.store.get(key)
+	if !ok {
+		return nil, fmt.Errorf("key not found: %s", key)
+	}
+	return &contracts.StorageObject{
+		Key:           key,
+		Body:          io.NopCloser(bytes.NewReader(content)),
+		ContentLength: int64(len(content)),
+		ContentType:   "audio/wav",
+	}, nil
+}
+func (m *e2eMockStorageService) Delete(_ context.Context, key string) error { return nil }
+func (m *e2eMockStorageService) Ingest(_ context.Context, _ io.Reader, _ contracts.IngestOptions) (*contracts.IngestResult, error) {
+	return nil, fmt.Errorf("not supported in e2e mock")
+}
+
 // ─── Test Environment Setup ───────────────────────────────────────────────────
 
 type e2eEnv struct {
@@ -125,7 +209,6 @@ type e2eEnv struct {
 	ctrl      *controller.Controller
 	cliClient *client.Client
 	authSvc   *mockAuthService
-	mediaDir  string
 }
 
 func setupE2EEnv(t *testing.T) *e2eEnv {
@@ -152,7 +235,6 @@ func setupE2EEnv(t *testing.T) *e2eEnv {
 	jobSvc := service.NewJobService(jobDAO, modelDAO, sched, broker, agentHub)
 
 	authSvc := newMockAuthService(1001)
-	mediaDir := filepath.Join(t.TempDir(), "transcribe_media")
 
 	ctrl := controller.New(
 		jobSvc,
@@ -164,14 +246,9 @@ func setupE2EEnv(t *testing.T) *e2eEnv {
 		controller.WithScheduler(sched),
 	)
 	ctrl.SetAuthService(authSvc)
-	// Reconfigure localDir on OpenAIHandler
-	ctrl.OpenAI = controller.NewOpenAIHandler(
-		jobSvc,
-		broker,
-		controller.WithLocalDir(mediaDir),
-		controller.WithAuthService(authSvc),
-		controller.WithOpenAISyncTimeout(5*time.Second),
-	)
+	mediaStore := newE2EMediaStore()
+	ctrl.SetUploadService(&e2eMockUploadService{store: mediaStore})
+	ctrl.SetStorageService(&e2eMockStorageService{store: mediaStore})
 
 	// 3. Register routes via router extension
 	routerExt := extpoints.NewRouterRegistry()
@@ -208,7 +285,6 @@ func setupE2EEnv(t *testing.T) *e2eEnv {
 		ctrl:      ctrl,
 		cliClient: cliClient,
 		authSvc:   authSvc,
-		mediaDir:  mediaDir,
 	}
 }
 
