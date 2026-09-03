@@ -99,6 +99,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	core.Bind[contracts.RiskControlService](ctx, service.SetRiskControlService)
 	service.SetEventEmitter(ctx.Events().Emit)
 	core.Provide[contracts.PublicConfigProvider](ctx, service.PublicConfigAdapter{})
+	core.Provide[contracts.SystemConfigService](ctx, service.SystemConfigServiceImpl{})
 
 	ctx.OnDispose(func() error {
 		service.ResetServices()

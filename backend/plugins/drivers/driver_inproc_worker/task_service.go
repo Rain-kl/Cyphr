@@ -125,6 +125,19 @@ func (s *inprocTaskService) GetExecution(ctx context.Context, id uint64) (*contr
 	return &dto, nil
 }
 
+func (s *inprocTaskService) GetExecutionByTaskID(ctx context.Context, taskID string) (*contracts.TaskExecutionDTO, error) {
+	db := getDB(ctx)
+	if db == nil {
+		return nil, errors.New("driver_inproc_worker: db not initialized")
+	}
+	var exec taskExecution
+	if err := db.Where("task_id = ?", taskID).First(&exec).Error; err != nil {
+		return nil, err
+	}
+	dto := toExecutionDTO(&exec)
+	return &dto, nil
+}
+
 func toExecutionDTO(exec *taskExecution) contracts.TaskExecutionDTO {
 	return contracts.TaskExecutionDTO{
 		ID:           exec.ID,

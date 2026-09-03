@@ -62,6 +62,7 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	core.Bind[contracts.StorageService](ctx, shared.SetStorageService)
 	core.Bind[contracts.TaskService](ctx, shared.SetTaskService)
 	core.Bind[contracts.AuthService](ctx, shared.SetAuthService)
+	core.Provide[contracts.UploadService](ctx, &uploadServiceImpl{})
 
 	ctx.OnDispose(func() error {
 		shared.ResetServices()

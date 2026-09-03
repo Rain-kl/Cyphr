@@ -26,6 +26,85 @@ func (PublicConfigAdapter) PublicConfig(ctx context.Context) (map[string]string,
 	return PublicSystemConfigs(ctx)
 }
 
+// SystemConfigServiceImpl implements contracts.SystemConfigService.
+type SystemConfigServiceImpl struct{}
+
+func (SystemConfigServiceImpl) GetByKey(ctx context.Context, key string) (contracts.SystemConfigDTO, error) {
+	cfg, err := repository.GetSystemConfigByKey(ctx, key)
+	if err != nil {
+		return contracts.SystemConfigDTO{}, err
+	}
+	return toSystemConfigDTO(cfg), nil
+}
+
+func (SystemConfigServiceImpl) ListByKeys(ctx context.Context, keys []string) (map[string]contracts.SystemConfigDTO, error) {
+	cfgs, err := repository.ListSystemConfigsByKeys(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string]contracts.SystemConfigDTO, len(cfgs))
+	for k, v := range cfgs {
+		res[k] = toSystemConfigDTO(v)
+	}
+	return res, nil
+}
+
+func (SystemConfigServiceImpl) ListVisible(ctx context.Context) ([]contracts.SystemConfigDTO, error) {
+	cfgs, err := repository.ListVisibleSystemConfigs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]contracts.SystemConfigDTO, len(cfgs))
+	for i, v := range cfgs {
+		res[i] = toSystemConfigDTO(v)
+	}
+	return res, nil
+}
+
+func (SystemConfigServiceImpl) ListByType(ctx context.Context, configType string) ([]contracts.SystemConfigDTO, error) {
+	cfgs, err := repository.ListAdminSystemConfigs(ctx, configType)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]contracts.SystemConfigDTO, len(cfgs))
+	for i, v := range cfgs {
+		res[i] = toSystemConfigDTO(v)
+	}
+	return res, nil
+}
+
+func (SystemConfigServiceImpl) GetIntByKey(ctx context.Context, key string) (int, error) {
+	return repository.GetIntByKey(ctx, key)
+}
+
+func (SystemConfigServiceImpl) GetBoolByKey(ctx context.Context, key string) (bool, error) {
+	return repository.GetBoolByKey(ctx, key)
+}
+
+func (SystemConfigServiceImpl) SaveOrUpdate(ctx context.Context, key, value string) error {
+	return repository.SaveOrUpdateSystemConfig(ctx, key, value)
+}
+
+func (SystemConfigServiceImpl) InvalidateCache(ctx context.Context, key string) error {
+	return repository.InvalidateSystemConfigCache(ctx, key)
+}
+
+func (SystemConfigServiceImpl) InvalidateAllCaches(ctx context.Context) error {
+	return repository.InvalidateAllSystemConfigCaches(ctx)
+}
+
+func toSystemConfigDTO(c model.SystemConfig) contracts.SystemConfigDTO {
+	return contracts.SystemConfigDTO{
+		Key:         c.Key,
+		Value:       c.Value,
+		Type:        c.Type,
+		Visibility:  c.Visibility,
+		Description: c.Description,
+		UpdatedAt:   c.UpdatedAt,
+		CreatedAt:   c.CreatedAt,
+	}
+}
+
 // PublicSystemConfigs returns the key/value map exposed to unauthenticated clients.
 func PublicSystemConfigs(ctx context.Context) (map[string]string, error) {
 	configs, err := repository.ListVisibleSystemConfigs(ctx)

@@ -555,6 +555,15 @@ func (s *taskServiceImpl) GetExecution(ctx context.Context, id uint64) (*contrac
 	return &dto, nil
 }
 
+func (s *taskServiceImpl) GetExecutionByTaskID(ctx context.Context, taskID string) (*contracts.TaskExecutionDTO, error) {
+	exec, err := GetTaskExecutionByTaskID(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	dto := toTaskExecutionDTO(exec)
+	return &dto, nil
+}
+
 func toTaskExecutionDTO(exec *TaskExecution) contracts.TaskExecutionDTO {
 	return contracts.TaskExecutionDTO{
 		ID:           exec.ID,

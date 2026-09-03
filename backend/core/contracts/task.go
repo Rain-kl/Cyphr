@@ -90,4 +90,5 @@ type TaskService interface {
 	AppendLog(ctx context.Context, format string, args ...any)
 	ListExecutions(ctx context.Context, taskType, status string, page, pageSize int) ([]TaskExecutionDTO, int64, error)
 	GetExecution(ctx context.Context, id uint64) (*TaskExecutionDTO, error)
+	GetExecutionByTaskID(ctx context.Context, taskID string) (*TaskExecutionDTO, error)
 }
