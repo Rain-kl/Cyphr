@@ -130,6 +130,8 @@ export function JobDetailClient() {
             <AudioPlayer
               ref={audioPlayerRef}
               jobId={job.id}
+              mediaUrl={job.media_url}
+              audioStoragePath={job.audio_storage_path}
               onTimeUpdate={setCurrentTime}
             />
           )}

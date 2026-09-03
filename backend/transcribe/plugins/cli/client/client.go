@@ -69,6 +69,7 @@ type JobInfo struct {
 	Duration         float64    `json:"duration"`
 	OriginalFileName string     `json:"original_file_name"`
 	ResultText       string     `json:"result_text,omitempty"`
+	OpenAIResponse   any        `json:"openai_response,omitempty"`
 	ErrorMsg         string     `json:"error_msg,omitempty"`
 	CreatedAt        time.Time  `json:"created_at"`
 	StartedAt        *time.Time `json:"started_at,omitempty"`
@@ -232,10 +233,11 @@ type LogEvent struct {
 
 // FinishEvent represents the terminal event of a transcription job via SSE stream.
 type FinishEvent struct {
-	Status     string  `json:"status"`
-	Duration   float64 `json:"duration"`
-	ResultText string  `json:"result_text"`
-	ErrorMsg   string  `json:"error_msg"`
+	Status         string  `json:"status"`
+	Duration       float64 `json:"duration"`
+	ResultText     string  `json:"result_text"`
+	OpenAIResponse any     `json:"openai_response,omitempty"`
+	ErrorMsg       string  `json:"error_msg"`
 }
 
 // Client interacts with the Transcribe Controller server.

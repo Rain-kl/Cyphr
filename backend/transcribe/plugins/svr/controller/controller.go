@@ -221,7 +221,7 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 	userAuthMW := UserAuthMiddleware(c.GetAuthService)
 	agentAuthMW := RequireAgentToken(c.GetNodeService)
 
-	// 2. OpenAI-compatible transcription endpoints
+	// 2. Transcription endpoint
 	router.POST("/api/v1/audio/transcriptions", c.OpenAI.HandleTranscription)
 
 	// 3. Model listing endpoint

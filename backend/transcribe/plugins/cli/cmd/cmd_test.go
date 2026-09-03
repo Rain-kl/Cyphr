@@ -435,6 +435,15 @@ func TestCobraCommands(t *testing.T) {
 		assert.Contains(t, out, "Speech recognition completed successfully.")
 	})
 
+	t.Run("models command", func(t *testing.T) {
+		root := NewRootCmd()
+		out, err := executeCommand(root, "models", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "MODEL")
+		assert.Contains(t, out, "mock-whisper-base")
+		assert.Contains(t, out, "active")
+	})
+
 	t.Run("asr command with audio file", func(t *testing.T) {
 		t.Chdir(t.TempDir()) // 结果文件落盘到隔离目录, 不污染包目录
 		dummyAudio := filepath.Join(tempDir, "sample.mp3")
@@ -449,6 +458,23 @@ func TestCobraCommands(t *testing.T) {
 		data, err := os.ReadFile("sample.txt")
 		require.NoError(t, err)
 		assert.Equal(t, "Speech recognition completed successfully.", string(data))
+		srtData, err := os.ReadFile("sample.srt")
+		require.NoError(t, err)
+		assert.Contains(t, string(srtData), "-->")
+		assert.Contains(t, string(srtData), "Speech recognition completed successfully.")
+	})
+
+	t.Run("asr command with output directory flag", func(t *testing.T) {
+		outDir := filepath.Join(t.TempDir(), "sub", "custom_out")
+		dummyAudio := filepath.Join(tempDir, "sample_dir.mp3")
+		require.NoError(t, os.WriteFile(dummyAudio, []byte("fake mp3"), 0o600))
+
+		root := NewRootCmd()
+		out, err := executeCommand(root, "asr", dummyAudio, "-d", outDir, "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Job submitted successfully: ID #20002")
+		assert.FileExists(t, filepath.Join(outDir, "sample_dir.txt"))
+		assert.FileExists(t, filepath.Join(outDir, "sample_dir.srt"))
 	})
 
 	t.Run("asr command with unsupported file", func(t *testing.T) {
@@ -485,5 +511,8 @@ func TestCobraCommands(t *testing.T) {
 		data, err := os.ReadFile("clip.txt")
 		require.NoError(t, err)
 		assert.Equal(t, "Speech recognition completed successfully.", string(data))
+		srtData, err := os.ReadFile("clip.srt")
+		require.NoError(t, err)
+		assert.Contains(t, string(srtData), "-->")
 	})
 }

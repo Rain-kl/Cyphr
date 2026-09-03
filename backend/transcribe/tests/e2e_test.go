@@ -290,6 +290,7 @@ func setupE2EEnv(t *testing.T) *e2eEnv {
 
 func applyGooseMigrations(t *testing.T, db *gorm.DB) {
 	t.Helper()
+	_ = db.Exec("CREATE TABLE IF NOT EXISTS w_system_configs (key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMP);")
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 

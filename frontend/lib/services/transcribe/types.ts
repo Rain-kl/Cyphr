@@ -70,6 +70,7 @@ export interface JobDTO {
   node_id?: string | number;
   original_file_name: string;
   audio_storage_path?: string;
+  media_url?: string;
   model: string;
   task_type: string;
   language?: string;

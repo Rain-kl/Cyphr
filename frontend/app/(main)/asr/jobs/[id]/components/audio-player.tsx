@@ -23,11 +23,13 @@ export interface AudioPlayerRef {
 
 interface AudioPlayerProps {
   jobId: string | number;
+  mediaUrl?: string;
+  audioStoragePath?: string;
   onTimeUpdate?: (currentTime: number) => void;
 }
 
 export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
-  function AudioPlayer({ jobId, onTimeUpdate }, ref) {
+  function AudioPlayer({ mediaUrl, audioStoragePath, onTimeUpdate }, ref) {
     const audioRef = React.useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = React.useState(false);
     const [currentTime, setCurrentTime] = React.useState(0);
@@ -35,7 +37,16 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
     const [volume, setVolume] = React.useState(1);
     const [isMuted, setIsMuted] = React.useState(false);
 
-    const mediaUrl = `/api/v1/agent/jobs/${jobId}/media`;
+    const resolvedMediaUrl = React.useMemo(() => {
+      if (mediaUrl) return mediaUrl;
+      if (audioStoragePath) {
+        const match = audioStoragePath.match(/(\d+)\.[^.]+$/);
+        if (match?.[1]) {
+          return `/f/${match[1]}`;
+        }
+      }
+      return '';
+    }, [mediaUrl, audioStoragePath]);
 
     React.useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
@@ -113,7 +124,7 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
       <div className='rounded-xl border bg-card p-4 shadow-sm'>
         <audio
           ref={audioRef}
-          src={mediaUrl}
+          src={resolvedMediaUrl}
           onTimeUpdate={() => {
             if (audioRef.current) {
               const curr = audioRef.current.currentTime;

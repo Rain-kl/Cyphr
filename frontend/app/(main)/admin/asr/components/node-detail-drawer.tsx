@@ -77,7 +77,7 @@ export function NodeDetailDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className='w-full sm:max-w-md overflow-y-auto'>
+      <SheetContent className='w-full sm:max-w-xl overflow-y-auto p-6 space-y-6'>
         <SheetHeader>
           <div className='flex items-center gap-2'>
             <Server className='size-5 text-primary' />
@@ -88,7 +88,7 @@ export function NodeDetailDrawer({
           <SheetDescription>{tDrawer('title')}</SheetDescription>
         </SheetHeader>
 
-        <div className='mt-6 space-y-6 text-sm'>
+        <div className='space-y-6 text-sm'>
           {/* Status and Identity */}
           <div className='rounded-xl border bg-muted/20 p-3.5 space-y-2.5'>
             <div className='flex items-center justify-between'>

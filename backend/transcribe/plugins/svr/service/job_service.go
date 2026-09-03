@@ -16,6 +16,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -280,10 +282,11 @@ func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *
 	// Broadcast finish event
 	if s.logBroker != nil {
 		s.logBroker.PublishFinish(jobID, do.FinishMessage{
-			Status:     status,
-			Duration:   req.DurationSeconds,
-			ResultText: req.ResultText,
-			ErrorMsg:   req.ErrorMsg,
+			Status:         status,
+			Duration:       req.DurationSeconds,
+			ResultText:     req.ResultText,
+			OpenAIResponse: req.OpenAIResponse,
+			ErrorMsg:       req.ErrorMsg,
 		})
 		s.logBroker.CloseJob(jobID)
 	}
@@ -351,6 +354,14 @@ func (s *DefaultJobService) toJobDTO(job *entity.JobEntity) *do.JobDTO {
 		CreatedAt:        job.CreatedAt,
 		StartedAt:        job.StartedAt,
 		CompletedAt:      job.CompletedAt,
+	}
+
+	if job.AudioStoragePath != "" {
+		base := filepath.Base(job.AudioStoragePath)
+		nameWithoutExt := strings.TrimSuffix(base, filepath.Ext(base))
+		if uploadID, err := strconv.ParseUint(nameWithoutExt, 10, 64); err == nil && uploadID > 0 {
+			dto.MediaURL = "/f/" + nameWithoutExt
+		}
 	}
 
 	if job.ResultJSON != "" {

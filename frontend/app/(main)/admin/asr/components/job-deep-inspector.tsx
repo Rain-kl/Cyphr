@@ -69,9 +69,21 @@ export function JobDeepInspector({
     return `${m}m ${s}s (${seconds.toFixed(2)}s)`;
   };
 
+  const resolveMediaUrl = () => {
+    if (job.media_url) return job.media_url;
+    if (job.audio_storage_path) {
+      const match = job.audio_storage_path.match(/(\d+)\.[^.]+$/);
+      if (match?.[1]) {
+        return `/f/${match[1]}`;
+      }
+    }
+    return null;
+  };
+  const mediaUrl = resolveMediaUrl();
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className='w-full sm:max-w-xl overflow-y-auto'>
+      <SheetContent className='w-full sm:max-w-2xl overflow-y-auto p-6 space-y-6'>
         <SheetHeader>
           <div className='flex items-center gap-2'>
             <Info className='size-5 text-primary' />
@@ -82,7 +94,7 @@ export function JobDeepInspector({
           <SheetDescription>{job.original_file_name}</SheetDescription>
         </SheetHeader>
 
-        <div className='mt-6 space-y-6 text-sm'>
+        <div className='space-y-6 text-sm'>
           {/* Metadata Grid */}
           <div className='rounded-xl border bg-muted/20 p-4 space-y-2.5'>
             <div className='flex items-center justify-between'>
@@ -168,21 +180,18 @@ export function JobDeepInspector({
               <span className='font-mono text-xs text-muted-foreground break-all'>
                 {job.audio_storage_path || 'Direct stream storage'}
               </span>
-              <a
-                href={`/api/v1/agent/jobs/${job.id}/media`}
-                target='_blank'
-                rel='noreferrer'
-                download
-              >
-                <Button
-                  variant='outline'
-                  size='sm'
-                  className='gap-1 text-xs shrink-0'
-                >
-                  <Download className='size-3.5' />
-                  <span>Download</span>
-                </Button>
-              </a>
+              {mediaUrl && (
+                <a href={mediaUrl} target='_blank' rel='noreferrer' download>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='gap-1 text-xs shrink-0'
+                  >
+                    <Download className='size-3.5' />
+                    <span>Download</span>
+                  </Button>
+                </a>
+              )}
             </div>
           </div>
 

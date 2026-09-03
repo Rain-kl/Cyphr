@@ -79,6 +79,7 @@ type JobDTO struct {
 	Duration         float64    `json:"duration"`
 	OriginalFileName string     `json:"original_file_name"`
 	AudioStoragePath string     `json:"audio_storage_path,omitempty"`
+	MediaURL         string     `json:"media_url,omitempty"`
 	ResultText       string     `json:"result_text,omitempty"`
 	OpenAIResponse   any        `json:"openai_response,omitempty"`
 	ErrorMsg         string     `json:"error_msg,omitempty"`
@@ -117,10 +118,11 @@ type LogMessage struct {
 
 // FinishMessage represents a SSE job finish event.
 type FinishMessage struct {
-	Status     string  `json:"status"`
-	Duration   float64 `json:"duration,omitempty"`
-	ResultText string  `json:"result_text,omitempty"`
-	ErrorMsg   string  `json:"error_msg,omitempty"`
+	Status         string  `json:"status"`
+	Duration       float64 `json:"duration,omitempty"`
+	ResultText     string  `json:"result_text,omitempty"`
+	OpenAIResponse any     `json:"openai_response,omitempty"`
+	ErrorMsg       string  `json:"error_msg,omitempty"`
 }
 
 // AgentLogBatchItem represents a single log line reported by an agent.
