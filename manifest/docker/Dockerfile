@@ -69,7 +69,6 @@ RUN apk add --no-cache ca-certificates tzdata postgresql-client && \
 WORKDIR /app
 
 COPY --from=backend-builder /out/cyphr ./cyphr
-RUN ln -sf cyphr ./wavelet
 COPY docs ./docs
 
 EXPOSE 8000

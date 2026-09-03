@@ -33,7 +33,6 @@ build-embedded:
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o ../bin/cyphr \
 		main.go
-	@ln -sf cyphr bin/wavelet 2>/dev/null || cp bin/cyphr bin/wavelet
 
 code-check:
 	@scripts/check_cordis_architecture.sh
@@ -47,12 +46,10 @@ build-backend:
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o ../bin/cyphr \
 		main.go
-	@ln -sf cyphr bin/wavelet 2>/dev/null || cp bin/cyphr bin/wavelet
 
 build-cli:
 	@mkdir -p bin
 	cd backend && go build -ldflags "-s -w" -o ../bin/cyphr cmd/transcribe/main.go
-	@ln -sf cyphr bin/transcribe 2>/dev/null || cp bin/cyphr bin/transcribe
 
 build-frontend:
 	@echo "==> Building frontend version=$(VERSION) build_date=$(BUILD_DATE)..."
