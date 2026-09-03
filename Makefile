@@ -1,4 +1,4 @@
-.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary
+.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli
 
 VERSION ?= dev
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -45,6 +45,10 @@ build-backend:
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o ../bin/wavelet \
 		main.go
+
+build-cli:
+	@mkdir -p bin
+	cd backend && go build -ldflags "-s -w" -o ../bin/transcribe cmd/transcribe/main.go
 
 build-frontend:
 	@echo "==> Building frontend version=$(VERSION) build_date=$(BUILD_DATE)..."
