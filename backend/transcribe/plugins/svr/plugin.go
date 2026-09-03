@@ -3,7 +3,7 @@
 
 // Package custom_example demonstrates how to build a downstream Cordis plugin.
 // Copy this directory to create your own plugin.
-package controller
+package svr
 
 import (
 	"Wavelet/core"
