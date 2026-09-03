@@ -211,9 +211,8 @@ pnpm format
 ```
 wavelet/
 ├── main.go                  # 程序入口（委托给 internal/cmd）
-├── config.example.yaml      # 配置模板
 ├── Makefile                 # 常用命令（swagger、tidy、license、cross-build）
-├── manifest/                # 项目清单与编排：docker 镜像构建/compose、deploy (k8s)、config 配置
+├── manifest/                # 项目清单与编排：docker 镜像构建、deploy (k8s)、config 配置（默认/覆盖）
 ├── docs/                    # Swagger 自动生成文档
 ├── frontend/                # Next.js 前端应用
 │   ├── app/                 # App Router 页面

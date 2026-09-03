@@ -211,9 +211,8 @@ pnpm format
 ```
 wavelet/
 ├── main.go                  # Entry point (delegates to internal/cmd)
-├── config.example.yaml      # Configuration template
 ├── Makefile                 # Common commands (swagger, tidy, license, cross-build)
-├── manifest/                # Manifests: docker (compose/Dockerfiles), deploy (k8s), config
+├── manifest/                # Manifests: docker (Dockerfiles), deploy (k8s), config (default/override)
 ├── docs/                    # Swagger auto-generated docs
 ├── frontend/                # Next.js frontend application
 │   ├── app/                 # App Router pages
