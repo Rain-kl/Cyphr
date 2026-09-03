@@ -28,11 +28,12 @@ const (
 	resultFilePerm = 0o600
 )
 
-// NewRootCmd creates and returns the root command for the transcribe CLI.
+// NewRootCmd creates and returns the root command for the cyphr CLI.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:           "transcribe",
-		Short:         "Transcribe CLI - audio & video speech recognition client",
+		Use:           "cyphr",
+		Aliases:       []string{"transcribe"},
+		Short:         "Cyphr CLI - audio & video speech recognition client",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
@@ -54,7 +55,7 @@ func NewRootCmd() *cobra.Command {
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.transcribe/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cyphr/config.yaml)")
 	rootCmd.PersistentFlags().StringVar(&overrideURL, "url", "", "controller server URL")
 	rootCmd.PersistentFlags().StringVar(&overrideToken, "token", "", "access token for authentication")
 

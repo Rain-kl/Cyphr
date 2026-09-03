@@ -48,7 +48,8 @@ build-backend:
 
 build-cli:
 	@mkdir -p bin
-	cd backend && go build -ldflags "-s -w" -o ../bin/transcribe cmd/transcribe/main.go
+	cd backend && go build -ldflags "-s -w" -o ../bin/cyphr cmd/transcribe/main.go
+	@ln -sf cyphr bin/transcribe 2>/dev/null || cp bin/cyphr bin/transcribe
 
 build-frontend:
 	@echo "==> Building frontend version=$(VERSION) build_date=$(BUILD_DATE)..."

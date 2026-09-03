@@ -30,7 +30,11 @@ func promptInput(r *bufio.Reader, w io.Writer, prompt, defaultVal string) string
 
 func resolveLoginURL(cmd *cobra.Command, r *bufio.Reader) string {
 	urlFlag := cmd.Flags().Lookup("url")
-	urlExplicit := (urlFlag != nil && urlFlag.Changed) || strings.TrimSpace(os.Getenv(config.EnvTranscribeURL)) != ""
+	urlEnv := strings.TrimSpace(os.Getenv(config.EnvCyphrURL))
+	if urlEnv == "" {
+		urlEnv = strings.TrimSpace(os.Getenv(config.EnvTranscribeURL))
+	}
+	urlExplicit := (urlFlag != nil && urlFlag.Changed) || urlEnv != ""
 	if !urlExplicit {
 		promptDefault := config.DefaultControllerURL
 		if appConfig != nil && appConfig.ControllerURL != "" {
@@ -51,7 +55,11 @@ func resolveLoginURL(cmd *cobra.Command, r *bufio.Reader) string {
 
 func resolveLoginToken(cmd *cobra.Command, r *bufio.Reader) string {
 	tokenFlag := cmd.Flags().Lookup("token")
-	tokenExplicit := (tokenFlag != nil && tokenFlag.Changed) || strings.TrimSpace(os.Getenv(config.EnvTranscribeToken)) != ""
+	tokenEnv := strings.TrimSpace(os.Getenv(config.EnvCyphrToken))
+	if tokenEnv == "" {
+		tokenEnv = strings.TrimSpace(os.Getenv(config.EnvTranscribeToken))
+	}
+	tokenExplicit := (tokenFlag != nil && tokenFlag.Changed) || tokenEnv != ""
 	if !tokenExplicit {
 		defaultToken := ""
 		if appConfig != nil {

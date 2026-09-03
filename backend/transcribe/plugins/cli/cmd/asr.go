@@ -80,7 +80,7 @@ func newAsrCmd() *cobra.Command {
 
 			if errors.Is(streamCtx.Err(), context.Canceled) {
 				cmd.Printf("\n[Notice] Detached from job #%d. The job will continue running on the server.\n", jobID)
-				cmd.Printf("You can check status or follow logs at any time with: transcribe jobs log %d -f\n", jobID)
+				cmd.Printf("You can check status or follow logs at any time with: cyphr jobs log %d -f\n", jobID)
 				return nil
 			}
 			if streamErr != nil {

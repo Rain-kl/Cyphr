@@ -1,7 +1,7 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-// Package config manages configuration file reading, writing, and environment overrides for the transcribe CLI.
+// Package config manages configuration file reading, writing, and environment overrides for the cyphr CLI.
 package config
 
 import (
@@ -14,19 +14,29 @@ import (
 )
 
 const (
-	// DefaultControllerURL is the default fallback URL for the transcribe controller.
+	// DefaultControllerURL is the default fallback URL for the cyphr controller.
 	DefaultControllerURL = "http://localhost:8080"
 	// DefaultModel is the default transcription model.
 	DefaultModel = "qwen3-asr-0.6b"
 
-	// EnvTranscribeURL overrides controller_url from environment.
+	// EnvCyphrURL overrides controller_url from environment.
+	EnvCyphrURL = "CYPHR_URL"
+	// EnvCyphrToken overrides access_token from environment.
+	//nolint:gosec // G101: Environment variable name, not a hardcoded credential
+	EnvCyphrToken = "CYPHR_TOKEN"
+	// EnvCyphrModel overrides default_model from environment.
+	EnvCyphrModel = "CYPHR_MODEL"
+	// EnvCyphrConfig specifies custom config file path.
+	EnvCyphrConfig = "CYPHR_CONFIG"
+
+	// EnvTranscribeURL provides backward-compatible fallback for CYPHR_URL.
 	EnvTranscribeURL = "TRANSCRIBE_URL"
-	// EnvTranscribeToken overrides access_token from environment.
+	// EnvTranscribeToken provides backward-compatible fallback for CYPHR_TOKEN.
 	//nolint:gosec // G101: Environment variable name, not a hardcoded credential
 	EnvTranscribeToken = "TRANSCRIBE_TOKEN"
-	// EnvTranscribeModel overrides default_model from environment.
+	// EnvTranscribeModel provides backward-compatible fallback for CYPHR_MODEL.
 	EnvTranscribeModel = "TRANSCRIBE_MODEL"
-	// EnvTranscribeConfig specifies custom config file path.
+	// EnvTranscribeConfig provides backward-compatible fallback for CYPHR_CONFIG.
 	EnvTranscribeConfig = "TRANSCRIBE_CONFIG"
 
 	dirPerm  = 0o700
@@ -40,19 +50,32 @@ type Config struct {
 	DefaultModel  string `yaml:"default_model"`
 }
 
-// DefaultConfigPath returns the standard path ~/.transcribe/config.yaml.
+// DefaultConfigPath returns the standard path ~/.cyphr/config.yaml,
+// falling back to ~/.transcribe/config.yaml if the legacy file exists and new one does not.
 func DefaultConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	return filepath.Join(home, ".transcribe", "config.yaml"), nil
+	newPath := filepath.Join(home, ".cyphr", "config.yaml")
+	legacyPath := filepath.Join(home, ".transcribe", "config.yaml")
+
+	if _, err := os.Stat(newPath); err == nil {
+		return newPath, nil
+	}
+	if _, err := os.Stat(legacyPath); err == nil {
+		return legacyPath, nil
+	}
+	return newPath, nil
 }
 
 // ResolvePath determines the config path given an optional input, environment, or default path.
 func ResolvePath(paths ...string) (string, error) {
 	if len(paths) > 0 && strings.TrimSpace(paths[0]) != "" {
 		return filepath.Clean(paths[0]), nil
+	}
+	if envPath := strings.TrimSpace(os.Getenv(EnvCyphrConfig)); envPath != "" {
+		return filepath.Clean(envPath), nil
 	}
 	if envPath := strings.TrimSpace(os.Getenv(EnvTranscribeConfig)); envPath != "" {
 		return filepath.Clean(envPath), nil
@@ -86,14 +109,28 @@ func Load(paths ...string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file %s: %w", targetPath, err)
 	}
 
-	// Apply environment variable overrides
-	if envURL := strings.TrimSpace(os.Getenv(EnvTranscribeURL)); envURL != "" {
+	// Apply environment variable overrides (CYPHR_* takes precedence over TRANSCRIBE_*)
+	envURL := strings.TrimSpace(os.Getenv(EnvCyphrURL))
+	if envURL == "" {
+		envURL = strings.TrimSpace(os.Getenv(EnvTranscribeURL))
+	}
+	if envURL != "" {
 		cfg.ControllerURL = envURL
 	}
-	if envToken := strings.TrimSpace(os.Getenv(EnvTranscribeToken)); envToken != "" {
+
+	envToken := strings.TrimSpace(os.Getenv(EnvCyphrToken))
+	if envToken == "" {
+		envToken = strings.TrimSpace(os.Getenv(EnvTranscribeToken))
+	}
+	if envToken != "" {
 		cfg.AccessToken = envToken
 	}
-	if envModel := strings.TrimSpace(os.Getenv(EnvTranscribeModel)); envModel != "" {
+
+	envModel := strings.TrimSpace(os.Getenv(EnvCyphrModel))
+	if envModel == "" {
+		envModel = strings.TrimSpace(os.Getenv(EnvTranscribeModel))
+	}
+	if envModel != "" {
 		cfg.DefaultModel = envModel
 	}
 

@@ -71,9 +71,9 @@ func TestConfigLoadAndSave(t *testing.T) {
 	})
 
 	t.Run("environment variable overrides", func(t *testing.T) {
-		t.Setenv(config.EnvTranscribeURL, "http://env-controller:8080")
-		t.Setenv(config.EnvTranscribeToken, "env-token-xyz")
-		t.Setenv(config.EnvTranscribeModel, "custom-env-model")
+		t.Setenv(config.EnvCyphrURL, "http://env-controller:8080")
+		t.Setenv(config.EnvCyphrToken, "env-token-xyz")
+		t.Setenv(config.EnvCyphrModel, "custom-env-model")
 
 		cfg, err := config.Load(cfgPath)
 		require.NoError(t, err)
