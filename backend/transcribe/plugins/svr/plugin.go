@@ -1,8 +1,7 @@
 // Copyright 2026 Arctel.net
 // SPDX-License-Identifier: Apache-2.0
 
-// Package custom_example demonstrates how to build a downstream Cordis plugin.
-// Copy this directory to create your own plugin.
+// Package svr provides the Transcribe server controller plugin.
 package svr
 
 import (

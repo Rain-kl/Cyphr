@@ -166,3 +166,30 @@ type SegmentDTO struct {
 	CompressionRatio float64 `json:"compression_ratio"`
 	NoSpeechProb     float64 `json:"no_speech_prob"`
 }
+
+// WSMessage represents a WebSocket signaling envelope between controller and agent.
+type WSMessage struct {
+	Type    string `json:"type"`
+	Action  string `json:"action,omitempty"`
+	Seq     int64  `json:"seq,omitempty"`
+	Payload any    `json:"payload,omitempty"`
+}
+
+// DispatchJobPayload represents payload for dispatch_job command.
+type DispatchJobPayload struct {
+	JobID     uint64 `json:"job_id"`
+	ModelName string `json:"model_name"`
+	TaskType  string `json:"task_type"`
+	Language  string `json:"language,omitempty"`
+	MediaPath string `json:"media_path"`
+}
+
+// LoadModelPayload represents payload for load_model command.
+type LoadModelPayload struct {
+	ModelName string `json:"model_name"`
+}
+
+// UnloadModelPayload represents payload for unload_model command.
+type UnloadModelPayload struct {
+	ModelName string `json:"model_name"`
+}
