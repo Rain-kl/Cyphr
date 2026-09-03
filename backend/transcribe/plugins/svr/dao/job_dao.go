@@ -152,7 +152,7 @@ func (d *GormJobDAO) AppendLogs(ctx context.Context, jobID uint64, logs []entity
 		}
 
 		if maxProgress > 0 {
-			if err := tx.Model(&entity.JobEntity{}).Where("id = ?", jobID).Update("progress", maxProgress).Error; err != nil {
+			if err := tx.Model(&entity.JobEntity{}).Where("id = ? AND progress < ?", jobID, maxProgress).Update("progress", maxProgress).Error; err != nil {
 				return err
 			}
 		}
@@ -231,5 +231,6 @@ func (d *GormJobDAO) ResetRunningJobsToPending(ctx context.Context, nodeID uint6
 		Updates(map[string]any{
 			columnStatus: consts.StatusPending,
 			"node_id":    nil,
+			"progress":   0,
 		}).Error
 }

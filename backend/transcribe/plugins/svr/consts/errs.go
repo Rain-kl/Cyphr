@@ -7,7 +7,7 @@ import "errors"
 
 // Sentinel errors for data access and domain logic.
 var (
-	ErrRecordNotFound = errors.New("record not found")
+	ErrRecordNotFound = errors.New("errRecordNotFound")
 	ErrModelNotFound  = errors.New("errModelNotFound")
 	ErrNodeNotFound   = errors.New("errNodeNotFound")
 	ErrJobNotFound    = errors.New("errJobNotFound")

@@ -8,10 +8,13 @@ import (
 	"Wavelet/pkg/idgen"
 	"Wavelet/transcribe/plugins/svr/consts"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+var fallbackCounter atomic.Uint64
 
 // mapNotFound maps GORM's ErrRecordNotFound to consts.ErrRecordNotFound.
 func mapNotFound(err error) error {
@@ -19,6 +22,11 @@ func mapNotFound(err error) error {
 		return consts.ErrRecordNotFound
 	}
 	return err
+}
+
+// nextFallbackID returns a guaranteed unique ID combining timestamp and atomic sequence in tight loops.
+func nextFallbackID() uint64 {
+	return uint64(time.Now().UnixNano()) + fallbackCounter.Add(1)
 }
 
 // generateID returns existing id if non-zero, or generates a new snowflake ID.
@@ -30,14 +38,14 @@ func generateID(existing uint64) uint64 {
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				// Fallback to timestamp-based ID if idgen is not initialized
-				id = uint64(time.Now().UnixNano())
+				// Fallback to timestamp + atomic counter if idgen is not initialized
+				id = nextFallbackID()
 			}
 		}()
 		id = idgen.NextUint64ID()
 	}()
 	if id == 0 {
-		id = uint64(time.Now().UnixNano())
+		id = nextFallbackID()
 	}
 	return id
 }

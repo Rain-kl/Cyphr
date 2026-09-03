@@ -290,14 +290,31 @@ func TestJobDAO(t *testing.T) {
 	}
 	require.NoError(t, jobDAO.AppendLogs(ctx, job1.ID, logsBatch2))
 
+	// Verify job progress updated to 80
+	progressJob80, err := jobDAO.GetByID(ctx, job1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 80, progressJob80.Progress)
+
+	// Append out-of-order log with lower progress, verify progress does NOT regress
+	logsBatchLower := []entity.JobLogEntity{
+		{Progress: 30, Message: "Delayed log from earlier step"},
+	}
+	require.NoError(t, jobDAO.AppendLogs(ctx, job1.ID, logsBatchLower))
+
+	progressJobStill80, err := jobDAO.GetByID(ctx, job1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 80, progressJobStill80.Progress)
+
 	allLogs, err := jobDAO.GetLogsByJobID(ctx, job1.ID)
 	require.NoError(t, err)
-	require.Len(t, allLogs, 3)
+	require.Len(t, allLogs, 4)
 	assert.Equal(t, 1, allLogs[0].Seq)
 	assert.Equal(t, 2, allLogs[1].Seq)
 	assert.Equal(t, 3, allLogs[2].Seq)
+	assert.Equal(t, 4, allLogs[3].Seq)
 	assert.Equal(t, "Audio decoded", allLogs[0].Message)
 	assert.Equal(t, "Transcribing chunk 2", allLogs[2].Message)
+	assert.Equal(t, "Delayed log from earlier step", allLogs[3].Message)
 
 	// 6. UpdateCompletion
 	resultText := "Hello, this is a test transcription result."
@@ -333,4 +350,5 @@ func TestJobDAO(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, consts.StatusPending, resetJob.Status)
 	assert.Nil(t, resetJob.NodeID)
+	assert.Equal(t, 0, resetJob.Progress)
 }
