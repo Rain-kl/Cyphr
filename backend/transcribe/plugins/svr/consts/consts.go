@@ -47,12 +47,4 @@ const (
 // Concurrency constants.
 const (
 	DefaultMaxConcurrentJobs = 2
-	// DynamicMaxConcurrentJobs marks dynamic capacity mode: the agent advertises
-	// its own capacity via heartbeat instead of using a static limit.
-	DynamicMaxConcurrentJobs = -1
-	// DynamicCapacityStaleSeconds: heartbeat older than this makes dynamic capacity untrusted.
-	DynamicCapacityStaleSeconds = 30
-	// DynamicCapacityMin/Max clamp advertised capacity to a sane range.
-	DynamicCapacityMin = 1
-	DynamicCapacityMax = 32
 )

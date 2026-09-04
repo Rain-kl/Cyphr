@@ -63,11 +63,10 @@ func (s *DefaultScheduler) SchedulePendingJobs(ctx context.Context) error {
 	modelsRequested := make(map[string]bool)
 
 	for _, job := range pendingJobs {
-		// 1. Search for nodes with the required model already loaded and spare capacity
-		// (static limit or dynamic advertised capacity via CanAcceptJob).
+		// 1. Search for nodes with the required model already loaded and available job capacity
 		var modelNodes []*hub.AgentSession
 		for _, sess := range activeSessions {
-			if sess.HasModel(job.ModelName) && sess.CanAcceptJob() {
+			if sess.HasModel(job.ModelName) && sess.GetRunningJobs() < sess.GetMaxConcurrentJobs() {
 				modelNodes = append(modelNodes, sess)
 			}
 		}
@@ -182,25 +181,24 @@ func (s *DefaultScheduler) dispatchJob(ctx context.Context, jobID uint64, modelN
 	return nil
 }
 
-// findLeastLoadedNode selects the session with the most remaining capacity
-// (capacity minus running jobs, works for static and dynamic nodes); ties broken by CPU percent.
+// findLeastLoadedNode selects the session with the lowest running jobs; ties are broken by CPU percent.
 func findLeastLoadedNode(sessions []*hub.AgentSession) *hub.AgentSession {
 	if len(sessions) == 0 {
 		return nil
 	}
 
 	best := sessions[0]
-	bestRemaining := best.GetRemainingCapacity()
+	bestJobs := best.GetRunningJobs()
 	bestCPU := getCPUPercent(best)
 
 	for i := 1; i < len(sessions); i++ {
 		curr := sessions[i]
-		currRemaining := curr.GetRemainingCapacity()
+		currJobs := curr.GetRunningJobs()
 		currCPU := getCPUPercent(curr)
 
-		if currRemaining > bestRemaining || (currRemaining == bestRemaining && currCPU < bestCPU) {
+		if currJobs < bestJobs || (currJobs == bestJobs && currCPU < bestCPU) {
 			best = curr
-			bestRemaining = currRemaining
+			bestJobs = currJobs
 			bestCPU = currCPU
 		}
 	}
