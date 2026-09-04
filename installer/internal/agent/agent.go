@@ -92,11 +92,15 @@ func (s *Service) Start() (*AgentStatus, error) {
 	}
 
 	mainPy := filepath.Join(s.paths.AgentDir, "main.py")
-	command := []string{pythonBin, mainPy}
+	command := []string{pythonBin, "-u", mainPy}
 	// Load .env variables
 	_ = config.LoadEnv(s.paths.EnvFile)
+	agentEnv := []string{
+		"PYTHONUNBUFFERED=1",
+		"PYTHONPATH=" + s.paths.AgentDir,
+	}
 
-	pid, err := proc.Daemonize(command, nil, s.paths.AgentDir, s.paths.LogFile)
+	pid, err := proc.Daemonize(command, agentEnv, s.paths.AgentDir, s.paths.LogFile)
 	if err != nil {
 		return nil, fmt.Errorf("daemonize agent failed: %w", err)
 	}

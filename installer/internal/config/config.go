@@ -3,7 +3,9 @@ package config
 import (
 	"bufio"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -88,9 +90,33 @@ func IsAgentDir(dir string) bool {
 
 // DetectPython finds the best Python interpreter to use for the agent.
 func DetectPython(agentDir string) string {
-	venvPython := filepath.Join(agentDir, ".venv", "bin", "python")
-	if fi, err := os.Stat(venvPython); err == nil && !fi.IsDir() {
-		return venvPython
+	candidates := []string{
+		filepath.Join(agentDir, ".venv", "Scripts", "python.exe"),
+		filepath.Join(agentDir, ".venv", "Scripts", "python"),
+		filepath.Join(agentDir, ".venv", "bin", "python"),
+		filepath.Join(agentDir, ".venv", "bin", "python3"),
+	}
+	for _, c := range candidates {
+		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
+			return c
+		}
+	}
+
+	if runtime.GOOS == "windows" {
+		for _, name := range []string{"python.exe", "python", "python3.exe", "python3"} {
+			if path, err := exec.LookPath(name); err == nil {
+				if fi, err := os.Stat(path); err == nil && fi.Size() > 0 {
+					return path
+				}
+			}
+		}
+		return "python"
+	}
+
+	for _, name := range []string{"python3", "python"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
 	}
 	return "python3"
 }

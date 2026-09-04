@@ -3,6 +3,7 @@
 package proc
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,39 +12,36 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 // Windows process creation flags
 const (
-	createNoWindow         = 0x08000000
-	detachedProcess        = 0x00000008
-	createBreakawayFromJob = 0x01000000
+	createNoWindow        = 0x08000000 // CREATE_NO_WINDOW
+	createNewProcessGroup = 0x00000200 // CREATE_NEW_PROCESS_GROUP
 )
 
-// isProcessAlive checks if a process with given pid exists using tasklist or process open.
+// isProcessAlive checks if a process with given pid exists using native Windows API.
 func isProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
 
-	p, err := os.FindProcess(pid)
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
 	if err != nil {
-		return false
+		// If access is denied, the process exists and is running under another security context.
+		return err == windows.ERROR_ACCESS_DENIED
 	}
-	defer p.Release()
+	defer windows.CloseHandle(h)
 
-	// On Windows, FindProcess always succeeds. Check with tasklist to verify actual existence.
-	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	line := strings.TrimSpace(string(out))
-	if line == "" || strings.Contains(line, "No tasks") || strings.Contains(line, "INFO:") {
+	var exitCode uint32
+	if err := windows.GetExitCodeProcess(h, &exitCode); err != nil {
 		return false
 	}
 
-	return strings.Contains(line, strconv.Itoa(pid))
+	const stillActive = 259
+	return exitCode == stillActive
 }
 
 // daemonizeProcess creates a detached background process on Windows.
@@ -67,7 +65,7 @@ func daemonizeProcess(command []string, env []string, cwd string, logPath string
 		return 0, fmt.Errorf("open devnull failed: %w", err)
 	}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	cmd := exec.CommandContext(context.Background(), command[0], command[1:]...)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
@@ -79,9 +77,9 @@ func daemonizeProcess(command []string, env []string, cwd string, logPath string
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 
-	// Detached and no-window process creation on Windows
+	// Hidden console and independent process group (CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: createNoWindow | detachedProcess | createBreakawayFromJob,
+		CreationFlags: createNoWindow | createNewProcessGroup,
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -105,7 +103,7 @@ func gracefulStopProcess(pid int, timeout time.Duration) error {
 	}
 
 	// Try graceful stop without /F first
-	_ = exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T").Run()
+	_ = exec.CommandContext(context.Background(), "taskkill", "/PID", strconv.Itoa(pid), "/T").Run()
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
@@ -117,7 +115,7 @@ func gracefulStopProcess(pid int, timeout time.Duration) error {
 
 	// Force kill with /F if still running
 	if isProcessAlive(pid) {
-		_ = exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").Run()
+		_ = exec.CommandContext(context.Background(), "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F").Run()
 		time.Sleep(150 * time.Millisecond)
 	}
 
@@ -131,7 +129,7 @@ func gracefulStopDownloadProcess(pid int, timeout time.Duration) error {
 
 // getProcessMetrics retrieves memory usage using tasklist on Windows.
 func getProcessMetrics(pid int) (uptime string, rssMB int) {
-	cmd := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
+	cmd := exec.CommandContext(context.Background(), "tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/FO", "CSV", "/NH")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", 0
