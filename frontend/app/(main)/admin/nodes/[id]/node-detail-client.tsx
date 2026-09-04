@@ -51,7 +51,6 @@ import {
   Save,
   Server,
   Settings,
-  ShieldAlert,
   Terminal,
   Trash2,
   Wifi,
@@ -1014,18 +1013,6 @@ WantedBy=multi-user.target`;
                     </p>
                   </TabsContent>
                 </Tabs>
-
-                {/* Token Persistent Notice Alert */}
-                <div className='flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-xs text-emerald-800 dark:text-emerald-300'>
-                  <ShieldAlert className='size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5' />
-                  <div className='space-y-0.5 leading-relaxed'>
-                    <p className='font-medium'>Agent Token 凭证已持久保存：</p>
-                    <p className='text-emerald-700/80 dark:text-emerald-300/80'>
-                      该节点的 AGENT_TOKEN
-                      已持久保存在系统中（非一次性显示）。您可以随时在此处查看明文或一键复制，上方提供的四种启动指令与配置文件已直接填入该完整凭证。
-                    </p>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -4,7 +4,7 @@
 'use client';
 
 import * as React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { CheckCircle2, Clock, FileAudio, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
@@ -29,28 +29,31 @@ export function StatsCards({
       value: total,
       icon: FileAudio,
       color: 'text-primary',
-      bg: 'bg-primary/10',
+      desc: 'All recorded jobs',
     },
     {
       title: t('running'),
       value: running,
       icon: Clock,
       color: 'text-amber-500',
-      bg: 'bg-amber-500/10',
+      desc: 'Processing or queued',
+      dot: 'bg-amber-500',
     },
     {
       title: t('completed'),
       value: completed,
       icon: CheckCircle2,
       color: 'text-emerald-500',
-      bg: 'bg-emerald-500/10',
+      desc: 'Finished transcription',
+      dot: 'bg-emerald-500',
     },
     {
       title: t('failed'),
       value: failed,
       icon: XCircle,
       color: 'text-rose-500',
-      bg: 'bg-rose-500/10',
+      desc: 'Execution errors',
+      dot: 'bg-rose-500',
     },
   ];
 
@@ -59,19 +62,29 @@ export function StatsCards({
       {stats.map((item) => {
         const Icon = item.icon;
         return (
-          <Card key={item.title} className='border shadow-sm'>
-            <CardContent className='flex items-center justify-between p-4'>
-              <div>
-                <p className='text-xs font-medium text-muted-foreground'>
-                  {item.title}
-                </p>
-                <div className='mt-1 text-2xl font-bold tracking-tight'>
-                  {item.value}
-                </div>
+          <Card key={item.title} className='border-dashed shadow-none'>
+            <CardHeader className='flex flex-row items-center justify-between pb-2'>
+              <span className='text-xs font-medium text-muted-foreground'>
+                {item.title}
+              </span>
+              <Icon className={`size-4 ${item.color}`} />
+            </CardHeader>
+            <CardContent className='space-y-1'>
+              <div className='text-2xl font-semibold tracking-tight'>
+                {item.value}
               </div>
-              <div className={`rounded-xl p-2.5 ${item.bg}`}>
-                <Icon className={`size-5 ${item.color}`} />
-              </div>
+              <p className='text-[10px] text-muted-foreground flex items-center gap-1.5'>
+                {item.dot && (
+                  <span
+                    className={`size-1.5 rounded-full ${item.dot} ${
+                      item.value > 0 && item.title === t('running')
+                        ? 'animate-pulse'
+                        : ''
+                    }`}
+                  />
+                )}
+                <span>{item.desc}</span>
+              </p>
             </CardContent>
           </Card>
         );

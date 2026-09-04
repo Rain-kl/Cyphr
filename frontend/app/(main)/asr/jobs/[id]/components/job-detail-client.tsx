@@ -122,6 +122,8 @@ export function JobDetailClient() {
 
   const isRunning = job.status === 'running' || job.status === 'pending';
   const isCompleted = job.status === 'completed';
+  const hasAudio = Boolean(job.media_url || job.audio_storage_path);
+  const hasTranscript = Boolean(job.result_text || job.result_json);
 
   return (
     <RequireAuth>
@@ -136,8 +138,8 @@ export function JobDetailClient() {
 
         {/* Studio Content Grid */}
         <div className='flex flex-col gap-6'>
-          {/* If completed: Synchronized Audio Player */}
-          {isCompleted && (
+          {/* Synchronized Audio Player */}
+          {(isCompleted || hasAudio) && (
             <AudioPlayer
               ref={audioPlayerRef}
               jobId={job.id}
@@ -147,8 +149,8 @@ export function JobDetailClient() {
             />
           )}
 
-          {/* Transcript Viewer (Segments + Full Text) */}
-          {isCompleted && (
+          {/* Transcript Viewer (AST + Pure Text) */}
+          {(isCompleted || hasTranscript) && (
             <TranscriptViewer
               job={job}
               currentTime={currentTime}

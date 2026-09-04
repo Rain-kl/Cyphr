@@ -18,15 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { JobDTO } from '@/lib/services/transcribe';
-import {
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  FileAudio,
-  FileVideo,
-  Loader2,
-  XCircle,
-} from 'lucide-react';
+import { ArrowRight, FileAudio, FileVideo } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface JobsTableProps {
@@ -82,9 +74,9 @@ export function JobsTable({
         return (
           <Badge
             variant='outline'
-            className='gap-1 border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+            className='text-[10px] bg-amber-500/10 border-amber-500/20 text-amber-600 rounded-full py-0 px-2 font-medium'
           >
-            <Clock className='size-3' />
+            <span className='size-1 bg-amber-500 rounded-full mr-1.5 shrink-0' />
             <span>{tFilter('statusPending')}</span>
           </Badge>
         );
@@ -92,9 +84,9 @@ export function JobsTable({
         return (
           <Badge
             variant='outline'
-            className='gap-1 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+            className='text-[10px] bg-blue-500/10 border-blue-500/20 text-blue-600 rounded-full py-0 px-2 font-medium'
           >
-            <Loader2 className='size-3 animate-spin' />
+            <span className='size-1 bg-blue-500 rounded-full mr-1.5 shrink-0 animate-pulse' />
             <span>{tFilter('statusRunning')}</span>
           </Badge>
         );
@@ -102,9 +94,9 @@ export function JobsTable({
         return (
           <Badge
             variant='outline'
-            className='gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            className='text-[10px] bg-emerald-500/10 border-emerald-500/20 text-emerald-600 rounded-full py-0 px-2 font-medium'
           >
-            <CheckCircle2 className='size-3' />
+            <span className='size-1 bg-emerald-500 rounded-full mr-1.5 shrink-0' />
             <span>{tFilter('statusCompleted')}</span>
           </Badge>
         );
@@ -112,38 +104,61 @@ export function JobsTable({
         return (
           <Badge
             variant='outline'
-            className='gap-1 border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+            className='text-[10px] bg-destructive/10 border-destructive/20 text-destructive rounded-full py-0 px-2 font-medium'
           >
-            <XCircle className='size-3' />
+            <span className='size-1 bg-destructive rounded-full mr-1.5 shrink-0' />
             <span>{tFilter('statusFailed')}</span>
           </Badge>
         );
       default:
-        return <Badge variant='secondary'>{status}</Badge>;
+        return (
+          <Badge
+            variant='outline'
+            className='text-[10px] rounded-full py-0 px-2 font-medium'
+          >
+            {status}
+          </Badge>
+        );
     }
   };
 
   return (
-    <div className='rounded-xl border bg-card shadow-sm'>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className='w-20'>{t('id')}</TableHead>
-            <TableHead>{t('fileName')}</TableHead>
-            <TableHead className='w-36'>{t('model')}</TableHead>
-            <TableHead className='w-32'>{t('status')}</TableHead>
-            <TableHead className='w-36'>{t('progress')}</TableHead>
-            <TableHead className='w-28'>{t('duration')}</TableHead>
-            <TableHead className='w-40'>{t('createdAt')}</TableHead>
-            <TableHead className='w-24 text-right'>{t('actions')}</TableHead>
+    <div className='border border-dashed shadow-none rounded-lg overflow-hidden bg-background'>
+      <Table className='w-full caption-bottom text-sm min-w-full'>
+        <TableHeader className='bg-muted/40'>
+          <TableRow className='border-dashed hover:bg-transparent'>
+            <TableHead className='w-20 text-xs font-semibold'>
+              {t('id')}
+            </TableHead>
+            <TableHead className='text-xs font-semibold'>
+              {t('fileName')}
+            </TableHead>
+            <TableHead className='w-36 text-xs font-semibold'>
+              {t('model')}
+            </TableHead>
+            <TableHead className='w-32 text-xs font-semibold'>
+              {t('status')}
+            </TableHead>
+            <TableHead className='w-36 text-xs font-semibold'>
+              {t('progress')}
+            </TableHead>
+            <TableHead className='w-28 text-xs font-semibold'>
+              {t('duration')}
+            </TableHead>
+            <TableHead className='w-40 text-xs font-semibold'>
+              {t('createdAt')}
+            </TableHead>
+            <TableHead className='w-24 text-xs font-semibold text-right'>
+              {t('actions')}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {jobs.length === 0 ? (
-            <TableRow>
+            <TableRow className='border-dashed hover:bg-transparent'>
               <TableCell
                 colSpan={8}
-                className='h-36 text-center text-muted-foreground'
+                className='h-36 text-center text-xs text-muted-foreground'
               >
                 {isLoading ? tCommon('loading') : t('empty')}
               </TableCell>
@@ -153,7 +168,7 @@ export function JobsTable({
               <TableRow
                 key={job.id}
                 onClick={() => router.push(`/asr/jobs/${job.id}`)}
-                className='cursor-pointer hover:bg-muted/50'
+                className='border-dashed hover:bg-muted/10 transition-colors cursor-pointer'
               >
                 <TableCell className='font-mono text-xs font-semibold'>
                   #{job.id}
@@ -164,18 +179,18 @@ export function JobsTable({
                       {job.original_file_name.match(
                         /\.(mp4|mkv|mov|flv|webm)$/i,
                       ) ? (
-                        <FileVideo className='size-4' />
+                        <FileVideo className='size-3.5' />
                       ) : (
-                        <FileAudio className='size-4' />
+                        <FileAudio className='size-3.5' />
                       )}
                     </div>
-                    <span className='truncate font-medium text-sm'>
+                    <span className='truncate font-medium text-xs text-foreground'>
                       {job.original_file_name}
                     </span>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <code className='rounded bg-muted px-1.5 py-0.5 text-xs'>
+                  <code className='rounded bg-muted px-1.5 py-0.5 text-xs font-mono'>
                     {job.model}
                   </code>
                 </TableCell>
@@ -202,10 +217,10 @@ export function JobsTable({
                     <Button
                       variant='ghost'
                       size='sm'
-                      className='h-8 gap-1 px-2'
+                      className='h-7 gap-1 px-2 text-xs rounded hover:bg-muted text-muted-foreground'
                     >
-                      <span className='text-xs'>{t('viewDetail')}</span>
-                      <ArrowRight className='size-3.5' />
+                      <span>{t('viewDetail')}</span>
+                      <ArrowRight className='size-3' />
                     </Button>
                   </Link>
                 </TableCell>
@@ -217,7 +232,7 @@ export function JobsTable({
 
       {/* Pagination Footer */}
       {total > 0 && (
-        <div className='flex items-center justify-between border-t px-4 py-3'>
+        <div className='flex items-center justify-between border-t border-dashed px-4 py-3 bg-muted/5'>
           <p className='text-xs text-muted-foreground'>
             {page} / {totalPages} (Total: {total})
           </p>
@@ -227,6 +242,7 @@ export function JobsTable({
               size='sm'
               disabled={page <= 1 || isLoading}
               onClick={() => onPageChange(page - 1)}
+              className='h-8 border-dashed text-xs shadow-none'
             >
               {tCommon('previousPage')}
             </Button>
@@ -235,6 +251,7 @@ export function JobsTable({
               size='sm'
               disabled={page >= totalPages || isLoading}
               onClick={() => onPageChange(page + 1)}
+              className='h-8 border-dashed text-xs shadow-none'
             >
               {tCommon('nextPage')}
             </Button>

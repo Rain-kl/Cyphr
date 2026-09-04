@@ -121,7 +121,7 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
     };
 
     return (
-      <div className='rounded-xl border bg-card p-4 shadow-sm'>
+      <div className='border border-dashed shadow-none rounded-lg bg-background p-4'>
         <audio
           ref={audioRef}
           src={resolvedMediaUrl}

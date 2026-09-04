@@ -111,9 +111,9 @@ export function ModelsTab() {
   return (
     <div className='space-y-6'>
       {/* Quick Dispatch Card */}
-      <Card className='border shadow-sm'>
+      <Card className='border-dashed shadow-none bg-muted/20'>
         <CardHeader className='pb-3'>
-          <CardTitle className='flex items-center gap-2 text-sm font-semibold'>
+          <CardTitle className='flex items-center gap-1.5 text-sm font-semibold'>
             <Send className='size-4 text-primary' />
             <span>{t('dispatchTitle')}</span>
           </CardTitle>
@@ -132,7 +132,10 @@ export function ModelsTab() {
                 onValueChange={setDispatchNodeId}
                 disabled={nodes.length === 0}
               >
-                <SelectTrigger aria-label={t('selectNode')}>
+                <SelectTrigger
+                  className='h-8 border-dashed shadow-none text-xs bg-background'
+                  aria-label={t('selectNode')}
+                >
                   <SelectValue
                     placeholder={
                       nodes.length === 0
@@ -159,7 +162,10 @@ export function ModelsTab() {
                 value={dispatchModelName}
                 onValueChange={setDispatchModelName}
               >
-                <SelectTrigger aria-label={t('selectModel')}>
+                <SelectTrigger
+                  className='h-8 border-dashed shadow-none text-xs bg-background'
+                  aria-label={t('selectModel')}
+                >
                   <SelectValue placeholder={t('selectModel')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -174,10 +180,11 @@ export function ModelsTab() {
 
             <Button
               type='submit'
+              size='sm'
               disabled={isDispatching || !dispatchNodeId || !dispatchModelName}
-              className='gap-1.5'
+              className='h-8 text-xs shadow-none gap-1.5'
             >
-              <Cpu className='size-4' />
+              <Cpu className='size-3.5' />
               <span>{isDispatching ? 'Dispatching...' : t('dispatchBtn')}</span>
             </Button>
           </form>
@@ -187,63 +194,73 @@ export function ModelsTab() {
       {/* Models Table */}
       <div className='space-y-4'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
-          <h3 className='text-base font-semibold tracking-tight'>
+          <p className='text-sm font-semibold tracking-tight text-foreground'>
             {t('title')}
-          </h3>
+          </p>
           <div className='flex items-center gap-2'>
             <div className='relative w-48'>
-              <Search className='absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground' />
+              <Search className='absolute left-2.5 top-2.5 size-3 text-muted-foreground' />
               <Input
                 type='search'
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder='Search model...'
-                className='h-8 pl-8 text-xs'
+                className='h-8 pl-8 text-xs w-full shadow-none border-dashed bg-background'
               />
             </div>
             <Button
               variant='outline'
-              size='icon'
-              className='size-8'
+              size='sm'
+              className='h-8 border-dashed text-xs shadow-none px-2.5 gap-1'
               onClick={fetchModelsAndNodes}
               disabled={isLoading}
               aria-label='Refresh'
             >
               <RefreshCw
-                className={`size-3.5 ${isLoading ? 'animate-spin' : ''}`}
+                className={`size-3 ${isLoading ? 'animate-spin' : ''}`}
               />
+              <span>Refresh</span>
             </Button>
           </div>
         </div>
 
-        <div className='rounded-xl border bg-card shadow-sm overflow-hidden'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className='w-48'>{t('modelName')}</TableHead>
-                <TableHead className='w-36'>{t('taskType')}</TableHead>
-                <TableHead>{t('description')}</TableHead>
-                <TableHead className='w-28 text-center'>
+        <div className='border border-dashed shadow-none rounded-lg overflow-hidden bg-background'>
+          <Table className='w-full caption-bottom text-sm min-w-full'>
+            <TableHeader className='bg-muted/40'>
+              <TableRow className='border-dashed hover:bg-transparent'>
+                <TableHead className='w-48 text-xs font-semibold'>
+                  {t('modelName')}
+                </TableHead>
+                <TableHead className='w-36 text-xs font-semibold'>
+                  {t('taskType')}
+                </TableHead>
+                <TableHead className='text-xs font-semibold'>
+                  {t('description')}
+                </TableHead>
+                <TableHead className='w-28 text-xs font-semibold text-center'>
                   {t('status')}
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {models.length === 0 ? (
-                <TableRow>
+                <TableRow className='border-dashed hover:bg-transparent'>
                   <TableCell
                     colSpan={4}
-                    className='h-32 text-center text-muted-foreground'
+                    className='h-32 text-center text-xs text-muted-foreground'
                   >
                     {isLoading ? tCommon('loading') : 'No models configured.'}
                   </TableCell>
                 </TableRow>
               ) : (
                 models.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className='font-mono font-medium text-sm'>
+                  <TableRow
+                    key={m.id}
+                    className='border-dashed hover:bg-muted/10 transition-colors'
+                  >
+                    <TableCell className='font-mono text-xs font-semibold'>
                       <div className='flex items-center gap-2'>
-                        <Sparkles className='size-3.5 text-primary shrink-0' />
+                        <Sparkles className='size-3 text-primary shrink-0' />
                         <span>{m.name}</span>
                       </div>
                     </TableCell>

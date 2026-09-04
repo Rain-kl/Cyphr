@@ -54,17 +54,17 @@ export function NodeCard({
   };
 
   return (
-    <Card className='flex flex-col justify-between border shadow-sm transition-all hover:shadow-md'>
+    <Card className='flex flex-col justify-between border-dashed shadow-none transition-colors hover:bg-muted/5'>
       <CardHeader className='pb-3'>
         <div className='flex items-start justify-between gap-2'>
           <div className='flex items-center gap-2.5 overflow-hidden'>
             <div className='rounded-lg bg-primary/10 p-2 text-primary shrink-0'>
-              <Server className='size-5' />
+              <Server className='size-4' />
             </div>
             <div className='min-w-0'>
-              <h3 className='truncate font-semibold text-base leading-tight'>
+              <p className='truncate font-semibold text-sm leading-tight text-foreground'>
                 {node.name}
-              </h3>
+              </p>
               <p className='text-xs font-mono text-muted-foreground mt-0.5'>
                 {node.last_ip || 'No IP'} • #{node.id}
               </p>
@@ -74,17 +74,17 @@ export function NodeCard({
           {node.is_online ? (
             <Badge
               variant='outline'
-              className='gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0'
+              className='text-[10px] bg-emerald-500/10 border-emerald-500/20 text-emerald-600 rounded-full py-0 px-2 font-medium shrink-0'
             >
-              <span className='size-1.5 rounded-full bg-emerald-500 animate-pulse' />
+              <span className='size-1 bg-emerald-500 rounded-full mr-1.5 shrink-0 animate-pulse' />
               <span>{t('statusOnline')}</span>
             </Badge>
           ) : (
             <Badge
               variant='outline'
-              className='gap-1 text-muted-foreground shrink-0'
+              className='text-[10px] text-muted-foreground rounded-full py-0 px-2 font-medium shrink-0'
             >
-              <span className='size-1.5 rounded-full bg-muted-foreground' />
+              <span className='size-1 bg-muted-foreground rounded-full mr-1.5 shrink-0' />
               <span>{t('statusOffline')}</span>
             </Badge>
           )}
@@ -93,7 +93,7 @@ export function NodeCard({
 
       <CardContent className='space-y-3.5 pb-4'>
         {/* Resource Gauges */}
-        <div className='space-y-2.5 rounded-lg bg-muted/20 p-3 text-xs'>
+        <div className='space-y-2.5 rounded-lg border border-dashed bg-muted/10 p-3 text-xs'>
           {/* CPU Bar */}
           <div className='space-y-1'>
             <div className='flex justify-between font-medium text-muted-foreground'>
@@ -129,7 +129,7 @@ export function NodeCard({
         <div className='space-y-1.5'>
           <div className='flex items-center justify-between text-xs text-muted-foreground'>
             <span>{t('loadedModels')}</span>
-            <span className='font-mono'>
+            <span className='font-mono text-[11px]'>
               {node.running_jobs ? `${node.running_jobs} active jobs` : 'idle'}
             </span>
           </div>
@@ -140,7 +140,7 @@ export function NodeCard({
                 <Badge
                   key={m}
                   variant='secondary'
-                  className='gap-1 pr-1 text-[11px] font-mono'
+                  className='gap-1 pr-1 text-[10px] font-mono border border-dashed shadow-none rounded-full py-0 px-2'
                 >
                   <span>{m}</span>
                   {node.is_online && (
@@ -150,7 +150,7 @@ export function NodeCard({
                       className='rounded-full p-0.5 hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground'
                       aria-label={`Unload ${m}`}
                     >
-                      <X className='size-3' />
+                      <X className='size-2.5' />
                     </button>
                   )}
                 </Badge>
@@ -164,14 +164,14 @@ export function NodeCard({
         </div>
       </CardContent>
 
-      <CardFooter className='border-t pt-3 flex items-center justify-between gap-2'>
+      <CardFooter className='border-t border-dashed pt-3 flex items-center justify-between gap-2'>
         <div className='flex items-center gap-2'>
           <Button
             variant='outline'
             size='sm'
             disabled={!node.is_online}
             onClick={() => onOpenLoadModel(node)}
-            className='h-8 text-xs'
+            className='h-7 text-xs border-dashed shadow-none'
           >
             {t('loadModelAction')}
           </Button>
@@ -179,7 +179,7 @@ export function NodeCard({
             variant='ghost'
             size='sm'
             onClick={() => onOpenDetails(node)}
-            className='h-8 text-xs'
+            className='h-7 text-xs rounded hover:bg-muted text-muted-foreground'
           >
             {t('viewDetails')}
           </Button>
@@ -191,10 +191,10 @@ export function NodeCard({
             <Button
               variant='ghost'
               size='icon'
-              className='size-8 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10'
+              className='h-7 w-7 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
               aria-label={t('deleteNode')}
             >
-              <Trash2 className='size-4' />
+              <Trash2 className='size-3.5' />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
