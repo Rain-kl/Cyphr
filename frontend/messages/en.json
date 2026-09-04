@@ -2057,7 +2057,7 @@
       "namePlaceholder": "e.g. gpu-node-01",
       "create": "Create Node",
       "successTitle": "Node Created Successfully",
-      "tokenNotice": "Please save the following Agent Token securely, it will only be displayed once:",
+      "tokenNotice": "Agent Token generated successfully (you can also view and copy it anytime on the node details page):",
       "copyToken": "Copy Token",
       "launchCommand": "Launch Command:",
       "copyCommand": "Copy Command",

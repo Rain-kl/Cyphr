@@ -40,6 +40,8 @@ import {
   Check,
   Copy,
   Cpu,
+  Eye,
+  EyeOff,
   FileCode,
   HardDrive,
   Layers,
@@ -85,6 +87,7 @@ export function NodeDetailClient() {
 
   // Connection config controller url
   const [controllerUrl, setControllerUrl] = React.useState('');
+  const [showToken, setShowToken] = React.useState(false);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -193,18 +196,18 @@ export function NodeDetailClient() {
 
   const sys = node.system;
   const effectiveUrl = controllerUrl.trim() || 'http://localhost:8000';
-  const tokenPlaceholder = node.token_prefix
-    ? `${node.token_prefix}...`
-    : '<your_agent_token>';
+  const actualToken =
+    node.agent_token ||
+    (node.token_prefix ? `${node.token_prefix}...` : '<your_agent_token>');
 
   // Snippets
   const shellSnippet = `CONTROLLER_URL="${effectiveUrl}" \\
-AGENT_TOKEN="${tokenPlaceholder}" \\
+AGENT_TOKEN="${actualToken}" \\
 NODE_NAME="${node.name}" \\
 uv run python -m src.main`;
 
   const yamlSnippet = `controller_url: "${effectiveUrl}"
-agent_token: "${tokenPlaceholder}" # 请替换为初次创建时获取的完整 Token
+agent_token: "${actualToken}"
 node_name: "${node.name}"
 heartbeat_interval: 5
 max_concurrent_jobs: 2`;
@@ -214,7 +217,7 @@ max_concurrent_jobs: 2`;
   --gpus all \\
   --restart unless-stopped \\
   -e CONTROLLER_URL="${effectiveUrl}" \\
-  -e AGENT_TOKEN="${tokenPlaceholder}" \\
+  -e AGENT_TOKEN="${actualToken}" \\
   -e NODE_NAME="${node.name}" \\
   cyphr-agent:latest`;
 
@@ -227,7 +230,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/Applications/Cyphr/backend/agent
 Environment="CONTROLLER_URL=${effectiveUrl}"
-Environment="AGENT_TOKEN=${tokenPlaceholder}"
+Environment="AGENT_TOKEN=${actualToken}"
 Environment="NODE_NAME=${node.name}"
 ExecStart=/home/ubuntu/.local/bin/uv run python -m src.main
 Restart=always
@@ -651,8 +654,8 @@ WantedBy=multi-user.target`;
           </CardHeader>
 
           <CardContent className='space-y-5'>
-            {/* Controller URL Setting */}
-            <div className='rounded-xl border bg-muted/20 p-4 space-y-3'>
+            {/* Controller URL & Token Settings */}
+            <div className='rounded-xl border bg-muted/20 p-4 space-y-4'>
               <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
                 <div className='space-y-0.5'>
                   <Label
@@ -673,6 +676,60 @@ WantedBy=multi-user.target`;
                     placeholder='http://your-server-ip:8000'
                     className='font-mono text-xs h-8 bg-background'
                   />
+                </div>
+              </div>
+
+              <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t'>
+                <div className='space-y-0.5'>
+                  <Label
+                    htmlFor='agent-token-input'
+                    className='text-xs font-semibold'
+                  >
+                    节点通信凭证 (AGENT_TOKEN)
+                  </Label>
+                  <p className='text-xs text-muted-foreground'>
+                    用于 Agent 客户端与 Controller 建立鉴权与 WebSocket
+                    双向握手（已持久保存）
+                  </p>
+                </div>
+                <div className='flex items-center gap-1.5 w-full sm:w-80'>
+                  <div className='relative flex-1'>
+                    <Input
+                      id='agent-token-input'
+                      type={showToken ? 'text' : 'password'}
+                      value={actualToken}
+                      readOnly
+                      className='font-mono text-xs h-8 bg-background pr-8 select-all'
+                    />
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => setShowToken((v) => !v)}
+                      className='absolute right-0 top-0 h-8 w-8 text-muted-foreground hover:text-foreground'
+                      aria-label={showToken ? '隐藏 Token' : '显示 Token'}
+                    >
+                      {showToken ? (
+                        <EyeOff className='size-3.5' />
+                      ) : (
+                        <Eye className='size-3.5' />
+                      )}
+                    </Button>
+                  </div>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon'
+                    onClick={() => handleCopy(actualToken, 'token')}
+                    className='h-8 w-8 shrink-0'
+                    aria-label='复制 Token'
+                  >
+                    {copiedKey === 'token' ? (
+                      <Check className='size-3.5 text-emerald-500' />
+                    ) : (
+                      <Copy className='size-3.5' />
+                    )}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -810,20 +867,14 @@ WantedBy=multi-user.target`;
               </TabsContent>
             </Tabs>
 
-            {/* Security Notice Alert */}
-            <div className='flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 text-xs text-amber-800 dark:text-amber-300'>
-              <ShieldAlert className='size-4 text-amber-500 shrink-0 mt-0.5' />
+            {/* Token Persistent Notice Alert */}
+            <div className='flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 text-xs text-emerald-800 dark:text-emerald-300'>
+              <ShieldAlert className='size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5' />
               <div className='space-y-0.5 leading-relaxed'>
-                <p className='font-medium'>关于 Agent Token 凭证的安全说明：</p>
-                <p className='text-amber-700/80 dark:text-amber-300/80'>
-                  出于零信任安全准则，数据库仅保存 Agent Token
-                  的单向不可逆哈希（SHA-256）。上方配置中的 Token
-                  已填充该节点的标识前缀（
-                  <code className='font-mono font-semibold'>
-                    {node.token_prefix || 'agt_...'}
-                  </code>
-                  ）。若您未保存初次创建时生成的完整明文
-                  Token，可通过删除该节点并重新创建获取新 Token。
+                <p className='font-medium'>Agent Token 凭证已持久保存：</p>
+                <p className='text-emerald-700/80 dark:text-emerald-300/80'>
+                  该节点的 AGENT_TOKEN
+                  已持久保存在系统中（非一次性显示）。您可以随时在此处查看明文或一键复制，上方提供的四种启动指令与配置文件已直接填入该完整凭证。
                 </p>
               </div>
             </div>

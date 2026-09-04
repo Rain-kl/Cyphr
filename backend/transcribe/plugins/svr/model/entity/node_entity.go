@@ -10,6 +10,7 @@ import "time"
 type NodeEntity struct {
 	ID          uint64     `json:"id,string" gorm:"primaryKey"`
 	Name        string     `json:"name" gorm:"size:64;not null"`
+	AgentToken  string     `json:"agent_token" gorm:"size:128;not null;default:''"`
 	TokenHash   string     `json:"token_hash" gorm:"size:64;uniqueIndex;not null"`
 	TokenPrefix string     `json:"token_prefix" gorm:"size:16;not null"`
 	IsActive    bool       `json:"is_active" gorm:"not null"`

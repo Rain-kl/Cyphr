@@ -24,6 +24,7 @@ export interface SystemStatsDTO {
 export interface NodeDTO {
   id: string | number;
   name: string;
+  agent_token?: string;
   token_prefix: string;
   is_active: boolean;
   is_online?: boolean;

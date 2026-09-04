@@ -2057,7 +2057,7 @@
       "namePlaceholder": "例如：gpu-node-01",
       "create": "创建节点",
       "successTitle": "节点创建成功",
-      "tokenNotice": "请妥善保管以下 Agent Token，它仅显示一次：",
+      "tokenNotice": "节点 Agent Token 已生成（后续可在节点详情页随时查看与复制）：",
       "copyToken": "复制 Token",
       "launchCommand": "一键启动指令：",
       "copyCommand": "复制启动指令",

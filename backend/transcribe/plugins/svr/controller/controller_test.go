@@ -76,11 +76,15 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	require.NoError(t, err, "migration file must exist at %s", migrationPath)
 	applyMigration(t, db, string(content))
 
-	// v2 targets the admin-owned w_system_configs table (absent in unit tests); apply v3 model registration only.
 	qwenMigrationPath := filepath.Join("..", "migrations", "sqlite", "00003_register_qwen3_asr.sql")
 	qwenContent, err := os.ReadFile(qwenMigrationPath)
 	require.NoError(t, err, "migration file must exist at %s", qwenMigrationPath)
 	applyMigration(t, db, string(qwenContent))
+
+	tokenMigrationPath := filepath.Join("..", "migrations", "sqlite", "00005_add_agent_token_to_nodes.sql")
+	tokenContent, err := os.ReadFile(tokenMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", tokenMigrationPath)
+	applyMigration(t, db, string(tokenContent))
 
 	jobDAO := dao.NewJobDAO(db)
 	nodeDAO := dao.NewNodeDAO(db)

@@ -37,6 +37,7 @@ type SystemStatsDTO struct {
 type NodeDTO struct {
 	ID           uint64          `json:"id,string"`
 	Name         string          `json:"name"`
+	AgentToken   string          `json:"agent_token,omitempty"`
 	TokenPrefix  string          `json:"token_prefix"`
 	IsActive     bool            `json:"is_active"`
 	IsOnline     bool            `json:"is_online,omitempty"`

@@ -64,6 +64,7 @@ func (s *DefaultNodeService) CreateNode(ctx context.Context, name string) (*do.N
 
 	node := &entity.NodeEntity{
 		Name:        trimmedName,
+		AgentToken:  rawToken,
 		TokenHash:   tokenHash,
 		TokenPrefix: tokenPrefix,
 		IsActive:    true,
@@ -139,6 +140,7 @@ func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
 	dto := &do.NodeDTO{
 		ID:          node.ID,
 		Name:        node.Name,
+		AgentToken:  node.AgentToken,
 		TokenPrefix: node.TokenPrefix,
 		IsActive:    node.IsActive,
 		LastIP:      node.LastIP,

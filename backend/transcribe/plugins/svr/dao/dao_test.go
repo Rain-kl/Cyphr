@@ -49,6 +49,11 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 	require.NoError(t, err, "migration file must exist at %s", qwen17MigrationPath)
 	applyMigration(t, db, string(qwen17Content))
 
+	tokenMigrationPath := filepath.Join("..", "migrations", "sqlite", "00005_add_agent_token_to_nodes.sql")
+	tokenContent, err := os.ReadFile(tokenMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", tokenMigrationPath)
+	applyMigration(t, db, string(tokenContent))
+
 	return db, dbPath
 }
 
