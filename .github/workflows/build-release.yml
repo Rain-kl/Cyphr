@@ -503,23 +503,17 @@ jobs:
           set -euo pipefail
 
           mkdir -p dist
-          # Create clean archive containing only backend/agent trackable source
           package_name="${AGENT_APP_NAME}_${VERSION}"
           zip_file="dist/${package_name}.zip"
-          latest_zip_file="dist/${AGENT_APP_NAME}.zip"
 
           git archive --format=zip --prefix=agent/ HEAD:backend/agent > "$zip_file"
-          cp "$zip_file" "$latest_zip_file"
 
           echo "artifact=$zip_file" >> "$GITHUB_OUTPUT"
-          echo "artifact_latest=$latest_zip_file" >> "$GITHUB_OUTPUT"
 
       - name: Upload Agent package to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-release.outputs.version }}
-          files: |
-            ${{ steps.package.outputs.artifact }}
-            ${{ steps.package.outputs.artifact_latest }}
+          files: ${{ steps.package.outputs.artifact }}
 
 

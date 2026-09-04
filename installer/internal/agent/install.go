@@ -180,14 +180,17 @@ func resolveReleaseAssetURL(owner, repo, version string) (string, error) {
 					return a.BrowserDownloadURL, nil
 				}
 			}
+			if release.TagName != "" {
+				version = release.TagName
+			}
 		}
 	}
 
 	// Fallback pattern
-	if version == "" || version == "latest" {
-		return fmt.Sprintf("https://github.com/%s/%s/releases/latest/download/cyphr-agent.zip", owner, repo), nil
+	if version != "" && version != "latest" {
+		return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/cyphr-agent_%s.zip", owner, repo, version, version), nil
 	}
-	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/cyphr-agent.zip", owner, repo, version), nil
+	return fmt.Sprintf("https://github.com/%s/%s/releases/latest/download/cyphr-agent.zip", owner, repo), nil
 }
 
 func downloadFile(url string, progressCb func(float64)) (string, error) {
