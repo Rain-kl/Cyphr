@@ -6,6 +6,7 @@ package controller_test
 import (
 	"Wavelet/core/contracts"
 	"Wavelet/core/extpoints"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/idgen"
 	"Wavelet/pkg/response"
 	"Wavelet/transcribe/plugins/svr/consts"
@@ -1141,4 +1142,27 @@ func (t *testWSConn) Close() error {
 
 func (t *testWSConn) getSentMessages() []any {
 	return t.sent
+}
+
+func TestGetCurrentUserID_AuthUserObjKey(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+
+	// Case 1: contracts.AuthUserObjKey set in Gin context
+	ginutil.SetToContext(c, contracts.AuthUserObjKey, &contracts.UserDTO{ID: 8888, Username: "token_user"})
+	uid := controller.GetCurrentUserID(c, nil)
+	assert.Equal(t, uint64(8888), uid)
+
+	// Case 2: fallback to contracts.AuthUserIDKey
+	c2, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c2.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	c2.Set(contracts.AuthUserIDKey, uint64(9999))
+	uid2 := controller.GetCurrentUserID(c2, nil)
+	assert.Equal(t, uint64(9999), uid2)
+
+	// Case 3: neither set -> 0
+	c3, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c3.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	uid3 := controller.GetCurrentUserID(c3, nil)
+	assert.Equal(t, uint64(0), uid3)
 }

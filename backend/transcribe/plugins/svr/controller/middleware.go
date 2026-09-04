@@ -6,6 +6,7 @@ package controller
 
 import (
 	"Wavelet/core/contracts"
+	"Wavelet/pkg/ginutil"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/response"
 	"Wavelet/transcribe/plugins/svr/consts"
@@ -140,27 +141,57 @@ func UserAuthMiddleware(provider any) gin.HandlerFunc {
 
 // GetCurrentUserID extracts the current authenticated user ID from context.
 func GetCurrentUserID(c *gin.Context, authSvc contracts.AuthService) uint64 {
-	if authSvc != nil {
-		if uid, err := authSvc.GetCurrentUserID(c.Request.Context()); err == nil && uid > 0 {
-			return uid
-		}
+	if u, ok := ginutil.GetFromContext[*contracts.UserDTO](c, contracts.AuthUserObjKey); ok && u != nil && u.ID > 0 {
+		return u.ID
 	}
-	if val, ok := c.Get(contracts.AuthUserIDKey); ok {
-		switch v := val.(type) {
-		case uint64:
-			return v
-		case int64:
-			if v >= 0 {
-				return uint64(v)
-			}
-		case int:
-			if v >= 0 {
-				return uint64(v)
-			}
-		case string:
-			if id, err := strconv.ParseUint(v, 10, 64); err == nil {
-				return id
-			}
+	if uid := getUserIDFromAuthService(c, authSvc); uid > 0 {
+		return uid
+	}
+	return getUserIDFromGinKey(c)
+}
+
+func getUserIDFromAuthService(c *gin.Context, authSvc contracts.AuthService) uint64 {
+	if authSvc == nil {
+		return 0
+	}
+	if u, err := authSvc.GetCurrentUser(c); err == nil && u != nil && u.ID > 0 {
+		return u.ID
+	}
+	if uid, err := authSvc.GetCurrentUserID(c); err == nil && uid > 0 {
+		return uid
+	}
+	if c.Request == nil || c.Request.Context() == nil {
+		return 0
+	}
+	reqCtx := c.Request.Context()
+	if u, err := authSvc.GetCurrentUser(reqCtx); err == nil && u != nil && u.ID > 0 {
+		return u.ID
+	}
+	if uid, err := authSvc.GetCurrentUserID(reqCtx); err == nil && uid > 0 {
+		return uid
+	}
+	return 0
+}
+
+func getUserIDFromGinKey(c *gin.Context) uint64 {
+	val, ok := c.Get(contracts.AuthUserIDKey)
+	if !ok {
+		return 0
+	}
+	switch v := val.(type) {
+	case uint64:
+		return v
+	case int64:
+		if v >= 0 {
+			return uint64(v)
+		}
+	case int:
+		if v >= 0 {
+			return uint64(v)
+		}
+	case string:
+		if id, err := strconv.ParseUint(v, 10, 64); err == nil {
+			return id
 		}
 	}
 	return 0
