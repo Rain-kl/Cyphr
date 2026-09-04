@@ -11,7 +11,9 @@ import (
 	"Wavelet/pkg/trace"
 	"Wavelet/plugins/infra/config"
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -44,11 +46,24 @@ type hostConfig struct {
 	} `config:"otel"`
 }
 
+var configPath string
+
+func loadConfigSource() (*config.Source, error) {
+	var opts []config.Option
+	if configPath != "" {
+		if _, err := os.Stat(configPath); err != nil {
+			return nil, fmt.Errorf("config file %q not found: %w", configPath, err)
+		}
+		opts = append(opts, config.WithPath(configPath))
+	}
+	return config.NewSource(opts...)
+}
+
 var rootCmd = &cobra.Command{
 	Use:     "cyphr-svr",
 	Aliases: []string{"cyphr", "wavelet"},
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
-		src, err := config.NewSource()
+		src, err := loadConfigSource()
 		if err != nil {
 			log.Fatalf("[CMD] load config source failed: %v", err)
 		}
@@ -99,6 +114,8 @@ func shutdownTraceProvider() {
 func init() {
 	rootCmd.Version = buildinfo.Version
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "path to configuration file (default is ./config.yaml)")
 
 	// 集中将子命令注册到根命令，以解决 Cobra 的 unknown command 校验限制
 	rootCmd.AddCommand(allCmd, apiCmd, workerCmd, schedulerCmd)

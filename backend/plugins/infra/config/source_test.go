@@ -92,22 +92,17 @@ func TestSourcePrefersConfigPathEnvironmentVariable(t *testing.T) {
 	assert.Equal(t, ":9100", value)
 }
 
-func TestSourceFindsManifestConfigInParentDirectory(t *testing.T) {
+func TestSourceFindsDefaultConfigInCurrentDirectory(t *testing.T) {
 	tempRoot := t.TempDir()
-	manifestConfigDir := filepath.Join(tempRoot, "manifest", "config")
-	require.NoError(t, os.MkdirAll(manifestConfigDir, 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(manifestConfigDir, "config.yaml"),
+		filepath.Join(tempRoot, "config.yaml"),
 		[]byte("app:\n  addr: \":9200\"\n"),
 		0o600,
 	))
 
-	subDir := filepath.Join(tempRoot, "backend", "cmd")
-	require.NoError(t, os.MkdirAll(subDir, 0o755))
-
 	origWd, err := os.Getwd()
 	require.NoError(t, err)
-	require.NoError(t, os.Chdir(subDir))
+	require.NoError(t, os.Chdir(tempRoot))
 	t.Cleanup(func() {
 		_ = os.Chdir(origWd)
 	})
@@ -119,33 +114,15 @@ func TestSourceFindsManifestConfigInParentDirectory(t *testing.T) {
 	value, ok := src.Lookup("app.addr")
 	require.True(t, ok)
 	assert.Equal(t, ":9200", value)
+	assert.Equal(t, "config.yaml", src.Describe())
 }
 
-func TestSourceDefaultConfigMergedWithOverride(t *testing.T) {
-	tempRoot := t.TempDir()
-	manifestConfigDir := filepath.Join(tempRoot, "manifest", "config")
-	require.NoError(t, os.MkdirAll(manifestConfigDir, 0o755))
-
-	// 1. Write default configuration
-	require.NoError(t, os.WriteFile(
-		filepath.Join(manifestConfigDir, "config.default.yaml"),
-		[]byte("app:\n  addr: \":8000\"\n  node_id: 1\n  env: \"development\"\n"),
-		0o600,
-	))
-
-	// 2. Write override configuration (only overrides addr)
-	require.NoError(t, os.WriteFile(
-		filepath.Join(manifestConfigDir, "config.yaml"),
-		[]byte("app:\n  addr: \":9500\"\n"),
-		0o600,
-	))
-
-	subDir := filepath.Join(tempRoot, "backend")
-	require.NoError(t, os.MkdirAll(subDir, 0o755))
+func TestSourceTreatsAbsentDefaultConfigAsEnvOnly(t *testing.T) {
+	tempEmpty := t.TempDir()
 
 	origWd, err := os.Getwd()
 	require.NoError(t, err)
-	require.NoError(t, os.Chdir(subDir))
+	require.NoError(t, os.Chdir(tempEmpty))
 	t.Cleanup(func() {
 		_ = os.Chdir(origWd)
 	})
@@ -154,54 +131,22 @@ func TestSourceDefaultConfigMergedWithOverride(t *testing.T) {
 
 	src, err := config.NewSource()
 	require.NoError(t, err)
-
-	// Overridden by config.yaml
-	addr, ok := src.Lookup("app.addr")
-	require.True(t, ok)
-	assert.Equal(t, ":9500", addr)
-
-	// Retained from config.default.yaml
-	nodeID, ok := src.Lookup("app.node_id")
-	require.True(t, ok)
-	assert.Equal(t, 1, nodeID)
-
-	envVal, ok := src.Lookup("app.env")
-	require.True(t, ok)
-	assert.Equal(t, "development", envVal)
+	_, ok := src.Lookup("app.addr")
+	assert.False(t, ok)
+	assert.Equal(t, config.EnvOnlyOrigin, src.Describe())
 }
 
-func TestSourceDefaultConfigUsedWhenOverrideAbsent(t *testing.T) {
-	tempRoot := t.TempDir()
-	manifestConfigDir := filepath.Join(tempRoot, "manifest", "config")
-	require.NoError(t, os.MkdirAll(manifestConfigDir, 0o755))
+func TestSourcePrefersExplicitPathOverConfigPath(t *testing.T) {
+	envConfig := writeConfig(t, "app:\n  addr: \":9300\"\n")
+	explicitConfig := writeConfig(t, "app:\n  addr: \":9400\"\n")
 
-	// Write only default configuration
-	require.NoError(t, os.WriteFile(
-		filepath.Join(manifestConfigDir, "config.default.yaml"),
-		[]byte("app:\n  addr: \":8080\"\n  env: \"testing\"\n"),
-		0o600,
-	))
+	t.Setenv("CONFIG_PATH", envConfig)
 
-	subDir := filepath.Join(tempRoot, "backend")
-	require.NoError(t, os.MkdirAll(subDir, 0o755))
-
-	origWd, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(subDir))
-	t.Cleanup(func() {
-		_ = os.Chdir(origWd)
-	})
-
-	t.Setenv("CONFIG_PATH", "")
-
-	src, err := config.NewSource()
+	src, err := config.NewSource(config.WithPath(explicitConfig))
 	require.NoError(t, err)
 
-	addr, ok := src.Lookup("app.addr")
+	value, ok := src.Lookup("app.addr")
 	require.True(t, ok)
-	assert.Equal(t, ":8080", addr)
-
-	envVal, ok := src.Lookup("app.env")
-	require.True(t, ok)
-	assert.Equal(t, "testing", envVal)
+	assert.Equal(t, ":9400", value)
+	assert.Equal(t, explicitConfig, src.Describe())
 }
