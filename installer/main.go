@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -62,6 +63,43 @@ func handleCLI(paths *config.AppPaths, args []string) {
 			os.Exit(1)
 		}
 		fmt.Printf("✓ Agent 服务已成功重启！(PID: %d)\n", st.PID)
+
+	case "install":
+		targetDir := paths.AgentDir
+		if len(args) >= 2 && !strings.HasPrefix(args[1], "-") {
+			targetDir = args[1]
+		}
+		useMirror := true
+		skipVenv := false
+		for _, a := range args[1:] {
+			if a == "--no-mirror" {
+				useMirror = false
+			}
+			if a == "--skip-venv" {
+				skipVenv = true
+			}
+		}
+
+		fmt.Println("正在准备安装 / 更新 Cyphr Agent...")
+		fmt.Printf("  目标安装目录: %s\n", targetDir)
+		opts := agent.InstallOptions{
+			TargetDir:  targetDir,
+			Version:    "latest",
+			RepoOwner:  "Rain-kl",
+			RepoName:   "Cyphr",
+			UseMirror:  useMirror,
+			SkipVenv:   skipVenv,
+			AutoConfig: true,
+		}
+
+		err := agentSvc.InstallAgent(opts, func(stage string, progress float64, message string) {
+			fmt.Printf("  [%-8s] %s\n", stage, message)
+		})
+		if err != nil {
+			fmt.Printf("✗ 安装失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✓ Cyphr Agent 安装完成！可执行 'installer start' 启动服务。")
 
 	case "status":
 		st := agentSvc.Status()
@@ -197,6 +235,7 @@ func printHelp() {
 	fmt.Println("  start                 后台启动 Agent 服务")
 	fmt.Println("  stop                  停止 Agent 服务")
 	fmt.Println("  restart               重启 Agent 服务")
+	fmt.Println("  install [DIR]         从 GitHub 下载并安装/部署 Agent 运行时环境")
 	fmt.Println("  status                查看综合运行状态与已安装模型")
 	fmt.Println("  download <ID> [DIR]   下载指定 ASR 模型到 models/ 目录")
 	fmt.Println("  progress              查看当前后台下载进度与日志")

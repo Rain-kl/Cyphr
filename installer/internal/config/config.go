@@ -13,6 +13,8 @@ type AppPaths struct {
 	AgentDir         string
 	PidFile          string
 	LogFile          string
+	ConfigFile       string
+	ConfigExample    string
 	EnvFile          string
 	DownloadPidFile  string
 	DownloadLogFile  string
@@ -41,7 +43,7 @@ func FindAgentRoot() string {
 			cwd,
 		}
 		for _, c := range candidates {
-			if isAgentDir(c) {
+			if IsAgentDir(c) {
 				abs, _ := filepath.Abs(c)
 				return abs
 			}
@@ -52,23 +54,29 @@ func FindAgentRoot() string {
 	if exe, err := os.Executable(); err == nil {
 		exeDir := filepath.Dir(exe)
 		candidates := []string{
+			filepath.Join(exeDir, "agent"),
 			filepath.Join(exeDir, "backend", "agent"),
 			filepath.Join(exeDir, "..", "backend", "agent"),
 			filepath.Join(exeDir, "..", "..", "backend", "agent"),
+			exeDir,
 		}
 		for _, c := range candidates {
-			if isAgentDir(c) {
+			if IsAgentDir(c) {
 				abs, _ := filepath.Abs(c)
 				return abs
 			}
 		}
 	}
 
-	// 4. Default fallback to standard repository path
-	return "/Users/ryan/Code/Go/Cyphr/backend/agent"
+	// 4. Default target for a standalone deployment: ./agent in current directory
+	if cwd != "" {
+		return filepath.Join(cwd, "agent")
+	}
+	return "agent"
 }
 
-func isAgentDir(dir string) bool {
+// IsAgentDir checks whether a directory is an installed agent folder.
+func IsAgentDir(dir string) bool {
 	if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
 		mainPy := filepath.Join(dir, "main.py")
 		if _, err := os.Stat(mainPy); err == nil {
@@ -87,23 +95,30 @@ func DetectPython(agentDir string) string {
 	return "python3"
 }
 
-// NewAppPaths initializes all paths using the resolved agent directory.
-func NewAppPaths() *AppPaths {
-	agentDir := FindAgentRoot()
-	rootDir := filepath.Dir(filepath.Dir(agentDir)) // Cyphr repo root
+// NewAppPathsFromDir initializes AppPaths for a specific agent directory.
+func NewAppPathsFromDir(agentDir string) *AppPaths {
+	absAgent, _ := filepath.Abs(agentDir)
+	rootDir := filepath.Dir(filepath.Dir(absAgent))
 
 	return &AppPaths{
 		RootDir:          rootDir,
-		AgentDir:         agentDir,
-		PidFile:          filepath.Join(agentDir, "agent.pid"),
-		LogFile:          filepath.Join(agentDir, "agent.log"),
-		EnvFile:          filepath.Join(agentDir, ".env"),
-		DownloadPidFile:  filepath.Join(agentDir, "download.pid"),
-		DownloadLogFile:  filepath.Join(agentDir, "download.log"),
-		DownloadInfoFile: filepath.Join(agentDir, "download.info.log"),
-		ModelsDir:        filepath.Join(agentDir, "models"),
-		PythonBin:        DetectPython(agentDir),
+		AgentDir:         absAgent,
+		PidFile:          filepath.Join(absAgent, "agent.pid"),
+		LogFile:          filepath.Join(absAgent, "agent.log"),
+		ConfigFile:       filepath.Join(absAgent, "config.yaml"),
+		ConfigExample:    filepath.Join(absAgent, "config.example.yaml"),
+		EnvFile:          filepath.Join(absAgent, ".env"),
+		DownloadPidFile:  filepath.Join(absAgent, "download.pid"),
+		DownloadLogFile:  filepath.Join(absAgent, "download.log"),
+		DownloadInfoFile: filepath.Join(absAgent, "download.info.log"),
+		ModelsDir:        filepath.Join(absAgent, "models"),
+		PythonBin:        DetectPython(absAgent),
 	}
+}
+
+// NewAppPaths initializes all paths using the resolved agent directory.
+func NewAppPaths() *AppPaths {
+	return NewAppPathsFromDir(FindAgentRoot())
 }
 
 // LoadEnv loads key-value pairs from .env if it exists.

@@ -16,8 +16,10 @@ env:
   CLI_APP_NAME: cyphr-cli
   INSTALLER_BIN_NAME: cyphr-installer
   INSTALLER_APP_NAME: cyphr-installer
+  AGENT_APP_NAME: cyphr-agent
   GO_DIR: backend
   INSTALLER_DIR: installer
+  AGENT_DIR: backend/agent
   GO_MAIN: ./main.go
   CLI_MAIN: ./cmd/transcribe/main.go
   INSTALLER_MAIN: ./main.go
@@ -482,4 +484,42 @@ jobs:
         with:
           tag_name: ${{ needs.create-release.outputs.version }}
           files: ${{ steps.package.outputs.artifact }}
+
+  build-agent-package:
+    name: Package Agent ZIP
+    runs-on: ubuntu-latest
+    needs:
+      - create-release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Package Agent as ZIP
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          # Create clean archive containing only backend/agent trackable source
+          package_name="${AGENT_APP_NAME}_${VERSION}"
+          zip_file="dist/${package_name}.zip"
+          latest_zip_file="dist/${AGENT_APP_NAME}.zip"
+
+          git archive --format=zip --prefix=agent/ HEAD:backend/agent > "$zip_file"
+          cp "$zip_file" "$latest_zip_file"
+
+          echo "artifact=$zip_file" >> "$GITHUB_OUTPUT"
+          echo "artifact_latest=$latest_zip_file" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Agent package to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.version }}
+          files: |
+            ${{ steps.package.outputs.artifact }}
+            ${{ steps.package.outputs.artifact_latest }}
+
 

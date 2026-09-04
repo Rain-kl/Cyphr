@@ -12,10 +12,12 @@ import (
 
 // AgentStatus represents current agent runtime status.
 type AgentStatus struct {
+	Installed  bool
 	Running    bool
 	PID        int
 	Uptime     string
 	RSSMB      int
+	AgentDir   string
 	LogPath    string
 	RecentLogs []string
 }
@@ -35,13 +37,24 @@ func (s *Service) Paths() *config.AppPaths {
 	return s.paths
 }
 
+// IsInstalled checks if agent entrypoint exists.
+func (s *Service) IsInstalled() bool {
+	mainPy := filepath.Join(s.paths.AgentDir, "main.py")
+	_, err := os.Stat(mainPy)
+	return err == nil
+}
+
 // Status inspects the current agent daemon status.
 func (s *Service) Status() *AgentStatus {
+	installed := s.IsInstalled()
+
 	pid, err := proc.ReadPid(s.paths.PidFile)
 	if err != nil || pid <= 0 || !proc.IsRunning(pid) {
 		proc.RemovePid(s.paths.PidFile)
 		return &AgentStatus{
+			Installed:  installed,
 			Running:    false,
+			AgentDir:   s.paths.AgentDir,
 			LogPath:    s.paths.LogFile,
 			RecentLogs: proc.TailLines(s.paths.LogFile, 8),
 		}
@@ -49,10 +62,12 @@ func (s *Service) Status() *AgentStatus {
 
 	stats := proc.GetStats(pid)
 	return &AgentStatus{
+		Installed:  installed,
 		Running:    true,
 		PID:        pid,
 		Uptime:     stats.Uptime,
 		RSSMB:      stats.RSSMB,
+		AgentDir:   s.paths.AgentDir,
 		LogPath:    s.paths.LogFile,
 		RecentLogs: proc.TailLines(s.paths.LogFile, 8),
 	}
@@ -60,23 +75,23 @@ func (s *Service) Status() *AgentStatus {
 
 // Start launches the agent daemon in background.
 func (s *Service) Start() (*AgentStatus, error) {
+	if !s.IsInstalled() {
+		return nil, fmt.Errorf("agent 尚未安装 (未找到 %s/main.py)，请先选择【安装/更新 Agent】", s.paths.AgentDir)
+	}
+
 	st := s.Status()
 	if st.Running {
-		return st, fmt.Errorf("agent service is already running (PID: %d)", st.PID)
+		return st, fmt.Errorf("agent 服务已在运行中 (PID: %d)", st.PID)
 	}
 
 	proc.RemovePid(s.paths.PidFile)
 
 	pythonBin := s.paths.PythonBin
 	if pythonBin == "" {
-		return nil, fmt.Errorf("python interpreter not found")
+		return nil, fmt.Errorf("未找到 Python 解释器，请先安装 Python >= 3.12")
 	}
 
 	mainPy := filepath.Join(s.paths.AgentDir, "main.py")
-	if _, err := os.Stat(mainPy); err != nil {
-		return nil, fmt.Errorf("agent entrypoint not found: %s", mainPy)
-	}
-
 	command := []string{pythonBin, mainPy}
 	// Load .env variables
 	_ = config.LoadEnv(s.paths.EnvFile)
@@ -96,7 +111,7 @@ func (s *Service) Start() (*AgentStatus, error) {
 	if !proc.IsRunning(pid) {
 		proc.RemovePid(s.paths.PidFile)
 		recent := proc.TailLines(s.paths.LogFile, 10)
-		return nil, fmt.Errorf("agent exited unexpectedly shortly after start. Latest logs:\n%v", recent)
+		return nil, fmt.Errorf("agent 服务启动后异常退出，最新日志:\n%v", recent)
 	}
 
 	return s.Status(), nil

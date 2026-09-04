@@ -17,6 +17,7 @@ var mainMenuItems = []MenuItem{
 	{Title: "启动 Agent 服务", Desc: "在后台常驻运行推理 Agent 服务进程", Key: "1"},
 	{Title: "停止 Agent 服务", Desc: "优雅停止当前运行中的 Agent 服务", Key: "2"},
 	{Title: "重启 Agent 服务", Desc: "停止并重新在后台加载启动服务", Key: "3"},
+	{Title: "安装/更新 Agent", Desc: "从 GitHub Release 下载并部署 Agent 运行时环境", Key: "i"},
 	{Title: "查看综合状态", Desc: "查看 Agent 资源、下载任务及模型库综合看板", Key: "4"},
 	{Title: "下载 ASR 模型", Desc: "下载或增补语音识别预设/自定义模型（支持断点续传）", Key: "5"},
 	{Title: "查看下载进度", Desc: "实时追踪后台模型下载进度与日志分块", Key: "6"},
@@ -45,6 +46,9 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleStopService()
 	case "3":
 		return m.handleRestartService()
+	case "i", "I":
+		m.state = ViewInstallAgent
+		return m, nil
 	case "4":
 		m.state = ViewStatusDashboard
 		return m, nil
@@ -68,16 +72,18 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 2:
 			return m.handleRestartService()
 		case 3:
-			m.state = ViewStatusDashboard
+			m.state = ViewInstallAgent
 		case 4:
-			m.state = ViewDownloadCatalog
+			m.state = ViewStatusDashboard
 		case 5:
-			m.state = ViewDownloadProgress
+			m.state = ViewDownloadCatalog
 		case 6:
-			return m.handleStopDownload()
+			m.state = ViewDownloadProgress
 		case 7:
-			m.state = ViewAgentLogs
+			return m.handleStopDownload()
 		case 8:
+			m.state = ViewAgentLogs
+		case 9:
 			return m, tea.Quit
 		}
 	}
@@ -141,8 +147,12 @@ func (m Model) viewMainMenu() string {
 
 	// Mini Status Bar Card
 	agentBadge := StyleBadgeDanger.Render("● 未运行")
-	if m.agentStatus != nil && m.agentStatus.Running {
-		agentBadge = StyleBadgeSuccess.Render(fmt.Sprintf("● 运行中 (PID: %d, 内存: %dMB)", m.agentStatus.PID, m.agentStatus.RSSMB))
+	if m.agentStatus != nil {
+		if !m.agentStatus.Installed {
+			agentBadge = StyleBadgeWarning.Render("○ 未安装 (按 [i] 安装)")
+		} else if m.agentStatus.Running {
+			agentBadge = StyleBadgeSuccess.Render(fmt.Sprintf("● 运行中 (PID: %d, 内存: %dMB)", m.agentStatus.PID, m.agentStatus.RSSMB))
+		}
 	}
 
 	downBadge := StyleBadgeMuted.Render("○ 无下载任务")
@@ -153,7 +163,7 @@ func (m Model) viewMainMenu() string {
 	statusBar := fmt.Sprintf("【Agent 服务】: %s    【模型下载】: %s", agentBadge, downBadge)
 	b.WriteString(StyleCard.Render(statusBar) + "\n\n")
 
-	b.WriteString(StyleSubtitle.Render("请使用方向键 [↑/↓] 或数字键选择功能操作，回车确认：") + "\n\n")
+	b.WriteString(StyleSubtitle.Render("请使用方向键 [↑/↓] 或快捷键选择功能操作，回车确认：") + "\n\n")
 
 	for i, item := range mainMenuItems {
 		isSelected := i == m.menuIndex
@@ -167,6 +177,6 @@ func (m Model) viewMainMenu() string {
 		}
 	}
 
-	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [1-8] 快捷键   [q/Esc] 退出"))
+	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装/更新 Agent   [1-8] 快捷键   [q/Esc] 退出"))
 	return b.String()
 }

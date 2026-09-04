@@ -4,6 +4,7 @@
 
 ## 功能特性
 
+- **一键独立交付与 Agent 安装**：支持从 GitHub Release 自动拉取 `cyphr-agent.zip` 运行时包，解压部署并自动配置 Python 虚拟环境与默认配置，支持国内下载镜像加速（`ghproxy.net`）。
 - **交互式 TUI 控制面板**：基于 Bubble Tea 与 Lipgloss 构建，包含状态指示徽章、Spinner 动态加载与卡片布局。
 - **完整的守护进程（Daemon）隔离**：通过底层 POSIX 会话解耦（`Setsid: true`）与独立输入输出重定向，确保退出管理面板或关闭终端后，后台运行的 Agent 服务与模型下载任务持续稳定运行。
 - **ASR 模型库下载**：内置 Qwen3-ASR (0.6B / 1.7B) 与 Whisper 全系列预设模型，支持一键切换国内镜像加速（`https://hf-mirror.com`）与断点续传。
@@ -27,14 +28,17 @@ go build -o cyphr-installer main.go
 
 快捷键指南：
 - `↑ / ↓` 或 `j / k`：上下移动光标
-- `1 - 8`：数字快速选择功能
+- `i`：进入【安装/更新 Agent】页面，支持一键从 GitHub 下载部署 Agent 包
+- `1 - 8`：数字快速选择服务生命周期与模型管理功能
 - `Enter`：确认进入所选项
-- `m`（下载页面）：快速切换官方源 / 国内加速镜像
+- `m`（下载/安装页面）：快速切换官方源 / 国内加速镜像
+- `v`（安装页面）：切换是否自动初始化 Python 虚拟环境
 - `Esc` 或 `q`：返回上级菜单 / 退出面板（不会终止后台服务与下载）
 
 ### 2. 无界面 CLI 命令行模式
 
 ```bash
+./cyphr-installer install [DIR]         # 一键从 GitHub 下载并安装/部署 Agent 运行时环境
 ./cyphr-installer start                 # 后台启动 Agent 服务
 ./cyphr-installer stop                  # 优雅停止 Agent 服务
 ./cyphr-installer restart               # 重启 Agent 服务

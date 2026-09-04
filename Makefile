@@ -1,4 +1,4 @@
-.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli build-installer test-installer format-installer
+.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli build-installer test-installer format-installer package-agent
 
 VERSION ?= dev
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -57,6 +57,12 @@ build-installer:
 	@mkdir -p bin
 	@echo "==> Building installer version=$(VERSION) build_date=$(BUILD_DATE)..."
 	cd installer && go build -ldflags "-s -w" -o ../bin/cyphr-installer main.go
+
+package-agent:
+	@mkdir -p bin
+	@echo "==> Packaging Agent source to bin/cyphr-agent.zip..."
+	git archive --format=zip --prefix=agent/ HEAD:backend/agent > bin/cyphr-agent.zip
+	@echo "==> Done: bin/cyphr-agent.zip"
 
 test-installer:
 	@echo "==> Running installer unit tests..."

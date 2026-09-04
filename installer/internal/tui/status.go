@@ -26,15 +26,20 @@ func (m Model) viewStatusDashboard() string {
 
 	// Agent Service Card
 	var agentInfo strings.Builder
-	if m.agentStatus != nil && m.agentStatus.Running {
-		agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeSuccess.Render("● 运行中 (Running)")))
-		agentInfo.WriteString(fmt.Sprintf("进程 PID: %d\n", m.agentStatus.PID))
-		agentInfo.WriteString(fmt.Sprintf("运行时长: %s\n", m.agentStatus.Uptime))
-		agentInfo.WriteString(fmt.Sprintf("物理内存: ~%d MB\n", m.agentStatus.RSSMB))
+	if m.agentStatus != nil && m.agentStatus.Installed {
+		if m.agentStatus.Running {
+			agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeSuccess.Render("● 运行中 (Running)")))
+			agentInfo.WriteString(fmt.Sprintf("进程 PID: %d\n", m.agentStatus.PID))
+			agentInfo.WriteString(fmt.Sprintf("运行时长: %s\n", m.agentStatus.Uptime))
+			agentInfo.WriteString(fmt.Sprintf("物理内存: ~%d MB\n", m.agentStatus.RSSMB))
+		} else {
+			agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeDanger.Render("● 已安装但未运行 (Stopped)")))
+		}
+		agentInfo.WriteString(fmt.Sprintf("安装路径: %s\n", m.agentStatus.AgentDir))
 		agentInfo.WriteString(fmt.Sprintf("日志路径: %s\n", m.agentStatus.LogPath))
 	} else {
-		agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeDanger.Render("● 未运行 (Stopped)")))
-		agentInfo.WriteString(fmt.Sprintf("日志路径: %s\n", m.paths.LogFile))
+		agentInfo.WriteString(fmt.Sprintf("安装状态: %s\n", StyleBadgeWarning.Render("○ 尚未安装 (可在菜单选择【安装/更新 Agent】)")))
+		agentInfo.WriteString(fmt.Sprintf("目标路径: %s\n", m.paths.AgentDir))
 	}
 	b.WriteString(StyleCard.Render("【Agent 服务】\n"+agentInfo.String()) + "\n")
 

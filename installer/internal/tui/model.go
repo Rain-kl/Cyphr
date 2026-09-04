@@ -18,6 +18,7 @@ type ViewState int
 
 const (
 	ViewMainMenu ViewState = iota
+	ViewInstallAgent
 	ViewStatusDashboard
 	ViewDownloadCatalog
 	ViewDownloadProgress
@@ -39,21 +40,25 @@ type Model struct {
 	agentSvc  *agent.Service
 	modelSvc  *model.Service
 	state     ViewState
-	prevView  ViewState
 	width     int
 	height    int
 	spinner   spinner.Model
 	statusMsg string
-	isBusy    bool
 	err       error
 
 	// Sub-view state
-	menuIndex          int
-	catalogIndex       int
-	downloadMirror     string // "hf-mirror" or "hf"
-	downloadMode       string // "bg" or "fg"
-	customModelInput   string
-	isCustomModelInput bool
+	menuIndex      int
+	catalogIndex   int
+	downloadMirror string // "hf-mirror" or "hf"
+	downloadMode   string // "bg" or "fg"
+
+	// Install view state
+	installing      bool
+	installDone     bool
+	installMsg      string
+	installErr      error
+	installMirror   bool // use ghproxy
+	installSkipVenv bool
 
 	// Cached data
 	agentStatus *agent.AgentStatus
@@ -78,6 +83,7 @@ func NewModel(paths *config.AppPaths) Model {
 		spinner:        s,
 		downloadMirror: "hf-mirror",
 		downloadMode:   "bg",
+		installMirror:  true,
 	}
 	m.refreshData()
 	return m
@@ -115,6 +121,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshData()
 		cmds = append(cmds, tickCmd())
 
+	case InstallStatusMsg:
+		m.installing = false
+		if msg.Err != nil {
+			m.installErr = msg.Err
+			m.installDone = false
+		} else {
+			m.installDone = true
+			m.installErr = nil
+			m.installMsg = "Agent 安装成功！"
+		}
+		m.refreshData()
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -133,6 +151,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.state {
 		case ViewMainMenu:
 			return m.updateMainMenu(msg)
+		case ViewInstallAgent:
+			return m.updateInstallView(msg)
 		case ViewStatusDashboard:
 			return m.updateStatusDashboard(msg)
 		case ViewDownloadCatalog:
@@ -152,7 +172,7 @@ func (m Model) View() string {
 	var b strings.Builder
 
 	// Top App Header
-	headerText := fmt.Sprintf("  CYPHR AGENT MANAGER & INSTALLER  ")
+	headerText := "  CYPHR AGENT MANAGER & INSTALLER  "
 	b.WriteString(StyleHeader.Render(headerText) + "\n")
 
 	// Notice or Error Banner
@@ -165,6 +185,8 @@ func (m Model) View() string {
 	switch m.state {
 	case ViewMainMenu:
 		b.WriteString(m.viewMainMenu())
+	case ViewInstallAgent:
+		b.WriteString(m.viewInstallView())
 	case ViewStatusDashboard:
 		b.WriteString(m.viewStatusDashboard())
 	case ViewDownloadCatalog:
