@@ -50,7 +50,8 @@ type Model struct {
 	// Sub-view state
 	menuIndex      int
 	catalogIndex   int
-	downloadMirror string // "hf-mirror" or "hf"
+	downloadSource string // "hf-mirror", "modelscope", "hf"
+	downloadMirror string // backward-compat or alias
 	downloadMode   string // "bg" or "fg"
 
 	// Install view state
@@ -90,7 +91,8 @@ func NewModel(paths *config.AppPaths) Model {
 		modelSvc:       modelSvc,
 		state:          ViewMainMenu,
 		spinner:        s,
-		downloadMirror: "hf-mirror",
+		downloadSource: "modelscope",
+		downloadMirror: "modelscope",
 		downloadMode:   "bg",
 		installMirror:  true,
 		updateMirror:   true,

@@ -206,32 +206,73 @@ func handleCLI(paths *config.AppPaths, args []string) {
 			}
 		}
 
+	case "_worker-download":
+		// Hidden internal worker command invoked via proc.Daemonize for background download
+		if len(args) < 5 {
+			fmt.Println("用法: installer _worker-download <MODEL_ID> <PKG_DIR> <SOURCE> <ENDPOINT>")
+			os.Exit(1)
+		}
+		workerModelID := args[1]
+		workerPkgDir := args[2]
+		workerSource := args[3]
+		workerEndpoint := args[4]
+		err := modelSvc.ExecuteDownloadTask(model.DownloadOptions{
+			ModelID:  workerModelID,
+			PkgDir:   workerPkgDir,
+			Source:   workerSource,
+			Endpoint: workerEndpoint,
+			Mode:     "fg",
+		})
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+
 	case "download":
 		if len(args) < 2 {
-			fmt.Println("用法: installer download <MODEL_ID> [PKG_DIR] [ENDPOINT] [MODE]")
-			fmt.Println("示例: installer download Qwen/Qwen3-ASR-0.6B qwen3-asr-0.6b https://hf-mirror.com bg")
+			fmt.Println("用法: installer download <MODEL_ID> [PKG_DIR] [SOURCE: hf/modelscope] [ENDPOINT] [MODE: bg/fg]")
+			fmt.Println("示例: installer download Qwen/Qwen3-ASR-0.6B qwen3-asr-0.6b modelscope")
+			fmt.Println("示例: installer download Qwen/Qwen3-ASR-0.6B qwen3-asr-0.6b hf https://hf-mirror.com bg")
 			os.Exit(1)
 		}
 		modelID := args[1]
 		pkgDir := ""
-		if len(args) >= 3 {
+		if len(args) >= 3 && !strings.HasPrefix(args[2], "-") {
 			pkgDir = args[2]
 		}
-		endpoint := "https://hf-mirror.com"
+		source := "hf"
 		if len(args) >= 4 {
-			endpoint = args[3]
+			source = args[3]
+		}
+		endpoint := ""
+		if len(args) >= 5 {
+			endpoint = args[4]
 		}
 		mode := "bg"
-		if len(args) >= 5 {
-			mode = args[4]
+		if len(args) >= 6 {
+			mode = args[5]
 		}
 
-		fmt.Println("正在启动后台下载任务...")
+		if strings.ToLower(source) == "modelscope" {
+			source = "modelscope"
+			if endpoint == "" {
+				endpoint = "https://modelscope.cn"
+			}
+		} else {
+			source = "huggingface"
+			if endpoint == "" {
+				endpoint = "https://hf-mirror.com"
+			}
+		}
+
+		fmt.Println("正在启动下载任务...")
 		fmt.Printf("  模型 ID : %s\n", modelID)
+		fmt.Printf("  平台源  : %s\n", source)
 		fmt.Printf("  下载源  : %s\n", endpoint)
 		pid, err := modelSvc.StartDownload(model.DownloadOptions{
 			ModelID:  modelID,
 			PkgDir:   pkgDir,
+			Source:   source,
 			Endpoint: endpoint,
 			Mode:     mode,
 		})
@@ -239,7 +280,9 @@ func handleCLI(paths *config.AppPaths, args []string) {
 			fmt.Printf("✗ 启动下载失败: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("✓ 后台下载任务已成功启动！(PID: %d)\n", pid)
+		if mode == "bg" {
+			fmt.Printf("✓ 后台下载任务已成功启动！(PID: %d)\n", pid)
+		}
 
 	case "progress":
 		dst := modelSvc.Status()
@@ -310,7 +353,7 @@ func printHelp() {
 	fmt.Println("  install [DIR]         从 GitHub 下载并安装/部署 Agent 运行时环境")
 	fmt.Println("  update [agent|self]   在线更新 Agent 运行时或 Installer 自身程序")
 	fmt.Println("  status                查看综合运行状态与已安装模型")
-	fmt.Println("  download <ID> [DIR]   下载指定 ASR 模型到 models/ 目录")
+	fmt.Println("  download <ID> [DIR]   下载指定 ASR 模型到 models/ 目录 (支持 hf 与 modelscope 源)")
 	fmt.Println("  progress              查看当前后台下载进度与日志")
 	fmt.Println("  stop-download         停止当前正在运行的后台模型下载任务")
 	fmt.Println("  models                列出本地已下载的模型包")

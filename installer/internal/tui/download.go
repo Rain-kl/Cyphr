@@ -25,12 +25,15 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.catalogIndex = 0
 		}
-	case "m":
-		// Toggle mirror
-		if m.downloadMirror == "hf-mirror" {
-			m.downloadMirror = "hf"
-		} else {
-			m.downloadMirror = "hf-mirror"
+	case "m", "s":
+		// Cycle sources: modelscope -> hf-mirror -> hf -> modelscope
+		switch m.downloadSource {
+		case "modelscope":
+			m.downloadSource = "hf-mirror"
+		case "hf-mirror":
+			m.downloadSource = "hf"
+		default:
+			m.downloadSource = "modelscope"
 		}
 	case "enter":
 		if m.downStatus != nil && m.downStatus.Running {
@@ -39,14 +42,39 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		selectedPreset := model.PresetCatalog[m.catalogIndex]
-		endpoint := "https://hf-mirror.com"
-		if m.downloadMirror == "hf" {
+		var modelID string
+		var source string
+		var endpoint string
+
+		switch m.downloadSource {
+		case "modelscope":
+			source = "modelscope"
+			endpoint = "https://modelscope.cn"
+			modelID = selectedPreset.ModelScopeID
+			if modelID == "" {
+				m.err = fmt.Errorf("模型 %s 暂无 ModelScope 官方源，请按 [m] 切换至 Hugging Face 镜像或官方源", selectedPreset.Name)
+				return m, nil
+			}
+		case "hf":
+			source = "huggingface"
 			endpoint = "https://huggingface.co"
+			modelID = selectedPreset.HuggingFaceID
+			if modelID == "" {
+				modelID = selectedPreset.ID
+			}
+		default: // "hf-mirror"
+			source = "huggingface"
+			endpoint = "https://hf-mirror.com"
+			modelID = selectedPreset.HuggingFaceID
+			if modelID == "" {
+				modelID = selectedPreset.ID
+			}
 		}
 
 		opts := model.DownloadOptions{
-			ModelID:  selectedPreset.ID,
+			ModelID:  modelID,
 			PkgDir:   selectedPreset.PkgDir,
+			Source:   source,
 			Endpoint: endpoint,
 			Mode:     "bg",
 		}
@@ -55,7 +83,7 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if err != nil {
 			m.err = err
 		} else {
-			m.statusMsg = fmt.Sprintf("已成功启动后台下载任务 (PID: %d)，目标: models/%s", pid, selectedPreset.PkgDir)
+			m.statusMsg = fmt.Sprintf("已成功启动后台下载任务 (PID: %d)，目标: models/%s (源: %s)", pid, selectedPreset.PkgDir, source)
 			m.state = ViewDownloadProgress
 		}
 		m.refreshData()
@@ -69,11 +97,16 @@ func (m Model) viewDownloadCatalog() string {
 
 	b.WriteString(StyleCardTitle.Render("📥 下载 ASR 模型库") + "\n\n")
 
-	mirrorText := StyleBadgeSuccess.Render("国内镜像 (https://hf-mirror.com) [推荐]")
-	if m.downloadMirror == "hf" {
-		mirrorText = StyleBadgeWarning.Render("官方源 (https://huggingface.co)")
+	var sourceText string
+	switch m.downloadSource {
+	case "modelscope":
+		sourceText = StyleBadgeSuccess.Render("ModelScope (阿里魔搭社区) [国内极速]")
+	case "hf-mirror":
+		sourceText = StyleBadgeSuccess.Render("Hugging Face 国内镜像 (https://hf-mirror.com) [推荐]")
+	default:
+		sourceText = StyleBadgeWarning.Render("Hugging Face 官方源 (https://huggingface.co)")
 	}
-	b.WriteString("当前下载源: " + mirrorText + "  " + StyleSubtitle.Render("(按 [m] 键快速切换镜像)") + "\n\n")
+	b.WriteString("当前下载平台: " + sourceText + "  " + StyleSubtitle.Render("(按 [m] 或 [s] 键快速切换下载源)") + "\n\n")
 
 	if m.downStatus != nil && m.downStatus.Running {
 		b.WriteString(StyleBadgeWarning.Render(fmt.Sprintf("⚠️ 提示: 当前已有模型正在下载中 (PID: %d, 模型: %s)。", m.downStatus.PID, m.downStatus.ModelID)) + "\n\n")
@@ -91,6 +124,11 @@ func (m Model) viewDownloadCatalog() string {
 		title := fmt.Sprintf("%-20s  %-12s  %s", p.Name, "["+p.Tag+"]", p.SizeEst)
 		desc := p.Description
 
+		// If current source is modelscope and model has no modelscope repo, show hint
+		if m.downloadSource == "modelscope" && p.ModelScopeID == "" {
+			desc += " [ModelScope 暂未收录]"
+		}
+
 		if isSelected {
 			b.WriteString(StyleMenuItemSelected.Render(prefix+title) + "\n")
 			b.WriteString("    " + StyleSubtitle.Render(desc) + "\n")
@@ -101,6 +139,6 @@ func (m Model) viewDownloadCatalog() string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(StyleKeyHelp.Render("[Enter] 开始后台下载   [m] 切换镜像源   [↑/↓, j/k] 选择模型   [Esc/q] 返回"))
+	b.WriteString(StyleKeyHelp.Render("[Enter] 开始后台下载   [m/s] 切换下载平台(ModelScope/HF)   [↑/↓, j/k] 选择模型   [Esc/q] 返回"))
 	return b.String()
 }

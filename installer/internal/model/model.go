@@ -2,6 +2,7 @@ package model
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,6 +27,7 @@ type LocalModel struct {
 type DownloadMetadata struct {
 	ModelID   string
 	PkgDir    string
+	Source    string // "huggingface" or "modelscope"
 	Endpoint  string
 	StartTime string
 	Mode      string // "bg" or "fg"
@@ -38,6 +40,7 @@ type DownloadStatus struct {
 	Uptime     string
 	ModelID    string
 	PkgDir     string
+	Source     string
 	Endpoint   string
 	StartTime  string
 	DiskUsage  string
@@ -48,6 +51,7 @@ type DownloadStatus struct {
 type DownloadOptions struct {
 	ModelID  string
 	PkgDir   string
+	Source   string // "huggingface" or "modelscope"
 	Endpoint string
 	Mode     string // "bg" or "fg"
 }
@@ -137,6 +141,7 @@ func (s *Service) ReadMetadata() *DownloadMetadata {
 	meta := &DownloadMetadata{
 		ModelID:  "未知",
 		PkgDir:   "未知",
+		Source:   "huggingface",
 		Endpoint: "未知",
 	}
 	f, err := os.Open(s.paths.DownloadInfoFile)
@@ -157,6 +162,8 @@ func (s *Service) ReadMetadata() *DownloadMetadata {
 				meta.ModelID = v
 			case "PKG_DIR":
 				meta.PkgDir = v
+			case "SOURCE":
+				meta.Source = v
 			case "ENDPOINT":
 				meta.Endpoint = v
 			case "START_TIME":
@@ -179,6 +186,7 @@ func (s *Service) Status() *DownloadStatus {
 			Running:    false,
 			ModelID:    meta.ModelID,
 			PkgDir:     meta.PkgDir,
+			Source:     meta.Source,
 			Endpoint:   meta.Endpoint,
 			StartTime:  meta.StartTime,
 			RecentLogs: proc.TailLines(s.paths.DownloadLogFile, 12),
@@ -198,6 +206,7 @@ func (s *Service) Status() *DownloadStatus {
 		Uptime:     stats.Uptime,
 		ModelID:    meta.ModelID,
 		PkgDir:     meta.PkgDir,
+		Source:     meta.Source,
 		Endpoint:   meta.Endpoint,
 		StartTime:  meta.StartTime,
 		DiskUsage:  diskUsage,
@@ -205,7 +214,7 @@ func (s *Service) Status() *DownloadStatus {
 	}
 }
 
-// StartDownload starts a background or foreground download.
+// StartDownload starts a background or foreground download using the native Go downloader.
 func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 	st := s.Status()
 	if st.Running {
@@ -215,37 +224,59 @@ func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 	proc.RemovePid(s.paths.DownloadPidFile)
 	_ = os.MkdirAll(s.paths.ModelsDir, 0755)
 
+	if opts.Source == "" {
+		opts.Source = "huggingface"
+	}
 	if opts.Endpoint == "" {
-		opts.Endpoint = "https://hf-mirror.com"
+		if strings.ToLower(opts.Source) == "modelscope" {
+			opts.Endpoint = "https://modelscope.cn"
+		} else {
+			opts.Endpoint = "https://hf-mirror.com"
+		}
 	}
 	if opts.PkgDir == "" {
 		parts := strings.Split(opts.ModelID, "/")
 		opts.PkgDir = strings.ToLower(parts[len(parts)-1])
 	}
+	if opts.Mode == "" {
+		opts.Mode = "bg"
+	}
 
 	now := time.Now().Format("2006-01-02 15:04:05")
 
 	// Write metadata file
-	infoContent := fmt.Sprintf("MODEL_ID=%s\nPKG_DIR=%s\nENDPOINT=%s\nSTART_TIME=%s\nMODE=%s\n",
-		opts.ModelID, opts.PkgDir, opts.Endpoint, now, opts.Mode)
+	infoContent := fmt.Sprintf("MODEL_ID=%s\nPKG_DIR=%s\nSOURCE=%s\nENDPOINT=%s\nSTART_TIME=%s\nMODE=%s\n",
+		opts.ModelID, opts.PkgDir, opts.Source, opts.Endpoint, now, opts.Mode)
 	_ = os.WriteFile(s.paths.DownloadInfoFile, []byte(infoContent), 0644)
 
 	// Append banner to download log
-	banner := fmt.Sprintf("\n========================================================\n下载任务启动时间: %s\n模型 ID: %s\n目标目录: models/%s\n下载源: %s\n下载模式: %s\n========================================================\n",
-		now, opts.ModelID, opts.PkgDir, opts.Endpoint, opts.Mode)
+	banner := fmt.Sprintf("\n========================================================\n下载任务启动时间: %s\n平台平台源: %s\n模型 ID: %s\n目标目录: models/%s\n下载源地址: %s\n下载模式: %s\n========================================================\n",
+		now, opts.Source, opts.ModelID, opts.PkgDir, opts.Endpoint, opts.Mode)
 	if f, err := os.OpenFile(s.paths.DownloadLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
 		_, _ = f.WriteString(banner)
 		_ = f.Close()
 	}
 
-	downloadScript := filepath.Join(s.paths.AgentDir, "scripts", "download_model.sh")
-	command := []string{downloadScript, opts.ModelID, opts.PkgDir}
-	env := []string{
-		"HF_ENDPOINT=" + opts.Endpoint,
-		"PYTHONUNBUFFERED=1",
+	if opts.Mode == "fg" {
+		return 0, s.ExecuteDownloadTask(opts)
 	}
 
-	pid, err := proc.Daemonize(command, env, s.paths.AgentDir, s.paths.DownloadLogFile)
+	// For background mode, daemonize the current installer executable with the hidden _worker-download command
+	exe, err := os.Executable()
+	if err != nil {
+		return 0, fmt.Errorf("获取可执行文件路径失败: %w", err)
+	}
+
+	command := []string{
+		exe,
+		"_worker-download",
+		opts.ModelID,
+		opts.PkgDir,
+		opts.Source,
+		opts.Endpoint,
+	}
+
+	pid, err := proc.Daemonize(command, nil, s.paths.AgentDir, s.paths.DownloadLogFile)
 	if err != nil {
 		return 0, fmt.Errorf("启动下载守护进程失败: %w", err)
 	}
@@ -262,6 +293,51 @@ func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 	}
 
 	return pid, nil
+}
+
+// ExecuteDownloadTask synchronously performs the download, writing progress to stdout.
+func (s *Service) ExecuteDownloadTask(opts DownloadOptions) error {
+	destDir := filepath.Join(s.paths.ModelsDir, opts.PkgDir)
+	if opts.Source == "" {
+		opts.Source = "huggingface"
+	}
+
+	fmt.Printf("开始下载模型: %s\n平台源: %s\n目标目录: %s\n源地址: %s\n\n", opts.ModelID, opts.Source, destDir, opts.Endpoint)
+
+	lastLoggedFile := ""
+	lastPercent := -1
+
+	ctx := context.Background()
+	err := RunModelDownload(ctx, opts.Source, opts.ModelID, opts.Endpoint, destDir, func(completedFiles, totalFiles int, currentFile string, currentBytes, totalBytes int64, speedBytesPerSec float64) {
+		if currentFile != lastLoggedFile {
+			lastLoggedFile = currentFile
+			lastPercent = -1
+			fmt.Printf("\n[%d/%d] 正在下载: %s (%s)\n", completedFiles+1, totalFiles, currentFile, FormatBytes(totalBytes))
+		}
+
+		pct := 0
+		if totalBytes > 0 {
+			pct = int(float64(currentBytes) / float64(totalBytes) * 100)
+		}
+
+		// Throttle log writes to every 10% progress or file completion to avoid log flooding
+		if pct/10 != lastPercent/10 || currentBytes == totalBytes {
+			lastPercent = pct
+			speedStr := ""
+			if speedBytesPerSec > 0 {
+				speedStr = fmt.Sprintf(" | 速度: %s/s", FormatBytes(int64(speedBytesPerSec)))
+			}
+			fmt.Printf("  -> 进度: %d%% (%s / %s)%s\n", pct, FormatBytes(currentBytes), FormatBytes(totalBytes), speedStr)
+		}
+	})
+
+	if err != nil {
+		fmt.Printf("\n✗ 下载失败: %v\n", err)
+		return err
+	}
+
+	fmt.Println("\n✓ 模型所有文件已下载并校验完成！")
+	return nil
 }
 
 // StopDownload terminates the active background download task.
