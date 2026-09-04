@@ -64,7 +64,13 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
 
     const applySeek = React.useCallback((seconds: number) => {
       const el = audioRef.current;
-      const target = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+      let target = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+      // Clamp to the real media duration when known: seeking past the end
+      // makes browsers jump to 0 / fire ended on files without Range support.
+      const mediaDuration = el?.duration;
+      if (Number.isFinite(mediaDuration) && (mediaDuration as number) > 0) {
+        target = Math.min(target, (mediaDuration as number) - 0.05);
+      }
       // Sync UI immediately so the active SRT cue follows without waiting
       // for the next timeupdate event.
       setCurrentTime(target);
@@ -74,16 +80,10 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
         return;
       }
       // Metadata not ready yet: setting currentTime is ignored by browsers,
-      // so defer the seek until loadedmetadata fires.
+      // so defer the seek until loadedmetadata fires. Never call load() here:
+      // it resets playback to 0 and visibly restarts the audio.
       if (el.readyState < 1 || !Number.isFinite(el.duration)) {
         pendingSeekRef.current = target;
-        // Trigger metadata load for the deferred seek.
-        el.preload = 'auto';
-        try {
-          el.load();
-        } catch {
-          // Ignore: loadedmetadata handler will apply the pending seek.
-        }
         el.play().catch(() => {});
         setIsPlaying(true);
         return;
