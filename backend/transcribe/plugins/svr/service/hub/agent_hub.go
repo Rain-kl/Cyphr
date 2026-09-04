@@ -8,6 +8,7 @@ import (
 	"Wavelet/pkg/util"
 	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/dao"
+	"Wavelet/transcribe/plugins/svr/model/do"
 	"context"
 	"errors"
 	"sync"
@@ -167,6 +168,7 @@ func (h *DefaultAgentHub) StartWatchdog(ctx context.Context, checkInterval, time
 				return
 			case now := <-ticker.C:
 				h.checkStaleSessions(ctx, now, timeout)
+				h.checkIdleSessions(ctx, now)
 			}
 		}
 	})
@@ -188,6 +190,34 @@ func (h *DefaultAgentHub) checkStaleSessions(ctx context.Context, now time.Time,
 		logger.WarnF(ctx, "[AgentHub] agent node %d (%s) timed out, disconnecting", sess.NodeID, sess.NodeName)
 		_ = sess.Close()
 		h.handleNodeDisconnect(ctx, sess.NodeID)
+	}
+}
+
+func (h *DefaultAgentHub) checkIdleSessions(ctx context.Context, now time.Time) {
+	h.mu.RLock()
+	sessions := make([]*AgentSession, 0, len(h.sessions))
+	for _, sess := range h.sessions {
+		sessions = append(sessions, sess)
+	}
+	h.mu.RUnlock()
+
+	for _, sess := range sessions {
+		if sess.CheckIdleTimeout(now) {
+			logger.InfoF(ctx, "[AgentHub] agent node %d (%s) idle for > %d min with %d models loaded, sending unload_all_models",
+				sess.NodeID, sess.NodeName, sess.GetAutoUnloadMinutes(), len(sess.GetLoadedModels()))
+			// Reset idle time so we don't spam commands repeatedly before agent responds
+			sess.SetIdleSince(time.Time{})
+
+			unloadMsg := do.WSMessage{
+				Type:    "command",
+				Action:  "unload_all_models",
+				Seq:     now.UnixNano(),
+				Payload: do.UnloadAllModelsPayload{},
+			}
+			if err := sess.WriteJSON(unloadMsg); err != nil {
+				logger.ErrorF(ctx, "[AgentHub] failed to send unload_all_models to node %d: %v", sess.NodeID, err)
+			}
+		}
 	}
 }
 

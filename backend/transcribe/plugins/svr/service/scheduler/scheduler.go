@@ -9,6 +9,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/dao"
 	"Wavelet/transcribe/plugins/svr/model/do"
+	"Wavelet/transcribe/plugins/svr/model/entity"
 	"Wavelet/transcribe/plugins/svr/service/hub"
 	"context"
 	"fmt"
@@ -80,30 +81,74 @@ func (s *DefaultScheduler) SchedulePendingJobs(ctx context.Context) error {
 			continue
 		}
 
-		// 2. No node has this model loaded: pick the least loaded node to instruct load_model
+		// 2. No node has this model loaded: find candidate nodes eligible for auto-loading
 		if !modelsRequested[job.ModelName] {
-			idleNode := findLeastLoadedNode(activeSessions)
-			if idleNode != nil {
-				loadMsg := do.WSMessage{
-					Type:   "command",
-					Action: "load_model",
-					Seq:    time.Now().UnixNano(),
-					Payload: do.LoadModelPayload{
-						ModelName: job.ModelName,
-					},
-				}
-				if err := s.agentHub.BroadcastToNode(idleNode.NodeID, loadMsg); err != nil {
-					logger.ErrorF(ctx, "[Scheduler] failed to send load_model for %s to node %d: %v", job.ModelName, idleNode.NodeID, err)
-				} else {
-					modelsRequested[job.ModelName] = true
-					logger.InfoF(ctx, "[Scheduler] sent load_model for %s to node %d", job.ModelName, idleNode.NodeID)
-				}
-			}
+			s.tryAutoLoadModel(ctx, &job, activeSessions, modelsRequested)
 		}
 		// Job remains in pending status
 	}
 
 	return nil
+}
+
+func (s *DefaultScheduler) tryAutoLoadModel(ctx context.Context, job *entity.JobEntity, activeSessions []*hub.AgentSession, modelsRequested map[string]bool) {
+	eligibleNodes := s.filterEligibleAutoLoadNodes(ctx, job.ModelName, activeSessions)
+	if len(eligibleNodes) == 0 {
+		logger.DebugF(ctx, "[Scheduler] no eligible node available to auto-load model %s for job %d", job.ModelName, job.ID)
+		return
+	}
+
+	bestNode := findLeastLoadedNode(eligibleNodes)
+	loadMsg := do.WSMessage{
+		Type:   "command",
+		Action: "load_model",
+		Seq:    time.Now().UnixNano(),
+		Payload: do.LoadModelPayload{
+			ModelName: job.ModelName,
+		},
+	}
+	if err := s.agentHub.BroadcastToNode(bestNode.NodeID, loadMsg); err != nil {
+		logger.ErrorF(ctx, "[Scheduler] failed to send load_model for %s to node %d: %v", job.ModelName, bestNode.NodeID, err)
+		return
+	}
+
+	modelsRequested[job.ModelName] = true
+	logger.InfoF(ctx, "[Scheduler] sent load_model for %s to node %d (%s, mode: %s)",
+		job.ModelName, bestNode.NodeID, bestNode.NodeName, bestNode.GetWorkMode())
+}
+
+func (s *DefaultScheduler) filterEligibleAutoLoadNodes(ctx context.Context, modelName string, sessions []*hub.AgentSession) []*hub.AgentSession {
+	var eligible []*hub.AgentSession
+	for _, sess := range sessions {
+		if !sess.GetAllowAutoLoad() {
+			continue
+		}
+		if sess.IsModelCoolingOff(modelName, 1*time.Minute) {
+			continue
+		}
+		if !s.isVRAMSufficient(ctx, sess, modelName) {
+			continue
+		}
+		eligible = append(eligible, sess)
+	}
+	return eligible
+}
+
+func (s *DefaultScheduler) isVRAMSufficient(ctx context.Context, sess *hub.AgentSession, modelName string) bool {
+	if sess.GetWorkMode() == consts.WorkModeCPU {
+		return true
+	}
+	estimateMB := sess.GetModelVramEstimate(modelName)
+	if estimateMB <= 0 {
+		return true
+	}
+	freeVRAM := sess.GetFreeVRAM()
+	if freeVRAM < uint64(estimateMB) {
+		logger.DebugF(ctx, "[Scheduler] node %d (%s) free VRAM (%d MB) < required (%d MB) for %s, skipping auto-load",
+			sess.NodeID, sess.NodeName, freeVRAM, estimateMB, modelName)
+		return false
+	}
+	return true
 }
 
 func (s *DefaultScheduler) dispatchJob(ctx context.Context, jobID uint64, modelName, taskType string, targetNode *hub.AgentSession) error {

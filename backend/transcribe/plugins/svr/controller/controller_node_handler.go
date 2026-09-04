@@ -161,3 +161,31 @@ func (h *NodeHandler) LoadModel(c *gin.Context) {
 func (h *NodeHandler) UnloadModel(c *gin.Context) {
 	h.sendModelCommand(c, "unload_model")
 }
+
+// UpdateNodeConfig handles PUT /api/v1/controller/nodes/:id/config, updating node settings.
+func (h *NodeHandler) UpdateNodeConfig(c *gin.Context) {
+	nodeID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	var req do.UpdateNodeConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	updatedDTO, err := h.nodeService.UpdateNodeConfig(c.Request.Context(), nodeID, req)
+	if err != nil {
+		if errors.Is(err, consts.ErrNodeNotFound) {
+			response.AbortNotFound(c, consts.ErrNotFound)
+			return
+		}
+		logger.ErrorF(c.Request.Context(), "[NodeHandler] update node config failed: %v", err)
+		response.AbortBadRequest(c, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(updatedDTO))
+}

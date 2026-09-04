@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -123,6 +124,7 @@ func (h *AgentHandler) HandleWS(c *gin.Context) {
 
 	clientIP := c.ClientIP()
 	sess := hub.NewAgentSession(node.ID, node.Name, clientIP, conn)
+	sess.SetConfig(node.WorkMode, node.AllowAutoLoad, node.AutoUnloadMinutes, node.ModelVramEstimates)
 	h.agentHub.RegisterSession(sess)
 	defer h.agentHub.UnregisterSession(node.ID)
 
@@ -140,15 +142,19 @@ func (h *AgentHandler) HandleWS(c *gin.Context) {
 			h.processHeartbeat(c.Request.Context(), sess, node.ID, clientIP, msg.Payload)
 		case "model_status":
 			h.processModelStatus(c.Request.Context(), sess, msg.Payload)
+		case "load_model_error":
+			h.processLoadModelError(c.Request.Context(), sess, msg.Payload)
 		}
 	}
 }
 
 type heartbeatPayload struct {
-	Models       []string           `json:"models"`
-	LoadedModels []string           `json:"loaded_models"`
-	RunningJobs  int                `json:"running_jobs"`
-	System       *do.SystemStatsDTO `json:"system"`
+	Models         []string           `json:"models"`
+	LoadedModels   []string           `json:"loaded_models"`
+	RunningJobs    int                `json:"running_jobs"`
+	SupportedModes []string           `json:"supported_modes"`
+	CurrentMode    string             `json:"current_mode"`
+	System         *do.SystemStatsDTO `json:"system"`
 }
 
 func (h *AgentHandler) processHeartbeat(ctx context.Context, sess *hub.AgentSession, nodeID uint64, ip string, raw any) {
@@ -165,6 +171,23 @@ func (h *AgentHandler) processHeartbeat(ctx context.Context, sess *hub.AgentSess
 	}
 
 	sess.UpdateHeartbeat(models, payload.RunningJobs, payload.System)
+	sess.SetModes(payload.SupportedModes, payload.CurrentMode)
+
+	// If the agent's current mode differs from the server-configured work mode, request mode alignment
+	configuredMode := sess.GetWorkMode()
+	if configuredMode != "" && payload.CurrentMode != "" && payload.CurrentMode != configuredMode {
+		if sess.SupportsMode(configuredMode) {
+			logger.InfoF(ctx, "[AgentHandler] aligning agent node %d work mode from %s to configured %s", nodeID, payload.CurrentMode, configuredMode)
+			setModeMsg := do.WSMessage{
+				Type:    "command",
+				Action:  "set_work_mode",
+				Seq:     time.Now().UnixNano(),
+				Payload: do.SetWorkModePayload{Mode: configuredMode},
+			}
+			_ = sess.WriteJSON(setModeMsg)
+		}
+	}
+
 	_ = h.nodeService.UpdateLastSeen(ctx, nodeID, ip)
 	h.triggerSchedule(ctx)
 }
@@ -183,14 +206,26 @@ func (h *AgentHandler) processModelStatus(ctx context.Context, sess *hub.AgentSe
 	}
 
 	models := payload.LoadedModels
-	if len(models) == 0 {
+	if len(models) == 0 && payload.Models != nil {
 		models = payload.Models
 	}
-
-	if len(models) > 0 {
-		sess.UpdateHeartbeat(models, sess.GetRunningJobs(), sess.GetSystemStats())
+	if models == nil {
+		models = []string{}
 	}
+
+	sess.UpdateHeartbeat(models, sess.GetRunningJobs(), sess.GetSystemStats())
 	h.triggerSchedule(ctx)
+}
+
+func (h *AgentHandler) processLoadModelError(ctx context.Context, sess *hub.AgentSession, raw any) {
+	var payload do.LoadModelErrorPayload
+	if raw != nil {
+		if bytes, err := json.Marshal(raw); err == nil {
+			_ = json.Unmarshal(bytes, &payload)
+		}
+	}
+	logger.WarnF(ctx, "[AgentHandler] node %d failed to load model %s: %s", sess.NodeID, payload.ModelName, payload.Error)
+	sess.RecordModelLoadFailure(payload.ModelName)
 }
 
 // DownloadMedia handles GET /api/v1/agent/jobs/:id/media, serving audio files to authorized agents.

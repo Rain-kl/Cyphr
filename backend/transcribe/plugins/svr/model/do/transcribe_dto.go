@@ -35,18 +35,32 @@ type SystemStatsDTO struct {
 
 // NodeDTO represents node information returned in listings and detail views.
 type NodeDTO struct {
-	ID           uint64          `json:"id,string"`
-	Name         string          `json:"name"`
-	AgentToken   string          `json:"agent_token,omitempty"`
-	TokenPrefix  string          `json:"token_prefix"`
-	IsActive     bool            `json:"is_active"`
-	IsOnline     bool            `json:"is_online,omitempty"`
-	LoadedModels []string        `json:"loaded_models,omitempty"`
-	RunningJobs  int             `json:"running_jobs,omitempty"`
-	System       *SystemStatsDTO `json:"system,omitempty"`
-	LastIP       string          `json:"last_ip,omitempty"`
-	LastSeenAt   *time.Time      `json:"last_seen_at,omitempty"`
-	CreatedAt    time.Time       `json:"created_at"`
+	ID                 uint64          `json:"id,string"`
+	Name               string          `json:"name"`
+	AgentToken         string          `json:"agent_token,omitempty"`
+	TokenPrefix        string          `json:"token_prefix"`
+	IsActive           bool            `json:"is_active"`
+	IsOnline           bool            `json:"is_online,omitempty"`
+	WorkMode           string          `json:"work_mode"`
+	SupportedModes     []string        `json:"supported_modes,omitempty"`
+	CurrentMode        string          `json:"current_mode,omitempty"`
+	AllowAutoLoad      bool            `json:"allow_auto_load"`
+	AutoUnloadMinutes  int             `json:"auto_unload_minutes"`
+	ModelVramEstimates map[string]int  `json:"model_vram_estimates"`
+	LoadedModels       []string        `json:"loaded_models,omitempty"`
+	RunningJobs        int             `json:"running_jobs,omitempty"`
+	System             *SystemStatsDTO `json:"system,omitempty"`
+	LastIP             string          `json:"last_ip,omitempty"`
+	LastSeenAt         *time.Time      `json:"last_seen_at,omitempty"`
+	CreatedAt          time.Time       `json:"created_at"`
+}
+
+// UpdateNodeConfigRequest represents node configuration update payload.
+type UpdateNodeConfigRequest struct {
+	WorkMode           *string        `json:"work_mode"`
+	AllowAutoLoad      *bool          `json:"allow_auto_load"`
+	AutoUnloadMinutes  *int           `json:"auto_unload_minutes"`
+	ModelVramEstimates map[string]int `json:"model_vram_estimates"`
 }
 
 // NodeCreatedDTO contains node details along with the one-time raw token.
@@ -201,4 +215,18 @@ type LoadModelPayload struct {
 // UnloadModelPayload represents payload for unload_model command.
 type UnloadModelPayload struct {
 	ModelName string `json:"model_name"`
+}
+
+// SetWorkModePayload represents payload for set_work_mode command.
+type SetWorkModePayload struct {
+	Mode string `json:"mode"`
+}
+
+// UnloadAllModelsPayload represents payload for unload_all_models command.
+type UnloadAllModelsPayload struct{}
+
+// LoadModelErrorPayload represents payload for load_model_error message.
+type LoadModelErrorPayload struct {
+	ModelName string `json:"model_name"`
+	Error     string `json:"error"`
 }

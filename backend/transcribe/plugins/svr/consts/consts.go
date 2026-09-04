@@ -29,6 +29,12 @@ const (
 	AgentTokenPrefix = "agt_"
 )
 
+// Work mode constants.
+const (
+	WorkModeCPU = "cpu"
+	WorkModeGPU = "gpu"
+)
+
 // Response format constants.
 const (
 	ResponseFormatJSON        = "json"

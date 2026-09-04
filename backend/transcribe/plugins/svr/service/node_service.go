@@ -14,8 +14,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 )
 
 const (
@@ -30,6 +33,7 @@ type NodeService interface {
 	GetNode(ctx context.Context, id uint64) (*do.NodeDTO, error)
 	ListNodes(ctx context.Context, keyword ...string) ([]do.NodeDTO, error)
 	UpdateLastSeen(ctx context.Context, id uint64, ip string) error
+	UpdateNodeConfig(ctx context.Context, id uint64, req do.UpdateNodeConfigRequest) (*do.NodeDTO, error)
 	DeleteNode(ctx context.Context, id uint64) error
 }
 
@@ -136,16 +140,111 @@ func (s *DefaultNodeService) DeleteNode(ctx context.Context, id uint64) error {
 	return s.nodeDAO.Delete(ctx, id)
 }
 
+// UpdateNodeConfig updates node settings (work_mode, allow_auto_load, auto_unload_minutes, model_vram_estimates).
+func (s *DefaultNodeService) UpdateNodeConfig(ctx context.Context, id uint64, req do.UpdateNodeConfigRequest) (*do.NodeDTO, error) {
+	node, err := s.nodeDAO.GetByID(ctx, id)
+	if err != nil {
+		return nil, consts.ErrNodeNotFound
+	}
+
+	workMode := node.WorkMode
+	if workMode == "" {
+		workMode = consts.WorkModeGPU
+	}
+	if req.WorkMode != nil {
+		mode, err := s.validateWorkMode(id, *req.WorkMode)
+		if err != nil {
+			return nil, err
+		}
+		workMode = mode
+	}
+
+	allowAutoLoad := node.AllowAutoLoad
+	if req.AllowAutoLoad != nil {
+		allowAutoLoad = *req.AllowAutoLoad
+	}
+
+	autoUnloadMinutes := node.AutoUnloadMinutes
+	if req.AutoUnloadMinutes != nil {
+		if *req.AutoUnloadMinutes < 0 {
+			return nil, errors.New("auto_unload_minutes cannot be negative")
+		}
+		autoUnloadMinutes = *req.AutoUnloadMinutes
+	}
+
+	vramEstimates := node.ModelVramEstimates
+	var estimatesMap map[string]int
+	if req.ModelVramEstimates != nil {
+		bytes, err := json.Marshal(req.ModelVramEstimates)
+		if err != nil {
+			return nil, err
+		}
+		vramEstimates = string(bytes)
+		estimatesMap = req.ModelVramEstimates
+	} else if node.ModelVramEstimates != "" {
+		_ = json.Unmarshal([]byte(node.ModelVramEstimates), &estimatesMap)
+	}
+
+	if err := s.nodeDAO.UpdateConfig(ctx, id, workMode, allowAutoLoad, autoUnloadMinutes, vramEstimates); err != nil {
+		return nil, err
+	}
+
+	node.WorkMode = workMode
+	node.AllowAutoLoad = allowAutoLoad
+	node.AutoUnloadMinutes = autoUnloadMinutes
+	node.ModelVramEstimates = vramEstimates
+
+	// Sync with active session in memory and notify agent
+	if s.agentHub != nil {
+		if sess, ok := s.agentHub.GetSession(id); ok {
+			sess.SetConfig(workMode, allowAutoLoad, autoUnloadMinutes, estimatesMap)
+
+			if req.WorkMode != nil {
+				setModeMsg := do.WSMessage{
+					Type:   "command",
+					Action: "set_work_mode",
+					Seq:    time.Now().UnixNano(),
+					Payload: do.SetWorkModePayload{
+						Mode: workMode,
+					},
+				}
+				_ = sess.WriteJSON(setModeMsg)
+			}
+		}
+	}
+
+	return s.toNodeDTO(node), nil
+}
+
 func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
+	workMode := node.WorkMode
+	if workMode == "" {
+		workMode = "gpu"
+	}
+
+	var vramEstimates map[string]int
+	if node.ModelVramEstimates != "" {
+		_ = json.Unmarshal([]byte(node.ModelVramEstimates), &vramEstimates)
+	}
+	if vramEstimates == nil {
+		vramEstimates = make(map[string]int)
+	}
+
 	dto := &do.NodeDTO{
-		ID:          node.ID,
-		Name:        node.Name,
-		AgentToken:  node.AgentToken,
-		TokenPrefix: node.TokenPrefix,
-		IsActive:    node.IsActive,
-		LastIP:      node.LastIP,
-		LastSeenAt:  node.LastSeenAt,
-		CreatedAt:   node.CreatedAt,
+		ID:                 node.ID,
+		Name:               node.Name,
+		AgentToken:         node.AgentToken,
+		TokenPrefix:        node.TokenPrefix,
+		IsActive:           node.IsActive,
+		WorkMode:           workMode,
+		SupportedModes:     []string{"cpu"},
+		CurrentMode:        "cpu",
+		AllowAutoLoad:      node.AllowAutoLoad,
+		AutoUnloadMinutes:  node.AutoUnloadMinutes,
+		ModelVramEstimates: vramEstimates,
+		LastIP:             node.LastIP,
+		LastSeenAt:         node.LastSeenAt,
+		CreatedAt:          node.CreatedAt,
 	}
 
 	if s.agentHub != nil {
@@ -154,10 +253,34 @@ func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
 			dto.LoadedModels = sess.GetLoadedModels()
 			dto.RunningJobs = sess.GetRunningJobs()
 			dto.System = sess.GetSystemStats()
+			dto.SupportedModes = sess.GetSupportedModes()
+			dto.CurrentMode = sess.GetCurrentMode()
 		}
 	}
 
 	return dto
+}
+
+func (s *DefaultNodeService) validateWorkMode(nodeID uint64, rawMode string) (string, error) {
+	mode := strings.ToLower(strings.TrimSpace(rawMode))
+	if mode != consts.WorkModeCPU && mode != consts.WorkModeGPU {
+		return "", errors.New("invalid work mode: must be cpu or gpu")
+	}
+
+	if s.agentHub == nil {
+		return mode, nil
+	}
+
+	sess, ok := s.agentHub.GetSession(nodeID)
+	if !ok {
+		return mode, nil
+	}
+
+	if !sess.SupportsMode(mode) {
+		return "", fmt.Errorf("node does not support %s mode", mode)
+	}
+
+	return mode, nil
 }
 
 // generateAgentToken generates a random token prefixed with 'agt_' and its SHA-256 hash.

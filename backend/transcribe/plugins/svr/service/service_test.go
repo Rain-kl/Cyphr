@@ -88,6 +88,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	tokenContent, err := os.ReadFile(tokenMigrationPath)
 	require.NoError(t, err, "migration file must exist at %s", tokenMigrationPath)
 	applyMigration(t, db, string(tokenContent))
+
+	configMigrationPath := filepath.Join("..", "migrations", "sqlite", "00006_add_node_config.sql")
+	configContent, err := os.ReadFile(configMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", configMigrationPath)
+	applyMigration(t, db, string(configContent))
 	return db
 }
 
@@ -330,6 +335,34 @@ func TestAgentSessionAndHub(t *testing.T) {
 		assert.Nil(t, updatedJob.NodeID)
 		assert.Equal(t, 0, updatedJob.Progress)
 	})
+
+	t.Run("watchdog triggers unload_all_models on idle timeout", func(t *testing.T) {
+		isolatedHub := hub.NewAgentHub(jobDAO)
+		defer isolatedHub.Stop()
+
+		mockConn := newMockWSConn()
+		sess := hub.NewAgentSession(99, "idle-node", "127.0.0.1", mockConn)
+		sess.SetConfig("gpu", true, 5, nil) // 5 minutes idle timeout
+		sess.UpdateHeartbeat([]string{"mock-whisper-base"}, 0, nil)
+		// Artificially simulate node has been idle for 6 minutes
+		sess.SetIdleSince(time.Now().Add(-6 * time.Minute))
+		isolatedHub.RegisterSession(sess)
+
+		// Start watchdog with fast interval and long stale timeout
+		isolatedHub.StartWatchdog(ctx, 10*time.Millisecond, 1*time.Minute)
+
+		require.Eventually(t, func() bool {
+			msgs := mockConn.getMessages()
+			for _, m := range msgs {
+				if wsMsg, ok := m.(do.WSMessage); ok {
+					if wsMsg.Action == "unload_all_models" {
+						return true
+					}
+				}
+			}
+			return false
+		}, 1*time.Second, 20*time.Millisecond)
+	})
 }
 
 func TestScheduler(t *testing.T) {
@@ -456,6 +489,84 @@ func TestScheduler(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, consts.StatusPending, updatedJob.Status)
 	})
+
+	t.Run("auto_load respects allow_auto_load, vram evaluation, and cpu bypass", func(t *testing.T) {
+		db := setupTestDB(t)
+		jobDAO := dao.NewJobDAO(db)
+		agentHub := hub.NewAgentHub(jobDAO)
+		sched := scheduler.NewScheduler(jobDAO, agentHub)
+
+		// Node A: allow_auto_load = false (should be skipped)
+		connA := newMockWSConn()
+		sessA := hub.NewAgentSession(201, "node-A", "10.0.0.1", connA)
+		sessA.SetConfig("gpu", false, 0, map[string]int{"target-model": 2000})
+		sessA.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 1000})
+		agentHub.RegisterSession(sessA)
+
+		// Node B: GPU mode with insufficient VRAM (required 5000MB, free 2000MB -> skipped)
+		connB := newMockWSConn()
+		sessB := hub.NewAgentSession(202, "node-B", "10.0.0.2", connB)
+		sessB.SetConfig("gpu", true, 0, map[string]int{"target-model": 5000, "cpu-model": 99999})
+		sessB.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 6000})
+		agentHub.RegisterSession(sessB)
+
+		// Job 1 requires target-model
+		job1 := &entity.JobEntity{
+			UserID:           1,
+			ModelName:        "target-model",
+			TaskType:         consts.TaskTypeASR,
+			AudioStoragePath: "/storage/job1.mp3",
+			OriginalFileName: "job1.mp3",
+			Status:           consts.StatusPending,
+		}
+		require.NoError(t, jobDAO.Create(ctx, job1))
+
+		// Schedule: neither Node A nor Node B should receive load_model
+		err := sched.SchedulePendingJobs(ctx)
+		require.NoError(t, err)
+		assert.Empty(t, connA.getMessages())
+		assert.Empty(t, connB.getMessages())
+
+		// Node C: GPU mode with sufficient VRAM (required 5000MB, free 6000MB -> selected for target-model)
+		// but requires 99999MB for cpu-model (so it will be skipped for cpu-model)
+		connC := newMockWSConn()
+		sessC := hub.NewAgentSession(203, "node-C", "10.0.0.3", connC)
+		sessC.SetConfig("gpu", true, 0, map[string]int{"target-model": 5000, "cpu-model": 99999})
+		sessC.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 2000})
+		agentHub.RegisterSession(sessC)
+
+		err = sched.SchedulePendingJobs(ctx)
+		require.NoError(t, err)
+		assert.Len(t, connC.getMessages(), 1)
+		wsMsgC := connC.getMessages()[0].(do.WSMessage)
+		assert.Equal(t, "load_model", wsMsgC.Action)
+
+		// Simulate Node C completing load of target-model
+		sessC.UpdateHeartbeat([]string{"target-model"}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 2000})
+
+		// Node D: CPU mode with 0 GPU VRAM (should bypass VRAM check)
+		connD := newMockWSConn()
+		sessD := hub.NewAgentSession(204, "node-D", "10.0.0.4", connD)
+		sessD.SetConfig("cpu", true, 0, map[string]int{"cpu-model": 8000}) // High estimate
+		sessD.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 0, GPUMemoryUsedMB: 0})
+		agentHub.RegisterSession(sessD)
+
+		job2 := &entity.JobEntity{
+			UserID:           1,
+			ModelName:        "cpu-model",
+			TaskType:         consts.TaskTypeASR,
+			AudioStoragePath: "/storage/job2.mp3",
+			OriginalFileName: "job2.mp3",
+			Status:           consts.StatusPending,
+		}
+		require.NoError(t, jobDAO.Create(ctx, job2))
+
+		err = sched.SchedulePendingJobs(ctx)
+		require.NoError(t, err)
+		assert.Len(t, connD.getMessages(), 1)
+		wsMsgD := connD.getMessages()[0].(do.WSMessage)
+		assert.Equal(t, "load_model", wsMsgD.Action)
+	})
 }
 
 // 4. NodeService tests
@@ -531,6 +642,49 @@ func TestNodeService(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "10.0.0.99", retrieved.LastIP)
 		assert.NotNil(t, retrieved.LastSeenAt)
+	})
+
+	t.Run("update node config and validate work mode", func(t *testing.T) {
+		nodeDTO, _, err := nodeSvc.CreateNode(ctx, "config-worker-test")
+		require.NoError(t, err)
+
+		// Register session that only supports cpu
+		wsMock := newMockWSConn()
+		sess := hub.NewAgentSession(nodeDTO.ID, nodeDTO.Name, "192.168.1.101", wsMock)
+		sess.SetModes([]string{"cpu"}, "cpu")
+		agentHub.RegisterSession(sess)
+
+		// Attempting to configure GPU on CPU-only node should fail
+		gpuMode := "gpu"
+		_, err = nodeSvc.UpdateNodeConfig(ctx, nodeDTO.ID, do.UpdateNodeConfigRequest{
+			WorkMode: &gpuMode,
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not support gpu mode")
+
+		// Configuring CPU should succeed
+		cpuMode := "cpu"
+		allowAuto := false
+		unloadMins := 20
+		vramEst := map[string]int{"qwen3-asr-0.6b": 1500}
+
+		updated, err := nodeSvc.UpdateNodeConfig(ctx, nodeDTO.ID, do.UpdateNodeConfigRequest{
+			WorkMode:           &cpuMode,
+			AllowAutoLoad:      &allowAuto,
+			AutoUnloadMinutes:  &unloadMins,
+			ModelVramEstimates: vramEst,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "cpu", updated.WorkMode)
+		assert.False(t, updated.AllowAutoLoad)
+		assert.Equal(t, 20, updated.AutoUnloadMinutes)
+		assert.Equal(t, 1500, updated.ModelVramEstimates["qwen3-asr-0.6b"])
+
+		// Verify session in memory was synced
+		assert.Equal(t, "cpu", sess.GetWorkMode())
+		assert.False(t, sess.GetAllowAutoLoad())
+		assert.Equal(t, 20, sess.GetAutoUnloadMinutes())
+		assert.Equal(t, 1500, sess.GetModelVramEstimate("qwen3-asr-0.6b"))
 	})
 }
 

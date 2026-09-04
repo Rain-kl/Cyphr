@@ -54,6 +54,11 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 	require.NoError(t, err, "migration file must exist at %s", tokenMigrationPath)
 	applyMigration(t, db, string(tokenContent))
 
+	configMigrationPath := filepath.Join("..", "migrations", "sqlite", "00006_add_node_config.sql")
+	configContent, err := os.ReadFile(configMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", configMigrationPath)
+	applyMigration(t, db, string(configContent))
+
 	return db, dbPath
 }
 
@@ -218,6 +223,20 @@ func TestNodeDAO(t *testing.T) {
 
 	// UpdateLastSeen on non-existent node
 	err = nodeDAO.UpdateLastSeen(ctx, 888888, "10.0.0.1")
+	assert.ErrorIs(t, err, consts.ErrRecordNotFound)
+
+	// 6. UpdateConfig
+	vramJSON := `{"qwen3-asr-0.6b":2000,"qwen3-asr-1.7b":5000}`
+	require.NoError(t, nodeDAO.UpdateConfig(ctx, n1.ID, "cpu", false, 15, vramJSON))
+	cfgNode, err := nodeDAO.GetByID(ctx, n1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "cpu", cfgNode.WorkMode)
+	assert.False(t, cfgNode.AllowAutoLoad)
+	assert.Equal(t, 15, cfgNode.AutoUnloadMinutes)
+	assert.Equal(t, vramJSON, cfgNode.ModelVramEstimates)
+
+	// UpdateConfig on non-existent node
+	err = nodeDAO.UpdateConfig(ctx, 888888, "gpu", true, 0, "{}")
 	assert.ErrorIs(t, err, consts.ErrRecordNotFound)
 }
 

@@ -87,6 +87,11 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	require.NoError(t, err, "migration file must exist at %s", tokenMigrationPath)
 	applyMigration(t, db, string(tokenContent))
 
+	configMigrationPath := filepath.Join("..", "migrations", "sqlite", "00006_add_node_config.sql")
+	configContent, err := os.ReadFile(configMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", configMigrationPath)
+	applyMigration(t, db, string(configContent))
+
 	jobDAO := dao.NewJobDAO(db)
 	nodeDAO := dao.NewNodeDAO(db)
 	modelDAO := dao.NewModelDAO(db)
@@ -920,6 +925,39 @@ func TestControllerNodeHandler(t *testing.T) {
 		req, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/controller/nodes/%d", node.ID), nil)
 		engine.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+
+	t.Run("update node config endpoint", func(t *testing.T) {
+		node, _, err := env.nodeSvc.CreateNode(ctx, "cfg-api-node")
+		require.NoError(t, err)
+
+		engine := gin.New()
+		engine.Use(response.ErrorHandlerMiddleware())
+		engine.PUT("/api/v1/controller/nodes/:id/config", env.ctrl.Node.UpdateNodeConfig)
+
+		// 1. PUT node config with valid payload
+		payload := `{"work_mode":"cpu","allow_auto_load":false,"auto_unload_minutes":15,"model_vram_estimates":{"qwen3-asr-0.6b":1800}}`
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/controller/nodes/%d/config", node.ID), strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		engine.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var resp response.Response[do.NodeDTO]
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		assert.Equal(t, "cpu", resp.Data.WorkMode)
+		assert.False(t, resp.Data.AllowAutoLoad)
+		assert.Equal(t, 15, resp.Data.AutoUnloadMinutes)
+		assert.Equal(t, 1800, resp.Data.ModelVramEstimates["qwen3-asr-0.6b"])
+
+		// 2. PUT node config with invalid work mode -> 400
+		badPayload := `{"work_mode":"tpu"}`
+		w = httptest.NewRecorder()
+		req, _ = http.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/controller/nodes/%d/config", node.ID), strings.NewReader(badPayload))
+		req.Header.Set("Content-Type", "application/json")
+		engine.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
 

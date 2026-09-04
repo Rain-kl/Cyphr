@@ -249,6 +249,7 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 		nodeGroup.POST("", c.Node.CreateNode)
 		nodeGroup.GET("/:id", c.Node.GetNode)
 		nodeGroup.DELETE("/:id", c.Node.DeleteNode)
+		nodeGroup.PUT("/:id/config", c.Node.UpdateNodeConfig)
 		nodeGroup.POST("/:id/load-model", c.Node.LoadModel)
 		nodeGroup.POST("/:id/unload-model", c.Node.UnloadModel)
 	}

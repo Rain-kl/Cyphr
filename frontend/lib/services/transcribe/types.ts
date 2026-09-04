@@ -28,12 +28,25 @@ export interface NodeDTO {
   token_prefix: string;
   is_active: boolean;
   is_online?: boolean;
+  work_mode?: string;
+  supported_modes?: string[];
+  current_mode?: string;
+  allow_auto_load?: boolean;
+  auto_unload_minutes?: number;
+  model_vram_estimates?: Record<string, number>;
   loaded_models?: string[];
   running_jobs?: number;
   system?: SystemStatsDTO;
   last_ip?: string;
   last_seen_at?: string;
   created_at: string;
+}
+
+export interface UpdateNodeConfigParams {
+  work_mode?: string;
+  allow_auto_load?: boolean;
+  auto_unload_minutes?: number;
+  model_vram_estimates?: Record<string, number>;
 }
 
 export interface NodeCreatedDTO {

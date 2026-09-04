@@ -8,6 +8,7 @@ import type {
   ModelDTO,
   NodeCreatedDTO,
   NodeDTO,
+  UpdateNodeConfigParams,
 } from './types';
 
 export class AdminTranscribeService extends BaseService {
@@ -63,6 +64,16 @@ export class AdminTranscribeService extends BaseService {
     return this.post<void>(`/nodes/${nodeId}/unload-model`, {
       model_name: modelName,
     });
+  }
+
+  /**
+   * Update worker node configuration (work mode, auto unload, VRAM estimates, allow auto load)
+   */
+  static async updateNodeConfig(
+    nodeId: number | string,
+    params: UpdateNodeConfigParams,
+  ): Promise<NodeDTO> {
+    return this.put<NodeDTO>(`/nodes/${nodeId}/config`, params);
   }
 
   /**
