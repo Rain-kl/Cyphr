@@ -634,4 +634,15 @@ func TestCobraCommands(t *testing.T) {
 		assert.Contains(t, out, `"username": "testuser"`)
 		assert.Contains(t, out, `"is_admin": true`)
 	})
+
+	t.Run("asr command with force-upload flag", func(t *testing.T) {
+		t.Chdir(t.TempDir())
+		dummyAudio := filepath.Join(tempDir, "forced.wav")
+		require.NoError(t, os.WriteFile(dummyAudio, []byte("audio payload"), 0o600))
+
+		root := NewRootCmd()
+		out, err := executeCommand(root, "asr", dummyAudio, "--force-upload", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "Job submitted successfully: ID #20002")
+	})
 }

@@ -28,12 +28,13 @@ const (
 )
 
 var (
-	asrModel     string
-	asrLanguage  string
-	asrPrompt    string
-	asrFormat    string
-	asrOutputDir string
-	asrDetach    bool
+	asrModel       string
+	asrLanguage    string
+	asrPrompt      string
+	asrFormat      string
+	asrOutputDir   string
+	asrDetach      bool
+	asrForceUpload bool
 )
 
 // NewAsrCmd creates and returns the asr command.
@@ -112,6 +113,7 @@ func NewAsrCmd() *cobra.Command {
 	asrCmd.Flags().StringVar(&asrFormat, "format", "json", "response format (json, verbose_json, text, srt, vtt)")
 	asrCmd.Flags().StringVarP(&asrOutputDir, "output", "o", "", "directory to save output files (default: current directory)")
 	asrCmd.Flags().BoolVarP(&asrDetach, "detach", "d", false, "run job in background without blocking terminal")
+	asrCmd.Flags().BoolVarP(&asrForceUpload, "force-upload", "f", false, "force upload audio file, bypassing hash deduplication")
 
 	return asrCmd
 }
@@ -159,30 +161,32 @@ func resolveModelName() string {
 }
 
 func submitMediaJob(ctx context.Context, uploadPath, modelName string) (*client.TranscriptionSubmitResponse, error) {
-	fileHash, fileSize, err := client.SHA256FileHex(uploadPath)
-	if err != nil {
-		return nil, fmt.Errorf("hash media file: %w", err)
+	if !asrForceUpload {
+		fileHash, fileSize, err := client.SHA256FileHex(uploadPath)
+		if err != nil {
+			return nil, fmt.Errorf("hash media file: %w", err)
+		}
+
+		hashReq := client.HashSubmitRequest{
+			FileHash:         fileHash,
+			FileSize:         fileSize,
+			OriginalFileName: filepath.Base(uploadPath),
+			Model:            modelName,
+			Language:         asrLanguage,
+			Prompt:           asrPrompt,
+			ResponseFormat:   asrFormat,
+		}
+
+		submitResp, err := appClient.SubmitTranscriptionByHash(ctx, hashReq)
+		if err == nil {
+			return submitResp, nil
+		}
+		if !client.IsNotFoundError(err) {
+			return nil, fmt.Errorf("submission failed: %w", err)
+		}
 	}
 
-	hashReq := client.HashSubmitRequest{
-		FileHash:         fileHash,
-		FileSize:         fileSize,
-		OriginalFileName: filepath.Base(uploadPath),
-		Model:            modelName,
-		Language:         asrLanguage,
-		Prompt:           asrPrompt,
-		ResponseFormat:   asrFormat,
-	}
-
-	submitResp, err := appClient.SubmitTranscriptionByHash(ctx, hashReq)
-	if err == nil {
-		return submitResp, nil
-	}
-	if !client.IsNotFoundError(err) {
-		return nil, fmt.Errorf("submission failed: %w", err)
-	}
-
-	submitResp, err = appClient.SubmitTranscription(ctx, client.TranscriptionRequest{
+	submitResp, err := appClient.SubmitTranscription(ctx, client.TranscriptionRequest{
 		FilePath:         uploadPath,
 		OriginalFileName: filepath.Base(uploadPath),
 		Model:            modelName,

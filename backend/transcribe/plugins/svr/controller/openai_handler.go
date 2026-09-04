@@ -102,6 +102,15 @@ func (h *OpenAIHandler) resolveAudioSource(c *gin.Context, fileHeader *multipart
 		response.AbortNotFound(c, consts.ErrNotFound)
 		return "", "", false
 	}
+	if h.storageService != nil {
+		obj, err := h.storageService.Get(c.Request.Context(), existing.FilePath)
+		if err != nil || obj == nil || obj.Body == nil {
+			logger.WarnF(c.Request.Context(), "[OpenAIHandler] hash %s matched DB record %d (%s) but file missing in storage: %v", fileHash, existing.ID, existing.FilePath, err)
+			response.AbortNotFound(c, consts.ErrNotFound)
+			return "", "", false
+		}
+		_ = obj.Body.Close()
+	}
 	if originalFileName == "" {
 		originalFileName = existing.FileName
 	}
