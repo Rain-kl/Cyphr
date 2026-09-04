@@ -36,6 +36,9 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
     const [duration, setDuration] = React.useState(0);
     const [volume, setVolume] = React.useState(1);
     const [isMuted, setIsMuted] = React.useState(false);
+    const [isSeeking, setIsSeeking] = React.useState(false);
+    const [seekPreview, setSeekPreview] = React.useState(0);
+    const isSeekingRef = React.useRef(false);
 
     const resolvedMediaUrl = React.useMemo(() => {
       if (mediaUrl) return mediaUrl;
@@ -87,11 +90,28 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
       setCurrentTime(target);
     };
 
-    const handleSeek = (value: number[]) => {
-      if (!audioRef.current) return;
-      const target = value[0];
-      audioRef.current.currentTime = target;
+    const canSeek =
+      Boolean(resolvedMediaUrl) && Number.isFinite(duration) && duration > 0;
+
+    const handleSeekPreview = (value: number[]) => {
+      isSeekingRef.current = true;
+      setIsSeeking(true);
+      setSeekPreview(value[0] ?? 0);
+    };
+
+    const handleSeekCommit = (value: number[]) => {
+      const target = value[0] ?? 0;
+      if (audioRef.current && canSeek) {
+        try {
+          audioRef.current.currentTime = target;
+        } catch {
+          // Ignore seek errors when media is not ready yet.
+        }
+      }
       setCurrentTime(target);
+      if (onTimeUpdate) onTimeUpdate(target);
+      isSeekingRef.current = false;
+      setIsSeeking(false);
     };
 
     const handleVolumeChange = (value: number[]) => {
@@ -126,7 +146,7 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
           ref={audioRef}
           src={resolvedMediaUrl}
           onTimeUpdate={() => {
-            if (audioRef.current) {
+            if (audioRef.current && !isSeekingRef.current) {
               const curr = audioRef.current.currentTime;
               setCurrentTime(curr);
               if (onTimeUpdate) onTimeUpdate(curr);
@@ -134,7 +154,14 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
           }}
           onLoadedMetadata={() => {
             if (audioRef.current) {
-              setDuration(audioRef.current.duration || 0);
+              const d = audioRef.current.duration;
+              setDuration(Number.isFinite(d) ? d || 0 : 0);
+            }
+          }}
+          onDurationChange={() => {
+            if (audioRef.current) {
+              const d = audioRef.current.duration;
+              if (Number.isFinite(d) && d > 0) setDuration(d);
             }
           }}
           onEnded={() => setIsPlaying(false)}
@@ -144,16 +171,18 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
           {/* Progress Slider */}
           <div className='space-y-1'>
             <Slider
-              value={[currentTime]}
+              value={[isSeeking ? seekPreview : currentTime]}
               min={0}
-              max={duration || 100}
+              max={canSeek ? duration : 100}
               step={0.1}
-              onValueChange={handleSeek}
+              disabled={!canSeek}
+              onValueChange={handleSeekPreview}
+              onValueCommit={handleSeekCommit}
               className='cursor-pointer'
               aria-label='Audio Seek'
             />
             <div className='flex justify-between text-[11px] font-mono text-muted-foreground'>
-              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(isSeeking ? seekPreview : currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
           </div>

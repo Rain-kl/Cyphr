@@ -12,7 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { JobDTO, VerboseJSONResult } from '@/lib/services/transcribe';
+import type { JobDTO } from '@/lib/services/transcribe';
+import {
+  getTranscriptFullText,
+  parseVerboseResult,
+} from '@/lib/services/transcribe';
 import { Check, Copy, Download } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -25,17 +29,10 @@ export function ExportMenu({ job }: ExportMenuProps) {
   const t = useTranslations('asr.jobDetail');
   const [copied, setCopied] = React.useState(false);
 
-  const parsedVerbose: VerboseJSONResult | null = React.useMemo(() => {
-    if (!job.result_json) return null;
-    try {
-      return JSON.parse(job.result_json) as VerboseJSONResult;
-    } catch {
-      return null;
-    }
-  }, [job.result_json]);
+  const parsedVerbose = React.useMemo(() => parseVerboseResult(job), [job]);
 
   const handleCopy = async () => {
-    const textToCopy = job.result_text || parsedVerbose?.text || '';
+    const textToCopy = getTranscriptFullText(job, parsedVerbose);
     if (!textToCopy) return;
 
     await navigator.clipboard.writeText(textToCopy);
@@ -77,7 +74,7 @@ export function ExportMenu({ job }: ExportMenuProps) {
   };
 
   const exportTXT = () => {
-    const text = job.result_text || parsedVerbose?.text || '';
+    const text = getTranscriptFullText(job, parsedVerbose);
     downloadFile(
       text,
       `${job.original_file_name || `job-${job.id}`}.txt`,
@@ -125,7 +122,10 @@ export function ExportMenu({ job }: ExportMenuProps) {
 
   const exportJSON = () => {
     const jsonStr =
-      job.result_json || JSON.stringify({ text: job.result_text }, null, 2);
+      job.result_json ||
+      (job.openai_response
+        ? JSON.stringify(job.openai_response, null, 2)
+        : JSON.stringify({ text: job.result_text }, null, 2));
     downloadFile(
       jsonStr,
       `${job.original_file_name || `job-${job.id}`}.json`,
@@ -133,7 +133,9 @@ export function ExportMenu({ job }: ExportMenuProps) {
     );
   };
 
-  const hasResult = Boolean(job.result_text || job.result_json);
+  const hasResult = Boolean(
+    job.result_text || job.openai_response || job.result_json,
+  );
 
   return (
     <div className='flex items-center gap-2'>

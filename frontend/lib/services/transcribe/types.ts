@@ -102,8 +102,38 @@ export interface JobDTO extends JobSummaryDTO {
   media_url?: string;
   language?: string;
   result_text?: string;
+  // Backend contract: verbose JSON is returned as `openai_response` object.
+  // `result_json` is kept only as a legacy fallback (stringified JSON).
+  openai_response?: VerboseJSONResult | string | Record<string, unknown>;
   result_json?: string;
   error_msg?: string;
+}
+
+// parseVerboseResult extracts structured verbose_json (with segments) from a
+// job, supporting both the current `openai_response` contract (object or
+// stringified JSON) and the legacy `result_json` string field.
+export function parseVerboseResult(
+  job: Pick<JobDTO, 'openai_response' | 'result_json'>,
+): VerboseJSONResult | null {
+  const candidate = job.openai_response ?? job.result_json;
+  if (!candidate) return null;
+  try {
+    if (typeof candidate === 'string') {
+      return JSON.parse(candidate) as VerboseJSONResult;
+    }
+    return candidate as VerboseJSONResult;
+  } catch {
+    return null;
+  }
+}
+
+export function getTranscriptFullText(
+  job: Pick<JobDTO, 'result_text' | 'openai_response' | 'result_json'>,
+  parsed?: VerboseJSONResult | null,
+): string {
+  if (job.result_text) return job.result_text;
+  const verbose = parsed ?? parseVerboseResult(job);
+  return verbose?.text || '';
 }
 
 export interface JobListDTO {

@@ -2012,7 +2012,7 @@
       "fullscreen": "Fullscreen",
       "playerTitle": "Audio Playback & Sync",
       "transcriptTitle": "Transcription Results",
-      "tabAst": "AST",
+      "tabSrt": "SRT",
       "tabPlainText": "Plain Text",
       "tabSegments": "Timeline Segments",
       "tabFullText": "Full Text",

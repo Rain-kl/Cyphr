@@ -8,10 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type {
-  JobDTO,
-  TranscriptSegment,
-  VerboseJSONResult,
+import type { JobDTO, TranscriptSegment } from '@/lib/services/transcribe';
+import {
+  getTranscriptFullText,
+  parseVerboseResult,
 } from '@/lib/services/transcribe';
 import {
   Check,
@@ -41,18 +41,14 @@ export function TranscriptViewer({
 
   const activeSegmentRef = React.useRef<HTMLDivElement | null>(null);
 
-  const parsedVerbose: VerboseJSONResult | null = React.useMemo(() => {
-    if (!job.result_json) return null;
-    try {
-      return JSON.parse(job.result_json) as VerboseJSONResult;
-    } catch {
-      return null;
-    }
-  }, [job.result_json]);
+  const parsedVerbose = React.useMemo(() => parseVerboseResult(job), [job]);
 
-  const fullText = job.result_text || parsedVerbose?.text || '';
+  const fullText = React.useMemo(
+    () => getTranscriptFullText(job, parsedVerbose),
+    [job, parsedVerbose],
+  );
 
-  // Fallback: If no structured segments exist but fullText does, create a single root AST segment
+  // Fallback: If no structured segments exist but fullText does, create a single SRT cue
   const segments: TranscriptSegment[] = React.useMemo(() => {
     const raw = parsedVerbose?.segments || [];
     if (raw.length > 0) return raw;
@@ -111,7 +107,7 @@ export function TranscriptViewer({
 
   return (
     <div className='border border-dashed shadow-none rounded-lg overflow-hidden bg-background'>
-      <Tabs defaultValue='ast' className='w-full'>
+      <Tabs defaultValue='srt' className='w-full'>
         {/* Header Bar */}
         <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-dashed px-4 py-2.5 bg-muted/20 gap-3'>
           <div className='flex items-center gap-3'>
@@ -125,11 +121,11 @@ export function TranscriptViewer({
             {/* Tab switch */}
             <TabsList className='h-8 p-0.5 border border-dashed shadow-none bg-background'>
               <TabsTrigger
-                value='ast'
+                value='srt'
                 className='gap-1.5 text-xs h-7 px-2.5 data-[state=active]:bg-muted data-[state=active]:shadow-none'
               >
                 <Code2 className='size-3.5' />
-                <span>{t('tabAst')}</span>
+                <span>{t('tabSrt')}</span>
               </TabsTrigger>
               <TabsTrigger
                 value='text'
@@ -165,8 +161,8 @@ export function TranscriptViewer({
           </div>
         </div>
 
-        {/* 1. AST View Mode */}
-        <TabsContent value='ast' className='m-0 p-0 focus-visible:outline-none'>
+        {/* 1. SRT View Mode */}
+        <TabsContent value='srt' className='m-0 p-0 focus-visible:outline-none'>
           {segments.length === 0 ? (
             <div className='flex h-48 items-center justify-center text-xs text-muted-foreground'>
               {t('noTranscript')}
@@ -212,7 +208,7 @@ export function TranscriptViewer({
                         </span>
                       </button>
 
-                      {/* Middle: AST Node Content */}
+                      {/* Middle: SRT Cue Content */}
                       <div className='flex-1 min-w-0 space-y-1.5'>
                         <p
                           className={`text-sm leading-relaxed transition-colors select-text ${
@@ -224,11 +220,11 @@ export function TranscriptViewer({
                           {seg.text.trim()}
                         </p>
 
-                        {/* AST Node Metadata Pills */}
+                        {/* SRT Cue Metadata Pills */}
                         <div className='flex flex-wrap items-center gap-2 text-[10px] font-mono text-muted-foreground'>
                           <span className='flex items-center gap-0.5'>
                             <Hash className='size-2.5' />
-                            <span>Node #{seg.id ?? idx + 1}</span>
+                            <span>SRT #{seg.id ?? idx + 1}</span>
                           </span>
                           <span>•</span>
                           <span>{(seg.end - seg.start).toFixed(1)}s</span>

@@ -123,7 +123,9 @@ export function JobDetailClient() {
   const isRunning = job.status === 'running' || job.status === 'pending';
   const isCompleted = job.status === 'completed';
   const hasAudio = Boolean(job.media_url || job.audio_storage_path);
-  const hasTranscript = Boolean(job.result_text || job.result_json);
+  const hasTranscript = Boolean(
+    job.result_text || job.openai_response || job.result_json,
+  );
 
   return (
     <RequireAuth>
@@ -149,7 +151,7 @@ export function JobDetailClient() {
             />
           )}
 
-          {/* Transcript Viewer (AST + Pure Text) */}
+          {/* Transcript Viewer (SRT + Pure Text) */}
           {(isCompleted || hasTranscript) && (
             <TranscriptViewer
               job={job}

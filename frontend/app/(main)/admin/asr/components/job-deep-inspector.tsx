@@ -84,7 +84,20 @@ export function JobDeepInspector({
   if (!job) return null;
 
   const currentJob: JobDTO | JobSummaryDTO = detailJob || job;
-  const resultJson = detailJob?.result_json;
+  const resultJson = React.useMemo(() => {
+    if (!detailJob) return undefined;
+    if (detailJob.result_json) return detailJob.result_json;
+    if (detailJob.openai_response) {
+      try {
+        return typeof detailJob.openai_response === 'string'
+          ? detailJob.openai_response
+          : JSON.stringify(detailJob.openai_response);
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  }, [detailJob]);
   const errorMsg = detailJob?.error_msg;
   const storagePath = detailJob?.audio_storage_path;
 
