@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	pkgcache "Wavelet/pkg/cache/disk"
 	"Wavelet/pkg/ginutil"
@@ -300,15 +299,6 @@ func serveOriginal(c *gin.Context, upload *models.Upload) {
 	contentType := obj.ContentType
 	if upload.MimeType != "" {
 		contentType = upload.MimeType
-	}
-	// Seekable bodies (notably local disk files, served as *os.File) get full
-	// HTTP Range support so <audio>/<video> elements can seek to arbitrary
-	// positions: ServeContent emits Accept-Ranges and 206 Partial Content.
-	// Non-seekable remote streams keep the legacy 200 streaming behavior.
-	if seeker, ok := obj.Body.(io.ReadSeeker); ok {
-		c.Header("Content-Type", contentType)
-		http.ServeContent(c.Writer, c.Request, upload.FileName, time.Time{}, seeker)
-		return
 	}
 	c.DataFromReader(http.StatusOK, obj.ContentLength, contentType, obj.Body, nil)
 }
