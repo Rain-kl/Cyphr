@@ -1,14 +1,11 @@
 package proc
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -20,28 +17,9 @@ type ProcessStats struct {
 	RSSMB   int
 }
 
-// IsRunning tests if a process with the given PID exists, responds to signal 0, and is not a zombie (Z).
+// IsRunning tests if a process with the given PID exists and is actively running.
 func IsRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	// Direct syscall test
-	err := syscall.Kill(pid, 0)
-	if err != nil {
-		return false
-	}
-
-	// Re-verify that it is not in zombie (Z) state using ps
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "stat=").Output()
-	if err != nil {
-		return false
-	}
-	stat := strings.TrimSpace(string(out))
-	if stat == "" || strings.HasPrefix(stat, "Z") {
-		return false
-	}
-
-	return true
+	return isProcessAlive(pid)
 }
 
 // ReadPid reads and parses an integer PID from a file.
@@ -72,109 +50,22 @@ func RemovePid(pidFile string) {
 	_ = os.Remove(pidFile)
 }
 
-// Daemonize launches a command in a detached session with setsid, devnull stdin, and output redirected.
+// Daemonize launches a command in a detached session with devnull stdin and output redirected.
 func Daemonize(command []string, env []string, cwd string, logPath string) (int, error) {
-	if len(command) == 0 {
-		return 0, fmt.Errorf("empty command")
-	}
-
-	// Ensure log file directory exists
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		return 0, fmt.Errorf("create log dir failed: %w", err)
-	}
-
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		return 0, fmt.Errorf("open log file failed: %w", err)
-	}
-
-	devNull, err := os.OpenFile(os.DevNull, os.O_RDONLY, 0)
-	if err != nil {
-		_ = logFile.Close()
-		return 0, fmt.Errorf("open devnull failed: %w", err)
-	}
-
-	cmd := exec.Command(command[0], command[1:]...)
-	if cwd != "" {
-		cmd.Dir = cwd
-	}
-	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), env...)
-	}
-
-	cmd.Stdin = devNull
-	cmd.Stdout = logFile
-	cmd.Stderr = logFile
-
-	// Create new session & process group (setsid)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setsid: true,
-	}
-
-	if err := cmd.Start(); err != nil {
-		_ = logFile.Close()
-		_ = devNull.Close()
-		return 0, fmt.Errorf("start daemon process failed: %w", err)
-	}
-
-	pid := cmd.Process.Pid
-	// Release process handle
-	_ = cmd.Process.Release()
-	_ = logFile.Close()
-	_ = devNull.Close()
-
-	return pid, nil
+	return daemonizeProcess(command, env, cwd, logPath)
 }
 
-// GracefulStop attempts to terminate a process by sending SIGTERM, waiting up to timeout, then SIGKILL.
+// GracefulStop attempts to terminate a process gracefully before force killing.
 func GracefulStop(pid int, timeout time.Duration) error {
-	if !IsRunning(pid) {
-		return nil
-	}
-
-	_ = syscall.Kill(pid, syscall.SIGTERM)
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if !IsRunning(pid) {
-			return nil
-		}
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	if IsRunning(pid) {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	return nil
+	return gracefulStopProcess(pid, timeout)
 }
 
-// GracefulStopDownload sends SIGINT first, then SIGKILL.
+// GracefulStopDownload sends interrupt signal before force killing.
 func GracefulStopDownload(pid int, timeout time.Duration) error {
-	if !IsRunning(pid) {
-		return nil
-	}
-
-	_ = syscall.Kill(pid, syscall.SIGINT)
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if !IsRunning(pid) {
-			return nil
-		}
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	if IsRunning(pid) {
-		_ = syscall.Kill(pid, syscall.SIGKILL)
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	return nil
+	return gracefulStopDownloadProcess(pid, timeout)
 }
 
-// GetStats inspects a process using ps.
+// GetStats inspects a process and returns its stats.
 func GetStats(pid int) ProcessStats {
 	stats := ProcessStats{
 		PID:     pid,
@@ -184,18 +75,9 @@ func GetStats(pid int) ProcessStats {
 		return stats
 	}
 
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "etime=,rss=").Output()
-	if err == nil {
-		fields := strings.Fields(string(bytes.TrimSpace(out)))
-		if len(fields) >= 1 {
-			stats.Uptime = fields[0]
-		}
-		if len(fields) >= 2 {
-			if rssKB, err := strconv.Atoi(fields[1]); err == nil {
-				stats.RSSMB = rssKB / 1024
-			}
-		}
-	}
+	uptime, rssMB := getProcessMetrics(pid)
+	stats.Uptime = uptime
+	stats.RSSMB = rssMB
 	return stats
 }
 
