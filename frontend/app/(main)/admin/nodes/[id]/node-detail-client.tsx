@@ -196,9 +196,7 @@ export function NodeDetailClient() {
 
   const sys = node.system;
   const effectiveUrl = controllerUrl.trim() || 'http://localhost:8000';
-  const actualToken =
-    node.agent_token ||
-    (node.token_prefix ? `${node.token_prefix}...` : '<your_agent_token>');
+  const actualToken = node.agent_token || '';
 
   // Snippets
   const shellSnippet = `CONTROLLER_URL="${effectiveUrl}" \\
