@@ -6,7 +6,9 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -112,6 +114,42 @@ func TestScanBatchInputs(t *testing.T) {
 			t.Errorf("scanBatchInputs(missing) error = nil, want non-nil")
 		}
 	})
+}
+
+func TestBatchSnapshotSig(t *testing.T) {
+	infos := []client.JobInfo{
+		{ID: 1, Status: client.StatusRunning, Progress: 10},
+		{ID: 2, Status: client.StatusPending, Progress: 0},
+	}
+	base := batchSnapshotSig(infos)
+
+	t.Run("progress-only change keeps signature", func(t *testing.T) {
+		infos[0].Progress = 74
+		if got := batchSnapshotSig(infos); got != base {
+			t.Errorf("batchSnapshotSig() changed on progress update: %q vs %q", got, base)
+		}
+	})
+
+	t.Run("status change flips signature", func(t *testing.T) {
+		infos[0].Status = client.StatusCompleted
+		if got := batchSnapshotSig(infos); got == base {
+			t.Errorf("batchSnapshotSig() unchanged after status transition: %q", got)
+		}
+	})
+}
+
+func TestFormatJobsTableMatchesRender(t *testing.T) {
+	items := []client.JobInfo{
+		{ID: 7, OriginalFileName: "a.mp3", Model: "m", Status: client.StatusRunning, Progress: 42, Duration: 1.5, CreatedAt: time.Date(2026, 9, 4, 20, 11, 26, 0, time.UTC)},
+		{ID: 8, OriginalFileName: "", Model: "m", Status: client.StatusPending, CreatedAt: time.Date(2026, 9, 4, 20, 11, 31, 0, time.UTC)},
+	}
+	renderCmd := &cobra.Command{}
+	var buf strings.Builder
+	renderCmd.SetOut(&buf)
+	renderJobsTable(renderCmd, items, false)
+	if got, want := buf.String(), formatJobsTable(items, false); got != want {
+		t.Errorf("renderJobsTable output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
 }
 
 func TestCountBatchStatus(t *testing.T) {

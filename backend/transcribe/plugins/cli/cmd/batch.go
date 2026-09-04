@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -333,11 +334,23 @@ func watchBatchProgress(cmd *cobra.Command, pending []batchItem) error {
 	ticker := time.NewTicker(batchPollEvery)
 	defer ticker.Stop()
 
+	tty := isStdoutTerminal()
+	var lastSig string
+	first := true
+
+	// The full table prints on the first poll and on status transitions only;
+	// between changes a one-line counter refreshes in place.
 	refresh := func() bool {
 		infos := queryBatchStatus(cmd.Context(), pending, last)
 		completed, running, failed := countBatchStatus(infos)
-		cmd.Printf("\n--- Batch progress [%s] %d/%d completed ---\n", time.Now().Format("15:04:05"), completed, len(pending))
-		renderJobsTable(cmd, infos, false)
+		if sig := batchSnapshotSig(infos); first || sig != lastSig {
+			cmd.Printf("\n--- Batch progress [%s] %d/%d completed ---\n", time.Now().Format("15:04:05"), completed, len(pending))
+			cmd.Print(formatJobsTable(infos, false))
+			lastSig = sig
+			first = false
+		} else {
+			printBatchLiveLine(cmd, tty, completed, running, failed, len(pending))
+		}
 		return running == 0 && completed+failed == len(pending)
 	}
 
@@ -352,10 +365,43 @@ func watchBatchProgress(cmd *cobra.Command, pending []batchItem) error {
 			return nil
 		case <-ticker.C:
 			if refresh() {
+				if tty {
+					cmd.Printf("\n")
+				}
 				return nil
 			}
 		}
 	}
+}
+
+// batchSnapshotSig captures job status transitions (not progress percentages)
+// so the full table only reprints on meaningful change.
+func batchSnapshotSig(infos []client.JobInfo) string {
+	var sb strings.Builder
+	for _, info := range infos {
+		sb.WriteString(strconv.FormatUint(info.ID, 10))
+		sb.WriteString(":")
+		sb.WriteString(info.Status)
+		sb.WriteString(";")
+	}
+	return sb.String()
+}
+
+func isStdoutTerminal() bool {
+	fi, err := os.Stdout.Stat()
+	return err == nil && (fi.Mode()&os.ModeCharDevice) != 0
+}
+
+// printBatchLiveLine refreshes a one-line counter: in place on terminals,
+// as a log line otherwise.
+func printBatchLiveLine(cmd *cobra.Command, tty bool, completed, running, failed, total int) {
+	line := fmt.Sprintf("⏳ [%s] %d/%d completed · %d running · %d failed",
+		time.Now().Format("15:04:05"), completed, total, running, failed)
+	if !tty {
+		cmd.Println(line)
+		return
+	}
+	cmd.Printf("\r%-80s", line)
 }
 
 // queryBatchStatus fetches the latest status for each tracked job, retaining

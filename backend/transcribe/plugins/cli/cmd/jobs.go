@@ -107,6 +107,12 @@ type jobRow struct {
 }
 
 func renderJobsTable(cmd *cobra.Command, items []client.JobInfo, wide bool) {
+	cmd.Print(formatJobsTable(items, wide))
+}
+
+// formatJobsTable renders the same jobs table as renderJobsTable but returns
+// it as a string so callers can decide when to print (e.g. refresh in place).
+func formatJobsTable(items []client.JobInfo, wide bool) string {
 	headers := []string{"JOB ID", "FILE", "MODEL", "STATUS", "PROGRESS", "DURATION", "CREATED AT"}
 	widths := make([]int, len(headers))
 	for i, h := range headers {
@@ -148,34 +154,34 @@ func renderJobsTable(cmd *cobra.Command, items []client.JobInfo, wide bool) {
 		}
 	}
 
-	var headerLine strings.Builder
+	var out strings.Builder
 	for c, h := range headers {
 		if c > 0 {
-			headerLine.WriteString(tableColSeparator)
+			out.WriteString(tableColSeparator)
 		}
 		if c < len(headers)-1 {
-			headerLine.WriteString(PadRight(h, widths[c]))
+			out.WriteString(PadRight(h, widths[c]))
 		} else {
-			headerLine.WriteString(h)
+			out.WriteString(h)
 		}
 	}
-	cmd.Println(headerLine.String())
+	out.WriteString("\n")
 
 	for _, r := range rows {
 		cols := []string{r.id, r.file, r.model, r.status, r.progress, r.duration, r.createdAt}
-		var rowLine strings.Builder
 		for c, val := range cols {
 			if c > 0 {
-				rowLine.WriteString(tableColSeparator)
+				out.WriteString(tableColSeparator)
 			}
 			if c < len(cols)-1 {
-				rowLine.WriteString(PadRight(val, widths[c]))
+				out.WriteString(PadRight(val, widths[c]))
 			} else {
-				rowLine.WriteString(val)
+				out.WriteString(val)
 			}
 		}
-		cmd.Println(rowLine.String())
+		out.WriteString("\n")
 	}
+	return out.String()
 }
 
 func runFollowLog(cmd *cobra.Command, jobID uint64) error {
