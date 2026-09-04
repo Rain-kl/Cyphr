@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -175,14 +176,14 @@ func prepareUploadMedia(cmd *cobra.Command, filePath string) (string, func(), er
 		return "", nil, fmt.Errorf("unsupported media file format '%s' (supported audio: mp3, wav, m4a, flac, aac, ogg; video: mp4, mkv, avi, mov, flv, webm)", filepath.Ext(filePath))
 	}
 
-	cmd.Printf("Pre-processing media file with ffmpeg (converting to 16kHz mono WAV)...\n")
-	convertedPath, cleanup, convErr := media.ConvertToStandardWav(cmd.Context(), filePath)
+	cmd.Printf("Pre-processing media file with ffmpeg (compressing to 16kHz mono MP3)...\n")
+	convertedPath, cleanup, convErr := media.ConvertToStandardAudio(cmd.Context(), filePath)
 	if convErr != nil {
 		return "", nil, convErr
 	}
 
 	origBase := filepath.Base(filePath)
-	prettyName := origBase[:len(origBase)-len(filepath.Ext(origBase))] + ".wav"
+	prettyName := origBase[:len(origBase)-len(filepath.Ext(origBase))] + ".mp3"
 	prettyPath := filepath.Join(filepath.Dir(convertedPath), prettyName)
 	if renErr := os.Rename(convertedPath, prettyPath); renErr != nil {
 		cleanup()
@@ -244,9 +245,19 @@ func submitMediaJob(ctx context.Context, uploadPath, modelName string) (*client.
 }
 
 func handleCompletedJob(ctx context.Context, cmd *cobra.Command, filePath string, jobID uint64, finishEvent *client.FinishEvent) error {
-	cmd.Printf("\nTranscription completed in %.2fs:\n", finishEvent.Duration)
+	result := finishEvent.ResultText
+	totalChars := utf8.RuneCountInString(result)
+
+	preview := result
+	if totalChars > 100 { //nolint:mnd
+		runes := []rune(result)
+		preview = string(runes[:100]) + "..."
+	}
+
+	cmd.Printf("\nTranscription completed in %.2fs\n", finishEvent.Duration)
+	cmd.Printf("Total characters: %d\n", totalChars)
 	cmd.Println("--------------------------------------------------")
-	cmd.Println(finishEvent.ResultText)
+	cmd.Println(preview)
 	cmd.Println("--------------------------------------------------")
 
 	baseName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))

@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -22,10 +21,12 @@ import (
 )
 
 const (
-	defaultTabPadding = 3
-	defaultPageSize   = 10
-	allJobsPageSize   = 10000
-	defaultPage       = 1
+	defaultPageSize        = 10
+	allJobsPageSize        = 10000
+	defaultPage            = 1
+	defaultTabPadding      = 3
+	defaultMaxFileColWidth = 30
+	tableColSeparator      = "   "
 )
 
 var (
@@ -33,6 +34,7 @@ var (
 	jobsPage     int
 	jobsPageSize int
 	jobsAll      bool
+	jobsWide     bool
 	followLogs   bool
 )
 
@@ -74,23 +76,7 @@ func newJobsListCmd() *cobra.Command {
 				return nil
 			}
 
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, defaultTabPadding, ' ', 0)
-			_, _ = fmt.Fprintln(w, "JOB ID\tFILE\tMODEL\tSTATUS\tPROGRESS\tDURATION\tCREATED AT")
-			for _, job := range resp.Items {
-				fileName := job.OriginalFileName
-				if fileName == "" {
-					fileName = "-"
-				}
-				durStr := "-"
-				if job.Duration > 0 {
-					durStr = fmt.Sprintf("%.2fs", job.Duration)
-				}
-				createdAtStr := job.CreatedAt.Local().Format("2006-01-02 15:04:05")
-				progStr := fmt.Sprintf("%d%%", job.Progress)
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
-					job.ID, fileName, job.Model, job.Status, progStr, durStr, createdAtStr)
-			}
-			_ = w.Flush()
+			renderJobsTable(cmd, resp.Items, jobsWide)
 
 			if jobsAll {
 				cmd.Printf("\nShowing all %d jobs\n", len(resp.Items))
@@ -105,8 +91,91 @@ func newJobsListCmd() *cobra.Command {
 	listCmd.Flags().IntVar(&jobsPage, "page", defaultPage, "page number")
 	listCmd.Flags().IntVar(&jobsPageSize, "page-size", defaultPageSize, "number of jobs per page (default: 10)")
 	listCmd.Flags().BoolVarP(&jobsAll, "all", "a", false, "show all jobs without pagination limit")
+	listCmd.Flags().BoolVarP(&jobsWide, "wide", "w", false, "display full filenames without truncation")
 
 	return listCmd
+}
+
+type jobRow struct {
+	id        string
+	file      string
+	model     string
+	status    string
+	progress  string
+	duration  string
+	createdAt string
+}
+
+func renderJobsTable(cmd *cobra.Command, items []client.JobInfo, wide bool) {
+	headers := []string{"JOB ID", "FILE", "MODEL", "STATUS", "PROGRESS", "DURATION", "CREATED AT"}
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = StringWidth(h)
+	}
+
+	rows := make([]jobRow, len(items))
+	for i, job := range items {
+		fileName := job.OriginalFileName
+		if fileName == "" {
+			fileName = "-"
+		}
+		if !wide && StringWidth(fileName) > defaultMaxFileColWidth {
+			fileName = TruncateVisual(fileName, defaultMaxFileColWidth)
+		}
+		durStr := "-"
+		if job.Duration > 0 {
+			durStr = fmt.Sprintf("%.2fs", job.Duration)
+		}
+		createdAtStr := job.CreatedAt.Local().Format("2006-01-02 15:04:05")
+		progStr := fmt.Sprintf("%d%%", job.Progress)
+
+		rows[i] = jobRow{
+			id:        strconv.FormatUint(job.ID, 10),
+			file:      fileName,
+			model:     job.Model,
+			status:    job.Status,
+			progress:  progStr,
+			duration:  durStr,
+			createdAt: createdAtStr,
+		}
+
+		cols := []string{rows[i].id, rows[i].file, rows[i].model, rows[i].status, rows[i].progress, rows[i].duration, rows[i].createdAt}
+		for c, val := range cols {
+			w := StringWidth(val)
+			if w > widths[c] {
+				widths[c] = w
+			}
+		}
+	}
+
+	var headerLine strings.Builder
+	for c, h := range headers {
+		if c > 0 {
+			headerLine.WriteString(tableColSeparator)
+		}
+		if c < len(headers)-1 {
+			headerLine.WriteString(PadRight(h, widths[c]))
+		} else {
+			headerLine.WriteString(h)
+		}
+	}
+	cmd.Println(headerLine.String())
+
+	for _, r := range rows {
+		cols := []string{r.id, r.file, r.model, r.status, r.progress, r.duration, r.createdAt}
+		var rowLine strings.Builder
+		for c, val := range cols {
+			if c > 0 {
+				rowLine.WriteString(tableColSeparator)
+			}
+			if c < len(cols)-1 {
+				rowLine.WriteString(PadRight(val, widths[c]))
+			} else {
+				rowLine.WriteString(val)
+			}
+		}
+		cmd.Println(rowLine.String())
+	}
 }
 
 func runFollowLog(cmd *cobra.Command, jobID uint64) error {
