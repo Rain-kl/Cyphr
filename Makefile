@@ -25,7 +25,7 @@ build-embedded:
 		NEXT_PUBLIC_APP_VERSION="$(VERSION)" \
 		NEXT_PUBLIC_APP_BUILD_DATE="$(BUILD_DATE)" \
 		pnpm build:embed
-	rm -rf backend/plugins/drivers/driver_http/dist
+	[ ! -e backend/plugins/drivers/driver_http/dist ] || /bin/rm -rf backend/plugins/drivers/driver_http/dist
 	cp -R frontend/out backend/plugins/drivers/driver_http/dist
 	test -f backend/plugins/drivers/driver_http/dist/index.html
 	cd backend && go build \
