@@ -101,6 +101,8 @@ func CheckFFmpeg() error {
 
 // MediaCacheDir resolves the directory holding converted-audio cache files.
 // It honors CYPHR_MEDIA_CACHE_DIR and defaults to ~/.cyphr/cache/media.
+//
+//nolint:revive // exported Media prefix is intentional: media.MediaCacheDir reads unambiguously at call sites.
 func MediaCacheDir() (string, error) {
 	if env := strings.TrimSpace(os.Getenv(mediaCacheDirEnv)); env != "" {
 		return filepath.Clean(env), nil

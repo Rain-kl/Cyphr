@@ -184,7 +184,8 @@ func scanBatchInputs(inputDir string, recursive bool) (files []string, skipped i
 	if recursive {
 		walkErr := filepath.WalkDir(inputDir, func(path string, d os.DirEntry, werr error) error {
 			if werr != nil {
-				return nil
+				skipped++
+				return nil //nolint:nilerr // unreadable entries are counted as skipped, not fatal for the batch scan
 			}
 			collect(path, d)
 			return nil
@@ -223,7 +224,7 @@ func submitBatchFile(ctx context.Context, cmd *cobra.Command, filePath, modelNam
 		}
 	}
 
-	uploadPath, cleanup, err := prepareUploadMedia(cmd, filePath)
+	uploadPath, cleanup, err := prepareUploadMedia(ctx, cmd, filePath)
 	if err != nil {
 		return nil, false, err
 	}

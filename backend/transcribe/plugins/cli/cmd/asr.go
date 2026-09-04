@@ -57,7 +57,7 @@ func NewAsrCmd() *cobra.Command {
 				}
 			}
 
-			uploadPath, cleanup, err := prepareUploadMedia(cmd, filePath)
+			uploadPath, cleanup, err := prepareUploadMedia(cmd.Context(), cmd, filePath)
 			if err != nil {
 				return err
 			}
@@ -166,7 +166,7 @@ func NewAsrCmd() *cobra.Command {
 	return asrCmd
 }
 
-func prepareUploadMedia(cmd *cobra.Command, filePath string) (string, func(), error) {
+func prepareUploadMedia(ctx context.Context, cmd *cobra.Command, filePath string) (string, func(), error) {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return "", nil, fmt.Errorf("media file not found: %w", err)
@@ -184,7 +184,7 @@ func prepareUploadMedia(cmd *cobra.Command, filePath string) (string, func(), er
 	} else {
 		cmd.Printf("Pre-processing media file with ffmpeg (compressing to 16kHz mono MP3)...\n")
 	}
-	convertedPath, _, convErr := media.ConvertToStandardAudio(cmd.Context(), filePath)
+	convertedPath, _, convErr := media.ConvertToStandardAudio(ctx, filePath)
 	if convErr != nil {
 		return "", nil, convErr
 	}
@@ -212,7 +212,7 @@ func copyFile(src, dst string) error {
 		return fmt.Errorf("failed to open converted audio: %w", err)
 	}
 	defer func() { _ = in.Close() }()
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, resultFilePerm)
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, resultFilePerm) //nolint:gosec // G304: dst is built internally under os.MkdirTemp staging dir, not raw user input
 	if err != nil {
 		return fmt.Errorf("failed to stage upload file: %w", err)
 	}
