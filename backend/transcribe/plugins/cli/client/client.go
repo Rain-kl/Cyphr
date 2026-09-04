@@ -47,6 +47,21 @@ type APIResponse struct {
 	Data     json.RawMessage `json:"data"`
 }
 
+// UserProfile represents the currently authenticated user profile.
+type UserProfile struct {
+	ID        uint64 `json:"id,string"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url"`
+	IsAdmin   bool   `json:"is_admin"`
+	Bio       string `json:"bio"`
+	Phone     string `json:"phone"`
+	Gender    string `json:"gender"`
+	Website   string `json:"website"`
+	Location  string `json:"location"`
+}
+
 // ModelInfo represents available transcription model metadata.
 type ModelInfo struct {
 	ID          uint64    `json:"id,string"`
@@ -362,6 +377,20 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 		return nil, err
 	}
 	return models, nil
+}
+
+// GetProfile queries current authenticated user details from /api/v1/user-info.
+func (c *Client) GetProfile(ctx context.Context) (*UserProfile, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/api/v1/user-info", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var profile UserProfile
+	if err := c.doJSON(req, &profile); err != nil {
+		return nil, err
+	}
+	return &profile, nil
 }
 
 // writeUploadForm streams the file and transcription options into mw,

@@ -108,6 +108,25 @@ func TestClientOperations(t *testing.T) {
 		})
 	})
 
+	// GET /api/v1/user-info
+	mux.HandleFunc("/api/v1/user-info", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		data := client.UserProfile{
+			ID:       1001,
+			Username: "testuser",
+			Nickname: "Tester",
+			Email:    "test@example.com",
+			IsAdmin:  true,
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error_msg": "",
+			"data":      data,
+		})
+	})
+
 	// POST /api/v1/audio/transcriptions
 	mux.HandleFunc("/api/v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -241,6 +260,15 @@ func TestClientOperations(t *testing.T) {
 		assert.Equal(t, "mock-whisper-base", models[0].Name)
 	})
 
+	t.Run("GetProfile", func(t *testing.T) {
+		profile, err := cli.GetProfile(context.Background())
+		require.NoError(t, err)
+		require.NotNil(t, profile)
+		assert.Equal(t, uint64(1001), profile.ID)
+		assert.Equal(t, "testuser", profile.Username)
+		assert.True(t, profile.IsAdmin)
+	})
+
 	t.Run("SubmitTranscription", func(t *testing.T) {
 		tempDir := t.TempDir()
 		dummyAudio := filepath.Join(tempDir, "test.wav")
@@ -314,6 +342,19 @@ func TestCobraCommands(t *testing.T) {
 			"error_msg": "",
 			"data": []client.ModelInfo{
 				{ID: 1, Name: "mock-whisper-base", IsActive: true},
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/v1/user-info", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error_msg": "",
+			"data": client.UserProfile{
+				ID:       1001,
+				Username: "testuser",
+				Nickname: "Tester",
+				Email:    "test@example.com",
+				IsAdmin:  true,
 			},
 		})
 	})
@@ -570,5 +611,27 @@ func TestCobraCommands(t *testing.T) {
 		srtData, err := os.ReadFile("clip.srt")
 		require.NoError(t, err)
 		assert.Contains(t, string(srtData), "-->")
+	})
+
+	t.Run("profile command", func(t *testing.T) {
+		root := NewRootCmd()
+		out, err := executeCommand(root, "profile", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "User ID:")
+		assert.Contains(t, out, "1001")
+		assert.Contains(t, out, "Username:")
+		assert.Contains(t, out, "testuser")
+		assert.Contains(t, out, "Nickname:")
+		assert.Contains(t, out, "Tester")
+		assert.Contains(t, out, "Role:")
+		assert.Contains(t, out, "Administrator")
+	})
+
+	t.Run("profile command json output", func(t *testing.T) {
+		root := NewRootCmd()
+		out, err := executeCommand(root, "profile", "--json", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, `"username": "testuser"`)
+		assert.Contains(t, out, `"is_admin": true`)
 	})
 }

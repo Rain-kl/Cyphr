@@ -60,6 +60,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&overrideToken, "token", "", "access token for authentication")
 
 	rootCmd.AddCommand(NewLoginCmd())
+	rootCmd.AddCommand(NewProfileCmd())
 	rootCmd.AddCommand(NewAsrCmd())
 	rootCmd.AddCommand(NewJobsCmd())
 	rootCmd.AddCommand(NewModelsCmd())
