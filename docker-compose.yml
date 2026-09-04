@@ -26,6 +26,7 @@ services:
       jaeger:
         condition: service_started
 
+
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
@@ -37,7 +38,9 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ./data/postgres_data:/var/lib/postgresql/data
+      # PG18+ 镜像要求挂载父目录（数据实际落在 18/docker 子目录）；旧式
+      # ...:/var/lib/postgresql/data 会被视作废弃挂载而拒绝启动。
+      - ./data/postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-wavelet}"]
       interval: 10s
