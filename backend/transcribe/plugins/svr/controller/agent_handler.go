@@ -124,7 +124,7 @@ func (h *AgentHandler) HandleWS(c *gin.Context) {
 
 	clientIP := c.ClientIP()
 	sess := hub.NewAgentSession(node.ID, node.Name, clientIP, conn)
-	sess.SetConfig(node.WorkMode, node.AllowAutoLoad, node.AutoUnloadMinutes, node.ModelVramEstimates)
+	sess.SetConfig(node.WorkMode, node.AllowAutoLoad, node.AutoUnloadMinutes, node.MaxConcurrentJobs, node.ModelVramEstimates)
 	h.agentHub.RegisterSession(sess)
 	defer h.agentHub.UnregisterSession(node.ID)
 
@@ -149,12 +149,13 @@ func (h *AgentHandler) HandleWS(c *gin.Context) {
 }
 
 type heartbeatPayload struct {
-	Models         []string           `json:"models"`
-	LoadedModels   []string           `json:"loaded_models"`
-	RunningJobs    int                `json:"running_jobs"`
-	SupportedModes []string           `json:"supported_modes"`
-	CurrentMode    string             `json:"current_mode"`
-	System         *do.SystemStatsDTO `json:"system"`
+	Models           []string           `json:"models"`
+	LoadedModels     []string           `json:"loaded_models"`
+	DownloadedModels []string           `json:"downloaded_models"`
+	RunningJobs      int                `json:"running_jobs"`
+	SupportedModes   []string           `json:"supported_modes"`
+	CurrentMode      string             `json:"current_mode"`
+	System           *do.SystemStatsDTO `json:"system"`
 }
 
 func (h *AgentHandler) processHeartbeat(ctx context.Context, sess *hub.AgentSession, nodeID uint64, ip string, raw any) {
@@ -170,7 +171,7 @@ func (h *AgentHandler) processHeartbeat(ctx context.Context, sess *hub.AgentSess
 		models = payload.Models
 	}
 
-	sess.UpdateHeartbeat(models, payload.RunningJobs, payload.System)
+	sess.UpdateHeartbeat(models, payload.RunningJobs, payload.System, payload.DownloadedModels)
 	sess.SetModes(payload.SupportedModes, payload.CurrentMode)
 
 	// If the agent's current mode differs from the server-configured work mode, request mode alignment

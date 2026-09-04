@@ -104,6 +104,7 @@ export function NodeDetailClient() {
   const [workMode, setWorkMode] = React.useState<string>('gpu');
   const [allowAutoLoad, setAllowAutoLoad] = React.useState<boolean>(true);
   const [autoUnloadMinutes, setAutoUnloadMinutes] = React.useState<number>(0);
+  const [maxConcurrentJobs, setMaxConcurrentJobs] = React.useState<number>(2);
   const [modelVramEstimates, setModelVramEstimates] = React.useState<
     Record<string, number>
   >({});
@@ -118,6 +119,7 @@ export function NodeDetailClient() {
       setWorkMode(node.work_mode || 'gpu');
       setAllowAutoLoad(node.allow_auto_load ?? true);
       setAutoUnloadMinutes(node.auto_unload_minutes ?? 0);
+      setMaxConcurrentJobs(node.max_concurrent_jobs ?? 2);
       setModelVramEstimates(node.model_vram_estimates || {});
       initialSyncRef.current = true;
     }
@@ -131,12 +133,14 @@ export function NodeDetailClient() {
         work_mode: workMode,
         allow_auto_load: allowAutoLoad,
         auto_unload_minutes: Number(autoUnloadMinutes) || 0,
+        max_concurrent_jobs: Number(maxConcurrentJobs) || 2,
         model_vram_estimates: modelVramEstimates,
       });
       setNode(updated);
       setWorkMode(updated.work_mode || 'gpu');
       setAllowAutoLoad(updated.allow_auto_load ?? true);
       setAutoUnloadMinutes(updated.auto_unload_minutes ?? 0);
+      setMaxConcurrentJobs(updated.max_concurrent_jobs ?? 2);
       setModelVramEstimates(updated.model_vram_estimates || {});
       toast.success(tConfig('saveSuccess'));
     } catch (err: unknown) {
@@ -1191,6 +1195,40 @@ WantedBy=multi-user.target`;
                     />
                     <span className='text-xs text-muted-foreground shrink-0'>
                       分钟
+                    </span>
+                  </div>
+                </div>
+
+                {/* Max Concurrent Jobs Input (由中心控制台配置，禁止 Agent 自行设置) */}
+                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-muted/20 p-4'>
+                  <div className='space-y-0.5'>
+                    <Label
+                      htmlFor='max-concurrent-jobs'
+                      className='text-sm font-semibold'
+                    >
+                      作业并行数
+                    </Label>
+                    <p className='text-xs text-muted-foreground'>
+                      控制调度器向该计算节点并发下发转录任务的最大上限（默认
+                      2，仅由控制台集中管控）
+                    </p>
+                  </div>
+                  <div className='flex items-center gap-2 w-full sm:w-44'>
+                    <Input
+                      id='max-concurrent-jobs'
+                      type='number'
+                      min={1}
+                      max={64}
+                      value={maxConcurrentJobs}
+                      onChange={(e) =>
+                        setMaxConcurrentJobs(
+                          Math.max(1, parseInt(e.target.value, 10) || 1),
+                        )
+                      }
+                      className='h-9 font-mono text-sm bg-background'
+                    />
+                    <span className='text-xs text-muted-foreground shrink-0'>
+                      任务
                     </span>
                   </div>
                 </div>

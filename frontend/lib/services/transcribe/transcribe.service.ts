@@ -50,6 +50,17 @@ export class TranscribeService extends BaseService {
   }
 
   /**
+   * Delete transcription jobs
+   */
+  static async deleteJobs(
+    ids: (string | number)[],
+  ): Promise<{ deleted_count: number }> {
+    return this.post<{ deleted_count: number }>('/jobs/batch-delete', {
+      job_ids: ids.map((id) => Number(id)),
+    });
+  }
+
+  /**
    * List active transcription models
    */
   static async listModels(keyword?: string): Promise<ModelDTO[]> {

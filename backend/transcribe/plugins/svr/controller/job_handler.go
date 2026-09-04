@@ -272,3 +272,45 @@ func (h *JobHandler) RetryJob(c *gin.Context) {
 
 	c.JSON(http.StatusOK, response.OKNil())
 }
+
+// BatchDeleteJobs handles POST /api/v1/jobs/batch-delete for authenticated users.
+func (h *JobHandler) BatchDeleteJobs(c *gin.Context) {
+	var req do.BatchDeleteJobsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	userID := GetCurrentUserID(c, h.authService)
+	if userID == 0 {
+		response.AbortUnauthorized(c, consts.ErrUnauthorized)
+		return
+	}
+
+	deletedCount, err := h.jobService.DeleteJobs(c.Request.Context(), req.JobIDs, userID, false)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[JobHandler] user %d batch delete jobs failed: %v", userID, err)
+		response.AbortInternal(c, consts.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(gin.H{"deleted_count": deletedCount}))
+}
+
+// BatchDeleteAllJobs handles POST /api/v1/controller/jobs/batch-delete for admin.
+func (h *JobHandler) BatchDeleteAllJobs(c *gin.Context) {
+	var req do.BatchDeleteJobsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	deletedCount, err := h.jobService.DeleteJobs(c.Request.Context(), req.JobIDs, 0, true)
+	if err != nil {
+		logger.ErrorF(c.Request.Context(), "[JobHandler] admin batch delete jobs failed: %v", err)
+		response.AbortInternal(c, consts.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OK(gin.H{"deleted_count": deletedCount}))
+}

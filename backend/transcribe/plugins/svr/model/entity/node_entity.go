@@ -17,6 +17,7 @@ type NodeEntity struct {
 	WorkMode           string     `json:"work_mode" gorm:"size:16;not null;default:'gpu'"`
 	AllowAutoLoad      bool       `json:"allow_auto_load" gorm:"not null;default:true"`
 	AutoUnloadMinutes  int        `json:"auto_unload_minutes" gorm:"not null;default:0"`
+	MaxConcurrentJobs  int        `json:"max_concurrent_jobs" gorm:"not null;default:2"`
 	ModelVramEstimates string     `json:"model_vram_estimates" gorm:"type:text;not null;default:'{}'"`
 	LastIP             string     `json:"last_ip" gorm:"size:45"`
 	LastSeenAt         *time.Time `json:"last_seen_at"`

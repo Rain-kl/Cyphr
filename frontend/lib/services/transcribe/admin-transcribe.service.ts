@@ -114,4 +114,15 @@ export class AdminTranscribeService extends BaseService {
   static async retryJob(id: number | string): Promise<void> {
     return this.post<void>(`/jobs/${id}/retry`, {});
   }
+
+  /**
+   * Batch delete transcription jobs as admin
+   */
+  static async deleteJobs(
+    ids: (string | number)[],
+  ): Promise<{ deleted_count: number }> {
+    return this.post<{ deleted_count: number }>('/jobs/batch-delete', {
+      job_ids: ids.map((id) => Number(id)),
+    });
+  }
 }

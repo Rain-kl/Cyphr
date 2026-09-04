@@ -1969,7 +1969,14 @@
       "createdAt": "Created At",
       "actions": "Actions",
       "viewDetail": "View Details",
-      "empty": "No transcription jobs found. Click above to start one."
+      "empty": "No transcription jobs found. Click above to start one.",
+      "delete": "Delete",
+      "deleteSelected": "Delete Selected ({count})",
+      "deleteConfirmTitle": "Confirm Delete",
+      "deleteConfirmDesc": "Are you sure you want to delete {count} selected job(s)? This action cannot be undone.",
+      "deleteSuccess": "Job(s) deleted successfully",
+      "deleteFailed": "Failed to delete job(s)",
+      "selectedCount": "{count} selected"
     },
     "dialog": {
       "title": "New Transcription Task",

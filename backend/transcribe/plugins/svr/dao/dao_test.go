@@ -64,6 +64,11 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 	require.NoError(t, err, "migration file must exist at %s", retryMigrationPath)
 	applyMigration(t, db, string(retryContent))
 
+	jobsMigrationPath := filepath.Join("..", "migrations", "sqlite", "00008_add_max_concurrent_jobs.sql")
+	jobsContent, err := os.ReadFile(jobsMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", jobsMigrationPath)
+	applyMigration(t, db, string(jobsContent))
+
 	return db, dbPath
 }
 
@@ -232,16 +237,17 @@ func TestNodeDAO(t *testing.T) {
 
 	// 6. UpdateConfig
 	vramJSON := `{"qwen3-asr-0.6b":2000,"qwen3-asr-1.7b":5000}`
-	require.NoError(t, nodeDAO.UpdateConfig(ctx, n1.ID, "cpu", false, 15, vramJSON))
+	require.NoError(t, nodeDAO.UpdateConfig(ctx, n1.ID, "cpu", false, 15, 4, vramJSON))
 	cfgNode, err := nodeDAO.GetByID(ctx, n1.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "cpu", cfgNode.WorkMode)
 	assert.False(t, cfgNode.AllowAutoLoad)
 	assert.Equal(t, 15, cfgNode.AutoUnloadMinutes)
+	assert.Equal(t, 4, cfgNode.MaxConcurrentJobs)
 	assert.Equal(t, vramJSON, cfgNode.ModelVramEstimates)
 
 	// UpdateConfig on non-existent node
-	err = nodeDAO.UpdateConfig(ctx, 888888, "gpu", true, 0, "{}")
+	err = nodeDAO.UpdateConfig(ctx, 888888, "gpu", true, 0, 2, "{}")
 	assert.ErrorIs(t, err, consts.ErrRecordNotFound)
 }
 

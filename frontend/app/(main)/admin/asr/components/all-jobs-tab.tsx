@@ -5,8 +5,19 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -38,6 +49,7 @@ import {
   RotateCcw,
   Search,
   Server,
+  Trash2,
   User,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -70,6 +82,63 @@ export function AllJobsTab() {
   const [selectedJob, setSelectedJob] = React.useState<JobSummaryDTO | null>(
     null,
   );
+  const [selectedIds, setSelectedIds] = React.useState<Set<string | number>>(
+    new Set(),
+  );
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [jobToDelete, setJobToDelete] = React.useState<string | number | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  // Clear selections when page changes or data changes
+  React.useEffect(() => {
+    setSelectedIds(new Set());
+  }, [page, data.items]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(data.items.map((j) => j.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string | number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const isAllSelected =
+    data.items.length > 0 && data.items.every((j) => selectedIds.has(j.id));
+  const isPartiallySelected = selectedIds.size > 0 && !isAllSelected;
+
+  const handleDeleteConfirm = async () => {
+    const idsToDelete = jobToDelete ? [jobToDelete] : Array.from(selectedIds);
+    if (idsToDelete.length === 0) return;
+
+    try {
+      setIsDeleting(true);
+      await AdminTranscribeService.deleteJobs(idsToDelete);
+      toast.success(tTable('deleteSuccess'));
+      setSelectedIds(new Set());
+      setJobToDelete(null);
+      setDeleteDialogOpen(false);
+      fetchJobs();
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || tTable('deleteFailed'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleRetry = async (jobId: string | number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -267,11 +336,56 @@ export function AllJobsTab() {
         </Button>
       </div>
 
+      {/* Batch Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className='flex items-center justify-between rounded-lg border border-dashed bg-muted/40 px-4 py-2 text-xs'>
+          <div className='flex items-center gap-2'>
+            <span className='font-medium text-foreground'>
+              {tTable('selectedCount', { count: selectedIds.size })}
+            </span>
+          </div>
+          <div className='flex items-center gap-2'>
+            <Button
+              variant='destructive'
+              size='sm'
+              onClick={() => {
+                setJobToDelete(null);
+                setDeleteDialogOpen(true);
+              }}
+              className='h-7 gap-1.5 px-2.5 text-xs shadow-none'
+            >
+              <Trash2 className='size-3.5' />
+              <span>
+                {tTable('deleteSelected', { count: selectedIds.size })}
+              </span>
+            </Button>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={() => setSelectedIds(new Set())}
+              className='h-7 px-2 text-xs'
+            >
+              取消选择
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Panorama Jobs Table */}
       <div className='border border-dashed shadow-none rounded-lg overflow-hidden bg-background'>
         <Table className='w-full caption-bottom text-sm min-w-full'>
           <TableHeader className='bg-muted/40'>
             <TableRow className='border-dashed hover:bg-transparent'>
+              <TableHead className='w-10 px-3'>
+                <Checkbox
+                  checked={
+                    isAllSelected ||
+                    (isPartiallySelected ? 'indeterminate' : false)
+                  }
+                  onCheckedChange={handleSelectAll}
+                  aria-label='全选当前页'
+                />
+              </TableHead>
               <TableHead className='w-16 text-xs font-semibold'>
                 {tTable('id')}
               </TableHead>
@@ -299,7 +413,7 @@ export function AllJobsTab() {
               <TableHead className='w-32 text-xs font-semibold'>
                 {tTable('createdAt')}
               </TableHead>
-              <TableHead className='w-28 text-xs font-semibold text-right'>
+              <TableHead className='w-32 text-xs font-semibold text-right'>
                 Action
               </TableHead>
             </TableRow>
@@ -308,139 +422,168 @@ export function AllJobsTab() {
             {data.items.length === 0 ? (
               <TableRow className='border-dashed hover:bg-transparent'>
                 <TableCell
-                  colSpan={10}
+                  colSpan={11}
                   className='h-32 text-center text-xs text-muted-foreground'
                 >
                   {isLoading ? tCommon('loading') : 'No platform jobs found.'}
                 </TableCell>
               </TableRow>
             ) : (
-              data.items.map((job) => (
-                <TableRow
-                  key={job.id}
-                  onClick={() => setSelectedJob(job)}
-                  className='border-dashed hover:bg-muted/10 transition-colors cursor-pointer'
-                >
-                  <TableCell className='font-mono text-xs font-semibold'>
-                    #{job.id}
-                  </TableCell>
-                  <TableCell className='font-mono text-xs text-muted-foreground'>
-                    {job.user_id ? (
-                      <span className='flex items-center gap-1'>
-                        <User className='size-3 text-muted-foreground' />
-                        <span>#{job.user_id}</span>
-                      </span>
-                    ) : (
-                      'Anon'
-                    )}
-                  </TableCell>
-                  <TableCell className='font-mono text-xs text-muted-foreground'>
-                    {job.node_id ? (
-                      <span className='flex items-center gap-1 text-primary'>
-                        <Server className='size-3' />
-                        <span>#{job.node_id}</span>
-                      </span>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex items-center gap-2 max-w-xs'>
-                      <div className='rounded p-1 bg-muted text-muted-foreground shrink-0'>
-                        {job.original_file_name.match(
-                          /\.(mp4|mkv|mov|flv|webm)$/i,
-                        ) ? (
-                          <FileVideo className='size-3.5' />
-                        ) : (
-                          <FileAudio className='size-3.5' />
-                        )}
-                      </div>
-                      <span className='truncate font-medium text-xs text-foreground'>
-                        {job.original_file_name}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <code className='rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono'>
-                      {job.model}
-                    </code>
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex items-center gap-1.5'>
-                      {getStatusBadge(job.status)}
-                      {typeof job.retry_count === 'number' &&
-                        job.retry_count > 0 && (
-                          <span
-                            className='rounded bg-muted px-1 py-0.5 text-[9px] font-mono text-muted-foreground'
-                            title={`Retried ${job.retry_count} time(s)`}
-                          >
-                            r:{job.retry_count}
-                          </span>
-                        )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className='space-y-1'>
-                      <Progress value={job.progress} className='h-1.5' />
-                      <span className='text-[10px] text-muted-foreground font-mono'>
-                        {job.progress}%
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className='text-xs font-mono text-muted-foreground'>
-                    {formatDuration(job.duration)}
-                  </TableCell>
-                  <TableCell className='text-xs text-muted-foreground whitespace-nowrap'>
-                    {formatCreatedAt(job.created_at)}
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <div className='flex items-center justify-end gap-1'>
-                      {job.status === 'failed' && (
-                        <Button
-                          variant='ghost'
-                          size='icon'
-                          disabled={retryingId === job.id}
-                          className='h-6 w-6 rounded hover:bg-rose-500/10 text-rose-600'
-                          onClick={(e) => handleRetry(job.id, e)}
-                          title={t('retryBtn')}
-                          aria-label={t('retryBtn')}
-                        >
-                          <RotateCcw
-                            className={`size-3 ${retryingId === job.id ? 'animate-spin' : ''}`}
-                          />
-                        </Button>
+              data.items.map((job) => {
+                const isChecked = selectedIds.has(job.id);
+                return (
+                  <TableRow
+                    key={job.id}
+                    onClick={() => setSelectedJob(job)}
+                    className={`border-dashed hover:bg-muted/10 transition-colors cursor-pointer ${
+                      isChecked ? 'bg-muted/20' : ''
+                    }`}
+                  >
+                    <TableCell
+                      className='px-3'
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(c) => handleSelectOne(job.id, !!c)}
+                        aria-label={`选择任务 #${job.id}`}
+                      />
+                    </TableCell>
+                    <TableCell className='font-mono text-xs font-semibold'>
+                      #{job.id}
+                    </TableCell>
+                    <TableCell className='font-mono text-xs text-muted-foreground'>
+                      {job.user_id ? (
+                        <span className='flex items-center gap-1'>
+                          <User className='size-3 text-muted-foreground' />
+                          <span>#{job.user_id}</span>
+                        </span>
+                      ) : (
+                        'Anon'
                       )}
-                      <Link
-                        href={`/asr/jobs/${job.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                    </TableCell>
+                    <TableCell className='font-mono text-xs text-muted-foreground'>
+                      {job.node_id ? (
+                        <span className='flex items-center gap-1 text-primary'>
+                          <Server className='size-3' />
+                          <span>#{job.node_id}</span>
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className='flex items-center gap-2 max-w-xs'>
+                        <div className='rounded p-1 bg-muted text-muted-foreground shrink-0'>
+                          {job.original_file_name.match(
+                            /\.(mp4|mkv|mov|flv|webm)$/i,
+                          ) ? (
+                            <FileVideo className='size-3.5' />
+                          ) : (
+                            <FileAudio className='size-3.5' />
+                          )}
+                        </div>
+                        <span className='truncate font-medium text-xs text-foreground'>
+                          {job.original_file_name}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <code className='rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono'>
+                        {job.model}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <div className='flex items-center gap-1.5'>
+                        {getStatusBadge(job.status)}
+                        {typeof job.retry_count === 'number' &&
+                          job.retry_count > 0 && (
+                            <span
+                              className='rounded bg-muted px-1 py-0.5 text-[9px] font-mono text-muted-foreground'
+                              title={`Retried ${job.retry_count} time(s)`}
+                            >
+                              r:{job.retry_count}
+                            </span>
+                          )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className='space-y-1'>
+                        <Progress value={job.progress} className='h-1.5' />
+                        <span className='text-[10px] text-muted-foreground font-mono'>
+                          {job.progress}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className='text-xs font-mono text-muted-foreground'>
+                      {formatDuration(job.duration)}
+                    </TableCell>
+                    <TableCell className='text-xs text-muted-foreground whitespace-nowrap'>
+                      {formatCreatedAt(job.created_at)}
+                    </TableCell>
+                    <TableCell className='text-right'>
+                      <div className='flex items-center justify-end gap-1'>
+                        {job.status === 'failed' && (
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            disabled={retryingId === job.id}
+                            className='h-6 w-6 rounded hover:bg-rose-500/10 text-rose-600'
+                            onClick={(e) => handleRetry(job.id, e)}
+                            title={t('retryBtn')}
+                            aria-label={t('retryBtn')}
+                          >
+                            <RotateCcw
+                              className={`size-3 ${retryingId === job.id ? 'animate-spin' : ''}`}
+                            />
+                          </Button>
+                        )}
+                        <Link
+                          href={`/asr/jobs/${job.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            className='h-6 w-6 rounded hover:bg-muted text-muted-foreground'
+                            title={t('viewDetail')}
+                            aria-label={t('viewDetail')}
+                          >
+                            <ExternalLink className='size-3' />
+                          </Button>
+                        </Link>
                         <Button
                           variant='ghost'
                           size='icon'
                           className='h-6 w-6 rounded hover:bg-muted text-muted-foreground'
-                          title={t('viewDetail')}
-                          aria-label={t('viewDetail')}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedJob(job);
+                          }}
+                          title={t('inspectorTitle')}
+                          aria-label={t('inspectorTitle')}
                         >
-                          <ExternalLink className='size-3' />
+                          <Eye className='size-3' />
                         </Button>
-                      </Link>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 rounded hover:bg-muted text-muted-foreground'
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedJob(job);
-                        }}
-                        title={t('inspectorTitle')}
-                        aria-label={t('inspectorTitle')}
-                      >
-                        <Eye className='size-3' />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='h-6 w-6 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive'
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setJobToDelete(job.id);
+                            setDeleteDialogOpen(true);
+                          }}
+                          title={tTable('delete')}
+                          aria-label={`删除任务 #${job.id}`}
+                        >
+                          <Trash2 className='size-3' />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -481,6 +624,32 @@ export function AllJobsTab() {
         open={Boolean(selectedJob)}
         onOpenChange={(v) => !v && setSelectedJob(null)}
       />
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tTable('deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {tTable('deleteConfirmDesc', {
+                count: jobToDelete ? 1 : selectedIds.size,
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {tCommon('cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            >
+              {isDeleting ? '正在删除...' : tTable('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

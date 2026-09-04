@@ -21,7 +21,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const defaultSyncTimeout = 300 * time.Second
+const (
+	defaultSyncTimeout = 300 * time.Second
+	fieldJobID         = "job_id"
+	fieldStatus        = "status"
+)
 
 // OpenAIHandler handles OpenAI-compatible audio transcription endpoints.
 type OpenAIHandler struct {
@@ -160,6 +164,19 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 		return
 	}
 
+	// Fast path: if a completed job already exists for this audio storage path and parameters, return it directly!
+	if existingJob, findErr := h.jobService.FindCompletedJob(c.Request.Context(), storagePath, modelName, language); findErr == nil && existingJob != nil {
+		if strings.EqualFold(c.GetHeader("X-Async"), "true") {
+			c.JSON(http.StatusOK, response.OK(gin.H{
+				fieldJobID:  strconv.FormatUint(existingJob.ID, 10),
+				fieldStatus: consts.StatusCompleted,
+			}))
+			return
+		}
+		h.renderOpenAIResponse(c, existingJob, responseFormat, language)
+		return
+	}
+
 	jobReq := &do.CreateJobRequest{
 		UserID:           userID,
 		Model:            modelName,
@@ -186,8 +203,8 @@ func (h *OpenAIHandler) HandleTranscription(c *gin.Context) {
 	// Check if asynchronous job mode is requested
 	if strings.EqualFold(c.GetHeader("X-Async"), "true") {
 		c.JSON(http.StatusOK, response.OK(gin.H{
-			"job_id": strconv.FormatUint(job.ID, 10),
-			"status": consts.StatusPending,
+			fieldJobID:  strconv.FormatUint(job.ID, 10),
+			fieldStatus: consts.StatusPending,
 		}))
 		return
 	}

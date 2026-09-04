@@ -33,8 +33,10 @@ export interface NodeDTO {
   current_mode?: string;
   allow_auto_load?: boolean;
   auto_unload_minutes?: number;
+  max_concurrent_jobs?: number;
   model_vram_estimates?: Record<string, number>;
   loaded_models?: string[];
+  downloaded_models?: string[];
   running_jobs?: number;
   system?: SystemStatsDTO;
   last_ip?: string;
@@ -46,6 +48,7 @@ export interface UpdateNodeConfigParams {
   work_mode?: string;
   allow_auto_load?: boolean;
   auto_unload_minutes?: number;
+  max_concurrent_jobs?: number;
   model_vram_estimates?: Record<string, number>;
 }
 

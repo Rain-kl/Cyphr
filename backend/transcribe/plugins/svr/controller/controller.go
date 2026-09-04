@@ -231,6 +231,7 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 		jobGroup.GET("", c.Job.ListJobs)
 		jobGroup.GET("/:id", c.Job.GetJob)
 		jobGroup.GET("/:id/stream", c.Job.StreamJob)
+		jobGroup.POST("/batch-delete", c.Job.BatchDeleteJobs)
 	}
 
 	// 5. Agent WebSocket and worker HTTP endpoints (protected by Agent Token)
@@ -267,5 +268,6 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 		jobCtrlGroup.GET("", c.Job.ListAllJobs)
 		jobCtrlGroup.GET("/:id", c.Job.GetJob)
 		jobCtrlGroup.POST("/:id/retry", c.Job.RetryJob)
+		jobCtrlGroup.POST("/batch-delete", c.Job.BatchDeleteAllJobs)
 	}
 }

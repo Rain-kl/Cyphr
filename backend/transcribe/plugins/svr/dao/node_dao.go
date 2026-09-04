@@ -19,7 +19,7 @@ type NodeDAO interface {
 	ListAll(ctx context.Context, keyword ...string) ([]entity.NodeEntity, error)
 	Create(ctx context.Context, node *entity.NodeEntity) error
 	UpdateLastSeen(ctx context.Context, id uint64, ip string) error
-	UpdateConfig(ctx context.Context, id uint64, workMode string, allowAutoLoad bool, autoUnloadMinutes int, modelVramEstimates string) error
+	UpdateConfig(ctx context.Context, id uint64, workMode string, allowAutoLoad bool, autoUnloadMinutes int, maxConcurrentJobs int, modelVramEstimates string) error
 	Delete(ctx context.Context, id uint64) error
 }
 
@@ -95,11 +95,12 @@ func (d *GormNodeDAO) UpdateLastSeen(ctx context.Context, id uint64, ip string) 
 }
 
 // UpdateConfig updates node configuration including work_mode, allow_auto_load, auto_unload_minutes, and model_vram_estimates.
-func (d *GormNodeDAO) UpdateConfig(ctx context.Context, id uint64, workMode string, allowAutoLoad bool, autoUnloadMinutes int, modelVramEstimates string) error {
+func (d *GormNodeDAO) UpdateConfig(ctx context.Context, id uint64, workMode string, allowAutoLoad bool, autoUnloadMinutes int, maxConcurrentJobs int, modelVramEstimates string) error {
 	updates := map[string]any{
 		"work_mode":            workMode,
 		"allow_auto_load":      allowAutoLoad,
 		"auto_unload_minutes":  autoUnloadMinutes,
+		"max_concurrent_jobs":  maxConcurrentJobs,
 		"model_vram_estimates": modelVramEstimates,
 	}
 	res := d.db.WithContext(ctx).Model(&entity.NodeEntity{}).Where("id = ?", id).Updates(updates)

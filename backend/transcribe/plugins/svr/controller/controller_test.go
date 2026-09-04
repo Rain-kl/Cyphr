@@ -97,6 +97,11 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	require.NoError(t, err, "migration file must exist at %s", retryMigrationPath)
 	applyMigration(t, db, string(retryContent))
 
+	jobsMigrationPath := filepath.Join("..", "migrations", "sqlite", "00008_add_max_concurrent_jobs.sql")
+	jobsContent, err := os.ReadFile(jobsMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", jobsMigrationPath)
+	applyMigration(t, db, string(jobsContent))
+
 	jobDAO := dao.NewJobDAO(db)
 	nodeDAO := dao.NewNodeDAO(db)
 	modelDAO := dao.NewModelDAO(db)

@@ -43,3 +43,8 @@ const (
 	ResponseFormatSRT         = "srt"
 	ResponseFormatVTT         = "vtt"
 )
+
+// Concurrency constants.
+const (
+	DefaultMaxConcurrentJobs = 2
+)

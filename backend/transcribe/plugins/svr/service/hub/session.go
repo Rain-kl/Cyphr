@@ -5,6 +5,7 @@
 package hub
 
 import (
+	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/model/do"
 	"errors"
 	"sync"
@@ -31,10 +32,12 @@ type AgentSession struct {
 	currentMode        string
 	allowAutoLoad      bool
 	autoUnloadMinutes  int
+	maxConcurrentJobs  int
 	modelVramEstimates map[string]int
 	idleSince          time.Time
 	failedLoads        map[string]time.Time
 	loadedModels       []string
+	downloadedModels   []string
 	runningJobs        int
 	lastHeartbeat      time.Time
 	systemStats        *do.SystemStatsDTO
@@ -52,15 +55,17 @@ func NewAgentSession(nodeID uint64, nodeName, ip string, conn WSConn) *AgentSess
 		currentMode:        "cpu",
 		allowAutoLoad:      true,
 		autoUnloadMinutes:  0,
+		maxConcurrentJobs:  consts.DefaultMaxConcurrentJobs,
 		modelVramEstimates: make(map[string]int),
 		failedLoads:        make(map[string]time.Time),
 		lastHeartbeat:      time.Now(),
 		loadedModels:       make([]string, 0),
+		downloadedModels:   make([]string, 0),
 	}
 }
 
 // SetConfig updates node configuration in session memory.
-func (s *AgentSession) SetConfig(workMode string, allowAutoLoad bool, autoUnloadMinutes int, estimates map[string]int) {
+func (s *AgentSession) SetConfig(workMode string, allowAutoLoad bool, autoUnloadMinutes int, maxConcurrentJobs int, estimates map[string]int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if workMode != "" {
@@ -68,6 +73,9 @@ func (s *AgentSession) SetConfig(workMode string, allowAutoLoad bool, autoUnload
 	}
 	s.allowAutoLoad = allowAutoLoad
 	s.autoUnloadMinutes = autoUnloadMinutes
+	if maxConcurrentJobs > 0 {
+		s.maxConcurrentJobs = maxConcurrentJobs
+	}
 	if estimates != nil {
 		s.modelVramEstimates = make(map[string]int, len(estimates))
 		for k, v := range estimates {
@@ -178,13 +186,17 @@ func (s *AgentSession) GetFreeVRAM() uint64 {
 }
 
 // UpdateHeartbeat updates session heartbeat timestamp, models, job count and system stats.
-func (s *AgentSession) UpdateHeartbeat(models []string, runningJobs int, stats *do.SystemStatsDTO) {
+func (s *AgentSession) UpdateHeartbeat(models []string, runningJobs int, stats *do.SystemStatsDTO, downloadedModels ...[]string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastHeartbeat = time.Now()
 	if models != nil {
 		s.loadedModels = make([]string, len(models))
 		copy(s.loadedModels, models)
+	}
+	if len(downloadedModels) > 0 && downloadedModels[0] != nil {
+		s.downloadedModels = make([]string, len(downloadedModels[0]))
+		copy(s.downloadedModels, downloadedModels[0])
 	}
 	s.runningJobs = runningJobs
 	s.systemStats = stats
@@ -220,6 +232,33 @@ func (s *AgentSession) GetLoadedModels() []string {
 	result := make([]string, len(s.loadedModels))
 	copy(result, s.loadedModels)
 	return result
+}
+
+// GetDownloadedModels returns a copy of downloaded model names.
+func (s *AgentSession) GetDownloadedModels() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	result := make([]string, len(s.downloadedModels))
+	copy(result, s.downloadedModels)
+	return result
+}
+
+// SetDownloadedModels sets the downloaded model names.
+func (s *AgentSession) SetDownloadedModels(models []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.downloadedModels = make([]string, len(models))
+	copy(s.downloadedModels, models)
+}
+
+// GetMaxConcurrentJobs returns the maximum concurrent jobs limit for this session.
+func (s *AgentSession) GetMaxConcurrentJobs() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.maxConcurrentJobs <= 0 {
+		return consts.DefaultMaxConcurrentJobs
+	}
+	return s.maxConcurrentJobs
 }
 
 // HasModel checks if a specific model is loaded in this session.

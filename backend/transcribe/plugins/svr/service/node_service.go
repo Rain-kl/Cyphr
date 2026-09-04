@@ -172,6 +172,14 @@ func (s *DefaultNodeService) UpdateNodeConfig(ctx context.Context, id uint64, re
 		autoUnloadMinutes = *req.AutoUnloadMinutes
 	}
 
+	maxConcurrentJobs := node.MaxConcurrentJobs
+	if req.MaxConcurrentJobs != nil {
+		if *req.MaxConcurrentJobs <= 0 {
+			return nil, errors.New("max_concurrent_jobs must be greater than 0")
+		}
+		maxConcurrentJobs = *req.MaxConcurrentJobs
+	}
+
 	vramEstimates := node.ModelVramEstimates
 	var estimatesMap map[string]int
 	if req.ModelVramEstimates != nil {
@@ -185,35 +193,63 @@ func (s *DefaultNodeService) UpdateNodeConfig(ctx context.Context, id uint64, re
 		_ = json.Unmarshal([]byte(node.ModelVramEstimates), &estimatesMap)
 	}
 
-	if err := s.nodeDAO.UpdateConfig(ctx, id, workMode, allowAutoLoad, autoUnloadMinutes, vramEstimates); err != nil {
+	if err := s.nodeDAO.UpdateConfig(ctx, id, workMode, allowAutoLoad, autoUnloadMinutes, maxConcurrentJobs, vramEstimates); err != nil {
 		return nil, err
 	}
 
 	node.WorkMode = workMode
 	node.AllowAutoLoad = allowAutoLoad
 	node.AutoUnloadMinutes = autoUnloadMinutes
+	node.MaxConcurrentJobs = maxConcurrentJobs
 	node.ModelVramEstimates = vramEstimates
 
 	// Sync with active session in memory and notify agent
 	if s.agentHub != nil {
-		if sess, ok := s.agentHub.GetSession(id); ok {
-			sess.SetConfig(workMode, allowAutoLoad, autoUnloadMinutes, estimatesMap)
-
-			if req.WorkMode != nil {
-				setModeMsg := do.WSMessage{
-					Type:   "command",
-					Action: "set_work_mode",
-					Seq:    time.Now().UnixNano(),
-					Payload: do.SetWorkModePayload{
-						Mode: workMode,
-					},
-				}
-				_ = sess.WriteJSON(setModeMsg)
-			}
-		}
+		s.notifyAgentSession(id, workMode, allowAutoLoad, autoUnloadMinutes, maxConcurrentJobs, estimatesMap, req)
 	}
 
 	return s.toNodeDTO(node), nil
+}
+
+func (s *DefaultNodeService) notifyAgentSession(
+	nodeID uint64,
+	workMode string,
+	allowAutoLoad bool,
+	autoUnloadMinutes int,
+	maxConcurrentJobs int,
+	estimatesMap map[string]int,
+	req do.UpdateNodeConfigRequest,
+) {
+	sess, ok := s.agentHub.GetSession(nodeID)
+	if !ok {
+		return
+	}
+
+	sess.SetConfig(workMode, allowAutoLoad, autoUnloadMinutes, maxConcurrentJobs, estimatesMap)
+
+	if req.WorkMode != nil {
+		setModeMsg := do.WSMessage{
+			Type:   "command",
+			Action: "set_work_mode",
+			Seq:    time.Now().UnixNano(),
+			Payload: do.SetWorkModePayload{
+				Mode: workMode,
+			},
+		}
+		_ = sess.WriteJSON(setModeMsg)
+	}
+
+	if req.MaxConcurrentJobs != nil {
+		setCfgMsg := do.WSMessage{
+			Type:   "command",
+			Action: "set_config",
+			Seq:    time.Now().UnixNano(),
+			Payload: map[string]any{
+				"max_concurrent_jobs": maxConcurrentJobs,
+			},
+		}
+		_ = sess.WriteJSON(setCfgMsg)
+	}
 }
 
 func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
@@ -230,6 +266,11 @@ func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
 		vramEstimates = make(map[string]int)
 	}
 
+	maxJobs := node.MaxConcurrentJobs
+	if maxJobs <= 0 {
+		maxJobs = 2
+	}
+
 	dto := &do.NodeDTO{
 		ID:                 node.ID,
 		Name:               node.Name,
@@ -241,7 +282,9 @@ func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
 		CurrentMode:        "cpu",
 		AllowAutoLoad:      node.AllowAutoLoad,
 		AutoUnloadMinutes:  node.AutoUnloadMinutes,
+		MaxConcurrentJobs:  maxJobs,
 		ModelVramEstimates: vramEstimates,
+		DownloadedModels:   []string{},
 		LastIP:             node.LastIP,
 		LastSeenAt:         node.LastSeenAt,
 		CreatedAt:          node.CreatedAt,
@@ -251,6 +294,7 @@ func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
 		if sess, ok := s.agentHub.GetSession(node.ID); ok {
 			dto.IsOnline = true
 			dto.LoadedModels = sess.GetLoadedModels()
+			dto.DownloadedModels = sess.GetDownloadedModels()
 			dto.RunningJobs = sess.GetRunningJobs()
 			dto.System = sess.GetSystemStats()
 			dto.SupportedModes = sess.GetSupportedModes()

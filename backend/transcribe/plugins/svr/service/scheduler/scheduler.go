@@ -63,10 +63,10 @@ func (s *DefaultScheduler) SchedulePendingJobs(ctx context.Context) error {
 	modelsRequested := make(map[string]bool)
 
 	for _, job := range pendingJobs {
-		// 1. Search for nodes with the required model already loaded
+		// 1. Search for nodes with the required model already loaded and available job capacity
 		var modelNodes []*hub.AgentSession
 		for _, sess := range activeSessions {
-			if sess.HasModel(job.ModelName) {
+			if sess.HasModel(job.ModelName) && sess.GetRunningJobs() < sess.GetMaxConcurrentJobs() {
 				modelNodes = append(modelNodes, sess)
 			}
 		}

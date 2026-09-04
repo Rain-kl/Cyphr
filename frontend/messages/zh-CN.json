@@ -1969,7 +1969,14 @@
       "createdAt": "创建时间",
       "actions": "操作",
       "viewDetail": "查看详情",
-      "empty": "暂无转录任务，点击上方开始转录"
+      "empty": "暂无转录任务，点击上方开始转录",
+      "delete": "删除",
+      "deleteSelected": "批量删除 ({count})",
+      "deleteConfirmTitle": "确认删除转录任务",
+      "deleteConfirmDesc": "确定要删除选中的 {count} 个转录任务吗？删除后相关数据与执行日志将不可恢复。",
+      "deleteSuccess": "任务已成功删除",
+      "deleteFailed": "删除任务失败",
+      "selectedCount": "已选择 {count} 项"
     },
     "dialog": {
       "title": "新建转录任务",

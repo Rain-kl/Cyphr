@@ -33,6 +33,8 @@ type JobService interface {
 	CompleteJob(ctx context.Context, jobID uint64, req *do.AgentCompleteRequest) error
 	CancelJob(ctx context.Context, id uint64) error
 	RetryJob(ctx context.Context, id uint64) error
+	DeleteJobs(ctx context.Context, ids []uint64, operatorUID uint64, isAdmin bool) (int64, error)
+	FindCompletedJob(ctx context.Context, audioStoragePath, model, language string) (*do.JobDTO, error)
 }
 
 // DefaultJobService implements JobService.
@@ -454,4 +456,27 @@ func (s *DefaultJobService) RetryJob(ctx context.Context, id uint64) error {
 	}
 
 	return nil
+}
+
+// DeleteJobs deletes jobs. If not admin, verifies ownership using operatorUID.
+func (s *DefaultJobService) DeleteJobs(ctx context.Context, ids []uint64, operatorUID uint64, isAdmin bool) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	if isAdmin {
+		return s.jobDAO.DeleteJobs(ctx, ids)
+	}
+	if operatorUID == 0 {
+		return 0, errors.New(consts.ErrUnauthorized)
+	}
+	return s.jobDAO.DeleteJobs(ctx, ids, operatorUID)
+}
+
+// FindCompletedJob finds an existing completed job for an identical audio path and parameters.
+func (s *DefaultJobService) FindCompletedJob(ctx context.Context, audioStoragePath, model, language string) (*do.JobDTO, error) {
+	job, err := s.jobDAO.FindCompletedJobByAudioPath(ctx, audioStoragePath, model, language)
+	if err != nil {
+		return nil, err
+	}
+	return s.toJobDTO(job), nil
 }

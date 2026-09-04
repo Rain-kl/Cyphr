@@ -46,8 +46,10 @@ type NodeDTO struct {
 	CurrentMode        string          `json:"current_mode,omitempty"`
 	AllowAutoLoad      bool            `json:"allow_auto_load"`
 	AutoUnloadMinutes  int             `json:"auto_unload_minutes"`
+	MaxConcurrentJobs  int             `json:"max_concurrent_jobs"`
 	ModelVramEstimates map[string]int  `json:"model_vram_estimates"`
 	LoadedModels       []string        `json:"loaded_models,omitempty"`
+	DownloadedModels   []string        `json:"downloaded_models,omitempty"`
 	RunningJobs        int             `json:"running_jobs,omitempty"`
 	System             *SystemStatsDTO `json:"system,omitempty"`
 	LastIP             string          `json:"last_ip,omitempty"`
@@ -60,6 +62,7 @@ type UpdateNodeConfigRequest struct {
 	WorkMode           *string        `json:"work_mode"`
 	AllowAutoLoad      *bool          `json:"allow_auto_load"`
 	AutoUnloadMinutes  *int           `json:"auto_unload_minutes"`
+	MaxConcurrentJobs  *int           `json:"max_concurrent_jobs"`
 	ModelVramEstimates map[string]int `json:"model_vram_estimates"`
 }
 
@@ -247,4 +250,9 @@ type UnloadAllModelsPayload struct{}
 type LoadModelErrorPayload struct {
 	ModelName string `json:"model_name"`
 	Error     string `json:"error"`
+}
+
+// BatchDeleteJobsRequest represents payload for batch deleting jobs.
+type BatchDeleteJobsRequest struct {
+	JobIDs []uint64 `json:"job_ids" binding:"required"`
 }

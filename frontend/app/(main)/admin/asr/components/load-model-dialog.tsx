@@ -54,13 +54,19 @@ export function LoadModelDialog({
       AdminTranscribeService.listAllModels()
         .then((list) => {
           setModels(list);
-          if (list.length > 0 && !selectedModel) {
+          const downloaded = node?.downloaded_models || [];
+          const isDownloaded = (name: string) =>
+            downloaded.includes(name) || name === 'mock-whisper-base';
+          const firstAvailable = list.find((m) => isDownloaded(m.name));
+          if (firstAvailable && !selectedModel) {
+            setSelectedModel(firstAvailable.name);
+          } else if (list.length > 0 && !selectedModel) {
             setSelectedModel(list[0].name);
           }
         })
         .catch(() => {});
     }
-  }, [open, selectedModel]);
+  }, [open, selectedModel, node?.downloaded_models]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,11 +117,25 @@ export function LoadModelDialog({
                 <SelectValue placeholder='Select model to load' />
               </SelectTrigger>
               <SelectContent>
-                {models.map((m) => (
-                  <SelectItem key={m.id} value={m.name}>
-                    {m.name} ({m.task_type})
-                  </SelectItem>
-                ))}
+                {models.map((m) => {
+                  const downloaded = node.downloaded_models || [];
+                  const isAvailable =
+                    downloaded.includes(m.name) ||
+                    m.name === 'mock-whisper-base';
+                  return (
+                    <SelectItem
+                      key={m.id}
+                      value={m.name}
+                      disabled={!isAvailable}
+                      className={
+                        !isAvailable ? 'opacity-50 text-muted-foreground' : ''
+                      }
+                    >
+                      {m.name} ({m.task_type})
+                      {!isAvailable && ' - (节点未下载)'}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

@@ -32,6 +32,8 @@ type JobDAO interface {
 	UpdateCompletion(ctx context.Context, id uint64, status string, duration float64, resultText, resultJSON, errorMsg string) error
 	ResetRunningJobsToPending(ctx context.Context, nodeID uint64) error
 	RetryJob(ctx context.Context, id uint64) error
+	DeleteJobs(ctx context.Context, ids []uint64, uid ...uint64) (int64, error)
+	FindCompletedJobByAudioPath(ctx context.Context, audioStoragePath, model, language string) (*entity.JobEntity, error)
 }
 
 // GormJobDAO implements JobDAO using GORM.
@@ -300,4 +302,59 @@ func (d *GormJobDAO) RetryJob(ctx context.Context, id uint64) error {
 		return mapNotFound(gorm.ErrRecordNotFound)
 	}
 	return nil
+}
+
+// DeleteJobs deletes multiple jobs and their associated logs. If uid is provided and > 0, it ensures jobs belong to that user.
+func (d *GormJobDAO) DeleteJobs(ctx context.Context, ids []uint64, uid ...uint64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	var rowsAffected int64
+	err := d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Model(&entity.JobEntity{}).Where("id IN ?", ids)
+		if len(uid) > 0 && uid[0] > 0 {
+			query = query.Where("user_id = ?", uid[0])
+		}
+
+		var matchingIDs []uint64
+		if err := query.Pluck("id", &matchingIDs).Error; err != nil {
+			return err
+		}
+		if len(matchingIDs) == 0 {
+			return nil
+		}
+
+		// Delete associated logs
+		if err := tx.Where("job_id IN ?", matchingIDs).Delete(&entity.JobLogEntity{}).Error; err != nil {
+			return err
+		}
+
+		// Delete jobs
+		res := tx.Where("id IN ?", matchingIDs).Delete(&entity.JobEntity{})
+		if res.Error != nil {
+			return res.Error
+		}
+		rowsAffected = res.RowsAffected
+		return nil
+	})
+
+	return rowsAffected, err
+}
+
+// FindCompletedJobByAudioPath searches for an existing completed job matching audio_storage_path and parameters.
+func (d *GormJobDAO) FindCompletedJobByAudioPath(ctx context.Context, audioStoragePath, model, _ string) (*entity.JobEntity, error) {
+	if audioStoragePath == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var job entity.JobEntity
+	query := d.db.WithContext(ctx).
+		Where("audio_storage_path = ? AND status = ?", audioStoragePath, consts.StatusCompleted)
+	if model != "" {
+		query = query.Where("model_name = ?", model)
+	}
+	if err := query.Order("id DESC").First(&job).Error; err != nil {
+		return nil, mapNotFound(err)
+	}
+	return &job, nil
 }

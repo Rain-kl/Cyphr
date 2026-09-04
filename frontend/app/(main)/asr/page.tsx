@@ -148,6 +148,7 @@ export default function ASRDashboardPage() {
           pageSize={20}
           onPageChange={setPage}
           isLoading={isLoading}
+          onRefresh={fetchJobs}
         />
 
         {/* New Job Modal */}

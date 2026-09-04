@@ -99,6 +99,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	retryContent, err := os.ReadFile(retryMigrationPath)
 	require.NoError(t, err, "migration file must exist at %s", retryMigrationPath)
 	applyMigration(t, db, string(retryContent))
+
+	jobsMigrationPath := filepath.Join("..", "migrations", "sqlite", "00008_add_max_concurrent_jobs.sql")
+	jobsContent, err := os.ReadFile(jobsMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", jobsMigrationPath)
+	applyMigration(t, db, string(jobsContent))
 	return db
 }
 
@@ -348,7 +353,7 @@ func TestAgentSessionAndHub(t *testing.T) {
 
 		mockConn := newMockWSConn()
 		sess := hub.NewAgentSession(99, "idle-node", "127.0.0.1", mockConn)
-		sess.SetConfig("gpu", true, 5, nil) // 5 minutes idle timeout
+		sess.SetConfig("gpu", true, 5, 2, nil) // 5 minutes idle timeout
 		sess.UpdateHeartbeat([]string{"mock-whisper-base"}, 0, nil)
 		// Artificially simulate node has been idle for 6 minutes
 		sess.SetIdleSince(time.Now().Add(-6 * time.Minute))
@@ -505,14 +510,14 @@ func TestScheduler(t *testing.T) {
 		// Node A: allow_auto_load = false (should be skipped)
 		connA := newMockWSConn()
 		sessA := hub.NewAgentSession(201, "node-A", "10.0.0.1", connA)
-		sessA.SetConfig("gpu", false, 0, map[string]int{"target-model": 2000})
+		sessA.SetConfig("gpu", false, 0, 2, map[string]int{"target-model": 2000})
 		sessA.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 1000})
 		agentHub.RegisterSession(sessA)
 
 		// Node B: GPU mode with insufficient VRAM (required 5000MB, free 2000MB -> skipped)
 		connB := newMockWSConn()
 		sessB := hub.NewAgentSession(202, "node-B", "10.0.0.2", connB)
-		sessB.SetConfig("gpu", true, 0, map[string]int{"target-model": 5000, "cpu-model": 99999})
+		sessB.SetConfig("gpu", true, 0, 2, map[string]int{"target-model": 5000, "cpu-model": 99999})
 		sessB.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 6000})
 		agentHub.RegisterSession(sessB)
 
@@ -537,7 +542,7 @@ func TestScheduler(t *testing.T) {
 		// but requires 99999MB for cpu-model (so it will be skipped for cpu-model)
 		connC := newMockWSConn()
 		sessC := hub.NewAgentSession(203, "node-C", "10.0.0.3", connC)
-		sessC.SetConfig("gpu", true, 0, map[string]int{"target-model": 5000, "cpu-model": 99999})
+		sessC.SetConfig("gpu", true, 0, 2, map[string]int{"target-model": 5000, "cpu-model": 99999})
 		sessC.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 8000, GPUMemoryUsedMB: 2000})
 		agentHub.RegisterSession(sessC)
 
@@ -553,7 +558,7 @@ func TestScheduler(t *testing.T) {
 		// Node D: CPU mode with 0 GPU VRAM (should bypass VRAM check)
 		connD := newMockWSConn()
 		sessD := hub.NewAgentSession(204, "node-D", "10.0.0.4", connD)
-		sessD.SetConfig("cpu", true, 0, map[string]int{"cpu-model": 8000}) // High estimate
+		sessD.SetConfig("cpu", true, 0, 2, map[string]int{"cpu-model": 8000}) // High estimate
 		sessD.UpdateHeartbeat([]string{}, 0, &do.SystemStatsDTO{GPUMemoryTotalMB: 0, GPUMemoryUsedMB: 0})
 		agentHub.RegisterSession(sessD)
 
