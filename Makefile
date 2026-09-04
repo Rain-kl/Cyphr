@@ -51,14 +51,43 @@ build-backend:
 		-o ../bin/cyphr-svr \
 		main.go
 
+# Positional arguments support for build-cli and build-installer (e.g. make build-cli windows [amd64/arm64])
+ifeq ($(filter $(firstword $(MAKECMDGOALS)),build-cli build-installer),$(firstword $(MAKECMDGOALS)))
+  BUILD_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  ifneq ($(BUILD_ARGS),)
+    $(eval $(BUILD_ARGS):;@:)
+  endif
+endif
+
+BUILD_RAW_OS ?= $(or $(word 1,$(BUILD_ARGS)),$(GOOS),$(shell go env GOOS))
+BUILD_RAW_ARCH ?= $(or $(word 2,$(BUILD_ARGS)),$(GOARCH),amd64)
+
+BUILD_TARGET_OS := $(strip $(if $(filter win windows,$(BUILD_RAW_OS)),windows,\
+                    $(if $(filter mac macos osx darwin,$(BUILD_RAW_OS)),darwin,\
+                    $(if $(filter linux,$(BUILD_RAW_OS)),linux,$(BUILD_RAW_OS)))))
+
+BUILD_TARGET_ARCH := $(strip $(if $(filter x64 x86_64 amd64,$(BUILD_RAW_ARCH)),amd64,\
+                      $(if $(filter arm64 aarch64,$(BUILD_RAW_ARCH)),arm64,$(BUILD_RAW_ARCH))))
+
+BUILD_BIN_EXT := $(if $(filter windows,$(BUILD_TARGET_OS)),.exe,)
+
 build-cli:
 	@mkdir -p bin
-	cd backend && go build -ldflags "-s -w" -o ../bin/cyphr cmd/transcribe/main.go
+	@echo "==> Building CLI for $(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH)..."
+	cd backend && CGO_ENABLED=0 GOOS=$(BUILD_TARGET_OS) GOARCH=$(BUILD_TARGET_ARCH) go build \
+		-ldflags "-s -w" \
+		-o ../bin/cyphr$(BUILD_BIN_EXT) \
+		cmd/transcribe/main.go
+	@echo "==> Done: bin/cyphr$(BUILD_BIN_EXT)"
 
 build-installer:
 	@mkdir -p bin
-	@echo "==> Building installer version=$(VERSION) build_date=$(BUILD_DATE)..."
-	cd installer && go build -ldflags "-s -w" -o ../bin/cyphr-installer main.go
+	@echo "==> Building installer for $(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) version=$(VERSION) build_date=$(BUILD_DATE)..."
+	cd installer && CGO_ENABLED=0 GOOS=$(BUILD_TARGET_OS) GOARCH=$(BUILD_TARGET_ARCH) go build \
+		-ldflags "-s -w" \
+		-o ../bin/cyphr-installer$(BUILD_BIN_EXT) \
+		main.go
+	@echo "==> Done: bin/cyphr-installer$(BUILD_BIN_EXT)"
 
 package-agent:
 	@mkdir -p bin
