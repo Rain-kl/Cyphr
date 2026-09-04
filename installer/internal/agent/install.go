@@ -2,6 +2,7 @@ package agent
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -154,7 +155,7 @@ func resolveReleaseAssetURL(owner, repo, version string) (string, error) {
 		apiURL = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/tags/%s", owner, repo, version)
 	}
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, apiURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -200,8 +201,14 @@ func downloadFile(url string, progressCb func(float64)) (string, error) {
 	}
 	defer tmpFile.Close()
 
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", err
+	}
+
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	resp, err := client.Do(req)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
 		return "", err
@@ -292,7 +299,7 @@ func setupPythonEnv(agentDir string, cb InstallProgressCallback) error {
 	// 1. Try uv if installed
 	if _, err := exec.LookPath("uv"); err == nil {
 		cb("venv", 0.85, "检测到 uv 包管理器，正在执行 uv sync 同步虚拟环境...")
-		cmd := exec.Command("uv", "sync")
+		cmd := exec.CommandContext(context.Background(), "uv", "sync")
 		cmd.Dir = agentDir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("uv sync 失败: %w, 日志:\n%s", err, string(out))
@@ -312,7 +319,7 @@ func setupPythonEnv(agentDir string, cb InstallProgressCallback) error {
 	venvDir := filepath.Join(agentDir, ".venv")
 	if _, err := os.Stat(venvDir); os.IsNotExist(err) {
 		cb("venv", 0.85, "创建 Python 虚拟环境 (.venv)...")
-		cmd := exec.Command(pyBin, "-m", "venv", ".venv")
+		cmd := exec.CommandContext(context.Background(), pyBin, "-m", "venv", ".venv")
 		cmd.Dir = agentDir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("创建虚拟环境失败: %w, 日志:\n%s", err, string(out))

@@ -4,15 +4,18 @@
 'use client';
 
 import * as React from 'react';
-import { RequireAuth } from '@/components/auth/require-auth';
-import { AudioWaveform } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AudioWaveform, Sliders } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTranslations } from 'next-intl';
 
 import { AllJobsTab } from './components/all-jobs-tab';
+import { SchedulingSettingsSheet } from './components/scheduling-settings-sheet';
+import { RequireAuth } from '@/components/auth/require-auth';
 
 export default function AdminASRPage() {
   const t = useTranslations('adminAsr');
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   return (
     <RequireAuth>
@@ -35,12 +38,27 @@ export default function AdminASRPage() {
               </p>
             </div>
           </div>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={() => setSettingsOpen(true)}
+            className='h-8 gap-1.5 px-3 text-xs shrink-0'
+          >
+            <Sliders className='size-3.5 text-primary' />
+            <span>{t('schedulingSettingsBtn')}</span>
+          </Button>
         </div>
 
         {/* All Jobs Management */}
         <div className='w-full'>
           <AllJobsTab />
         </div>
+
+        {/* Scheduling & Retry Settings Sheet */}
+        <SchedulingSettingsSheet
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+        />
       </motion.div>
     </RequireAuth>
   );

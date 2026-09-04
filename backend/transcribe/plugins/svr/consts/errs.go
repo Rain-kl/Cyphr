@@ -28,4 +28,5 @@ const (
 	ErrStreamingUnsupported = "errStreamingUnsupported"
 	ErrForbidden            = "errForbidden"
 	ErrNotFound             = "errNotFound"
+	ErrJobNotRetryable      = "errJobNotRetryable"
 )

@@ -116,8 +116,8 @@ func checkModelIntegrity(dir string) (string, bool) {
 	}
 
 	// Check for config.json
-	configJson := filepath.Join(dir, "config.json")
-	if _, err := os.Stat(configJson); err != nil {
+	configJSON := filepath.Join(dir, "config.json")
+	if _, err := os.Stat(configJSON); err != nil {
 		return "缺少 config.json", false
 	}
 
@@ -125,7 +125,7 @@ func checkModelIntegrity(dir string) (string, bool) {
 }
 
 func getDirSize(dir string) string {
-	out, err := exec.Command("du", "-sh", dir).Output()
+	out, err := exec.CommandContext(context.Background(), "du", "-sh", dir).Output()
 	if err != nil {
 		return "未知"
 	}

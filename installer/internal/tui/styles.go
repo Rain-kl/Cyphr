@@ -12,7 +12,6 @@ var (
 	colorDanger  = lipgloss.Color("#EF4444") // Red
 	colorMuted   = lipgloss.Color("#64748B") // Slate
 	colorBorder  = lipgloss.Color("#334155")
-	colorBgDark  = lipgloss.Color("#0F172A")
 	colorWhite   = lipgloss.Color("#F8FAFC")
 
 	// Base styles

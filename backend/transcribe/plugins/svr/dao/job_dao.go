@@ -13,7 +13,10 @@ import (
 	"gorm.io/gorm"
 )
 
-const columnStatus = "status"
+const (
+	columnStatus = "status"
+	columnNodeID = "node_id"
+)
 
 // JobDAO defines data access methods for t_jobs and t_job_logs.
 type JobDAO interface {
@@ -28,6 +31,7 @@ type JobDAO interface {
 	UpdateNodeID(ctx context.Context, id uint64, nodeID uint64, status string) error
 	UpdateCompletion(ctx context.Context, id uint64, status string, duration float64, resultText, resultJSON, errorMsg string) error
 	ResetRunningJobsToPending(ctx context.Context, nodeID uint64) error
+	RetryJob(ctx context.Context, id uint64) error
 }
 
 // GormJobDAO implements JobDAO using GORM.
@@ -225,7 +229,7 @@ func (d *GormJobDAO) ListPendingJobs(ctx context.Context) ([]entity.JobEntity, e
 func (d *GormJobDAO) UpdateNodeID(ctx context.Context, id uint64, nodeID uint64, status string) error {
 	now := time.Now()
 	updates := map[string]any{
-		"node_id":    nodeID,
+		columnNodeID: nodeID,
 		columnStatus: status,
 	}
 	if status == consts.StatusRunning {
@@ -272,7 +276,28 @@ func (d *GormJobDAO) ResetRunningJobsToPending(ctx context.Context, nodeID uint6
 		Where("node_id = ? AND status = ?", nodeID, consts.StatusRunning).
 		Updates(map[string]any{
 			columnStatus: consts.StatusPending,
-			"node_id":    nil,
+			columnNodeID: nil,
 			"progress":   0,
 		}).Error
+}
+
+// RetryJob requeues a failed job by resetting it to pending and incrementing its retry counter.
+func (d *GormJobDAO) RetryJob(ctx context.Context, id uint64) error {
+	res := d.db.WithContext(ctx).Model(&entity.JobEntity{}).Where("id = ?", id).
+		Updates(map[string]any{
+			columnStatus:   consts.StatusPending,
+			columnNodeID:   nil,
+			"progress":     0,
+			"error_msg":    "",
+			"retry_count":  gorm.Expr("retry_count + 1"),
+			"started_at":   nil,
+			"completed_at": nil,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return mapNotFound(gorm.ErrRecordNotFound)
+	}
+	return nil
 }

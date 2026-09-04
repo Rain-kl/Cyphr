@@ -5,6 +5,7 @@
 package service
 
 import (
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/logger"
 	"Wavelet/pkg/util"
 	"Wavelet/transcribe/plugins/svr/consts"
@@ -31,15 +32,17 @@ type JobService interface {
 	GetJobLogs(ctx context.Context, jobID uint64) ([]do.LogMessage, error)
 	CompleteJob(ctx context.Context, jobID uint64, req *do.AgentCompleteRequest) error
 	CancelJob(ctx context.Context, id uint64) error
+	RetryJob(ctx context.Context, id uint64) error
 }
 
 // DefaultJobService implements JobService.
 type DefaultJobService struct {
-	jobDAO    dao.JobDAO
-	modelDAO  dao.ModelDAO
-	scheduler scheduler.Scheduler
-	logBroker LogBroker
-	agentHub  hub.AgentHub
+	jobDAO       dao.JobDAO
+	modelDAO     dao.ModelDAO
+	scheduler    scheduler.Scheduler
+	logBroker    LogBroker
+	agentHub     hub.AgentHub
+	sysConfigSvc contracts.SystemConfigService
 }
 
 var _ JobService = (*DefaultJobService)(nil)
@@ -56,6 +59,11 @@ func NewJobService(jobDAO dao.JobDAO, modelDAO dao.ModelDAO, sched scheduler.Sch
 		svc.agentHub = agentHub[0]
 	}
 	return svc
+}
+
+// SetSysConfigSvc injects the system config service for reading runtime settings.
+func (s *DefaultJobService) SetSysConfigSvc(svc contracts.SystemConfigService) {
+	s.sysConfigSvc = svc
 }
 
 // CreateJob validates the request, records a pending job in the database, and kicks off the scheduler.
@@ -142,10 +150,9 @@ func (s *DefaultJobService) ListJobs(ctx context.Context, uid uint64, page, size
 		return nil, err
 	}
 
-	items := make([]do.JobDTO, 0, len(jobs))
+	items := make([]do.JobSummaryDTO, 0, len(jobs))
 	for i := range jobs {
-		dto := s.toJobDTO(&jobs[i])
-		items = append(items, *dto)
+		items = append(items, s.toJobSummaryDTO(&jobs[i]))
 	}
 
 	return &do.JobListDTO{
@@ -170,10 +177,9 @@ func (s *DefaultJobService) ListAllJobs(ctx context.Context, page, size int, sta
 		return nil, err
 	}
 
-	items := make([]do.JobDTO, 0, len(jobs))
+	items := make([]do.JobSummaryDTO, 0, len(jobs))
 	for i := range jobs {
-		dto := s.toJobDTO(&jobs[i])
-		items = append(items, *dto)
+		items = append(items, s.toJobSummaryDTO(&jobs[i]))
 	}
 
 	return &do.JobListDTO{
@@ -279,6 +285,11 @@ func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *
 		}
 	}
 
+	// Auto-retry on failure if configured
+	if status == consts.StatusFailed && s.tryAutoRetry(ctx, jobID, job) {
+		return nil
+	}
+
 	// Broadcast finish event
 	if s.logBroker != nil {
 		s.logBroker.PublishFinish(jobID, do.FinishMessage{
@@ -302,6 +313,31 @@ func (s *DefaultJobService) CompleteJob(ctx context.Context, jobID uint64, req *
 	}
 
 	return nil
+}
+
+func (s *DefaultJobService) tryAutoRetry(ctx context.Context, jobID uint64, job *entity.JobEntity) bool {
+	if s.sysConfigSvc == nil {
+		return false
+	}
+	maxRetries, _ := s.sysConfigSvc.GetIntByKey(ctx, "transcribe.job_max_retries")
+	if maxRetries <= 0 || job.RetryCount >= maxRetries {
+		return false
+	}
+
+	retryCtx := context.WithoutCancel(ctx)
+	if err := s.jobDAO.RetryJob(retryCtx, jobID); err != nil {
+		return false
+	}
+
+	logger.InfoF(retryCtx, "[JobService] job %d auto-retried (%d/%d)", jobID, job.RetryCount+1, maxRetries)
+	if s.scheduler != nil {
+		util.Go(func() {
+			if err := s.scheduler.SchedulePendingJobs(retryCtx); err != nil {
+				logger.ErrorF(retryCtx, "[JobService] scheduler pass after auto-retry failed: %v", err)
+			}
+		})
+	}
+	return true
 }
 
 // CancelJob marks an active or pending job as failed due to cancellation.
@@ -351,6 +387,7 @@ func (s *DefaultJobService) toJobDTO(job *entity.JobEntity) *do.JobDTO {
 		AudioStoragePath: job.AudioStoragePath,
 		ResultText:       job.ResultText,
 		ErrorMsg:         job.ErrorMsg,
+		RetryCount:       job.RetryCount,
 		CreatedAt:        job.CreatedAt,
 		StartedAt:        job.StartedAt,
 		CompletedAt:      job.CompletedAt,
@@ -372,4 +409,49 @@ func (s *DefaultJobService) toJobDTO(job *entity.JobEntity) *do.JobDTO {
 	}
 
 	return dto
+}
+
+func (s *DefaultJobService) toJobSummaryDTO(job *entity.JobEntity) do.JobSummaryDTO {
+	return do.JobSummaryDTO{
+		ID:               job.ID,
+		UserID:           job.UserID,
+		NodeID:           job.NodeID,
+		Model:            job.ModelName,
+		TaskType:         job.TaskType,
+		Status:           job.Status,
+		Progress:         job.Progress,
+		Duration:         job.DurationSeconds,
+		OriginalFileName: job.OriginalFileName,
+		RetryCount:       job.RetryCount,
+		CreatedAt:        job.CreatedAt,
+		StartedAt:        job.StartedAt,
+		CompletedAt:      job.CompletedAt,
+	}
+}
+
+// RetryJob manually re-enqueues a failed job for re-processing.
+func (s *DefaultJobService) RetryJob(ctx context.Context, id uint64) error {
+	job, err := s.jobDAO.GetByID(ctx, id)
+	if err != nil {
+		return consts.ErrJobNotFound
+	}
+
+	if job.Status != consts.StatusFailed {
+		return errors.New(consts.ErrJobNotRetryable)
+	}
+
+	if err := s.jobDAO.RetryJob(ctx, id); err != nil {
+		return err
+	}
+
+	if s.scheduler != nil {
+		schedCtx := context.WithoutCancel(ctx)
+		util.Go(func() {
+			if err := s.scheduler.SchedulePendingJobs(schedCtx); err != nil {
+				logger.ErrorF(schedCtx, "[JobService] scheduler pass after manual retry failed: %v", err)
+			}
+		})
+	}
+
+	return nil
 }

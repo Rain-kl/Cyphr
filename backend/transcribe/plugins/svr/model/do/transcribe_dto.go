@@ -98,6 +98,24 @@ type JobDTO struct {
 	ResultText       string     `json:"result_text,omitempty"`
 	OpenAIResponse   any        `json:"openai_response,omitempty"`
 	ErrorMsg         string     `json:"error_msg,omitempty"`
+	RetryCount       int        `json:"retry_count"`
+	CreatedAt        time.Time  `json:"created_at"`
+	StartedAt        *time.Time `json:"started_at,omitempty"`
+	CompletedAt      *time.Time `json:"completed_at,omitempty"`
+}
+
+// JobSummaryDTO is a lightweight job item used in list responses (heavy result fields omitted).
+type JobSummaryDTO struct {
+	ID               uint64     `json:"id,string"`
+	UserID           uint64     `json:"user_id,string,omitempty"`
+	NodeID           *uint64    `json:"node_id,string,omitempty"`
+	Model            string     `json:"model"`
+	TaskType         string     `json:"task_type,omitempty"`
+	Status           string     `json:"status"`
+	Progress         int        `json:"progress"`
+	Duration         float64    `json:"duration"`
+	OriginalFileName string     `json:"original_file_name"`
+	RetryCount       int        `json:"retry_count"`
 	CreatedAt        time.Time  `json:"created_at"`
 	StartedAt        *time.Time `json:"started_at,omitempty"`
 	CompletedAt      *time.Time `json:"completed_at,omitempty"`
@@ -105,10 +123,10 @@ type JobDTO struct {
 
 // JobListDTO represents a paginated list of jobs.
 type JobListDTO struct {
-	Items    []JobDTO `json:"items"`
-	Total    int64    `json:"total"`
-	Page     int      `json:"page"`
-	PageSize int      `json:"page_size"`
+	Items    []JobSummaryDTO `json:"items"`
+	Total    int64           `json:"total"`
+	Page     int             `json:"page"`
+	PageSize int             `json:"page_size"`
 }
 
 // CreateJobRequest represents job creation payload.

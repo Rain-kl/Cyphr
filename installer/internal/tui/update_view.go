@@ -112,16 +112,16 @@ func (m Model) viewUpdateView() string {
 	}
 
 	var agentCard strings.Builder
-	agentCard.WriteString(fmt.Sprintf("%s【1】更新 Agent 运行时\n", agentPrefix))
+	fmt.Fprintf(&agentCard, "%s【1】更新 Agent 运行时\n", agentPrefix)
 	if m.agentStatus != nil && m.agentStatus.Installed {
-		agentCard.WriteString(fmt.Sprintf("   当前状态: %s (目录: %s)\n", StyleBadgeSuccess.Render("已安装"), m.paths.AgentDir))
+		fmt.Fprintf(&agentCard, "   当前状态: %s (目录: %s)\n", StyleBadgeSuccess.Render("已安装"), m.paths.AgentDir)
 	} else {
-		agentCard.WriteString(fmt.Sprintf("   当前状态: %s (目录: %s)\n", StyleBadgeWarning.Render("未安装"), m.paths.AgentDir))
+		fmt.Fprintf(&agentCard, "   当前状态: %s (目录: %s)\n", StyleBadgeWarning.Render("未安装"), m.paths.AgentDir)
 	}
 	agentCard.WriteString("   从 GitHub Release 拉取最新 cyphr-agent.zip 源码并同步虚拟环境。")
 
 	var installerCard strings.Builder
-	installerCard.WriteString(fmt.Sprintf("%s【2】更新 Installer 自身可执行程序\n", installerPrefix))
+	fmt.Fprintf(&installerCard, "%s【2】更新 Installer 自身可执行程序\n", installerPrefix)
 	installerCard.WriteString("   从 GitHub Release 自动匹配并下载当前平台的最新二进制并完成热替换。")
 
 	if m.updateTarget == UpdateTargetAgent {
@@ -132,16 +132,17 @@ func (m Model) viewUpdateView() string {
 		b.WriteString(StyleMenuItemSelected.Render(StyleCard.Render(installerCard.String())) + "\n\n")
 	}
 
-	if m.updating {
+	switch {
+	case m.updating:
 		b.WriteString(StyleBadgeWarning.Render(fmt.Sprintf("%s %s", m.spinner.View(), m.updateMsg)) + "\n\n")
 		b.WriteString(StyleSubtitle.Render("正在联网执行更新操作，请耐心等待...") + "\n\n")
-	} else if m.updateErr != nil {
+	case m.updateErr != nil:
 		b.WriteString(StyleBadgeDanger.Render(fmt.Sprintf("✗ 更新失败: %v", m.updateErr)) + "\n\n")
 		b.WriteString(StyleKeyHelp.Render("[Enter] 重新尝试更新   [↑/↓] 切换更新目标   [m] 切换加速镜像   [Esc/q] 返回主菜单"))
-	} else if m.updateDone {
+	case m.updateDone:
 		b.WriteString(StyleBadgeSuccess.Render("✓ 更新完成！") + "\n\n")
 		b.WriteString(StyleKeyHelp.Render("[Enter] 再次更新   [↑/↓] 切换更新目标   [Esc/q] 返回主菜单"))
-	} else {
+	default:
 		b.WriteString(StyleSubtitle.Render("使用 [↑/↓] 选择需要更新的组件，按 [Enter] 开始在线更新：") + "\n\n")
 		b.WriteString(StyleKeyHelp.Render("[Enter] 开始更新所选组件   [↑/↓] 切换更新组件   [m] 切换镜像源   [Esc/q] 返回主菜单"))
 	}

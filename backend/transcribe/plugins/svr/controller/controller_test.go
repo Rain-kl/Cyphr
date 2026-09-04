@@ -92,6 +92,11 @@ func setupTestEnv(t *testing.T, customUserAuthMW ...gin.HandlerFunc) *testEnv {
 	require.NoError(t, err, "migration file must exist at %s", configMigrationPath)
 	applyMigration(t, db, string(configContent))
 
+	retryMigrationPath := filepath.Join("..", "migrations", "sqlite", "00007_add_job_retry.sql")
+	retryContent, err := os.ReadFile(retryMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", retryMigrationPath)
+	applyMigration(t, db, string(retryContent))
+
 	jobDAO := dao.NewJobDAO(db)
 	nodeDAO := dao.NewNodeDAO(db)
 	modelDAO := dao.NewModelDAO(db)
@@ -737,6 +742,27 @@ func TestJobHandler_ListAndDetail(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.True(t, resp.Data.Total >= 2)
+	})
+
+	t.Run("POST /api/v1/controller/jobs/:id/retry retries failed job", func(t *testing.T) {
+		// Mark job1 as failed
+		require.NoError(t, env.jobDAO.UpdateStatus(ctx, job1.ID, consts.StatusFailed))
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/controller/jobs/%d/retry", job1.ID), nil)
+
+		engine := gin.New()
+		engine.Use(response.ErrorHandlerMiddleware())
+		engine.POST("/api/v1/controller/jobs/:id/retry", env.ctrl.Job.RetryJob)
+		engine.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		// Verify status reset to pending
+		retried, err := env.jobDAO.GetByID(ctx, job1.ID)
+		require.NoError(t, err)
+		assert.Equal(t, consts.StatusPending, retried.Status)
+		assert.Equal(t, 1, retried.RetryCount)
 	})
 }
 

@@ -7,6 +7,7 @@ package svr
 import (
 	"Wavelet/core"
 	"Wavelet/core/contracts"
+	"Wavelet/core/extpoints"
 	"Wavelet/transcribe/plugins/svr/controller"
 	"Wavelet/transcribe/plugins/svr/dao"
 	"Wavelet/transcribe/plugins/svr/service"
@@ -237,7 +238,35 @@ func (p *Plugin) Apply(ctx *core.Context) error {
 	}
 	p.ctrl.RegisterRoutes(ctx.Router())
 
-	// 7. Start AgentHub watchdog
+	// 7. Register scheduling retry settings schemas
+	ctx.Settings().Register(extpoints.SettingSchema{
+		Key:         "transcribe.job_max_retries",
+		Default:     0,
+		Type:        "int",
+		Category:    "business",
+		Description: "Maximum number of automatic retries for failed transcription jobs (0 = disabled)",
+	})
+	ctx.Settings().Register(extpoints.SettingSchema{
+		Key:         "transcribe.job_retry_interval_seconds",
+		Default:     60,
+		Type:        "int",
+		Category:    "business",
+		Description: "Seconds to wait before retrying a failed transcription job (reserved for future scheduler use)",
+	})
+
+	// 8. Bind SystemConfigService for runtime retry config reads
+	if svc, err := core.Inject[contracts.SystemConfigService](ctx); err == nil && svc != nil {
+		if js, ok := p.jobService.(*service.DefaultJobService); ok {
+			js.SetSysConfigSvc(svc)
+		}
+	}
+	core.Bind[contracts.SystemConfigService](ctx, func(svc contracts.SystemConfigService) {
+		if js, ok := p.jobService.(*service.DefaultJobService); ok {
+			js.SetSysConfigSvc(svc)
+		}
+	})
+
+	// 9. Start AgentHub watchdog
 	p.startWatchdog()
 
 	ctx.OnDispose(func() error {

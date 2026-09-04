@@ -16,6 +16,7 @@ license-check:
 format:
 	@echo "==> Formatting backend Go source with golangci-lint fmt (gofumpt, same gate as code-check)..."
 	cd backend && golangci-lint fmt
+	cd installer && golangci-lint fmt
 	@echo "==> Formatting installer Go source..."
 	cd installer && go fmt ./...
 	@echo "==> Formatting frontend source..."
@@ -39,6 +40,7 @@ build-embedded:
 code-check:
 	@scripts/check_cordis_architecture.sh
 	cd backend && golangci-lint run
+	cd installer && golangci-lint run
 	cd frontend && pnpm tsc --noEmit --jsx preserve && npx eslint . --max-warnings 0
 
 build-backend:

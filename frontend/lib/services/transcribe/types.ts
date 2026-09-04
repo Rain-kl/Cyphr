@@ -78,29 +78,33 @@ export interface VerboseJSONResult {
   segments?: TranscriptSegment[];
 }
 
-export interface JobDTO {
+export interface JobSummaryDTO {
   id: string | number;
   user_id: string | number;
   node_id?: string | number;
   original_file_name: string;
-  audio_storage_path?: string;
-  media_url?: string;
   model: string;
   task_type: string;
-  language?: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   duration?: number;
-  result_text?: string;
-  result_json?: string;
-  error_msg?: string;
+  retry_count?: number;
   started_at?: string;
   completed_at?: string;
   created_at: string;
 }
 
+export interface JobDTO extends JobSummaryDTO {
+  audio_storage_path?: string;
+  media_url?: string;
+  language?: string;
+  result_text?: string;
+  result_json?: string;
+  error_msg?: string;
+}
+
 export interface JobListDTO {
-  items: JobDTO[];
+  items: JobSummaryDTO[];
   total: number;
   page: number;
   page_size: number;

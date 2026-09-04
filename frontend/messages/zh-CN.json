@@ -2123,7 +2123,25 @@
       "storagePath": "存储物理路径",
       "rawJson": "原始 OpenAI JSON",
       "copyJson": "复制原始 JSON",
-      "rawError": "系统底层错误"
+      "rawError": "系统底层错误",
+      "retryBtn": "重试任务",
+      "retrySuccess": "已触发任务重试",
+      "retryFailed": "重试任务失败",
+      "viewDetail": "任务详情"
+    },
+    "schedulingSettingsBtn": "调度设置",
+    "scheduling": {
+      "title": "任务调度与重试策略",
+      "description": "配置 ASR 离线转写任务的异常重试策略与调度机制",
+      "enableRetry": "开启失败自动重试",
+      "retryEnabledDesc": "任务执行失败后自动重置为 pending 并重新入队调度",
+      "retryDisabledDesc": "任务失败后直接标记完成并记录错误，不进行重试",
+      "maxRetries": "最大重试次数",
+      "maxRetriesHint": "单任务最大允许重试的上限次数（建议 1 - 5 次）",
+      "retryInterval": "重试调度保护间隔 (秒)",
+      "retryIntervalHint": "任务重试前预留的缓冲退避时间",
+      "saveSuccess": "调度设置已成功保存",
+      "saveFailed": "保存调度设置失败"
     }
   },
   "metadata": {

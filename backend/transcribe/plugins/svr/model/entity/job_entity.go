@@ -21,6 +21,7 @@ type JobEntity struct {
 	ResultText       string     `json:"result_text" gorm:"type:text"`
 	ResultJSON       string     `json:"result_json" gorm:"type:text"`
 	ErrorMsg         string     `json:"error_msg" gorm:"type:text"`
+	RetryCount       int        `json:"retry_count" gorm:"not null;default:0"`
 	CreatedAt        time.Time  `json:"created_at" gorm:"autoCreateTime"`
 	StartedAt        *time.Time `json:"started_at"`
 	CompletedAt      *time.Time `json:"completed_at"`

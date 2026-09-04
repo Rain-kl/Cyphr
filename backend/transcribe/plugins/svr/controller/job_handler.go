@@ -11,6 +11,7 @@ import (
 	"Wavelet/transcribe/plugins/svr/model/do"
 	"Wavelet/transcribe/plugins/svr/service"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -249,4 +250,25 @@ func (h *JobHandler) StreamJob(c *gin.Context) {
 			return
 		}
 	}
+}
+
+// RetryJob handles POST /api/v1/controller/jobs/:id/retry, re-enqueuing a failed job for admin.
+func (h *JobHandler) RetryJob(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.AbortBadRequest(c, consts.ErrBindParamsFailed)
+		return
+	}
+
+	if err := h.jobService.RetryJob(c.Request.Context(), id); err != nil {
+		if errors.Is(err, consts.ErrJobNotFound) {
+			response.AbortNotFound(c, consts.ErrJobNotFound.Error())
+			return
+		}
+		logger.ErrorF(c.Request.Context(), "[JobHandler] retry job %d failed: %v", id, err)
+		response.AbortBadRequest(c, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, response.OKNil())
 }

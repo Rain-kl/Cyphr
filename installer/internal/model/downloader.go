@@ -27,22 +27,22 @@ type RemoteFile struct {
 type DownloadProgressCallback func(completedFiles, totalFiles int, currentFile string, currentBytes, totalBytes int64, speedBytesPerSec float64)
 
 // FetchRepoFiles queries HuggingFace or ModelScope for file list.
-func FetchRepoFiles(source, modelID, endpoint string) ([]RemoteFile, error) {
+func FetchRepoFiles(ctx context.Context, source, modelID, endpoint string) ([]RemoteFile, error) {
 	switch strings.ToLower(source) {
 	case "modelscope":
-		return fetchModelScopeFiles(modelID)
+		return fetchModelScopeFiles(ctx, modelID)
 	default:
-		return fetchHuggingFaceFiles(modelID, endpoint)
+		return fetchHuggingFaceFiles(ctx, modelID, endpoint)
 	}
 }
 
-func fetchHuggingFaceFiles(modelID, endpoint string) ([]RemoteFile, error) {
+func fetchHuggingFaceFiles(ctx context.Context, modelID, endpoint string) ([]RemoteFile, error) {
 	if endpoint == "" {
 		endpoint = "https://hf-mirror.com"
 	}
 	apiURL := fmt.Sprintf("%s/api/models/%s?blobs=true", strings.TrimRight(endpoint, "/"), modelID)
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func fetchHuggingFaceFiles(modelID, endpoint string) ([]RemoteFile, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Hugging Face API 返回状态码 %d: %s (模型 ID: %s)", resp.StatusCode, resp.Status, modelID)
+		return nil, fmt.Errorf("hugging Face API 返回状态码 %d: %s (模型 ID: %s)", resp.StatusCode, resp.Status, modelID)
 	}
 
 	var payload struct {
@@ -103,10 +103,10 @@ func fetchHuggingFaceFiles(modelID, endpoint string) ([]RemoteFile, error) {
 	return files, nil
 }
 
-func fetchModelScopeFiles(modelID string) ([]RemoteFile, error) {
+func fetchModelScopeFiles(ctx context.Context, modelID string) ([]RemoteFile, error) {
 	apiURL := fmt.Sprintf("https://modelscope.cn/api/v1/models/%s/repo/files?Revision=master&Recursive=true", modelID)
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +335,7 @@ func downloadSmallFile(ctx context.Context, f RemoteFile, targetPath, tmpPath st
 
 // RunModelDownload downloads all files of a model repository, reporting progress through a callback.
 func RunModelDownload(ctx context.Context, source, modelID, endpoint, destDir string, cb DownloadProgressCallback) error {
-	files, err := FetchRepoFiles(source, modelID, endpoint)
+	files, err := FetchRepoFiles(ctx, source, modelID, endpoint)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,7 +33,7 @@ type GitHubReleaseInfo struct {
 func FetchLatestRelease(owner, repo string) (*GitHubReleaseInfo, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +45,7 @@ func FetchLatestRelease(owner, repo string) (*GitHubReleaseInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, resp.Status)
@@ -136,13 +137,19 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 	}
 	defer tmpFile.Close()
 
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
 		return "", err
 	}
-	defer resp.Body.Close()
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", err
+	}
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		_ = os.Remove(tmpFile.Name())

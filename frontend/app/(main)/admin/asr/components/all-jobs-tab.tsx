@@ -4,6 +4,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,17 +26,19 @@ import {
 } from '@/components/ui/table';
 import {
   AdminTranscribeService,
-  type JobDTO,
   type JobListDTO,
+  type JobSummaryDTO,
 } from '@/lib/services/transcribe';
 import {
   CheckCircle2,
   Clock,
+  ExternalLink,
   Eye,
   FileAudio,
   FileVideo,
   Loader2,
   RefreshCw,
+  RotateCcw,
   Search,
   Server,
   User,
@@ -64,8 +67,28 @@ export function AllJobsTab() {
   const [nodeId, setNodeId] = React.useState('');
   const [page, setPage] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [retryingId, setRetryingId] = React.useState<string | number | null>(
+    null,
+  );
 
-  const [selectedJob, setSelectedJob] = React.useState<JobDTO | null>(null);
+  const [selectedJob, setSelectedJob] = React.useState<JobSummaryDTO | null>(
+    null,
+  );
+
+  const handleRetry = async (jobId: string | number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      setRetryingId(jobId);
+      await AdminTranscribeService.retryJob(jobId);
+      toast.success(t('retrySuccess'));
+      fetchJobs();
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || t('retryFailed'));
+    } finally {
+      setRetryingId(null);
+    }
+  };
 
   const fetchJobs = React.useCallback(async () => {
     try {
@@ -257,7 +280,7 @@ export function AllJobsTab() {
               <TableHead className='w-32'>{tTable('progress')}</TableHead>
               <TableHead className='w-24'>{tTable('duration')}</TableHead>
               <TableHead className='w-32'>{tTable('createdAt')}</TableHead>
-              <TableHead className='w-20 text-right'>Action</TableHead>
+              <TableHead className='w-28 text-right'>Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -321,7 +344,20 @@ export function AllJobsTab() {
                       {job.model}
                     </code>
                   </TableCell>
-                  <TableCell>{getStatusBadge(job.status)}</TableCell>
+                  <TableCell>
+                    <div className='flex items-center gap-1.5'>
+                      {getStatusBadge(job.status)}
+                      {typeof job.retry_count === 'number' &&
+                        job.retry_count > 0 && (
+                          <span
+                            className='rounded bg-muted px-1 py-0.5 text-[9px] font-mono text-muted-foreground'
+                            title={`Retried ${job.retry_count} time(s)`}
+                          >
+                            r:{job.retry_count}
+                          </span>
+                        )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className='space-y-1'>
                       <Progress value={job.progress} className='h-1.5' />
@@ -337,18 +373,50 @@ export function AllJobsTab() {
                     {formatCreatedAt(job.created_at)}
                   </TableCell>
                   <TableCell className='text-right'>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='size-7 text-muted-foreground hover:text-foreground'
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedJob(job);
-                      }}
-                      aria-label='Inspect job'
-                    >
-                      <Eye className='size-3.5' />
-                    </Button>
+                    <div className='flex items-center justify-end gap-0.5'>
+                      {job.status === 'failed' && (
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          disabled={retryingId === job.id}
+                          className='size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10'
+                          onClick={(e) => handleRetry(job.id, e)}
+                          title={t('retryBtn')}
+                          aria-label={t('retryBtn')}
+                        >
+                          <RotateCcw
+                            className={`size-3.5 ${retryingId === job.id ? 'animate-spin' : ''}`}
+                          />
+                        </Button>
+                      )}
+                      <Link
+                        href={`/asr/jobs/${job.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          variant='ghost'
+                          size='icon'
+                          className='size-7 text-muted-foreground hover:text-foreground'
+                          title={t('viewDetail')}
+                          aria-label={t('viewDetail')}
+                        >
+                          <ExternalLink className='size-3.5' />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='size-7 text-muted-foreground hover:text-foreground'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedJob(job);
+                        }}
+                        title={t('inspectorTitle')}
+                        aria-label={t('inspectorTitle')}
+                      >
+                        <Eye className='size-3.5' />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

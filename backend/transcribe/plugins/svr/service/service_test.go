@@ -4,6 +4,7 @@
 package service_test
 
 import (
+	"Wavelet/core/contracts"
 	"Wavelet/pkg/idgen"
 	"Wavelet/transcribe/plugins/svr/consts"
 	"Wavelet/transcribe/plugins/svr/dao"
@@ -93,6 +94,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	configContent, err := os.ReadFile(configMigrationPath)
 	require.NoError(t, err, "migration file must exist at %s", configMigrationPath)
 	applyMigration(t, db, string(configContent))
+
+	retryMigrationPath := filepath.Join("..", "migrations", "sqlite", "00007_add_job_retry.sql")
+	retryContent, err := os.ReadFile(retryMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", retryMigrationPath)
+	applyMigration(t, db, string(retryContent))
 	return db
 }
 
@@ -916,4 +922,100 @@ func TestJobService(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, consts.StatusFailed, detail.Status)
 	})
+
+	t.Run("manual retry job", func(t *testing.T) {
+		job, err := jobSvc.CreateJob(ctx, &do.CreateJobRequest{
+			UserID:           5006,
+			Model:            "mock-whisper-base",
+			AudioStoragePath: "/storage/retry.mp3",
+			OriginalFileName: "retry.mp3",
+		})
+		require.NoError(t, err)
+
+		// Cannot retry a pending job
+		err = jobSvc.RetryJob(ctx, job.ID)
+		require.Error(t, err)
+		assert.Equal(t, consts.ErrJobNotRetryable, err.Error())
+
+		// Mark job as failed
+		require.NoError(t, jobDAO.UpdateStatus(ctx, job.ID, consts.StatusFailed))
+
+		// Now retry succeeds
+		err = jobSvc.RetryJob(ctx, job.ID)
+		require.NoError(t, err)
+
+		retried, err := jobSvc.GetJobDetail(ctx, job.ID)
+		require.NoError(t, err)
+		assert.Equal(t, consts.StatusPending, retried.Status)
+		assert.Equal(t, 1, retried.RetryCount)
+	})
+
+	t.Run("auto retry on failure when max_retries configured", func(t *testing.T) {
+		job, err := jobSvc.CreateJob(ctx, &do.CreateJobRequest{
+			UserID:           5007,
+			Model:            "mock-whisper-base",
+			AudioStoragePath: "/storage/autoretry.mp3",
+			OriginalFileName: "autoretry.mp3",
+		})
+		require.NoError(t, err)
+
+		// Setup fake system config service with max_retries = 2
+		fakeCfg := &fakeSystemConfigService{
+			ints: map[string]int{"transcribe.job_max_retries": 2},
+		}
+		jobSvc.SetSysConfigSvc(fakeCfg)
+
+		// Fail the job via CompleteJob
+		err = jobSvc.CompleteJob(ctx, job.ID, &do.AgentCompleteRequest{
+			Status:   consts.StatusFailed,
+			ErrorMsg: "CUDA OOM error",
+		})
+		require.NoError(t, err)
+
+		// Should have been auto-retried to pending with retry_count = 1
+		detail, err := jobSvc.GetJobDetail(ctx, job.ID)
+		require.NoError(t, err)
+		assert.Equal(t, consts.StatusPending, detail.Status)
+		assert.Equal(t, 1, detail.RetryCount)
+
+		// Reset config
+		jobSvc.SetSysConfigSvc(nil)
+	})
+}
+
+type fakeSystemConfigService struct {
+	ints map[string]int
+}
+
+func (f *fakeSystemConfigService) GetByKey(ctx context.Context, key string) (contracts.SystemConfigDTO, error) {
+	return contracts.SystemConfigDTO{}, nil
+}
+func (f *fakeSystemConfigService) ListByKeys(ctx context.Context, keys []string) (map[string]contracts.SystemConfigDTO, error) {
+	return nil, nil
+}
+func (f *fakeSystemConfigService) ListVisible(ctx context.Context) ([]contracts.SystemConfigDTO, error) {
+	return nil, nil
+}
+func (f *fakeSystemConfigService) ListByType(ctx context.Context, configType string) ([]contracts.SystemConfigDTO, error) {
+	return nil, nil
+}
+func (f *fakeSystemConfigService) GetIntByKey(ctx context.Context, key string) (int, error) {
+	if f.ints != nil {
+		if v, ok := f.ints[key]; ok {
+			return v, nil
+		}
+	}
+	return 0, nil
+}
+func (f *fakeSystemConfigService) GetBoolByKey(ctx context.Context, key string) (bool, error) {
+	return false, nil
+}
+func (f *fakeSystemConfigService) SaveOrUpdate(ctx context.Context, key, value string) error {
+	return nil
+}
+func (f *fakeSystemConfigService) InvalidateCache(ctx context.Context, key string) error {
+	return nil
+}
+func (f *fakeSystemConfigService) InvalidateAllCaches(ctx context.Context) error {
+	return nil
 }

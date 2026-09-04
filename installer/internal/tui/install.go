@@ -17,18 +17,6 @@ type InstallStatusMsg struct {
 	Done     bool
 }
 
-func (m Model) startInstallAgentCmd(opts agent.InstallOptions) tea.Cmd {
-	return func() tea.Msg {
-		err := m.agentSvc.InstallAgent(opts, func(stage string, progress float64, message string) {
-			// In Bubble Tea, progress callbacks can send messages or update state
-		})
-		return InstallStatusMsg{
-			Done: true,
-			Err:  err,
-		}
-	}
-}
-
 func (m Model) updateInstallView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
@@ -82,9 +70,9 @@ func (m Model) viewInstallView() string {
 
 	isInstalled := m.agentSvc.IsInstalled()
 	if isInstalled {
-		b.WriteString(fmt.Sprintf("当前状态: %s (目录: %s)\n\n", StyleBadgeSuccess.Render("● 已安装"), m.paths.AgentDir))
+		fmt.Fprintf(&b, "当前状态: %s (目录: %s)\n\n", StyleBadgeSuccess.Render("● 已安装"), m.paths.AgentDir)
 	} else {
-		b.WriteString(fmt.Sprintf("当前状态: %s (目标路径: %s)\n\n", StyleBadgeWarning.Render("○ 尚未安装"), m.paths.AgentDir))
+		fmt.Fprintf(&b, "当前状态: %s (目标路径: %s)\n\n", StyleBadgeWarning.Render("○ 尚未安装"), m.paths.AgentDir)
 	}
 
 	mirrorStr := StyleBadgeSuccess.Render("开启国内加速镜像 (ghproxy.net) [推荐]")
@@ -106,16 +94,17 @@ func (m Model) viewInstallView() string {
 		mirrorStr, venvStr, m.paths.AgentDir,
 	)) + "\n\n")
 
-	if m.installing {
+	switch {
+	case m.installing:
 		b.WriteString(StyleBadgeWarning.Render(fmt.Sprintf("%s %s", m.spinner.View(), m.installMsg)) + "\n\n")
 		b.WriteString(StyleSubtitle.Render("正在后台下载与解压安装，请稍候...") + "\n\n")
-	} else if m.installErr != nil {
+	case m.installErr != nil:
 		b.WriteString(StyleBadgeDanger.Render(fmt.Sprintf("✗ 安装失败: %v", m.installErr)) + "\n\n")
 		b.WriteString(StyleKeyHelp.Render("[Enter] 重新尝试安装   [m] 切换镜像源   [v] 切换虚拟环境选项   [Esc/q] 返回主菜单"))
-	} else if m.installDone {
+	case m.installDone:
 		b.WriteString(StyleBadgeSuccess.Render("✓ Agent 已成功部署完成！可在主菜单启动服务。") + "\n\n")
 		b.WriteString(StyleKeyHelp.Render("[Enter] 重新安装/更新   [Esc/q] 返回主菜单"))
-	} else {
+	default:
 		b.WriteString(StyleSubtitle.Render("按 [Enter] 即可一键自动从 GitHub Release 下载 Agent 并部署到本地目录：") + "\n\n")
 		b.WriteString(StyleKeyHelp.Render("[Enter] 开始一键安装/部署   [m] 切换镜像源   [v] 切换虚拟环境初始化   [Esc/q] 返回主菜单"))
 	}

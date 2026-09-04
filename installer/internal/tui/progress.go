@@ -39,13 +39,13 @@ func (m Model) viewDownloadProgress() string {
 
 	// Active download card
 	var card strings.Builder
-	card.WriteString(fmt.Sprintf("任务状态: %s\n", StyleBadgeWarning.Render(fmt.Sprintf("%s 正在后台下载 (PID: %d, 已运行: %s)", m.spinner.View(), m.downStatus.PID, m.downStatus.Uptime))))
-	card.WriteString(fmt.Sprintf("目标模型: %s\n", m.downStatus.ModelID))
-	card.WriteString(fmt.Sprintf("存储目录: models/%s\n", m.downStatus.PkgDir))
-	card.WriteString(fmt.Sprintf("下载来源: %s\n", m.downStatus.Endpoint))
-	card.WriteString(fmt.Sprintf("启动时间: %s\n", m.downStatus.StartTime))
+	fmt.Fprintf(&card, "任务状态: %s\n", StyleBadgeWarning.Render(fmt.Sprintf("%s 正在后台下载 (PID: %d, 已运行: %s)", m.spinner.View(), m.downStatus.PID, m.downStatus.Uptime)))
+	fmt.Fprintf(&card, "目标模型: %s\n", m.downStatus.ModelID)
+	fmt.Fprintf(&card, "存储目录: models/%s\n", m.downStatus.PkgDir)
+	fmt.Fprintf(&card, "下载来源: %s\n", m.downStatus.Endpoint)
+	fmt.Fprintf(&card, "启动时间: %s\n", m.downStatus.StartTime)
 	if m.downStatus.DiskUsage != "" {
-		card.WriteString(fmt.Sprintf("磁盘写入: %s\n", StyleBadgeSuccess.Render(m.downStatus.DiskUsage)))
+		fmt.Fprintf(&card, "磁盘写入: %s\n", StyleBadgeSuccess.Render(m.downStatus.DiskUsage))
 	}
 	b.WriteString(StyleCard.Render(card.String()) + "\n\n")
 

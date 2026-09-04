@@ -28,35 +28,35 @@ func (m Model) viewStatusDashboard() string {
 	var agentInfo strings.Builder
 	if m.agentStatus != nil && m.agentStatus.Installed {
 		if m.agentStatus.Running {
-			agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeSuccess.Render("● 运行中 (Running)")))
-			agentInfo.WriteString(fmt.Sprintf("进程 PID: %d\n", m.agentStatus.PID))
-			agentInfo.WriteString(fmt.Sprintf("运行时长: %s\n", m.agentStatus.Uptime))
-			agentInfo.WriteString(fmt.Sprintf("物理内存: ~%d MB\n", m.agentStatus.RSSMB))
+			fmt.Fprintf(&agentInfo, "运行状态: %s\n", StyleBadgeSuccess.Render("● 运行中 (Running)"))
+			fmt.Fprintf(&agentInfo, "进程 PID: %d\n", m.agentStatus.PID)
+			fmt.Fprintf(&agentInfo, "运行时长: %s\n", m.agentStatus.Uptime)
+			fmt.Fprintf(&agentInfo, "物理内存: ~%d MB\n", m.agentStatus.RSSMB)
 		} else {
-			agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeDanger.Render("● 已安装但未运行 (Stopped)")))
+			fmt.Fprintf(&agentInfo, "运行状态: %s\n", StyleBadgeDanger.Render("● 已安装但未运行 (Stopped)"))
 		}
-		agentInfo.WriteString(fmt.Sprintf("安装路径: %s\n", m.agentStatus.AgentDir))
-		agentInfo.WriteString(fmt.Sprintf("日志路径: %s\n", m.agentStatus.LogPath))
+		fmt.Fprintf(&agentInfo, "安装路径: %s\n", m.agentStatus.AgentDir)
+		fmt.Fprintf(&agentInfo, "日志路径: %s\n", m.agentStatus.LogPath)
 	} else {
-		agentInfo.WriteString(fmt.Sprintf("安装状态: %s\n", StyleBadgeWarning.Render("○ 尚未安装 (可在菜单选择【安装/更新 Agent】)")))
-		agentInfo.WriteString(fmt.Sprintf("目标路径: %s\n", m.paths.AgentDir))
+		fmt.Fprintf(&agentInfo, "安装状态: %s\n", StyleBadgeWarning.Render("○ 尚未安装 (可在菜单选择【安装/更新 Agent】)"))
+		fmt.Fprintf(&agentInfo, "目标路径: %s\n", m.paths.AgentDir)
 	}
 	b.WriteString(StyleCard.Render("【Agent 服务】\n"+agentInfo.String()) + "\n")
 
 	// Download Task Card
 	var downInfo strings.Builder
 	if m.downStatus != nil && m.downStatus.Running {
-		downInfo.WriteString(fmt.Sprintf("任务状态: %s\n", StyleBadgeWarning.Render(fmt.Sprintf("%s 正在后台下载中 (Downloading)", m.spinner.View()))))
-		downInfo.WriteString(fmt.Sprintf("进程 PID: %d (已运行 %s)\n", m.downStatus.PID, m.downStatus.Uptime))
-		downInfo.WriteString(fmt.Sprintf("下载模型: %s\n", m.downStatus.ModelID))
-		downInfo.WriteString(fmt.Sprintf("本地目录: models/%s\n", m.downStatus.PkgDir))
-		downInfo.WriteString(fmt.Sprintf("镜像来源: %s\n", m.downStatus.Endpoint))
-		downInfo.WriteString(fmt.Sprintf("启动时间: %s\n", m.downStatus.StartTime))
+		fmt.Fprintf(&downInfo, "任务状态: %s\n", StyleBadgeWarning.Render(fmt.Sprintf("%s 正在后台下载中 (Downloading)", m.spinner.View())))
+		fmt.Fprintf(&downInfo, "进程 PID: %d (已运行 %s)\n", m.downStatus.PID, m.downStatus.Uptime)
+		fmt.Fprintf(&downInfo, "下载模型: %s\n", m.downStatus.ModelID)
+		fmt.Fprintf(&downInfo, "本地目录: models/%s\n", m.downStatus.PkgDir)
+		fmt.Fprintf(&downInfo, "镜像来源: %s\n", m.downStatus.Endpoint)
+		fmt.Fprintf(&downInfo, "启动时间: %s\n", m.downStatus.StartTime)
 		if m.downStatus.DiskUsage != "" {
-			downInfo.WriteString(fmt.Sprintf("当前落盘: %s\n", m.downStatus.DiskUsage))
+			fmt.Fprintf(&downInfo, "当前落盘: %s\n", m.downStatus.DiskUsage)
 		}
 	} else {
-		downInfo.WriteString(fmt.Sprintf("任务状态: %s\n", StyleBadgeMuted.Render("○ 当前无后台下载任务在运行")))
+		fmt.Fprintf(&downInfo, "任务状态: %s\n", StyleBadgeMuted.Render("○ 当前无后台下载任务在运行"))
 	}
 	b.WriteString(StyleCard.Render("【模型下载任务】\n"+downInfo.String()) + "\n")
 
@@ -70,7 +70,7 @@ func (m Model) viewStatusDashboard() string {
 			if !lm.IsReady {
 				statusBadge = StyleBadgeWarning.Render("[" + lm.Status + "]")
 			}
-			modelInfo.WriteString(fmt.Sprintf("  • %-22s %-10s %s\n", lm.DirName, "("+lm.DiskSize+")", statusBadge))
+			fmt.Fprintf(&modelInfo, "  • %-22s %-10s %s\n", lm.DirName, "("+lm.DiskSize+")", statusBadge)
 		}
 	}
 	b.WriteString(StyleCard.Render("【已安装模型库】(models/)\n"+modelInfo.String()) + "\n")

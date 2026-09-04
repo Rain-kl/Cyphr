@@ -572,7 +572,7 @@ func TestE2E_FullAsyncPipeline(t *testing.T) {
 	require.NotNil(t, foundJob, "submitted job must be returned in user job list")
 	assert.Equal(t, consts.StatusCompleted, foundJob.Status)
 	assert.Equal(t, "sample_audio.wav", foundJob.OriginalFileName)
-	assert.Equal(t, expectedResultText, foundJob.ResultText)
+	assert.Empty(t, foundJob.ResultText, "list items should omit heavy result_text payload")
 
 	// 10.2 Job Detail
 	jobDetail, err := env.cliClient.GetJob(ctx, jobID)

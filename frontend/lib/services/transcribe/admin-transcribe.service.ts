@@ -3,6 +3,7 @@
 
 import { BaseService } from '../core/base.service';
 import type {
+  JobDTO,
   JobListDTO,
   ListAllJobsParams,
   ModelDTO,
@@ -98,5 +99,19 @@ export class AdminTranscribeService extends BaseService {
    */
   static async listAllJobs(params?: ListAllJobsParams): Promise<JobListDTO> {
     return this.get<JobListDTO>('/jobs', params as Record<string, unknown>);
+  }
+
+  /**
+   * Get complete details of a transcription job (includes heavy result payload)
+   */
+  static async getJobDetail(id: number | string): Promise<JobDTO> {
+    return this.get<JobDTO>(`/jobs/${id}`);
+  }
+
+  /**
+   * Requeue a failed transcription job
+   */
+  static async retryJob(id: number | string): Promise<void> {
+    return this.post<void>(`/jobs/${id}/retry`, {});
   }
 }

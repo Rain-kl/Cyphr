@@ -2123,7 +2123,25 @@
       "storagePath": "Storage Path",
       "rawJson": "Raw OpenAI JSON",
       "copyJson": "Copy Raw JSON",
-      "rawError": "System Error Detail"
+      "rawError": "System Error Detail",
+      "retryBtn": "Retry Job",
+      "retrySuccess": "Job retry triggered successfully",
+      "retryFailed": "Failed to retry job",
+      "viewDetail": "View Job Details"
+    },
+    "schedulingSettingsBtn": "Scheduling Settings",
+    "scheduling": {
+      "title": "Scheduling & Retry Policy",
+      "description": "Configure automatic retry and scheduling policy for failed transcription jobs",
+      "enableRetry": "Enable Auto-Retry on Failure",
+      "retryEnabledDesc": "Failed jobs will automatically reset to pending and be re-enqueued",
+      "retryDisabledDesc": "Failed jobs will be marked as failed directly without retry",
+      "maxRetries": "Max Retries",
+      "maxRetriesHint": "Maximum retry attempts per job (recommended: 1 - 5)",
+      "retryInterval": "Retry Backoff Interval (seconds)",
+      "retryIntervalHint": "Buffer wait time before retrying a failed job",
+      "saveSuccess": "Scheduling settings saved successfully",
+      "saveFailed": "Failed to save scheduling settings"
     }
   },
   "metadata": {

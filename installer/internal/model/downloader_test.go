@@ -24,7 +24,7 @@ func TestCatalogMapping(t *testing.T) {
 
 func TestFetchRepoFilesHuggingFaceInvalid(t *testing.T) {
 	// Should fail cleanly on nonexistent model
-	_, err := FetchRepoFiles("huggingface", "invalid-org/non-existent-model-xyz-12345", "https://hf-mirror.com")
+	_, err := FetchRepoFiles(t.Context(), "huggingface", "invalid-org/non-existent-model-xyz-12345", "https://hf-mirror.com")
 	if err == nil {
 		t.Errorf("expected error for nonexistent model, got nil")
 	}
@@ -32,7 +32,7 @@ func TestFetchRepoFilesHuggingFaceInvalid(t *testing.T) {
 
 func TestFetchRepoFilesModelScopeInvalid(t *testing.T) {
 	// Should fail cleanly on nonexistent model
-	_, err := FetchRepoFiles("modelscope", "invalid-org/non-existent-model-xyz-12345", "")
+	_, err := FetchRepoFiles(t.Context(), "modelscope", "invalid-org/non-existent-model-xyz-12345", "")
 	if err == nil {
 		t.Errorf("expected error for nonexistent model, got nil")
 	}

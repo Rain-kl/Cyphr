@@ -59,6 +59,11 @@ func setupTestDB(t *testing.T) (*gorm.DB, string) {
 	require.NoError(t, err, "migration file must exist at %s", configMigrationPath)
 	applyMigration(t, db, string(configContent))
 
+	retryMigrationPath := filepath.Join("..", "migrations", "sqlite", "00007_add_job_retry.sql")
+	retryContent, err := os.ReadFile(retryMigrationPath)
+	require.NoError(t, err, "migration file must exist at %s", retryMigrationPath)
+	applyMigration(t, db, string(retryContent))
+
 	return db, dbPath
 }
 
@@ -386,4 +391,15 @@ func TestJobDAO(t *testing.T) {
 	assert.Equal(t, consts.StatusPending, resetJob.Status)
 	assert.Nil(t, resetJob.NodeID)
 	assert.Equal(t, 0, resetJob.Progress)
+
+	// 10. RetryJob
+	require.NoError(t, jobDAO.UpdateStatus(ctx, job2.ID, consts.StatusFailed))
+	require.NoError(t, jobDAO.RetryJob(ctx, job2.ID))
+	retriedJob, err := jobDAO.GetByID(ctx, job2.ID)
+	require.NoError(t, err)
+	assert.Equal(t, consts.StatusPending, retriedJob.Status)
+	assert.Nil(t, retriedJob.NodeID)
+	assert.Equal(t, 0, retriedJob.Progress)
+	assert.Equal(t, 1, retriedJob.RetryCount)
+	assert.Empty(t, retriedJob.ErrorMsg)
 }

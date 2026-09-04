@@ -4,6 +4,7 @@ package proc
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -24,7 +25,7 @@ func isProcessAlive(pid int) bool {
 		return false
 	}
 
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "stat=").Output()
+	out, err := exec.CommandContext(context.Background(), "ps", "-p", strconv.Itoa(pid), "-o", "stat=").Output()
 	if err != nil {
 		return false
 	}
@@ -57,7 +58,7 @@ func daemonizeProcess(command []string, env []string, cwd string, logPath string
 		return 0, fmt.Errorf("open devnull failed: %w", err)
 	}
 
-	cmd := exec.Command(command[0], command[1:]...)
+	cmd := exec.CommandContext(context.Background(), command[0], command[1:]...)
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
@@ -143,7 +144,7 @@ func gracefulStopDownloadProcess(pid int, timeout time.Duration) error {
 
 // getProcessMetrics retrieves uptime and RSS using ps.
 func getProcessMetrics(pid int) (uptime string, rssMB int) {
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "etime=,rss=").Output()
+	out, err := exec.CommandContext(context.Background(), "ps", "-p", strconv.Itoa(pid), "-o", "etime=,rss=").Output()
 	if err == nil {
 		fields := strings.Fields(string(bytes.TrimSpace(out)))
 		if len(fields) >= 1 {

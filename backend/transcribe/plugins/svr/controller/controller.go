@@ -265,5 +265,7 @@ func (c *Controller) RegisterRoutes(router extpoints.RouterExtension) {
 	jobCtrlGroup := router.Group("/api/v1/controller/jobs", userAuthMW)
 	{
 		jobCtrlGroup.GET("", c.Job.ListAllJobs)
+		jobCtrlGroup.GET("/:id", c.Job.GetJob)
+		jobCtrlGroup.POST("/:id/retry", c.Job.RetryJob)
 	}
 }

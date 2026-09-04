@@ -207,6 +207,7 @@ export type {
   NodeDTO,
   NodeCreatedDTO,
   JobDTO,
+  JobSummaryDTO,
   JobListDTO,
   LogMessage,
   TranscriptSegment,
