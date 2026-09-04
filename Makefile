@@ -1,4 +1,4 @@
-.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli build-installer test-installer format-installer package-agent
+.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli build-installer test-installer format-installer package-agent run
 
 VERSION ?= dev
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -36,6 +36,9 @@ build-embedded:
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
 		-o ../bin/cyphr-svr \
 		main.go
+
+run: build-embedded
+	./bin/cyphr-svr
 
 code-check:
 	@scripts/check_cordis_architecture.sh
