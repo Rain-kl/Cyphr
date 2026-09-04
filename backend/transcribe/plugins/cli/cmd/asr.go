@@ -127,27 +127,24 @@ func prepareUploadMedia(cmd *cobra.Command, filePath string) (string, func(), er
 		return "", nil, fmt.Errorf("input path is a directory, not a file: %s", filePath)
 	}
 
-	if media.IsVideo(filePath) {
-		cmd.Printf("Video file detected (%s). Extracting 16kHz mono audio with ffmpeg...\n", filepath.Base(filePath))
-		extractedPath, cleanup, extErr := media.ExtractAudio(cmd.Context(), filePath)
-		if extErr != nil {
-			return "", nil, extErr
-		}
-		origBase := filepath.Base(filePath)
-		prettyName := origBase[:len(origBase)-len(filepath.Ext(origBase))] + ".mp3"
-		prettyPath := filepath.Join(filepath.Dir(extractedPath), prettyName)
-		if renErr := os.Rename(extractedPath, prettyPath); renErr != nil {
-			cleanup()
-			return "", nil, fmt.Errorf("failed to rename extracted audio: %w", renErr)
-		}
-		return prettyPath, cleanup, nil
+	if !media.IsSupportedMedia(filePath) {
+		return "", nil, fmt.Errorf("unsupported media file format '%s' (supported audio: mp3, wav, m4a, flac, aac, ogg; video: mp4, mkv, avi, mov, flv, webm)", filepath.Ext(filePath))
 	}
 
-	if media.IsAudio(filePath) {
-		return filePath, nil, nil
+	cmd.Printf("Pre-processing media file with ffmpeg (converting to 16kHz mono WAV)...\n")
+	convertedPath, cleanup, convErr := media.ConvertToStandardWav(cmd.Context(), filePath)
+	if convErr != nil {
+		return "", nil, convErr
 	}
 
-	return "", nil, fmt.Errorf("unsupported media file format '%s' (supported audio: mp3, wav, m4a, flac, aac, ogg; video: mp4, mkv, avi, mov, flv, webm)", filepath.Ext(filePath))
+	origBase := filepath.Base(filePath)
+	prettyName := origBase[:len(origBase)-len(filepath.Ext(origBase))] + ".wav"
+	prettyPath := filepath.Join(filepath.Dir(convertedPath), prettyName)
+	if renErr := os.Rename(convertedPath, prettyPath); renErr != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("failed to rename converted audio: %w", renErr)
+	}
+	return prettyPath, cleanup, nil
 }
 
 func resolveModelName() string {

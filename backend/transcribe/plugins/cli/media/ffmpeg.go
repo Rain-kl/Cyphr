@@ -83,25 +83,25 @@ func IsSupportedMedia(filename string) bool {
 func CheckFFmpeg() error {
 	_, err := lookPathFunc("ffmpeg")
 	if err != nil {
-		return fmt.Errorf("ffmpeg is not installed or not found in PATH; required for video audio extraction")
+		return fmt.Errorf("ffmpeg is not installed or not found in PATH; required for audio/video conversion")
 	}
 	return nil
 }
 
-// ExtractAudio extracts 16kHz mono audio from a video file into a temporary MP3 file using ffmpeg.
-// It returns the path to the temporary file and a cleanup function to delete it when done.
-func ExtractAudio(ctx context.Context, videoPath string) (outputPath string, cleanup func(), err error) {
-	if _, statErr := os.Stat(videoPath); statErr != nil {
-		return "", nil, fmt.Errorf("input video file does not exist: %w", statErr)
+// ConvertToStandardWav converts any audio or video file into 16kHz mono 16-bit PCM WAV using ffmpeg.
+// It returns the path to the temporary WAV file and a cleanup function to delete it when done.
+func ConvertToStandardWav(ctx context.Context, inputPath string) (outputPath string, cleanup func(), err error) {
+	if _, statErr := os.Stat(inputPath); statErr != nil {
+		return "", nil, fmt.Errorf("input media file does not exist: %w", statErr)
 	}
 
 	if err := CheckFFmpeg(); err != nil {
 		return "", nil, err
 	}
 
-	tmpFile, err := os.CreateTemp("", "transcribe_extracted_*.mp3")
+	tmpFile, err := os.CreateTemp("", "transcribe_standard_*.wav")
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create temporary audio file: %w", err)
+		return "", nil, fmt.Errorf("failed to create temporary wav file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
 	_ = tmpFile.Close()
@@ -110,23 +110,29 @@ func ExtractAudio(ctx context.Context, videoPath string) (outputPath string, cle
 		_ = os.Remove(tmpPath)
 	}
 
-	// Command: ffmpeg -y -i <input> -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 48k <tmp.mp3>
+	// Command: ffmpeg -y -i <input> -vn -ac 1 -ar 16000 -c:a pcm_s16le <tmp.wav>
 	args := []string{
 		"-y",
-		"-i", videoPath,
+		"-i", inputPath,
 		"-vn",
 		"-ac", "1",
 		"-ar", "16000",
-		"-c:a", "libmp3lame",
-		"-b:a", "48k",
+		"-c:a", "pcm_s16le",
 		tmpPath,
 	}
 
 	out, err := runCmdFunc(ctx, "ffmpeg", args...)
 	if err != nil {
 		cleanup()
-		return "", nil, fmt.Errorf("ffmpeg audio extraction failed (%w): %s", err, strings.TrimSpace(string(out)))
+		return "", nil, fmt.Errorf("ffmpeg audio conversion failed (%w): %s", err, strings.TrimSpace(string(out)))
 	}
 
 	return tmpPath, cleanup, nil
+}
+
+// ExtractAudio extracts 16kHz mono audio from a video file into a temporary MP3 file using ffmpeg.
+//
+// Deprecated: Use ConvertToStandardWav instead for direct 16kHz mono WAV conversion.
+func ExtractAudio(ctx context.Context, videoPath string) (outputPath string, cleanup func(), err error) {
+	return ConvertToStandardWav(ctx, videoPath)
 }

@@ -335,6 +335,15 @@ func TestClientOperations(t *testing.T) {
 }
 
 func TestCobraCommands(t *testing.T) {
+	ffmpegCleanup := media.SetFFmpegRunnerForTest(
+		func(string) (string, error) { return "/mock/ffmpeg", nil },
+		func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			outPath := args[len(args)-1]
+			_ = os.WriteFile(outPath, []byte("RIFF mock converted wav data"), 0o600)
+			return []byte("ok"), nil
+		},
+	)
+	defer ffmpegCleanup()
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/v1/models", func(w http.ResponseWriter, r *http.Request) {
@@ -593,7 +602,7 @@ func TestCobraCommands(t *testing.T) {
 			func(string) (string, error) { return "/mock/ffmpeg", nil },
 			func(ctx context.Context, name string, args ...string) ([]byte, error) {
 				outPath := args[len(args)-1]
-				_ = os.WriteFile(outPath, []byte("mock extracted mp3 audio"), 0o600)
+				_ = os.WriteFile(outPath, []byte("RIFF mock wav audio"), 0o600)
 				return []byte("ok"), nil
 			},
 		)
@@ -602,7 +611,7 @@ func TestCobraCommands(t *testing.T) {
 		root := NewRootCmd()
 		out, err := executeCommand(root, "asr", dummyVideo, "--config", cfgFile)
 		require.NoError(t, err)
-		assert.Contains(t, out, "Video file detected")
+		assert.Contains(t, out, "Pre-processing media file with ffmpeg")
 		assert.Contains(t, out, "Job submitted successfully: ID #20002")
 		assert.Contains(t, out, "Speech recognition completed successfully.")
 		data, err := os.ReadFile("clip.txt")

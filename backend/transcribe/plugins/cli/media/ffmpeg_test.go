@@ -76,7 +76,7 @@ func TestCheckFFmpeg(t *testing.T) {
 	})
 }
 
-func TestExtractAudio(t *testing.T) {
+func TestConvertToStandardWav(t *testing.T) {
 	origLookPath := lookPathFunc
 	origRunCmd := runCmdFunc
 	defer func() {
@@ -85,13 +85,13 @@ func TestExtractAudio(t *testing.T) {
 	}()
 
 	tempDir := t.TempDir()
-	dummyVideo := filepath.Join(tempDir, "video.mp4")
-	require.NoError(t, os.WriteFile(dummyVideo, []byte("fake video content"), 0o600))
+	dummyMedia := filepath.Join(tempDir, "video.mp4")
+	require.NoError(t, os.WriteFile(dummyMedia, []byte("fake video content"), 0o600))
 
-	t.Run("non-existent video file", func(t *testing.T) {
-		_, _, err := ExtractAudio(context.Background(), filepath.Join(tempDir, "non_existent.mp4"))
+	t.Run("non-existent media file", func(t *testing.T) {
+		_, _, err := ConvertToStandardWav(context.Background(), filepath.Join(tempDir, "non_existent.mp4"))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "input video file does not exist")
+		assert.Contains(t, err.Error(), "input media file does not exist")
 	})
 
 	t.Run("ffmpeg not available", func(t *testing.T) {
@@ -99,12 +99,12 @@ func TestExtractAudio(t *testing.T) {
 			return "", errors.New("not found")
 		}
 
-		_, _, err := ExtractAudio(context.Background(), dummyVideo)
+		_, _, err := ConvertToStandardWav(context.Background(), dummyMedia)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "ffmpeg is not installed")
 	})
 
-	t.Run("successful extraction", func(t *testing.T) {
+	t.Run("successful conversion", func(t *testing.T) {
 		lookPathFunc = func(file string) (string, error) {
 			return "/usr/bin/ffmpeg", nil
 		}
@@ -114,16 +114,16 @@ func TestExtractAudio(t *testing.T) {
 			capturedArgs = args
 			// Mock ffmpeg writing audio to the target output file (last arg)
 			outPath := args[len(args)-1]
-			if writeErr := os.WriteFile(outPath, []byte("mock audio mp3 bytes"), 0o600); writeErr != nil {
+			if writeErr := os.WriteFile(outPath, []byte("RIFF mock wav bytes"), 0o600); writeErr != nil {
 				return nil, writeErr
 			}
 			return []byte("ffmpeg version mock"), nil
 		}
 
-		outPath, cleanup, err := ExtractAudio(context.Background(), dummyVideo)
+		outPath, cleanup, err := ConvertToStandardWav(context.Background(), dummyMedia)
 		require.NoError(t, err)
 		require.NotEmpty(t, outPath)
-		assert.True(t, strings.HasSuffix(outPath, ".mp3"))
+		assert.True(t, strings.HasSuffix(outPath, ".wav"))
 
 		// Check arguments passed to ffmpeg
 		assert.Contains(t, capturedArgs, "-vn")
@@ -131,7 +131,7 @@ func TestExtractAudio(t *testing.T) {
 		assert.Contains(t, capturedArgs, "1")
 		assert.Contains(t, capturedArgs, "-ar")
 		assert.Contains(t, capturedArgs, "16000")
-		assert.Contains(t, capturedArgs, "libmp3lame")
+		assert.Contains(t, capturedArgs, "pcm_s16le")
 
 		// Verify file exists
 		_, statErr := os.Stat(outPath)
@@ -152,9 +152,9 @@ func TestExtractAudio(t *testing.T) {
 			return []byte("corrupt input stream"), errors.New("exit status 1")
 		}
 
-		outPath, cleanup, err := ExtractAudio(context.Background(), dummyVideo)
+		outPath, cleanup, err := ConvertToStandardWav(context.Background(), dummyMedia)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "ffmpeg audio extraction failed")
+		assert.Contains(t, err.Error(), "ffmpeg audio conversion failed")
 		assert.Contains(t, err.Error(), "corrupt input stream")
 		assert.Empty(t, outPath)
 		assert.Nil(t, cleanup)
