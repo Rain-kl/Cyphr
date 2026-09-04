@@ -16,9 +16,13 @@ func (m Model) updateDownloadProgress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleStopDownload()
 	case "r":
 		m.refreshData()
+		m.syncViewportContent(false)
 		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
-	return m, nil
 }
 
 func (m Model) viewDownloadProgress() string {
@@ -57,6 +61,6 @@ func (m Model) viewDownloadProgress() string {
 		b.WriteString(StyleLogBox.Render(strings.Join(m.downStatus.RecentLogs, "\n")) + "\n\n")
 	}
 
-	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单 (下载在后台继续)   [x] 停止当前下载   [r] 立即刷新"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单 (下载在后台继续)   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [x] 停止当前下载   [r] 立即刷新"))
 	return b.String()
 }

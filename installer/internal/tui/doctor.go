@@ -15,9 +15,13 @@ func (m Model) updateDoctorView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		m.doctorOutput = doctor.Run(m.paths).Format()
+		m.syncViewportContent(true)
 		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
-	return m, nil
 }
 
 func (m Model) viewDoctorView() string {
@@ -27,6 +31,6 @@ func (m Model) viewDoctorView() string {
 	} else {
 		b.WriteString(m.doctorOutput + "\n")
 	}
-	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [r] 重新诊断"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [r] 重新诊断"))
 	return b.String()
 }

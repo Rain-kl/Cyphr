@@ -59,8 +59,11 @@ func (m Model) updateInstallView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			})
 			return InstallStatusMsg{Done: true, Err: err}
 		}
+	default:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
-	return m, nil
 }
 
 func (m Model) viewInstallView() string {

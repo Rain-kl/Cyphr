@@ -86,9 +86,11 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			})
 			return UpdateProgressMsg{Done: true, Err: err}
 		}
+	default:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
-
-	return m, nil
 }
 
 func (m Model) viewUpdateView() string {

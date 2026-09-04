@@ -9,14 +9,18 @@ import (
 
 func (m Model) updateStatusDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q", "enter":
+	case "esc", "q":
 		m.state = ViewMainMenu
 		return m, nil
 	case "r":
 		m.refreshData()
+		m.syncViewportContent(false)
 		return m, nil
+	default:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		return m, cmd
 	}
-	return m, nil
 }
 
 func (m Model) viewStatusDashboard() string {
@@ -75,6 +79,6 @@ func (m Model) viewStatusDashboard() string {
 	}
 	b.WriteString(StyleCard.Render("【已安装模型库】(models/)\n"+modelInfo.String()) + "\n")
 
-	b.WriteString(StyleKeyHelp.Render("[Esc/q/Enter] 返回主菜单   [r] 刷新数据"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [r] 刷新数据"))
 	return b.String()
 }
