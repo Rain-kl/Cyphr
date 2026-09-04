@@ -31,6 +31,6 @@ func (m Model) viewDoctorView() string {
 	} else {
 		b.WriteString(m.doctorOutput + "\n")
 	}
-	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [r] 重新诊断"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn] 翻页滚动   [鼠标划选] 复制文本   [r] 重新诊断"))
 	return b.String()
 }

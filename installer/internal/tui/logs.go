@@ -37,6 +37,6 @@ func (m Model) viewAgentLogs() string {
 		b.WriteString(StyleLogBox.Render(strings.Join(lines, "\n")) + "\n\n")
 	}
 
-	b.WriteString(StyleKeyHelp.Render(fmt.Sprintf("日志路径: %s   [Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [r] 立即刷新", m.paths.LogFile)))
+	b.WriteString(StyleKeyHelp.Render(fmt.Sprintf("日志路径: %s   [Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn] 翻页滚动   [鼠标划选] 复制文本   [r] 立即刷新", m.paths.LogFile)))
 	return b.String()
 }

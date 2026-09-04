@@ -79,6 +79,6 @@ func (m Model) viewStatusDashboard() string {
 	}
 	b.WriteString(StyleCard.Render("【已安装模型库】(models/)\n"+modelInfo.String()) + "\n")
 
-	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [r] 刷新数据"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [↑/↓, j/k, PgUp/PgDn] 翻页滚动   [鼠标划选] 复制文本   [r] 刷新数据"))
 	return b.String()
 }

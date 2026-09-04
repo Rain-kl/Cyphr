@@ -35,7 +35,8 @@ func main() {
 	}
 
 	// Interactive Bubble Tea TUI
-	p := tea.NewProgram(tui.NewModel(paths), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	// Do not use WithMouseCellMotion() so users can select and copy text in their terminal.
+	p := tea.NewProgram(tui.NewModel(paths), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error starting TUI: %v\n", err)
 		os.Exit(1)

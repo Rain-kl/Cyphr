@@ -61,6 +61,6 @@ func (m Model) viewDownloadProgress() string {
 		b.WriteString(StyleLogBox.Render(strings.Join(m.downStatus.RecentLogs, "\n")) + "\n\n")
 	}
 
-	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单 (下载在后台继续)   [↑/↓, j/k, PgUp/PgDn, 鼠标滚轮] 上下滚动   [x] 停止当前下载   [r] 立即刷新"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单 (下载在后台继续)   [↑/↓, j/k, PgUp/PgDn] 翻页滚动   [鼠标划选] 复制文本   [x] 停止当前下载   [r] 立即刷新"))
 	return b.String()
 }
