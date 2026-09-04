@@ -20,7 +20,6 @@ import (
 	"Wavelet/plugins/drivers/driver_inproc_worker"
 	"Wavelet/plugins/infra/cache"
 	"Wavelet/plugins/infra/cache_memory"
-	"Wavelet/plugins/infra/config"
 	"Wavelet/plugins/infra/logger"
 	"Wavelet/plugins/infra/storage"
 	"context"
@@ -68,7 +67,7 @@ func runProfileApp(profile core.Profile, mode string, listensForHTTP bool) {
 
 // newWaveletApp creates a core.App wired with Wavelet platform infrastructure, domain plugins, and profile drivers.
 func newWaveletApp(profile core.Profile, opts ...core.AppOption) *core.App {
-	src, err := config.NewSource()
+	src, err := loadConfigSource()
 	if err != nil {
 		log.Fatalf("[App] load config source failed: %v\n", err)
 	}

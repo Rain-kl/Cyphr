@@ -16,26 +16,19 @@ import (
 	"github.com/spf13/viper"
 )
 
-// DefaultBaseFileName is the default base configuration file path looked up relative to the workspace.
-const DefaultBaseFileName = "manifest/config/config.default.yaml"
-
-// DefaultOverrideFileName is the default user override configuration file path looked up relative to the workspace.
-const DefaultOverrideFileName = "manifest/config/config.yaml"
+// DefaultConfigFileName is the default configuration file looked up in the current directory.
+const DefaultConfigFileName = "config.yaml"
 
 // DefaultFileName is kept for backwards compatibility.
-const DefaultFileName = DefaultOverrideFileName
+const DefaultFileName = DefaultConfigFileName
 
 // EnvOnlyOrigin is reported by Describe when no configuration file was loaded.
 const EnvOnlyOrigin = "<env only>"
 
-// maxSearchDepth bounds the upward directory walk so a misconfigured working directory
-// cannot make the loader scan the whole filesystem.
-const maxSearchDepth = 5
-
 // Option configures a Source.
 type Option func(*Source)
 
-// WithPath pins the configuration file, bypassing CONFIG_PATH and the upward search.
+// WithPath pins the configuration file, bypassing CONFIG_PATH and default lookup.
 func WithPath(path string) Option {
 	return func(s *Source) {
 		s.path = path
@@ -61,19 +54,19 @@ type Source struct {
 	found         bool
 }
 
-// NewSource loads configuration files. By default, it loads manifest/config/config.default.yaml
+// resolvePaths resolves the configuration file path. By default, it looks for config.yaml
+// in the current working directory, or uses CONFIG_PATH if set.
 func (s *Source) resolvePaths() {
 	if s.pinned {
 		return
-	}
-	if s.defaultPath == "" {
-		s.defaultPath, _ = findExistingUpward(DefaultBaseFileName)
 	}
 	if s.path == "" {
 		s.path = os.Getenv("CONFIG_PATH")
 	}
 	if s.path == "" {
-		s.path, _ = findExistingUpward(DefaultOverrideFileName)
+		if _, err := os.Stat(DefaultConfigFileName); err == nil {
+			s.path = DefaultConfigFileName
+		}
 	}
 }
 
@@ -96,15 +89,15 @@ func readConfigFile(v *viper.Viper, path string, merge bool) (bool, error) {
 	case isNotFound(err):
 		return false, nil
 	default:
-		if _, statErr := os.Stat(path); statErr == nil { //nolint:gosec // path is vetted by bounded upward search or config options
+		if _, statErr := os.Stat(path); statErr == nil { //nolint:gosec // path is vetted by caller
 			return false, fmt.Errorf("infra/config: read %s: %w", path, err)
 		}
 		return false, nil
 	}
 }
 
-// NewSource loads configuration files. By default, it loads manifest/config/config.default.yaml
-// and merges manifest/config/config.yaml (or CONFIG_PATH) on top if present. A missing file is
+// NewSource loads configuration files. By default, it looks for config.yaml in the current
+// working directory, or uses the file specified by WithPath / CONFIG_PATH. A missing file is
 // not an error: the source then serves environment values only.
 func NewSource(opts ...Option) (*Source, error) {
 	s := &Source{}
@@ -116,14 +109,18 @@ func NewSource(opts ...Option) (*Source, error) {
 	v := viper.New()
 
 	var err error
-	s.defaultFound, err = readConfigFile(v, s.defaultPath, false)
-	if err != nil {
-		return nil, err
+	if s.defaultPath != "" {
+		s.defaultFound, err = readConfigFile(v, s.defaultPath, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	s.overrideFound, err = readConfigFile(v, s.path, s.defaultFound)
-	if err != nil {
-		return nil, err
+	if s.path != "" {
+		s.overrideFound, err = readConfigFile(v, s.path, s.defaultFound)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	s.found = s.defaultFound || s.overrideFound
@@ -161,21 +158,4 @@ func (s *Source) Describe() string {
 		return s.path
 	}
 	return s.defaultPath
-}
-
-// findExistingUpward searches upward from the working directory for a relative file path.
-func findExistingUpward(relativeFilePath string) (string, bool) {
-	if _, err := os.Stat(relativeFilePath); err == nil {
-		return relativeFilePath, true
-	}
-
-	dir := "."
-	for range maxSearchDepth {
-		dir += "/.."
-		path := dir + "/" + relativeFilePath
-		if _, err := os.Stat(path); err == nil {
-			return path, true
-		}
-	}
-	return "", false
 }
