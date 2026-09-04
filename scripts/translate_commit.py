@@ -34,7 +34,7 @@ def main():
 
             # Re-apply indentation to both translations
             print(f"{indent}{zh_trans}")
-            print(f"{indent}{en_trans}")
+#             print(f"{indent}{en_trans}")
 
         except Exception as e:
             # If translation fails, print original line (which contains indentation)
