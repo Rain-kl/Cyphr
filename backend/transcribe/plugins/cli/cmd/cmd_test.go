@@ -429,6 +429,19 @@ func TestCobraCommands(t *testing.T) {
 		})
 	})
 
+	mux.HandleFunc("/api/v1/jobs/20004", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error_msg": "",
+			"data": client.JobInfo{
+				ID:        20004,
+				Model:     "mock-whisper-base",
+				Status:    "failed",
+				ErrorMsg:  "audio decoding error",
+				CreatedAt: time.Now(),
+			},
+		})
+	})
+
 	mux.HandleFunc("/api/v1/jobs/20002/stream", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, _ := w.(http.Flusher)
@@ -666,4 +679,120 @@ func TestCobraCommands(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, out, "Job submitted successfully: ID #20002")
 	})
+
+	t.Run("jobs get all command with no placeholders", func(t *testing.T) {
+		cleanJobsDir := filepath.Join(t.TempDir(), "empty_jobs")
+		t.Setenv("CYPHR_JOBS_DIR", cleanJobsDir)
+
+		root := NewRootCmd()
+		out, err := executeCommand(root, "jobs", "get", "all", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "No pending job placeholders found")
+	})
+
+	t.Run("jobs get all command syncs completed jobs and keeps running jobs", func(t *testing.T) {
+		jobsDir := filepath.Join(t.TempDir(), "test_jobs")
+		t.Setenv("CYPHR_JOBS_DIR", jobsDir)
+		outDir := t.TempDir()
+
+		// 1. Create a completed job placeholder (20002)
+		require.NoError(t, SaveJobPlaceholder(&JobPlaceholder{
+			JobID:            20002,
+			OriginalFileName: "voice.mp3",
+			BaseName:         "voice",
+			OutputDir:        outDir,
+			Model:            "mock-whisper-base",
+			CreatedAt:        time.Now().Add(-10 * time.Minute),
+		}))
+
+		// 2. Create a running job placeholder (20003)
+		require.NoError(t, SaveJobPlaceholder(&JobPlaceholder{
+			JobID:            20003,
+			OriginalFileName: "meeting.wav",
+			BaseName:         "meeting",
+			OutputDir:        outDir,
+			Model:            "mock-whisper-base",
+			CreatedAt:        time.Now().Add(-5 * time.Minute),
+		}))
+
+		// 3. Create a failed job placeholder (20004)
+		require.NoError(t, SaveJobPlaceholder(&JobPlaceholder{
+			JobID:            20004,
+			OriginalFileName: "corrupt.flac",
+			BaseName:         "corrupt",
+			OutputDir:        outDir,
+			Model:            "mock-whisper-base",
+			CreatedAt:        time.Now().Add(-2 * time.Minute),
+		}))
+
+		placeholders, err := ListJobPlaceholders()
+		require.NoError(t, err)
+		assert.Len(t, placeholders, 3)
+
+		// Run: cyphr jobs get all
+		root := NewRootCmd()
+		out, err := executeCommand(root, "jobs", "get", "all", "--config", cfgFile)
+		require.NoError(t, err)
+
+		assert.Contains(t, out, "Found 3 pending job placeholder(s)")
+		assert.Contains(t, out, "Job #20002 (voice): Completed")
+		assert.Contains(t, out, "Job #20003 (meeting): currently running")
+		assert.Contains(t, out, "Job #20004 (corrupt): failed on server")
+		assert.Contains(t, out, "1 synced, 1 still running, 1 failed/removed")
+
+		// Completed files must exist in outDir
+		assert.FileExists(t, filepath.Join(outDir, "voice.txt"))
+		assert.FileExists(t, filepath.Join(outDir, "voice.srt"))
+
+		// Only running job 20003 placeholder should remain
+		remaining, err := ListJobPlaceholders()
+		require.NoError(t, err)
+		require.Len(t, remaining, 1)
+		assert.Equal(t, uint64(20003), remaining[0].JobID)
+
+		// 20002 and 20004 placeholders must have been deleted
+		_, err20002 := GetJobPlaceholder(20002)
+		assert.Error(t, err20002)
+		_, err20004 := GetJobPlaceholder(20004)
+		assert.Error(t, err20004)
+	})
+}
+
+func TestJobPlaceholderCRUD(t *testing.T) {
+	tempJobs := filepath.Join(t.TempDir(), "jobs")
+	t.Setenv("CYPHR_JOBS_DIR", tempJobs)
+
+	ph := &JobPlaceholder{
+		JobID:            5555,
+		OriginalFileName: "interview.mp3",
+		BaseName:         "interview",
+		OutputDir:        "/tmp/results",
+		Model:            "qwen3-asr-0.6b",
+		Format:           "json",
+		CreatedAt:        time.Now().UTC(),
+	}
+
+	require.NoError(t, SaveJobPlaceholder(ph))
+
+	loaded, err := GetJobPlaceholder(5555)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(5555), loaded.JobID)
+	assert.Equal(t, "interview.mp3", loaded.OriginalFileName)
+	assert.Equal(t, "interview", loaded.BaseName)
+	assert.Equal(t, "/tmp/results", loaded.OutputDir)
+	assert.Equal(t, "qwen3-asr-0.6b", loaded.Model)
+
+	list, err := ListJobPlaceholders()
+	require.NoError(t, err)
+	require.Len(t, list, 1)
+	assert.Equal(t, uint64(5555), list[0].JobID)
+
+	require.NoError(t, RemoveJobPlaceholder(5555))
+
+	_, errAfter := GetJobPlaceholder(5555)
+	assert.Error(t, errAfter)
+
+	emptyList, err := ListJobPlaceholders()
+	require.NoError(t, err)
+	assert.Empty(t, emptyList)
 }

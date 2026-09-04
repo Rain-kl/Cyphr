@@ -222,42 +222,149 @@ func newJobsLogCmd() *cobra.Command {
 
 func newJobsGetCmd() *cobra.Command {
 	var getOutputDir string
+	var getAll bool
 	getCmd := &cobra.Command{
-		Use:   "get <job_id>",
+		Use:   "get [flags] <job_id | all>",
 		Short: "Download completed job results (txt and srt) to local directory",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if getAll || (len(args) == 1 && strings.EqualFold(args[0], "all")) {
+				return runJobsGetAll(cmd, getOutputDir)
+			}
+
+			if len(args) == 0 {
+				return fmt.Errorf("requires either a job ID or 'all' (e.g. 'cyphr jobs get all')")
+			}
+
 			jobID, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
-				return fmt.Errorf("invalid job ID '%s': must be a positive integer", args[0])
+				return fmt.Errorf("invalid job ID '%s': must be a positive integer or 'all'", args[0])
 			}
 
-			job, err := appClient.GetJob(cmd.Context(), jobID)
-			if err != nil {
-				return fmt.Errorf("failed to get job #%d: %w", jobID, err)
-			}
-
-			if job.Status != client.StatusCompleted {
-				if job.Status == client.StatusFailed {
-					return fmt.Errorf("job #%d failed with error: %s", jobID, job.ErrorMsg)
-				}
-				return fmt.Errorf("job #%d is not completed yet (current status: %s, progress: %d%%)", jobID, job.Status, job.Progress)
-			}
-
-			baseName := ""
-			if job.OriginalFileName != "" {
-				baseName = strings.TrimSuffix(filepath.Base(job.OriginalFileName), filepath.Ext(job.OriginalFileName))
-			}
-			if baseName == "" {
-				baseName = fmt.Sprintf("job_%d", jobID)
-			}
-
-			cmd.Printf("Downloading results for job #%d (%s)...\n", jobID, baseName)
-			return saveJobResults(cmd, baseName, getOutputDir, job.ResultText, job.OpenAIResponse, job.Duration)
+			return runJobsGetOne(cmd, jobID, getOutputDir)
 		},
 	}
 
-	getCmd.Flags().StringVarP(&getOutputDir, "output-dir", "d", "", "directory to save output files (default: current directory)")
+	getCmd.Flags().StringVarP(&getOutputDir, "output-dir", "d", "", "directory to save output files (default: current directory or placeholder output dir)")
+	getCmd.Flags().BoolVarP(&getAll, "all", "a", false, "sync and download all pending jobs from local placeholders")
 
 	return getCmd
+}
+
+func runJobsGetOne(cmd *cobra.Command, jobID uint64, overrideOutDir string) error {
+	job, err := appClient.GetJob(cmd.Context(), jobID)
+	if err != nil {
+		return fmt.Errorf("failed to get job #%d: %w", jobID, err)
+	}
+
+	if job.Status != client.StatusCompleted {
+		if job.Status == client.StatusFailed {
+			_ = RemoveJobPlaceholder(jobID)
+			return fmt.Errorf("job #%d failed with error: %s", jobID, job.ErrorMsg)
+		}
+		return fmt.Errorf("job #%d is not completed yet (current status: %s, progress: %d%%)", jobID, job.Status, job.Progress)
+	}
+
+	ph, _ := GetJobPlaceholder(jobID)
+
+	baseName := ""
+	if job.OriginalFileName != "" {
+		baseName = strings.TrimSuffix(filepath.Base(job.OriginalFileName), filepath.Ext(job.OriginalFileName))
+	} else if ph != nil && ph.BaseName != "" {
+		baseName = ph.BaseName
+	}
+	if baseName == "" {
+		baseName = fmt.Sprintf("job_%d", jobID)
+	}
+
+	cmd.Printf("Downloading results for job #%d (%s)...\n", jobID, baseName)
+	if err := saveJobResults(cmd, baseName, overrideOutDir, job.ResultText, job.OpenAIResponse, job.Duration); err != nil {
+		return err
+	}
+
+	_ = RemoveJobPlaceholder(jobID)
+	return nil
+}
+
+func runJobsGetAll(cmd *cobra.Command, overrideOutDir string) error {
+	placeholders, err := ListJobPlaceholders()
+	if err != nil {
+		return fmt.Errorf("failed to list job placeholders: %w", err)
+	}
+
+	if len(placeholders) == 0 {
+		cmd.Println("No pending job placeholders found in ~/.cyphr/jobs.")
+		return nil
+	}
+
+	cmd.Printf("Found %d pending job placeholder(s). Checking status on server...\n\n", len(placeholders))
+
+	var completedCount, runningCount, failedCount int
+	for _, ph := range placeholders {
+		done, running, failed := syncOnePlaceholder(cmd, ph, overrideOutDir)
+		if done {
+			completedCount++
+		}
+		if running {
+			runningCount++
+		}
+		if failed {
+			failedCount++
+		}
+	}
+
+	cmd.Printf("Summary: %d synced, %d still running, %d failed/removed\n", completedCount, runningCount, failedCount)
+	if runningCount > 0 {
+		cmd.Printf("(Hint: Run 'cyphr jobs get all' again later once running jobs finish)\n")
+	}
+
+	return nil
+}
+
+func syncOnePlaceholder(cmd *cobra.Command, ph *JobPlaceholder, overrideOutDir string) (bool, bool, bool) {
+	jobID := ph.JobID
+	baseName := ph.BaseName
+	if baseName == "" {
+		baseName = fmt.Sprintf("job_%d", jobID)
+	}
+
+	job, err := appClient.GetJob(cmd.Context(), jobID)
+	if err != nil {
+		if client.IsNotFoundError(err) {
+			cmd.Printf("✗ Job #%d (%s): not found on server (deleted or expired). Removing placeholder.\n", jobID, baseName)
+			_ = RemoveJobPlaceholder(jobID)
+			return false, false, true
+		}
+		cmd.Printf("! Job #%d (%s): failed to query server: %v (placeholder retained)\n", jobID, baseName, err)
+		return false, false, false
+	}
+
+	switch job.Status {
+	case client.StatusCompleted:
+		outDir := overrideOutDir
+		if outDir == "" && ph.OutputDir != "" {
+			outDir = ph.OutputDir
+		}
+		cmd.Printf("▶ Job #%d (%s): Completed (%.2fs)! Downloading results...\n", jobID, baseName, job.Duration)
+		if saveErr := saveJobResults(cmd, baseName, outDir, job.ResultText, job.OpenAIResponse, job.Duration); saveErr != nil {
+			cmd.Printf("  ✗ Failed to save results: %v (placeholder retained)\n\n", saveErr)
+			return false, false, false
+		}
+		_ = RemoveJobPlaceholder(jobID)
+		cmd.Printf("  ✓ Results saved and placeholder removed.\n\n")
+		return true, false, false
+
+	case client.StatusRunning, client.StatusPending:
+		cmd.Printf("⏳ Job #%d (%s): currently %s (%d%%). Placeholder retained.\n", jobID, baseName, job.Status, job.Progress)
+		return false, true, false
+
+	case client.StatusFailed:
+		cmd.Printf("✗ Job #%d (%s): failed on server (%s). Removing placeholder.\n", jobID, baseName, job.ErrorMsg)
+		_ = RemoveJobPlaceholder(jobID)
+		return false, false, true
+
+	default:
+		cmd.Printf("? Job #%d (%s): unknown status '%s'. Placeholder retained.\n", jobID, baseName, job.Status)
+		return false, false, false
+	}
 }

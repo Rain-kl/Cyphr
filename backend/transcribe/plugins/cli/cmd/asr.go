@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -72,6 +73,26 @@ func NewAsrCmd() *cobra.Command {
 			jobID := submitResp.JobID
 			cmd.Printf("Job submitted successfully: ID #%d (status: %s)\n", jobID, submitResp.Status)
 
+			// Record job placeholder under ~/.cyphr/jobs for resilient retrieval
+			baseName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+			absOutputDir := asrOutputDir
+			if absOutputDir == "" {
+				if pwd, perr := os.Getwd(); perr == nil {
+					absOutputDir = pwd
+				}
+			} else if abs, aerr := filepath.Abs(absOutputDir); aerr == nil {
+				absOutputDir = abs
+			}
+			_ = SaveJobPlaceholder(&JobPlaceholder{
+				JobID:            jobID,
+				OriginalFileName: filepath.Base(filePath),
+				BaseName:         baseName,
+				OutputDir:        absOutputDir,
+				Model:            modelName,
+				Format:           asrFormat,
+				CreatedAt:        time.Now().UTC(),
+			})
+
 			if submitResp.Status == client.StatusCompleted {
 				cmd.Printf("Transcription already completed on server! Fetching results directly...\n")
 				jobDetail, gerr := appClient.GetJob(cmd.Context(), jobID)
@@ -89,7 +110,7 @@ func NewAsrCmd() *cobra.Command {
 			if asrDetach {
 				cmd.Printf("Job is running in background.\n")
 				cmd.Printf("You can follow live logs with: cyphr jobs log %d -f\n", jobID)
-				cmd.Printf("Or download results when completed with: cyphr jobs get %d\n", jobID)
+				cmd.Printf("Or sync results when completed with: cyphr jobs get %d (or 'cyphr jobs get all')\n", jobID)
 				return nil
 			}
 
@@ -113,6 +134,7 @@ func NewAsrCmd() *cobra.Command {
 			if errors.Is(streamCtx.Err(), context.Canceled) {
 				cmd.Printf("\n[Notice] Detached from job #%d. The job will continue running on the server.\n", jobID)
 				cmd.Printf("You can check status or follow logs at any time with: cyphr jobs log %d -f\n", jobID)
+				cmd.Printf("Or sync all pending job results with: cyphr jobs get all\n")
 				return nil
 			}
 			if streamErr != nil {
@@ -235,7 +257,11 @@ func handleCompletedJob(ctx context.Context, cmd *cobra.Command, filePath string
 		}
 	}
 
-	return saveJobResults(cmd, baseName, asrOutputDir, finishEvent.ResultText, openAIResp, finishEvent.Duration)
+	if err := saveJobResults(cmd, baseName, asrOutputDir, finishEvent.ResultText, openAIResp, finishEvent.Duration); err != nil {
+		return err
+	}
+	_ = RemoveJobPlaceholder(jobID)
+	return nil
 }
 
 // printUploadProgress renders a single-line upload progress bar on stderr.
