@@ -90,3 +90,35 @@ func TestModelScrollingKeys(t *testing.T) {
 		t.Errorf("expected YOffset 0 after Home, got %d", m.viewport.YOffset)
 	}
 }
+
+func TestModelMenu5ModelManagementNavigation(t *testing.T) {
+	paths := newTestPaths(t)
+	m := NewModel(paths)
+
+	// In idle state (no active download), key "5" opens ViewDownloadCatalog
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'5'}})
+	m = updated.(Model)
+	if m.state != ViewDownloadCatalog {
+		t.Errorf("expected state ViewDownloadCatalog, got %v", m.state)
+	}
+
+	// Press Esc to return to main menu
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	m = updated.(Model)
+	if m.state != ViewMainMenu {
+		t.Errorf("expected state ViewMainMenu, got %v", m.state)
+	}
+
+	// Press "6" to view agent logs
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'6'}})
+	m = updated.(Model)
+	if m.state != ViewAgentLogs {
+		t.Errorf("expected state ViewAgentLogs, got %v", m.state)
+	}
+
+	// ViewAgentLogs output should contain log title
+	logView := m.viewAgentLogs()
+	if len(logView) == 0 {
+		t.Errorf("expected non-empty log view")
+	}
+}

@@ -45,6 +45,15 @@ func NewAsrCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath := args[0]
+			modelName := resolveModelName()
+
+			// Fast-path: Check if the original file's hash matches an existing completed job on the server
+			if !asrForceUpload {
+				if handled, err := tryFastPathByHash(cmd, filePath, modelName); handled {
+					return err
+				}
+			}
+
 			uploadPath, cleanup, err := prepareUploadMedia(cmd, filePath)
 			if err != nil {
 				return err
@@ -53,7 +62,6 @@ func NewAsrCmd() *cobra.Command {
 				defer cleanup()
 			}
 
-			modelName := resolveModelName()
 			cmd.Printf("Submitting %s for transcription (model: %s)...\n", filepath.Base(filePath), modelName)
 
 			submitResp, err := submitMediaJob(cmd.Context(), uploadPath, modelName)
@@ -63,6 +71,20 @@ func NewAsrCmd() *cobra.Command {
 
 			jobID := submitResp.JobID
 			cmd.Printf("Job submitted successfully: ID #%d (status: %s)\n", jobID, submitResp.Status)
+
+			if submitResp.Status == client.StatusCompleted {
+				cmd.Printf("Transcription already completed on server! Fetching results directly...\n")
+				jobDetail, gerr := appClient.GetJob(cmd.Context(), jobID)
+				if gerr == nil && jobDetail != nil {
+					finish := client.FinishEvent{
+						Status:         jobDetail.Status,
+						Duration:       jobDetail.Duration,
+						ResultText:     jobDetail.ResultText,
+						OpenAIResponse: jobDetail.OpenAIResponse,
+					}
+					return handleCompletedJob(cmd.Context(), cmd, filePath, jobID, &finish)
+				}
+			}
 
 			if asrDetach {
 				cmd.Printf("Job is running in background.\n")
@@ -238,4 +260,49 @@ func formatBytes(n int64) string {
 	default:
 		return fmt.Sprintf("%d B", n)
 	}
+}
+
+func tryFastPathByHash(cmd *cobra.Command, filePath, modelName string) (bool, error) {
+	fileHash, fileSize, err := client.SHA256FileHex(filePath)
+	if err != nil || fileHash == "" {
+		// Cannot compute file hash; proceed to standard upload path
+		return false, nil //nolint:nilerr
+	}
+
+	hashReq := client.HashSubmitRequest{
+		FileHash:         fileHash,
+		FileSize:         fileSize,
+		OriginalFileName: filepath.Base(filePath),
+		Model:            modelName,
+		Language:         asrLanguage,
+		Prompt:           asrPrompt,
+		ResponseFormat:   asrFormat,
+	}
+
+	submitResp, herr := appClient.SubmitTranscriptionByHash(cmd.Context(), hashReq)
+	if herr != nil || submitResp == nil {
+		// Server does not have matching hash or hash check failed; proceed to upload
+		return false, nil //nolint:nilerr
+	}
+
+	jobID := submitResp.JobID
+	cmd.Printf("Matched existing media: Job ID #%d (status: %s)\n", jobID, submitResp.Status)
+	if submitResp.Status != client.StatusCompleted {
+		return false, nil
+	}
+
+	cmd.Printf("Transcription already completed on server! Fetching results directly...\n")
+	jobDetail, gerr := appClient.GetJob(cmd.Context(), jobID)
+	if gerr != nil || jobDetail == nil {
+		// Could not fetch completed job detail; fallback to standard upload
+		return false, nil //nolint:nilerr
+	}
+
+	finish := client.FinishEvent{
+		Status:         jobDetail.Status,
+		Duration:       jobDetail.Duration,
+		ResultText:     jobDetail.ResultText,
+		OpenAIResponse: jobDetail.OpenAIResponse,
+	}
+	return true, handleCompletedJob(cmd.Context(), cmd, filePath, jobID, &finish)
 }

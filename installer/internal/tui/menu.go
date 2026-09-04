@@ -23,10 +23,8 @@ var mainMenuItems = []MenuItem{
 	{Title: "安装 Agent 部署", Desc: "从 GitHub Release 下载并部署 Agent 运行时环境", Key: "i"},
 	{Title: "检查与在线更新", Desc: "在线检查并更新 Agent 代码或 Installer 自身程序", Key: "u"},
 	{Title: "查看综合状态", Desc: "查看 Agent 资源、下载任务及模型库综合看板", Key: "4"},
-	{Title: "下载 ASR 模型", Desc: "下载或增补语音识别预设/自定义模型（支持断点续传）", Key: "5"},
-	{Title: "查看下载进度", Desc: "实时追踪后台模型下载进度与日志分块", Key: "6"},
-	{Title: "停止当前下载", Desc: "优雅终止后台下载任务，保留分块可随时继续", Key: "7"},
-	{Title: "查看服务实时日志", Desc: "浏览 agent.log 详细输出与错误排查", Key: "8"},
+	{Title: "ASR 模型与下载管理", Desc: "浏览/下载预设模型、追踪实时下载进度或终止任务", Key: "5"},
+	{Title: "查看服务实时日志", Desc: "浏览 agent.log 详细输出与错误排查", Key: "6"},
 	{Title: "环境健康诊断 (Doctor)", Desc: "检测 GPU、CUDA、PyTorch 驱动及硬件加速就绪情况", Key: "d"},
 	{Title: "退出管理面板", Desc: "安全退出控制台 (后台服务与下载不受影响)", Key: "q"},
 }
@@ -71,20 +69,23 @@ func (m Model) handleMenuKeyShortcuts(k string) (tea.Model, tea.Cmd) {
 		m.state = ViewStatusDashboard
 		return m, nil
 	case "5":
-		m.state = ViewDownloadCatalog
-		return m, nil
+		return m.handleModelManagement()
 	case "6":
-		m.state = ViewDownloadProgress
-		return m, nil
-	case "7":
-		return m.handleStopDownload()
-	case "8":
 		m.state = ViewAgentLogs
 		return m, nil
 	case "d", "D":
 		m.state = ViewDoctor
 		m.doctorOutput = doctor.Run(m.paths).Format()
 		return m, nil
+	}
+	return m, nil
+}
+
+func (m Model) handleModelManagement() (tea.Model, tea.Cmd) {
+	if m.downStatus != nil && m.downStatus.Running {
+		m.state = ViewDownloadProgress
+	} else {
+		m.state = ViewDownloadCatalog
 	}
 	return m, nil
 }
@@ -104,17 +105,13 @@ func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
 	case 5:
 		m.state = ViewStatusDashboard
 	case 6:
-		m.state = ViewDownloadCatalog
+		return m.handleModelManagement()
 	case 7:
-		m.state = ViewDownloadProgress
-	case 8:
-		return m.handleStopDownload()
-	case 9:
 		m.state = ViewAgentLogs
-	case 10:
+	case 8:
 		m.state = ViewDoctor
 		m.doctorOutput = doctor.Run(m.paths).Format()
-	case 11:
+	case 9:
 		return m, tea.Quit
 	}
 	return m, nil
@@ -207,6 +204,6 @@ func (m Model) viewMainMenu() string {
 		}
 	}
 
-	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装 Agent   [u] 更新组件   [d] 环境诊断   [1-8] 快捷键   [q/Esc] 退出"))
+	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装 Agent   [u] 更新组件   [d] 环境诊断   [1-6] 快捷键   [q/Esc] 退出"))
 	return b.String()
 }

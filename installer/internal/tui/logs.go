@@ -9,7 +9,7 @@ import (
 	"cyphr/installer/internal/proc"
 )
 
-const maxLogLines = 100
+const maxLogLines = 20
 
 func (m Model) updateAgentLogs(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {

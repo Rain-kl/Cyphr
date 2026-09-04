@@ -486,9 +486,21 @@ func TestCobraCommands(t *testing.T) {
 		out, err := executeCommand(root, "jobs", "ls", "--config", cfgFile)
 		require.NoError(t, err)
 		assert.Contains(t, out, "JOB ID")
+		assert.Contains(t, out, "FILE")
+		assert.Contains(t, out, "voice.mp3")
 		assert.Contains(t, out, "20002")
 		assert.Contains(t, out, "mock-whisper-base")
 		assert.Contains(t, out, "completed")
+	})
+
+	t.Run("jobs ls -a command", func(t *testing.T) {
+		root := NewRootCmd()
+		out, err := executeCommand(root, "jobs", "ls", "-a", "--config", cfgFile)
+		require.NoError(t, err)
+		assert.Contains(t, out, "JOB ID")
+		assert.Contains(t, out, "FILE")
+		assert.Contains(t, out, "voice.mp3")
+		assert.Contains(t, out, "Showing all 1 jobs")
 	})
 
 	t.Run("jobs log command", func(t *testing.T) {

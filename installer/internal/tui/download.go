@@ -35,60 +35,78 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			m.downloadSource = SourceModelScope
 		}
-	case KeyEnter:
+	case "p", "P":
 		if m.downStatus != nil && m.downStatus.Running {
-			m.err = fmt.Errorf("当前已有下载任务正在运行中 (PID: %d)，请先停止或等待完成", m.downStatus.PID)
+			m.state = ViewDownloadProgress
 			return m, nil
 		}
-
-		selectedPreset := model.PresetCatalog[m.catalogIndex]
-		var modelID string
-		var source string
-		var endpoint string
-
-		switch m.downloadSource {
-		case SourceModelScope:
-			source = SourceModelScope
-			endpoint = "https://modelscope.cn"
-			modelID = selectedPreset.ModelScopeID
-			if modelID == "" {
-				m.err = fmt.Errorf("模型 %s 暂无 ModelScope 官方源，请按 [m] 切换至 Hugging Face 镜像或官方源", selectedPreset.Name)
-				return m, nil
-			}
-		case SourceHF:
-			source = "huggingface"
-			endpoint = "https://huggingface.co"
-			modelID = selectedPreset.HuggingFaceID
-			if modelID == "" {
-				modelID = selectedPreset.ID
-			}
-		default: // SourceHFMirror
-			source = "huggingface"
-			endpoint = "https://hf-mirror.com"
-			modelID = selectedPreset.HuggingFaceID
-			if modelID == "" {
-				modelID = selectedPreset.ID
-			}
+	case "x", "X":
+		if m.downStatus != nil && m.downStatus.Running {
+			return m.handleStopDownload()
 		}
+	case KeyEnter:
+		return m.handleCatalogEnter()
+	}
+	return m, nil
+}
 
-		opts := model.DownloadOptions{
-			ModelID:  modelID,
-			PkgDir:   selectedPreset.PkgDir,
-			Source:   source,
-			Endpoint: endpoint,
-			Mode:     "bg",
+func (m Model) resolveDownloadTarget(preset model.PresetModel) (modelID, source, endpoint string, err error) {
+	switch m.downloadSource {
+	case SourceModelScope:
+		source = SourceModelScope
+		endpoint = "https://modelscope.cn"
+		modelID = preset.ModelScopeID
+		if modelID == "" {
+			err = fmt.Errorf("模型 %s 暂无 ModelScope 官方源，请按 [m] 切换至 Hugging Face 镜像或官方源", preset.Name)
+			return
 		}
+	case SourceHF:
+		source = "huggingface"
+		endpoint = "https://huggingface.co"
+		modelID = preset.HuggingFaceID
+		if modelID == "" {
+			modelID = preset.ID
+		}
+	default: // SourceHFMirror
+		source = "huggingface"
+		endpoint = "https://hf-mirror.com"
+		modelID = preset.HuggingFaceID
+		if modelID == "" {
+			modelID = preset.ID
+		}
+	}
+	return
+}
 
-		pid, err := m.modelSvc.StartDownload(opts)
-		if err != nil {
-			m.err = err
-		} else {
-			m.statusMsg = fmt.Sprintf("已成功启动后台下载任务 (PID: %d)，目标: models/%s (源: %s)", pid, selectedPreset.PkgDir, source)
-			m.state = ViewDownloadProgress
-		}
-		m.refreshData()
+func (m Model) handleCatalogEnter() (tea.Model, tea.Cmd) {
+	if m.downStatus != nil && m.downStatus.Running {
+		m.err = fmt.Errorf("当前已有下载任务正在运行中 (PID: %d)，请先停止或等待完成", m.downStatus.PID)
 		return m, nil
 	}
+
+	selectedPreset := model.PresetCatalog[m.catalogIndex]
+	modelID, source, endpoint, err := m.resolveDownloadTarget(selectedPreset)
+	if err != nil {
+		m.err = err
+		return m, nil
+	}
+
+	opts := model.DownloadOptions{
+		ModelID:  modelID,
+		PkgDir:   selectedPreset.PkgDir,
+		Source:   source,
+		Endpoint: endpoint,
+		Mode:     "bg",
+	}
+
+	pid, err := m.modelSvc.StartDownload(opts)
+	if err != nil {
+		m.err = err
+	} else {
+		m.statusMsg = fmt.Sprintf("已成功启动后台下载任务 (PID: %d)，目标: models/%s (源: %s)", pid, selectedPreset.PkgDir, source)
+		m.state = ViewDownloadProgress
+	}
+	m.refreshData()
 	return m, nil
 }
 
@@ -109,7 +127,8 @@ func (m Model) viewDownloadCatalog() string {
 	b.WriteString("当前下载平台: " + sourceText + "  " + StyleSubtitle.Render("(按 [m] 或 [s] 键快速切换下载源)") + "\n\n")
 
 	if m.downStatus != nil && m.downStatus.Running {
-		b.WriteString(StyleBadgeWarning.Render(fmt.Sprintf("⚠️ 提示: 当前已有模型正在下载中 (PID: %d, 模型: %s)。", m.downStatus.PID, m.downStatus.ModelID)) + "\n\n")
+		runningCard := fmt.Sprintf("⚠️ 当前已有模型正在后台下载中 (PID: %d, 模型: %s)\n   按 [p] 查看实时进度与日志   按 [x] 终止该下载任务", m.downStatus.PID, m.downStatus.ModelID)
+		b.WriteString(StyleCard.Render(runningCard) + "\n\n")
 	}
 
 	b.WriteString(StyleSubtitle.Render("选择需要下载的模型后按 [Enter] 即可后台静默下载（支持断点续传）：") + "\n\n")
@@ -139,6 +158,10 @@ func (m Model) viewDownloadCatalog() string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString(StyleKeyHelp.Render("[Enter] 开始后台下载   [m/s] 切换下载平台(ModelScope/HF)   [↑/↓, j/k] 选择模型   [Esc/q] 返回"))
+	footerHelp := "[Enter] 开始后台下载   [m/s] 切换下载平台(ModelScope/HF)   [↑/↓, j/k] 选择模型   [Esc/q] 返回"
+	if m.downStatus != nil && m.downStatus.Running {
+		footerHelp = "[p] 查看实时进度   [x] 停止当前下载   " + footerHelp
+	}
+	b.WriteString(StyleKeyHelp.Render(footerHelp))
 	return b.String()
 }

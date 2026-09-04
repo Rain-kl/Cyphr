@@ -23,7 +23,8 @@ import (
 
 const (
 	defaultTabPadding = 3
-	defaultPageSize   = 20
+	defaultPageSize   = 10
+	allJobsPageSize   = 10000
 	defaultPage       = 1
 )
 
@@ -31,6 +32,7 @@ var (
 	jobsStatus   string
 	jobsPage     int
 	jobsPageSize int
+	jobsAll      bool
 	followLogs   bool
 )
 
@@ -53,7 +55,16 @@ func newJobsListCmd() *cobra.Command {
 		Use:   "ls",
 		Short: "List transcription jobs",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			resp, err := appClient.ListJobs(cmd.Context(), jobsPage, jobsPageSize, jobsStatus)
+			fetchPage := jobsPage
+			fetchPageSize := jobsPageSize
+			if jobsAll {
+				fetchPage = 1
+				if !cmd.Flags().Changed("page-size") {
+					fetchPageSize = allJobsPageSize
+				}
+			}
+
+			resp, err := appClient.ListJobs(cmd.Context(), fetchPage, fetchPageSize, jobsStatus)
 			if err != nil {
 				return fmt.Errorf("failed to list jobs: %w", err)
 			}
@@ -64,27 +75,36 @@ func newJobsListCmd() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, defaultTabPadding, ' ', 0)
-			_, _ = fmt.Fprintln(w, "JOB ID\tMODEL\tSTATUS\tPROGRESS\tDURATION\tCREATED AT")
+			_, _ = fmt.Fprintln(w, "JOB ID\tFILE\tMODEL\tSTATUS\tPROGRESS\tDURATION\tCREATED AT")
 			for _, job := range resp.Items {
+				fileName := job.OriginalFileName
+				if fileName == "" {
+					fileName = "-"
+				}
 				durStr := "-"
 				if job.Duration > 0 {
 					durStr = fmt.Sprintf("%.2fs", job.Duration)
 				}
 				createdAtStr := job.CreatedAt.Local().Format("2006-01-02 15:04:05")
 				progStr := fmt.Sprintf("%d%%", job.Progress)
-				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
-					job.ID, job.Model, job.Status, progStr, durStr, createdAtStr)
+				_, _ = fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\t%s\n",
+					job.ID, fileName, job.Model, job.Status, progStr, durStr, createdAtStr)
 			}
 			_ = w.Flush()
 
-			cmd.Printf("\nShowing %d of %d total jobs (page %d)\n", len(resp.Items), resp.Total, resp.Page)
+			if jobsAll {
+				cmd.Printf("\nShowing all %d jobs\n", len(resp.Items))
+			} else {
+				cmd.Printf("\nShowing %d of %d total jobs (page %d)\n", len(resp.Items), resp.Total, resp.Page)
+			}
 			return nil
 		},
 	}
 
 	listCmd.Flags().StringVar(&jobsStatus, "status", "", "filter jobs by status (pending, running, completed, failed)")
 	listCmd.Flags().IntVar(&jobsPage, "page", defaultPage, "page number")
-	listCmd.Flags().IntVar(&jobsPageSize, "page-size", defaultPageSize, "number of jobs per page")
+	listCmd.Flags().IntVar(&jobsPageSize, "page-size", defaultPageSize, "number of jobs per page (default: 10)")
+	listCmd.Flags().BoolVarP(&jobsAll, "all", "a", false, "show all jobs without pagination limit")
 
 	return listCmd
 }

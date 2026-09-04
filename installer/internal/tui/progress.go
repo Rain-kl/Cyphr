@@ -12,7 +12,10 @@ func (m Model) updateDownloadProgress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case KeyEsc, KeyQ:
 		m.state = ViewMainMenu
 		return m, nil
-	case "x":
+	case "c", "C":
+		m.state = ViewDownloadCatalog
+		return m, nil
+	case "x", "X":
 		return m.handleStopDownload()
 	case "r":
 		m.refreshData()
@@ -37,7 +40,7 @@ func (m Model) viewDownloadProgress() string {
 			b.WriteString("最近日志末尾:\n")
 			b.WriteString(StyleLogBox.Render(strings.Join(m.downStatus.RecentLogs, "\n")) + "\n\n")
 		}
-		b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单"))
+		b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单   [c] 浏览预设模型库"))
 		return b.String()
 	}
 
@@ -61,6 +64,6 @@ func (m Model) viewDownloadProgress() string {
 		b.WriteString(StyleLogBox.Render(strings.Join(m.downStatus.RecentLogs, "\n")) + "\n\n")
 	}
 
-	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单 (下载在后台继续)   [↑/↓, j/k, PgUp/PgDn] 翻页滚动   [鼠标划选] 复制文本   [x] 停止当前下载   [r] 立即刷新"))
+	b.WriteString(StyleKeyHelp.Render("[Esc/q] 返回主菜单 (下载在后台继续)   [c] 浏览预设模型库   [↑/↓, j/k, PgUp/PgDn] 翻页滚动   [鼠标划选] 复制文本   [x] 停止当前下载   [r] 立即刷新"))
 	return b.String()
 }
