@@ -4,6 +4,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,9 +27,9 @@ import { toast } from 'sonner';
 import { CreateNodeDialog } from './create-node-dialog';
 import { LoadModelDialog } from './load-model-dialog';
 import { NodeCard } from './node-card';
-import { NodeDetailDrawer } from './node-detail-drawer';
 
 export function NodesTab() {
+  const router = useRouter();
   const t = useTranslations('adminAsr.nodes');
 
   const [nodes, setNodes] = React.useState<NodeDTO[]>([]);
@@ -36,8 +37,6 @@ export function NodesTab() {
   const [isLoading, setIsLoading] = React.useState(false);
 
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
-  const [selectedNodeForDetails, setSelectedNodeForDetails] =
-    React.useState<NodeDTO | null>(null);
   const [selectedNodeForLoadModel, setSelectedNodeForLoadModel] =
     React.useState<NodeDTO | null>(null);
 
@@ -239,7 +238,7 @@ export function NodesTab() {
             <NodeCard
               key={node.id}
               node={node}
-              onOpenDetails={setSelectedNodeForDetails}
+              onOpenDetails={(n) => router.push(`/admin/nodes/${n.id}`)}
               onOpenLoadModel={setSelectedNodeForLoadModel}
               onUnloadModel={handleUnloadModel}
               onDeleteNode={handleDeleteNode}
@@ -248,7 +247,7 @@ export function NodesTab() {
         </div>
       )}
 
-      {/* Dialogs and Drawers */}
+      {/* Dialogs */}
       <CreateNodeDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
@@ -260,13 +259,6 @@ export function NodesTab() {
         open={Boolean(selectedNodeForLoadModel)}
         onOpenChange={(v) => !v && setSelectedNodeForLoadModel(null)}
         onSuccess={fetchNodes}
-      />
-
-      <NodeDetailDrawer
-        node={selectedNodeForDetails}
-        open={Boolean(selectedNodeForDetails)}
-        onOpenChange={(v) => !v && setSelectedNodeForDetails(null)}
-        onUnloadModel={handleUnloadModel}
       />
     </div>
   );
