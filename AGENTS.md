@@ -87,6 +87,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## 严格遵循事项 (Guardrails)
 
+### 上游优先与下游合并规范 (Upstream-First)
+
+- 本仓库是下游产品仓，上游框架仓为 Wavelet（本地路径 `/Users/ryan/Code/Go/Wavelet`，对应 git remote `wavelet`）。
+- **归属判定**：改动位于框架层（`backend/core/`、`backend/pkg/`、通用 `backend/plugins/drivers|infra|domain/`、Cordis/微内核机制）→ **必须先在上游修改**；仅下游业务（`backend/downstream/`、产品页面与业务插件）可直接在下游修改。
+- **标准流程**：上游改代码 + 补测试 + 本地 commit（禁止 push）→ 下游 `git fetch wavelet` 确认带入范围（避免拖入无关提交）→ `git merge wavelet/main` → 下游重跑相关测试验证。
+- **严禁**直接在下游修改框架层代码（会造成双源分叉、合并冲突）。若已误改，先 `git revert` 撤销下游改动，再按标准流程合并上游。
+
 - 切勿删除 `frontend/node_modules`。
 - 保持 `backend/pkg/` 绝对纯净，属于底层通用基础库，**严禁依赖项目上层包（如 `Wavelet/core/*`、`Wavelet/plugins/*`）**；保持 `backend/pkg/util/` 绝对纯净无状态，禁止导入 Gin、GORM、sessions 等 Web/数据库框架包。
 - 测试用例禁止硬编码相对路径创建临时目录，统一使用 Go 内置 `t.TempDir()`。
