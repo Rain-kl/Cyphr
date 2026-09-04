@@ -24,6 +24,7 @@ const (
 	ViewDownloadCatalog
 	ViewDownloadProgress
 	ViewAgentLogs
+	ViewDoctor
 )
 
 // TickMsg triggers periodic state refresh (e.g. status & log tailing).
@@ -69,6 +70,7 @@ type Model struct {
 	updateMsg    string
 	updateErr    error
 	updateMirror bool
+	doctorOutput string
 
 	// Cached data
 	agentStatus *agent.AgentStatus
@@ -187,6 +189,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateDownloadProgress(msg)
 		case ViewAgentLogs:
 			return m.updateAgentLogs(msg)
+		case ViewDoctor:
+			return m.updateDoctorView(msg)
 		}
 	}
 
@@ -223,6 +227,8 @@ func (m Model) View() string {
 		b.WriteString(m.viewDownloadProgress())
 	case ViewAgentLogs:
 		b.WriteString(m.viewAgentLogs())
+	case ViewDoctor:
+		b.WriteString(m.viewDoctorView())
 	}
 
 	return StyleApp.Render(b.String())

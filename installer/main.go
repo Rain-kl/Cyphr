@@ -9,10 +9,21 @@ import (
 
 	"cyphr/installer/internal/agent"
 	"cyphr/installer/internal/config"
+	"cyphr/installer/internal/doctor"
 	"cyphr/installer/internal/model"
 	"cyphr/installer/internal/tui"
 	"cyphr/installer/internal/updater"
+	"github.com/rs/zerolog"
 )
+
+func init() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		if parsed, err := zerolog.ParseLevel(lvl); err == nil {
+			zerolog.SetGlobalLevel(parsed)
+		}
+	}
+}
 
 func main() {
 	paths := config.NewAppPaths()
@@ -331,6 +342,10 @@ func handleCLI(paths *config.AppPaths, args []string) {
 			}
 		}
 
+	case "doctor":
+		rep := doctor.Run(paths)
+		fmt.Print(rep.Format())
+
 	case "help", "-h", "--help":
 		printHelp()
 
@@ -357,5 +372,6 @@ func printHelp() {
 	fmt.Println("  progress              查看当前后台下载进度与日志")
 	fmt.Println("  stop-download         停止当前正在运行的后台模型下载任务")
 	fmt.Println("  models                列出本地已下载的模型包")
+	fmt.Println("  doctor                诊断并检测本地软硬件环境 (GPU、驱动、CUDA、PyTorch、FFmpeg 等)")
 	fmt.Println("  help                  查看帮助信息")
 }

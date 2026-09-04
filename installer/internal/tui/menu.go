@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"cyphr/installer/internal/doctor"
 )
 
 type MenuItem struct {
@@ -24,6 +26,7 @@ var mainMenuItems = []MenuItem{
 	{Title: "查看下载进度", Desc: "实时追踪后台模型下载进度与日志分块", Key: "6"},
 	{Title: "停止当前下载", Desc: "优雅终止后台下载任务，保留分块可随时继续", Key: "7"},
 	{Title: "查看服务实时日志", Desc: "浏览 agent.log 详细输出与错误排查", Key: "8"},
+	{Title: "环境健康诊断 (Doctor)", Desc: "检测 GPU、CUDA、PyTorch 驱动及硬件加速就绪情况", Key: "d"},
 	{Title: "退出管理面板", Desc: "安全退出控制台 (后台服务与下载不受影响)", Key: "q"},
 }
 
@@ -67,6 +70,10 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "8":
 		m.state = ViewAgentLogs
 		return m, nil
+	case "d", "D":
+		m.state = ViewDoctor
+		m.doctorOutput = doctor.Run(m.paths).Format()
+		return m, nil
 	case "enter":
 		switch m.menuIndex {
 		case 0:
@@ -90,6 +97,9 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 9:
 			m.state = ViewAgentLogs
 		case 10:
+			m.state = ViewDoctor
+			m.doctorOutput = doctor.Run(m.paths).Format()
+		case 11:
 			return m, tea.Quit
 		}
 	}
@@ -183,6 +193,6 @@ func (m Model) viewMainMenu() string {
 		}
 	}
 
-	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装 Agent   [u] 更新组件   [1-8] 快捷键   [q/Esc] 退出"))
+	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装 Agent   [u] 更新组件   [d] 环境诊断   [1-8] 快捷键   [q/Esc] 退出"))
 	return b.String()
 }

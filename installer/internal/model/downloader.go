@@ -13,7 +13,17 @@ import (
 	"time"
 
 	"github.com/replicate/pget/pkg/download"
+	"github.com/rs/zerolog"
 )
+
+func init() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		if parsed, err := zerolog.ParseLevel(lvl); err == nil {
+			zerolog.SetGlobalLevel(parsed)
+		}
+	}
+}
 
 // RemoteFile represents a file to be downloaded in a model repository.
 type RemoteFile struct {
