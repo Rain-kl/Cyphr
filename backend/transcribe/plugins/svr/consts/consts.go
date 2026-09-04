@@ -20,6 +20,8 @@ const (
 // Model constants.
 const (
 	DefaultModelName = "qwen3-asr-0.6b"
+	ModelQwen3ASR06B = "qwen3-asr-0.6b"
+	ModelQwen3ASR17B = "qwen3-asr-1.7b"
 )
 
 // Token constants.
