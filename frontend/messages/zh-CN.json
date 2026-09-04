@@ -2129,6 +2129,7 @@
     "allJobs": {
       "filterUser": "按用户 ID 过滤",
       "filterNode": "按节点 ID 过滤",
+      "allNodes": "全部节点",
       "userCol": "用户 UID",
       "nodeCol": "处理节点",
       "inspectorTitle": "全景深度检查",

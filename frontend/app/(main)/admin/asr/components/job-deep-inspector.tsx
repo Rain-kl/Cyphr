@@ -81,9 +81,7 @@ export function JobDeepInspector({
     };
   }, [open, jobId]);
 
-  if (!job) return null;
-
-  const currentJob: JobDTO | JobSummaryDTO = detailJob || job;
+  const currentJob: JobDTO | JobSummaryDTO | null = detailJob || job;
   const resultJson = React.useMemo(() => {
     if (!detailJob) return undefined;
     if (detailJob.result_json) return detailJob.result_json;
@@ -100,6 +98,8 @@ export function JobDeepInspector({
   }, [detailJob]);
   const errorMsg = detailJob?.error_msg;
   const storagePath = detailJob?.audio_storage_path;
+
+  if (!currentJob) return null;
 
   const handleCopyJson = async () => {
     if (!resultJson) return;

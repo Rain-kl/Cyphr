@@ -2129,6 +2129,7 @@
     "allJobs": {
       "filterUser": "Filter by User ID",
       "filterNode": "Filter by Node ID",
+      "allNodes": "All nodes",
       "userCol": "User UID",
       "nodeCol": "Node",
       "inspectorTitle": "Deep Job Inspector",
