@@ -147,6 +147,7 @@ export function JobDetailClient() {
               jobId={job.id}
               mediaUrl={job.media_url}
               audioStoragePath={job.audio_storage_path}
+              initialDuration={job.duration}
               onTimeUpdate={setCurrentTime}
             />
           )}

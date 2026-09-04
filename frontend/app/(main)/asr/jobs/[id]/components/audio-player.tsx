@@ -25,11 +25,17 @@ interface AudioPlayerProps {
   jobId: string | number;
   mediaUrl?: string;
   audioStoragePath?: string;
+  // Fallback duration from job detail (transcription duration) so the slider
+  // stays usable before audio metadata loads.
+  initialDuration?: number;
   onTimeUpdate?: (currentTime: number) => void;
 }
 
 export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
-  function AudioPlayer({ mediaUrl, audioStoragePath, onTimeUpdate }, ref) {
+  function AudioPlayer(
+    { mediaUrl, audioStoragePath, initialDuration, onTimeUpdate },
+    ref,
+  ) {
     const audioRef = React.useRef<HTMLAudioElement | null>(null);
     const [isPlaying, setIsPlaying] = React.useState(false);
     const [currentTime, setCurrentTime] = React.useState(0);
@@ -38,7 +44,12 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
     const [isMuted, setIsMuted] = React.useState(false);
     const [isSeeking, setIsSeeking] = React.useState(false);
     const [seekPreview, setSeekPreview] = React.useState(0);
+    const [audioError, setAudioError] = React.useState(false);
     const isSeekingRef = React.useRef(false);
+    // Seek requested before metadata is ready; applied on loadedmetadata.
+    const pendingSeekRef = React.useRef<number | null>(null);
+    const onTimeUpdateRef = React.useRef(onTimeUpdate);
+    onTimeUpdateRef.current = onTimeUpdate;
 
     const resolvedMediaUrl = React.useMemo(() => {
       if (mediaUrl) return mediaUrl;
@@ -51,13 +62,57 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
       return '';
     }, [mediaUrl, audioStoragePath]);
 
+    const applySeek = React.useCallback((seconds: number) => {
+      const el = audioRef.current;
+      const target = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+      // Sync UI immediately so the active SRT cue follows without waiting
+      // for the next timeupdate event.
+      setCurrentTime(target);
+      onTimeUpdateRef.current?.(target);
+      if (!el) {
+        pendingSeekRef.current = target;
+        return;
+      }
+      // Metadata not ready yet: setting currentTime is ignored by browsers,
+      // so defer the seek until loadedmetadata fires.
+      if (el.readyState < 1 || !Number.isFinite(el.duration)) {
+        pendingSeekRef.current = target;
+        // Trigger metadata load for the deferred seek.
+        el.preload = 'auto';
+        try {
+          el.load();
+        } catch {
+          // Ignore: loadedmetadata handler will apply the pending seek.
+        }
+        el.play().catch(() => {});
+        setIsPlaying(true);
+        return;
+      }
+      try {
+        el.currentTime = target;
+      } catch {
+        pendingSeekRef.current = target;
+      }
+      el.play().catch(() => {});
+      setIsPlaying(true);
+    }, []);
+
+    const flushPendingSeek = React.useCallback(() => {
+      const el = audioRef.current;
+      const pending = pendingSeekRef.current;
+      if (el && pending !== null && el.readyState >= 1) {
+        try {
+          el.currentTime = pending;
+          pendingSeekRef.current = null;
+        } catch {
+          // Keep pending; retry on next metadata/canplay event.
+        }
+      }
+    }, []);
+
     React.useImperativeHandle(ref, () => ({
       seekTo: (seconds: number) => {
-        if (audioRef.current) {
-          audioRef.current.currentTime = seconds;
-          audioRef.current.play().catch(() => {});
-          setIsPlaying(true);
-        }
+        applySeek(seconds);
       },
       play: () => {
         audioRef.current?.play().catch(() => {});
@@ -82,16 +137,30 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
 
     const skip = (seconds: number) => {
       if (!audioRef.current) return;
+      const upper =
+        Number.isFinite(duration) && duration > 0
+          ? duration
+          : Number.isFinite(initialDuration) && (initialDuration ?? 0) > 0
+            ? (initialDuration ?? 0)
+            : Number.POSITIVE_INFINITY;
       const target = Math.max(
         0,
-        Math.min(duration, audioRef.current.currentTime + seconds),
+        Math.min(upper, audioRef.current.currentTime + seconds),
       );
-      audioRef.current.currentTime = target;
-      setCurrentTime(target);
+      applySeek(target);
     };
 
-    const canSeek =
-      Boolean(resolvedMediaUrl) && Number.isFinite(duration) && duration > 0;
+    const elementDurationReady = Number.isFinite(duration) && duration > 0;
+    const fallbackDuration =
+      Number.isFinite(initialDuration) && (initialDuration ?? 0) > 0
+        ? (initialDuration ?? 0)
+        : 0;
+    const effectiveDuration = elementDurationReady
+      ? duration
+      : fallbackDuration;
+    // The slider stays draggable as long as we know any duration (element or
+    // job fallback). Actual element seek is deferred until metadata is ready.
+    const canSeek = Boolean(resolvedMediaUrl) && effectiveDuration > 0;
 
     const handleSeekPreview = (value: number[]) => {
       isSeekingRef.current = true;
@@ -101,17 +170,10 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
 
     const handleSeekCommit = (value: number[]) => {
       const target = value[0] ?? 0;
-      if (audioRef.current && canSeek) {
-        try {
-          audioRef.current.currentTime = target;
-        } catch {
-          // Ignore seek errors when media is not ready yet.
-        }
-      }
-      setCurrentTime(target);
-      if (onTimeUpdate) onTimeUpdate(target);
       isSeekingRef.current = false;
       setIsSeeking(false);
+      if (!canSeek) return;
+      applySeek(target);
     };
 
     const handleVolumeChange = (value: number[]) => {
@@ -145,24 +207,34 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
         <audio
           ref={audioRef}
           src={resolvedMediaUrl}
+          preload='auto'
           onTimeUpdate={() => {
             if (audioRef.current && !isSeekingRef.current) {
               const curr = audioRef.current.currentTime;
               setCurrentTime(curr);
-              if (onTimeUpdate) onTimeUpdate(curr);
+              onTimeUpdateRef.current?.(curr);
             }
           }}
           onLoadedMetadata={() => {
             if (audioRef.current) {
               const d = audioRef.current.duration;
               setDuration(Number.isFinite(d) ? d || 0 : 0);
+              setAudioError(false);
             }
+            flushPendingSeek();
           }}
           onDurationChange={() => {
             if (audioRef.current) {
               const d = audioRef.current.duration;
               if (Number.isFinite(d) && d > 0) setDuration(d);
             }
+          }}
+          onCanPlay={() => {
+            flushPendingSeek();
+          }}
+          onError={() => {
+            setAudioError(true);
+            setIsPlaying(false);
           }}
           onEnded={() => setIsPlaying(false)}
         />
@@ -173,7 +245,7 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
             <Slider
               value={[isSeeking ? seekPreview : currentTime]}
               min={0}
-              max={canSeek ? duration : 100}
+              max={canSeek ? effectiveDuration : 100}
               step={0.1}
               disabled={!canSeek}
               onValueChange={handleSeekPreview}
@@ -183,8 +255,19 @@ export const AudioPlayer = React.forwardRef<AudioPlayerRef, AudioPlayerProps>(
             />
             <div className='flex justify-between text-[11px] font-mono text-muted-foreground'>
               <span>{formatTime(isSeeking ? seekPreview : currentTime)}</span>
-              <span>{formatTime(duration)}</span>
+              <span>{formatTime(effectiveDuration)}</span>
             </div>
+            {!resolvedMediaUrl ? (
+              <p className='text-[11px] text-muted-foreground'>
+                音频地址缺失，无法播放与跳转（media_url / audio_storage_path
+                为空）。
+              </p>
+            ) : audioError ? (
+              <p className='text-[11px] text-rose-500'>
+                音频加载失败（/f/ 接口可能返回
+                401/404），请检查登录态后刷新重试；时间片高亮仍会跟随拖动位置。
+              </p>
+            ) : null}
           </div>
 
           {/* Controls Bar */}
