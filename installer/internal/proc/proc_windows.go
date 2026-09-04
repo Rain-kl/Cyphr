@@ -15,8 +15,8 @@ import (
 
 // Windows process creation flags
 const (
-	createNoWindow        = 0x08000000
-	detachedProcess       = 0x00000008
+	createNoWindow         = 0x08000000
+	detachedProcess        = 0x00000008
 	createBreakawayFromJob = 0x01000000
 )
 
