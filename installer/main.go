@@ -1,0 +1,206 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"cyphr/installer/internal/agent"
+	"cyphr/installer/internal/config"
+	"cyphr/installer/internal/model"
+	"cyphr/installer/internal/tui"
+)
+
+func main() {
+	paths := config.NewAppPaths()
+
+	// If CLI arguments are provided, handle them directly without launching TUI
+	if len(os.Args) > 1 {
+		handleCLI(paths, os.Args[1:])
+		return
+	}
+
+	// Interactive Bubble Tea TUI
+	p := tea.NewProgram(tui.NewModel(paths), tea.WithAltScreen())
+	if _, err := p.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error starting TUI: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func handleCLI(paths *config.AppPaths, args []string) {
+	agentSvc := agent.NewService(paths)
+	modelSvc := model.NewService(paths)
+
+	cmd := args[0]
+	switch cmd {
+	case "start":
+		fmt.Println("正在启动 Agent 服务...")
+		st, err := agentSvc.Start()
+		if err != nil {
+			fmt.Printf("✗ 启动失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ Agent 服务启动成功！(PID: %d)\n", st.PID)
+		fmt.Printf("  日志输出路径: %s\n", st.LogPath)
+
+	case "stop":
+		fmt.Println("正在停止 Agent 服务...")
+		err := agentSvc.Stop()
+		if err != nil {
+			fmt.Printf("✗ 停止服务失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✓ Agent 服务已成功停止。")
+
+	case "restart":
+		fmt.Println("正在重启 Agent 服务...")
+		st, err := agentSvc.Restart()
+		if err != nil {
+			fmt.Printf("✗ 重启失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ Agent 服务已成功重启！(PID: %d)\n", st.PID)
+
+	case "status":
+		st := agentSvc.Status()
+		fmt.Println("=== Agent 服务状态 ===")
+		if st.Running {
+			fmt.Printf("服务状态: 运行中 (Running)\n")
+			fmt.Printf("进程 PID: %d\n", st.PID)
+			fmt.Printf("运行时长: %s\n", st.Uptime)
+			fmt.Printf("物理内存: ~%d MB\n", st.RSSMB)
+		} else {
+			fmt.Println("服务状态: 未运行 (Stopped)")
+		}
+
+		dst := modelSvc.Status()
+		fmt.Println("\n=== 模型与下载状态 ===")
+		if dst.Running {
+			fmt.Printf("下载任务: 正在后台下载中 (Downloading)\n")
+			fmt.Printf("  下载模型: %s\n", dst.ModelID)
+			fmt.Printf("  存储目录: models/%s\n", dst.PkgDir)
+			fmt.Printf("  进程 PID: %d (已运行 %s)\n", dst.PID, dst.Uptime)
+		} else {
+			fmt.Println("下载任务: 当前无后台下载任务在运行")
+		}
+
+		fmt.Println("\n本地已安装模型 (models/ 目录):")
+		models, _ := modelSvc.ListLocalModels()
+		if len(models) == 0 {
+			fmt.Println("  (暂无已安装模型)")
+		} else {
+			for _, m := range models {
+				fmt.Printf("  - %s (%s) [%s]\n", m.DirName, m.DiskSize, m.Status)
+			}
+		}
+
+	case "download":
+		if len(args) < 2 {
+			fmt.Println("用法: installer download <MODEL_ID> [PKG_DIR] [ENDPOINT] [MODE]")
+			fmt.Println("示例: installer download Qwen/Qwen3-ASR-0.6B qwen3-asr-0.6b https://hf-mirror.com bg")
+			os.Exit(1)
+		}
+		modelID := args[1]
+		pkgDir := ""
+		if len(args) >= 3 {
+			pkgDir = args[2]
+		}
+		endpoint := "https://hf-mirror.com"
+		if len(args) >= 4 {
+			endpoint = args[3]
+		}
+		mode := "bg"
+		if len(args) >= 5 {
+			mode = args[4]
+		}
+
+		fmt.Println("正在启动后台下载任务...")
+		fmt.Printf("  模型 ID : %s\n", modelID)
+		fmt.Printf("  下载源  : %s\n", endpoint)
+		pid, err := modelSvc.StartDownload(model.DownloadOptions{
+			ModelID:  modelID,
+			PkgDir:   pkgDir,
+			Endpoint: endpoint,
+			Mode:     mode,
+		})
+		if err != nil {
+			fmt.Printf("✗ 启动下载失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✓ 后台下载任务已成功启动！(PID: %d)\n", pid)
+
+	case "progress":
+		dst := modelSvc.Status()
+		fmt.Println("=== 模型下载状态与进度 ===")
+		if dst.Running {
+			fmt.Printf("运行状态: 正在后台下载中 (Downloading)\n")
+			fmt.Printf("进程 PID: %d (已运行 %s)\n", dst.PID, dst.Uptime)
+			fmt.Printf("当前模型: %s\n", dst.ModelID)
+			fmt.Printf("存储路径: models/%s\n", dst.PkgDir)
+			fmt.Printf("下载来源: %s\n", dst.Endpoint)
+			fmt.Printf("启动时间: %s\n", dst.StartTime)
+			if dst.DiskUsage != "" {
+				fmt.Printf("当前落盘: %s\n", dst.DiskUsage)
+			}
+			fmt.Println("\n最新下载日志预览:")
+			for _, line := range dst.RecentLogs {
+				fmt.Println(line)
+			}
+		} else {
+			fmt.Println("运行状态: 当前无后台下载任务在运行")
+			if len(dst.RecentLogs) > 0 {
+				fmt.Println("\n最近下载日志:")
+				for _, line := range dst.RecentLogs {
+					fmt.Println(line)
+				}
+			}
+		}
+
+	case "stop-download":
+		fmt.Println("正在停止后台下载任务...")
+		err := modelSvc.StopDownload()
+		if err != nil {
+			fmt.Printf("✗ 停止下载失败: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("✓ 下载任务已停止 (分块已妥善保留，下次自动断点续传)。")
+
+	case "models":
+		fmt.Println("=== 本地已安装模型列表 ===")
+		models, _ := modelSvc.ListLocalModels()
+		if len(models) == 0 {
+			fmt.Println("  (暂无已下载模型)")
+		} else {
+			for _, m := range models {
+				fmt.Printf("  - %s (%s) [%s]\n", m.DirName, m.DiskSize, m.Status)
+			}
+		}
+
+	case "help", "-h", "--help":
+		printHelp()
+
+	default:
+		fmt.Printf("未知命令: %s\n", cmd)
+		printHelp()
+		os.Exit(1)
+	}
+}
+
+func printHelp() {
+	fmt.Println("Cyphr Agent 管理面板 & 安装工具")
+	fmt.Println("\n用法:")
+	fmt.Println("  installer             启动交互式 Bubble Tea TUI 面板")
+	fmt.Println("  installer [命令]      以无界面 CLI 模式直接执行命令")
+	fmt.Println("\n可用命令:")
+	fmt.Println("  start                 后台启动 Agent 服务")
+	fmt.Println("  stop                  停止 Agent 服务")
+	fmt.Println("  restart               重启 Agent 服务")
+	fmt.Println("  status                查看综合运行状态与已安装模型")
+	fmt.Println("  download <ID> [DIR]   下载指定 ASR 模型到 models/ 目录")
+	fmt.Println("  progress              查看当前后台下载进度与日志")
+	fmt.Println("  stop-download         停止当前正在运行的后台模型下载任务")
+	fmt.Println("  models                列出本地已下载的模型包")
+	fmt.Println("  help                  查看帮助信息")
+}
