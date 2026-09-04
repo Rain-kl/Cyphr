@@ -408,4 +408,14 @@ func TestJobDAO(t *testing.T) {
 	assert.Equal(t, 0, retriedJob.Progress)
 	assert.Equal(t, 1, retriedJob.RetryCount)
 	assert.Empty(t, retriedJob.ErrorMsg)
+
+	// 11. FindCompletedJobByAudioPath: model matching vs mismatching
+	// job1 is completed with model consts.DefaultModelName and audio path "/storage/audios/audio1.mp3"
+	foundJob, err := jobDAO.FindCompletedJobByAudioPath(ctx, "/storage/audios/audio1.mp3", consts.DefaultModelName, "")
+	require.NoError(t, err)
+	assert.Equal(t, job1.ID, foundJob.ID)
+
+	// Same audio path, but different model -> not found
+	_, err = jobDAO.FindCompletedJobByAudioPath(ctx, "/storage/audios/audio1.mp3", "different-model", "")
+	assert.ErrorIs(t, err, consts.ErrRecordNotFound)
 }

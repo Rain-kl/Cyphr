@@ -565,6 +565,65 @@ func TestOpenAIHandler_HashSubmit(t *testing.T) {
 		assert.Equal(t, "uploads/audio/old.mp3", jobs[0].AudioStoragePath)
 		assert.Equal(t, "old.mp3", jobs[0].OriginalFileName)
 	})
+
+	t.Run("known hash with completed job matches same model for fast-path", func(t *testing.T) {
+		env.uploadMock.byHash = &contracts.UploadDTO{
+			ID:       8,
+			FileName: "completed.mp3",
+			FilePath: "uploads/audio/completed.mp3",
+		}
+		// Create completed job with model "qwen3-asr-0.6b"
+		completedJob, err := env.jobSvc.CreateJob(context.Background(), &do.CreateJobRequest{
+			UserID:           1001,
+			Model:            "qwen3-asr-0.6b",
+			AudioStoragePath: "uploads/audio/completed.mp3",
+			OriginalFileName: "completed.mp3",
+		})
+		require.NoError(t, err)
+		require.NoError(t, env.jobSvc.CompleteJob(context.Background(), completedJob.ID, &do.AgentCompleteRequest{
+			DurationSeconds: 5.0,
+			ResultText:      "Transcription result for 0.6b",
+			OpenAIResponse: map[string]any{
+				"text": "Transcription result for 0.6b",
+			},
+		}))
+
+		// 1. Submit with same model (qwen3-asr-0.6b) -> fast-path returns completed job directly!
+		formSame := url.Values{}
+		formSame.Set("file_hash", "completed_hash")
+		formSame.Set("file_size", "1000")
+		formSame.Set("model", "qwen3-asr-0.6b")
+		reqSame, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", strings.NewReader(formSame.Encode()))
+		reqSame.Header.Set("Authorization", "Bearer test-user-token")
+		reqSame.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		reqSame.Header.Set("X-Async", "true")
+		wSame := httptest.NewRecorder()
+		env.engine.ServeHTTP(wSame, reqSame)
+
+		assert.Equal(t, http.StatusOK, wSame.Code)
+		var respSame response.Response[map[string]any]
+		require.NoError(t, json.Unmarshal(wSame.Body.Bytes(), &respSame))
+		assert.Equal(t, consts.StatusCompleted, respSame.Data["status"])
+		assert.Equal(t, strconv.FormatUint(completedJob.ID, 10), respSame.Data["job_id"])
+
+		// 2. Submit with DIFFERENT active model (mock-whisper-base) -> MUST NOT fast-path! Creates a new pending job
+		formDiff := url.Values{}
+		formDiff.Set("file_hash", "completed_hash")
+		formDiff.Set("file_size", "1000")
+		formDiff.Set("model", "mock-whisper-base")
+		reqDiff, _ := http.NewRequest(http.MethodPost, "/api/v1/audio/transcriptions", strings.NewReader(formDiff.Encode()))
+		reqDiff.Header.Set("Authorization", "Bearer test-user-token")
+		reqDiff.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		reqDiff.Header.Set("X-Async", "true")
+		wDiff := httptest.NewRecorder()
+		env.engine.ServeHTTP(wDiff, reqDiff)
+
+		assert.Equal(t, http.StatusOK, wDiff.Code)
+		var respDiff response.Response[map[string]any]
+		require.NoError(t, json.Unmarshal(wDiff.Body.Bytes(), &respDiff))
+		assert.Equal(t, consts.StatusPending, respDiff.Data["status"])
+		assert.NotEqual(t, strconv.FormatUint(completedJob.ID, 10), respDiff.Data["job_id"])
+	})
 }
 
 // ─── Model Handler Tests ──────────────────────────────────────────────────────
