@@ -160,6 +160,8 @@ func NewAsrCmd() *cobra.Command {
 	asrCmd.Flags().BoolVarP(&asrDetach, "detach", "d", false, "run job in background without blocking terminal")
 	asrCmd.Flags().BoolVarP(&asrForceUpload, "force-upload", "f", false, "force upload audio file, bypassing hash deduplication")
 
+	asrCmd.AddCommand(NewBatchCmd())
+
 	return asrCmd
 }
 

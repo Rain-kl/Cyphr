@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"Wavelet/transcribe/plugins/cli/client"
 )
 
@@ -25,6 +27,37 @@ func baseNames(paths []string) []string {
 	names := make([]string, len(paths))
 	for i, p := range paths {
 		names[i] = filepath.Base(p)
+	}
+	return names
+}
+
+func TestAsrBatchSubcommand(t *testing.T) {
+	root := NewRootCmd()
+	var asrCmd *cobra.Command
+	for _, c := range root.Commands() {
+		if c.Name() == "asr" {
+			asrCmd = c
+			break
+		}
+	}
+	if asrCmd == nil {
+		t.Fatalf("root commands = %v, want an 'asr' command", commandNames(root))
+	}
+	found := false
+	for _, c := range asrCmd.Commands() {
+		if c.Name() == "batch" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("asr subcommands = %v, want a 'batch' subcommand", commandNames(asrCmd))
+	}
+}
+
+func commandNames(cmd *cobra.Command) []string {
+	names := make([]string, 0)
+	for _, c := range cmd.Commands() {
+		names = append(names, c.Name())
 	}
 	return names
 }
