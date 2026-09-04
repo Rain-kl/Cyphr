@@ -17,7 +17,8 @@ var mainMenuItems = []MenuItem{
 	{Title: "启动 Agent 服务", Desc: "在后台常驻运行推理 Agent 服务进程", Key: "1"},
 	{Title: "停止 Agent 服务", Desc: "优雅停止当前运行中的 Agent 服务", Key: "2"},
 	{Title: "重启 Agent 服务", Desc: "停止并重新在后台加载启动服务", Key: "3"},
-	{Title: "安装/更新 Agent", Desc: "从 GitHub Release 下载并部署 Agent 运行时环境", Key: "i"},
+	{Title: "安装 Agent 部署", Desc: "从 GitHub Release 下载并部署 Agent 运行时环境", Key: "i"},
+	{Title: "检查与在线更新", Desc: "在线检查并更新 Agent 代码或 Installer 自身程序", Key: "u"},
 	{Title: "查看综合状态", Desc: "查看 Agent 资源、下载任务及模型库综合看板", Key: "4"},
 	{Title: "下载 ASR 模型", Desc: "下载或增补语音识别预设/自定义模型（支持断点续传）", Key: "5"},
 	{Title: "查看下载进度", Desc: "实时追踪后台模型下载进度与日志分块", Key: "6"},
@@ -49,6 +50,9 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "i", "I":
 		m.state = ViewInstallAgent
 		return m, nil
+	case "u", "U":
+		m.state = ViewUpdateMenu
+		return m, nil
 	case "4":
 		m.state = ViewStatusDashboard
 		return m, nil
@@ -74,16 +78,18 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 3:
 			m.state = ViewInstallAgent
 		case 4:
-			m.state = ViewStatusDashboard
+			m.state = ViewUpdateMenu
 		case 5:
-			m.state = ViewDownloadCatalog
+			m.state = ViewStatusDashboard
 		case 6:
-			m.state = ViewDownloadProgress
+			m.state = ViewDownloadCatalog
 		case 7:
-			return m.handleStopDownload()
+			m.state = ViewDownloadProgress
 		case 8:
-			m.state = ViewAgentLogs
+			return m.handleStopDownload()
 		case 9:
+			m.state = ViewAgentLogs
+		case 10:
 			return m, tea.Quit
 		}
 	}
@@ -177,6 +183,6 @@ func (m Model) viewMainMenu() string {
 		}
 	}
 
-	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装/更新 Agent   [1-8] 快捷键   [q/Esc] 退出"))
+	b.WriteString("\n" + StyleKeyHelp.Render("[Enter] 确认选择   [↑/↓, j/k] 移动光标   [i] 安装 Agent   [u] 更新组件   [1-8] 快捷键   [q/Esc] 退出"))
 	return b.String()
 }

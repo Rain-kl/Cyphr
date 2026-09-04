@@ -11,6 +11,7 @@ import (
 	"cyphr/installer/internal/config"
 	"cyphr/installer/internal/model"
 	"cyphr/installer/internal/tui"
+	"cyphr/installer/internal/updater"
 )
 
 func main() {
@@ -100,6 +101,77 @@ func handleCLI(paths *config.AppPaths, args []string) {
 			os.Exit(1)
 		}
 		fmt.Println("✓ Cyphr Agent 安装完成！可执行 'installer start' 启动服务。")
+
+	case "update":
+		target := "all"
+		if len(args) >= 2 && !strings.HasPrefix(args[1], "-") {
+			target = args[1]
+		}
+		useMirror := true
+		for _, a := range args[1:] {
+			if a == "--no-mirror" {
+				useMirror = false
+			}
+		}
+
+		switch target {
+		case "agent":
+			fmt.Println("正在从 GitHub Release 更新 Cyphr Agent...")
+			opts := agent.InstallOptions{
+				TargetDir:  paths.AgentDir,
+				Version:    "latest",
+				RepoOwner:  "Rain-kl",
+				RepoName:   "Cyphr",
+				UseMirror:  useMirror,
+				SkipVenv:   false,
+				AutoConfig: true,
+			}
+			err := agentSvc.InstallAgent(opts, func(stage string, progress float64, message string) {
+				fmt.Printf("  [%-8s] %s\n", stage, message)
+			})
+			if err != nil {
+				fmt.Printf("✗ Agent 更新失败: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("✓ Cyphr Agent 已成功更新！")
+
+		case "installer", "self":
+			fmt.Println("正在从 GitHub Release 更新 Installer 自身程序...")
+			err := updater.UpdateInstaller("Rain-kl", "Cyphr", useMirror, func(stage string, progress float64, message string) {
+				fmt.Printf("  [%-8s] %s\n", stage, message)
+			})
+			if err != nil {
+				fmt.Printf("✗ Installer 更新失败: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("✓ Cyphr Installer 已成功更新至最新版本！")
+
+		default:
+			// Update both
+			fmt.Println("=== 1/2 更新 Cyphr Agent ===")
+			opts := agent.InstallOptions{
+				TargetDir:  paths.AgentDir,
+				Version:    "latest",
+				RepoOwner:  "Rain-kl",
+				RepoName:   "Cyphr",
+				UseMirror:  useMirror,
+				SkipVenv:   false,
+				AutoConfig: true,
+			}
+			_ = agentSvc.InstallAgent(opts, func(stage string, progress float64, message string) {
+				fmt.Printf("  [%-8s] %s\n", stage, message)
+			})
+
+			fmt.Println("\n=== 2/2 更新 Cyphr Installer ===")
+			err := updater.UpdateInstaller("Rain-kl", "Cyphr", useMirror, func(stage string, progress float64, message string) {
+				fmt.Printf("  [%-8s] %s\n", stage, message)
+			})
+			if err != nil {
+				fmt.Printf("✗ Installer 更新提示: %v\n", err)
+			} else {
+				fmt.Println("✓ Cyphr Installer 已更新至最新版本！")
+			}
+		}
 
 	case "status":
 		st := agentSvc.Status()
@@ -236,6 +308,7 @@ func printHelp() {
 	fmt.Println("  stop                  停止 Agent 服务")
 	fmt.Println("  restart               重启 Agent 服务")
 	fmt.Println("  install [DIR]         从 GitHub 下载并安装/部署 Agent 运行时环境")
+	fmt.Println("  update [agent|self]   在线更新 Agent 运行时或 Installer 自身程序")
 	fmt.Println("  status                查看综合运行状态与已安装模型")
 	fmt.Println("  download <ID> [DIR]   下载指定 ASR 模型到 models/ 目录")
 	fmt.Println("  progress              查看当前后台下载进度与日志")

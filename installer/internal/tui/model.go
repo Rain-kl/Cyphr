@@ -19,6 +19,7 @@ type ViewState int
 const (
 	ViewMainMenu ViewState = iota
 	ViewInstallAgent
+	ViewUpdateMenu
 	ViewStatusDashboard
 	ViewDownloadCatalog
 	ViewDownloadProgress
@@ -60,6 +61,14 @@ type Model struct {
 	installMirror   bool // use ghproxy
 	installSkipVenv bool
 
+	// Update view state
+	updateTarget UpdateTarget
+	updating     bool
+	updateDone   bool
+	updateMsg    string
+	updateErr    error
+	updateMirror bool
+
 	// Cached data
 	agentStatus *agent.AgentStatus
 	downStatus  *model.DownloadStatus
@@ -84,6 +93,7 @@ func NewModel(paths *config.AppPaths) Model {
 		downloadMirror: "hf-mirror",
 		downloadMode:   "bg",
 		installMirror:  true,
+		updateMirror:   true,
 	}
 	m.refreshData()
 	return m
@@ -133,6 +143,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.refreshData()
 
+	case UpdateProgressMsg:
+		m.updating = false
+		if msg.Err != nil {
+			m.updateErr = msg.Err
+			m.updateDone = false
+		} else {
+			m.updateDone = true
+			m.updateErr = nil
+			m.updateMsg = "更新成功！"
+		}
+		m.refreshData()
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
@@ -153,6 +175,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateMainMenu(msg)
 		case ViewInstallAgent:
 			return m.updateInstallView(msg)
+		case ViewUpdateMenu:
+			return m.updateUpdateView(msg)
 		case ViewStatusDashboard:
 			return m.updateStatusDashboard(msg)
 		case ViewDownloadCatalog:
@@ -187,6 +211,8 @@ func (m Model) View() string {
 		b.WriteString(m.viewMainMenu())
 	case ViewInstallAgent:
 		b.WriteString(m.viewInstallView())
+	case ViewUpdateMenu:
+		b.WriteString(m.viewUpdateView())
 	case ViewStatusDashboard:
 		b.WriteString(m.viewStatusDashboard())
 	case ViewDownloadCatalog:
