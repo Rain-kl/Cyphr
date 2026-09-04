@@ -64,6 +64,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(NewAsrCmd())
 	rootCmd.AddCommand(NewJobsCmd())
 	rootCmd.AddCommand(NewModelsCmd())
+	rootCmd.AddCommand(NewPurgeCmd())
 
 	return rootCmd
 }
