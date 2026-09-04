@@ -45,8 +45,8 @@ type hostConfig struct {
 }
 
 var rootCmd = &cobra.Command{
-	Use:     "cyphr",
-	Aliases: []string{"wavelet"},
+	Use:     "cyphr-svr",
+	Aliases: []string{"cyphr", "wavelet"},
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		src, err := config.NewSource()
 		if err != nil {

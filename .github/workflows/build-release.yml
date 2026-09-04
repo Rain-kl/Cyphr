@@ -11,7 +11,8 @@ on:
         type: string
 
 env:
-  APP_NAME: cyphr
+  APP_NAME: cyphr-svr
+  CLI_BIN_NAME: cyphr
   CLI_APP_NAME: cyphr-cli
   GO_DIR: backend
   GO_MAIN: ./main.go
@@ -321,7 +322,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p dist/cli
-          binary_name="$APP_NAME"
+          binary_name="$CLI_BIN_NAME"
           if [[ "$GOOS" == "windows" ]]; then
             binary_name="${binary_name}.exe"
           fi
@@ -351,9 +352,9 @@ jobs:
           mkdir -p "$staging_dir"
 
           if [[ "$GOOS" == "windows" ]]; then
-            cp "dist/cli/${APP_NAME}.exe" "$staging_dir/"
+            cp "dist/cli/${CLI_BIN_NAME}.exe" "$staging_dir/"
           else
-            cp "dist/cli/${APP_NAME}" "$staging_dir/"
+            cp "dist/cli/${CLI_BIN_NAME}" "$staging_dir/"
           fi
 
           for f in LICENSE README.md README_zh.md; do

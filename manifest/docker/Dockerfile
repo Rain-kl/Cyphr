@@ -55,7 +55,7 @@ RUN test -f plugins/drivers/driver_http/dist/index.html && \
     -tags embed_frontend \
     -trimpath \
     -ldflags="-s -w -X Wavelet/pkg/buildinfo.Version=${VERSION} -X Wavelet/pkg/buildinfo.BuildTime=${BUILD_DATE}" \
-    -o /out/cyphr \
+    -o /out/cyphr-svr \
     ./main.go
 
 FROM alpine:${ALPINE_VERSION}
@@ -68,10 +68,10 @@ RUN apk add --no-cache ca-certificates tzdata postgresql-client && \
 
 WORKDIR /app
 
-COPY --from=backend-builder /out/cyphr ./cyphr
+COPY --from=backend-builder /out/cyphr-svr ./cyphr-svr
 COPY docs ./docs
 
 EXPOSE 8000
 
-ENTRYPOINT ["./cyphr"]
+ENTRYPOINT ["./cyphr-svr"]
 CMD ["all"]

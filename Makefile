@@ -31,7 +31,7 @@ build-embedded:
 	cd backend && go build \
 		-tags embed_frontend \
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
-		-o ../bin/cyphr \
+		-o ../bin/cyphr-svr \
 		main.go
 
 code-check:
@@ -44,7 +44,7 @@ build-backend:
 	@mkdir -p bin
 	cd backend && go build \
 		-ldflags "-s -w -X '$(MODULE)/pkg/buildinfo.Version=$(VERSION)' -X '$(MODULE)/pkg/buildinfo.BuildTime=$(BUILD_DATE)'" \
-		-o ../bin/cyphr \
+		-o ../bin/cyphr-svr \
 		main.go
 
 build-cli:
