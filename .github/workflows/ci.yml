@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - "*"
+
+jobs:
+  test-installer:
+    name: Test Installer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+          cache: true
+
+      - name: Verify dependencies
+        working-directory: installer
+        run: go mod verify
+
+      - name: Check code formatting
+        working-directory: installer
+        run: |
+          diffs=$(gofmt -l .)
+          if [ -n "$diffs" ]; then
+            echo "The following files are not formatted properly with gofmt:"
+            echo "$diffs"
+            exit 1
+          fi
+
+      - name: Run Go Vet
+        working-directory: installer
+        run: go vet ./...
+
+      - name: Run Unit Tests
+        working-directory: installer
+        run: go test -v -race -cover ./...
+
+      - name: Build Binary
+        working-directory: installer
+        run: go build -ldflags "-s -w" -o cyphr-installer main.go

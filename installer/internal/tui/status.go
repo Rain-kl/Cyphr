@@ -36,7 +36,7 @@ func (m Model) viewStatusDashboard() string {
 		agentInfo.WriteString(fmt.Sprintf("运行状态: %s\n", StyleBadgeDanger.Render("● 未运行 (Stopped)")))
 		agentInfo.WriteString(fmt.Sprintf("日志路径: %s\n", m.paths.LogFile))
 	}
-	b.WriteString(StyleCard.Render("【Agent 服务】\n" + agentInfo.String()) + "\n")
+	b.WriteString(StyleCard.Render("【Agent 服务】\n"+agentInfo.String()) + "\n")
 
 	// Download Task Card
 	var downInfo strings.Builder
@@ -53,7 +53,7 @@ func (m Model) viewStatusDashboard() string {
 	} else {
 		downInfo.WriteString(fmt.Sprintf("任务状态: %s\n", StyleBadgeMuted.Render("○ 当前无后台下载任务在运行")))
 	}
-	b.WriteString(StyleCard.Render("【模型下载任务】\n" + downInfo.String()) + "\n")
+	b.WriteString(StyleCard.Render("【模型下载任务】\n"+downInfo.String()) + "\n")
 
 	// Local Models Card
 	var modelInfo strings.Builder
@@ -68,7 +68,7 @@ func (m Model) viewStatusDashboard() string {
 			modelInfo.WriteString(fmt.Sprintf("  • %-22s %-10s %s\n", lm.DirName, "("+lm.DiskSize+")", statusBadge))
 		}
 	}
-	b.WriteString(StyleCard.Render("【已安装模型库】(models/)\n" + modelInfo.String()) + "\n")
+	b.WriteString(StyleCard.Render("【已安装模型库】(models/)\n"+modelInfo.String()) + "\n")
 
 	b.WriteString(StyleKeyHelp.Render("[Esc/q/Enter] 返回主菜单   [r] 刷新数据"))
 	return b.String()

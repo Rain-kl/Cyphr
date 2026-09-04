@@ -12,11 +12,11 @@ import (
 
 // AgentStatus represents current agent runtime status.
 type AgentStatus struct {
-	Running bool
-	PID     int
-	Uptime  string
-	RSSMB   int
-	LogPath string
+	Running    bool
+	PID        int
+	Uptime     string
+	RSSMB      int
+	LogPath    string
 	RecentLogs []string
 }
 

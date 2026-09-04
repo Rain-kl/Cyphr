@@ -1,4 +1,4 @@
-.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli
+.PHONY: swagger license license-check build-embedded build-test cross-build code-check format canary build-cli build-installer test-installer format-installer
 
 VERSION ?= dev
 BUILD_DATE ?= $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -16,6 +16,8 @@ license-check:
 format:
 	@echo "==> Formatting backend Go source with golangci-lint fmt (gofumpt, same gate as code-check)..."
 	cd backend && golangci-lint fmt
+	@echo "==> Formatting installer Go source..."
+	cd installer && go fmt ./...
 	@echo "==> Formatting frontend source..."
 	cd frontend && pnpm format
 
@@ -51,6 +53,15 @@ build-cli:
 	@mkdir -p bin
 	cd backend && go build -ldflags "-s -w" -o ../bin/cyphr cmd/transcribe/main.go
 
+build-installer:
+	@mkdir -p bin
+	@echo "==> Building installer version=$(VERSION) build_date=$(BUILD_DATE)..."
+	cd installer && go build -ldflags "-s -w" -o ../bin/cyphr-installer main.go
+
+test-installer:
+	@echo "==> Running installer unit tests..."
+	cd installer && go test -v ./...
+
 build-frontend:
 	@echo "==> Building frontend version=$(VERSION) build_date=$(BUILD_DATE)..."
 	cd frontend && \
@@ -59,11 +70,12 @@ build-frontend:
 		pnpm build:embed
 
 build-test:
-	@echo "==> Running frontend and backend build tests in parallel..."
+	@echo "==> Running frontend, backend, and installer build tests in parallel..."
 	@PIDS=""; \
 	STATUS=0; \
-	( cd frontend && pnpm build:embed 2>&1 | sed 's/^/[frontend] /' ) & PIDS="$$PIDS $$!"; \
-	( cd backend && go test ./... && go build -o /dev/null ./... 2>&1 | sed 's/^/[backend]  /' ) & PIDS="$$PIDS $$!"; \
+	( cd frontend && pnpm build:embed 2>&1 | sed 's/^/[frontend]  /' ) & PIDS="$$PIDS $$!"; \
+	( cd backend && go test ./... && go build -o /dev/null ./... 2>&1 | sed 's/^/[backend]   /' ) & PIDS="$$PIDS $$!"; \
+	( cd installer && go test ./... && go build -o /dev/null ./... 2>&1 | sed 's/^/[installer] /' ) & PIDS="$$PIDS $$!"; \
 	for PID in $$PIDS; do \
 		wait $$PID || STATUS=1; \
 	done; \

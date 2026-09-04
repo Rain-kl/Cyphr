@@ -35,17 +35,17 @@ func tickCmd() tea.Cmd {
 
 // Model is the root Bubble Tea application model.
 type Model struct {
-	paths       *config.AppPaths
-	agentSvc    *agent.Service
-	modelSvc    *model.Service
-	state       ViewState
-	prevView    ViewState
-	width       int
-	height      int
-	spinner     spinner.Model
-	statusMsg   string
-	isBusy      bool
-	err         error
+	paths     *config.AppPaths
+	agentSvc  *agent.Service
+	modelSvc  *model.Service
+	state     ViewState
+	prevView  ViewState
+	width     int
+	height    int
+	spinner   spinner.Model
+	statusMsg string
+	isBusy    bool
+	err       error
 
 	// Sub-view state
 	menuIndex          int
@@ -56,9 +56,9 @@ type Model struct {
 	isCustomModelInput bool
 
 	// Cached data
-	agentStatus  *agent.AgentStatus
-	downStatus   *model.DownloadStatus
-	localModels  []model.LocalModel
+	agentStatus *agent.AgentStatus
+	downStatus  *model.DownloadStatus
+	localModels []model.LocalModel
 }
 
 // NewModel creates a new root TUI Model.

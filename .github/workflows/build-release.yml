@@ -14,9 +14,13 @@ env:
   APP_NAME: cyphr-svr
   CLI_BIN_NAME: cyphr
   CLI_APP_NAME: cyphr-cli
+  INSTALLER_BIN_NAME: cyphr-installer
+  INSTALLER_APP_NAME: cyphr-installer
   GO_DIR: backend
+  INSTALLER_DIR: installer
   GO_MAIN: ./main.go
   CLI_MAIN: ./cmd/transcribe/main.go
+  INSTALLER_MAIN: ./main.go
   GO_BUILD_TAGS: embed_frontend
   GO_LDFLAGS: -s -w
   NODE_VERSION: "22"
@@ -378,3 +382,104 @@ jobs:
         with:
           tag_name: ${{ needs.create-release.outputs.version }}
           files: ${{ steps.package.outputs.artifact }}
+
+  build-installer-binaries:
+    name: Build Installer ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    needs:
+      - create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive: zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.INSTALLER_DIR }}/go.mod
+          cache: true
+
+      - name: Build Installer binary
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist/installer
+          binary_name="$INSTALLER_BIN_NAME"
+          if [[ "$GOOS" == "windows" ]]; then
+            binary_name="${binary_name}.exe"
+          fi
+
+          build_args=(
+            -trimpath
+            -ldflags "$GO_LDFLAGS"
+            -o "$GITHUB_WORKSPACE/dist/installer/$binary_name"
+          )
+
+          (cd "$INSTALLER_DIR" && go build "${build_args[@]}" "$INSTALLER_MAIN")
+
+      - name: Package Installer artifact
+        id: package
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          ARCHIVE_FORMAT: ${{ matrix.archive }}
+        run: |
+          set -euo pipefail
+
+          package_name="${INSTALLER_APP_NAME}_${VERSION}_${GOOS}_${GOARCH}"
+          staging_dir="dist/$package_name"
+          mkdir -p "$staging_dir"
+
+          if [[ "$GOOS" == "windows" ]]; then
+            cp "dist/installer/${INSTALLER_BIN_NAME}.exe" "$staging_dir/"
+          else
+            cp "dist/installer/${INSTALLER_BIN_NAME}" "$staging_dir/"
+          fi
+
+          for f in LICENSE README.md installer/README.md; do
+            if [[ -e "$f" ]]; then
+              cp "$f" "$staging_dir/"
+            fi
+          done
+
+          if [[ "$ARCHIVE_FORMAT" == "zip" ]]; then
+            (cd dist && zip -r "${package_name}.zip" "$package_name")
+            artifact="dist/${package_name}.zip"
+          else
+            tar -C dist -czf "dist/${package_name}.tar.gz" "$package_name"
+            artifact="dist/${package_name}.tar.gz"
+          fi
+
+          echo "artifact=$artifact" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.version }}
+          files: ${{ steps.package.outputs.artifact }}
+
