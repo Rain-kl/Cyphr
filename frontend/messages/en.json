@@ -2109,7 +2109,11 @@
       "currentModeBadge": "Active Mode",
       "noEstimates": "No model VRAM estimates configured. The scheduler will not perform VRAM gating for auto-loading.",
       "modelPlaceholder": "e.g. qwen3-asr-1.7b",
-      "mbPlaceholder": "e.g. 5000"
+      "mbPlaceholder": "e.g. 5000",
+      "jobsTitle": "Concurrent Jobs",
+      "jobsDesc": "Max concurrent transcription jobs dispatched to this node. Set to -1 for dynamic mode: the agent advertises capacity based on load (starts at 3)",
+      "jobsUnit": "jobs",
+      "jobsDynamic": "Dynamic"
     },
     "models": {
       "title": "Model Catalog",

@@ -33,6 +33,7 @@ type AgentSession struct {
 	allowAutoLoad      bool
 	autoUnloadMinutes  int
 	maxConcurrentJobs  int
+	advertisedCapacity int
 	modelVramEstimates map[string]int
 	idleSince          time.Time
 	failedLoads        map[string]time.Time
@@ -73,7 +74,7 @@ func (s *AgentSession) SetConfig(workMode string, allowAutoLoad bool, autoUnload
 	}
 	s.allowAutoLoad = allowAutoLoad
 	s.autoUnloadMinutes = autoUnloadMinutes
-	if maxConcurrentJobs > 0 {
+	if maxConcurrentJobs == consts.DynamicMaxConcurrentJobs || maxConcurrentJobs > 0 {
 		s.maxConcurrentJobs = maxConcurrentJobs
 	}
 	if estimates != nil {
@@ -249,6 +250,72 @@ func (s *AgentSession) SetDownloadedModels(models []string) {
 	defer s.mu.Unlock()
 	s.downloadedModels = make([]string, len(models))
 	copy(s.downloadedModels, models)
+}
+
+// IsDynamicMode reports whether this session uses agent-advertised capacity (-1).
+func (s *AgentSession) IsDynamicMode() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.maxConcurrentJobs == consts.DynamicMaxConcurrentJobs
+}
+
+// SetAdvertisedCapacity stores the agent-reported capacity (clamped to sane range).
+func (s *AgentSession) SetAdvertisedCapacity(cap int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if cap < consts.DynamicCapacityMin {
+		cap = consts.DynamicCapacityMin
+	}
+	if cap > consts.DynamicCapacityMax {
+		cap = consts.DynamicCapacityMax
+	}
+	s.advertisedCapacity = cap
+}
+
+// GetAdvertisedCapacity returns the last agent-reported capacity (0 if never reported).
+func (s *AgentSession) GetAdvertisedCapacity() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.advertisedCapacity
+}
+
+// effectiveCapacity returns dynamic advertised capacity or the static limit.
+func (s *AgentSession) effectiveCapacity() int {
+	if s.maxConcurrentJobs == consts.DynamicMaxConcurrentJobs {
+		if s.advertisedCapacity > 0 {
+			return s.advertisedCapacity
+		}
+		return consts.DefaultMaxConcurrentJobs
+	}
+	if s.maxConcurrentJobs <= 0 {
+		return consts.DefaultMaxConcurrentJobs
+	}
+	return s.maxConcurrentJobs
+}
+
+// GetRemainingCapacity returns effective capacity minus running jobs.
+func (s *AgentSession) GetRemainingCapacity() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.effectiveCapacity() - s.runningJobs
+}
+
+// isCapacityFreshLocked reports whether the last heartbeat is recent enough to trust.
+func (s *AgentSession) isCapacityFreshLocked() bool {
+	if s.lastHeartbeat.IsZero() {
+		return false
+	}
+	return time.Since(s.lastHeartbeat) < time.Duration(consts.DynamicCapacityStaleSeconds)*time.Second
+}
+
+// CanAcceptJob reports whether the scheduler may dispatch one more job here.
+func (s *AgentSession) CanAcceptJob() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.maxConcurrentJobs == consts.DynamicMaxConcurrentJobs {
+		return s.isCapacityFreshLocked() && s.effectiveCapacity()-s.runningJobs > 0
+	}
+	return s.runningJobs < s.effectiveCapacity()
 }
 
 // GetMaxConcurrentJobs returns the maximum concurrent jobs limit for this session.

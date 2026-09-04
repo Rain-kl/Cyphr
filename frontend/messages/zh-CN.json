@@ -2109,7 +2109,11 @@
       "currentModeBadge": "当前模式",
       "noEstimates": "暂未配置任何模型的预估显存，调度器在自动下发时将不作显存门禁检查",
       "modelPlaceholder": "例如：qwen3-asr-1.7b",
-      "mbPlaceholder": "例如：5000"
+      "mbPlaceholder": "例如：5000",
+      "jobsTitle": "作业并行数",
+      "jobsDesc": "控制调度器向该计算节点并发下发转录任务的最大上限。设为 -1 进入动态模式：Agent 按自身负载通告容量（初始 3），调度器按剩余容量派发",
+      "jobsUnit": "任务",
+      "jobsDynamic": "动态"
     },
     "models": {
       "title": "平台模型库",

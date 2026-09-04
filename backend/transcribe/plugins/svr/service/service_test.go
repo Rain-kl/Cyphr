@@ -699,6 +699,101 @@ func TestNodeService(t *testing.T) {
 	})
 }
 
+// 4b. Dynamic capacity advertisement tests (TDD RED)
+func TestDynamicCapacity(t *testing.T) {
+	t.Run("session dynamic mode tracks advertised capacity", func(t *testing.T) {
+		sess := hub.NewAgentSession(201, "dyn-node", "127.0.0.1", newMockWSConn())
+		assert.False(t, sess.IsDynamicMode())
+
+		sess.SetConfig("gpu", true, 0, consts.DynamicMaxConcurrentJobs, nil)
+		assert.True(t, sess.IsDynamicMode())
+
+		sess.UpdateHeartbeat([]string{"mock-whisper-base"}, 3, &do.SystemStatsDTO{CPUPercent: 10})
+		sess.SetAdvertisedCapacity(4)
+		assert.Equal(t, 1, sess.GetRemainingCapacity())
+		assert.True(t, sess.CanAcceptJob())
+	})
+
+	t.Run("stale heartbeat rejects dynamic dispatch", func(t *testing.T) {
+		sess := hub.NewAgentSession(202, "stale-node", "127.0.0.1", newMockWSConn())
+		sess.SetConfig("gpu", true, 0, consts.DynamicMaxConcurrentJobs, nil)
+		sess.UpdateHeartbeat([]string{"mock-whisper-base"}, 0, &do.SystemStatsDTO{CPUPercent: 10})
+		sess.SetAdvertisedCapacity(8)
+		sess.SetLastHeartbeat(time.Now().Add(-5 * time.Minute))
+		assert.False(t, sess.CanAcceptJob())
+	})
+
+	t.Run("static session keeps fixed cap semantics", func(t *testing.T) {
+		sess := hub.NewAgentSession(203, "static-node", "127.0.0.1", newMockWSConn())
+		sess.UpdateHeartbeat([]string{"mock-whisper-base"}, 2, &do.SystemStatsDTO{CPUPercent: 10})
+		assert.False(t, sess.IsDynamicMode())
+		assert.False(t, sess.CanAcceptJob())
+	})
+
+	t.Run("scheduler prefers dynamic node with remaining capacity", func(t *testing.T) {
+		ctx := context.Background()
+		db := setupTestDB(t)
+		jobDAO := dao.NewJobDAO(db)
+		agentHub := hub.NewAgentHub(jobDAO)
+		sched := scheduler.NewScheduler(jobDAO, agentHub)
+
+		// Static node full (2/2)
+		conn1 := newMockWSConn()
+		sess1 := hub.NewAgentSession(301, "static-full", "10.0.0.1", conn1)
+		sess1.UpdateHeartbeat([]string{"mock-whisper-base"}, 2, &do.SystemStatsDTO{CPUPercent: 10})
+		agentHub.RegisterSession(sess1)
+
+		// Dynamic node with remaining (3/4)
+		conn2 := newMockWSConn()
+		sess2 := hub.NewAgentSession(302, "dyn-spare", "10.0.0.2", conn2)
+		sess2.SetConfig("gpu", true, 0, consts.DynamicMaxConcurrentJobs, nil)
+		sess2.UpdateHeartbeat([]string{"mock-whisper-base"}, 3, &do.SystemStatsDTO{CPUPercent: 10})
+		sess2.SetAdvertisedCapacity(4)
+		agentHub.RegisterSession(sess2)
+
+		job := &entity.JobEntity{
+			UserID:           1,
+			ModelName:        "mock-whisper-base",
+			TaskType:         consts.TaskTypeASR,
+			AudioStoragePath: "/storage/dyn.mp3",
+			OriginalFileName: "dyn.mp3",
+			Status:           consts.StatusPending,
+		}
+		require.NoError(t, jobDAO.Create(ctx, job))
+		require.NoError(t, sched.SchedulePendingJobs(ctx))
+
+		updatedJob, err := jobDAO.GetByID(ctx, job.ID)
+		require.NoError(t, err)
+		require.NotNil(t, updatedJob.NodeID)
+		assert.Equal(t, uint64(302), *updatedJob.NodeID)
+	})
+
+	t.Run("node config accepts -1 and rejects 0", func(t *testing.T) {
+		db := setupTestDB(t)
+		nodeDAO := dao.NewNodeDAO(db)
+		jobDAO := dao.NewJobDAO(db)
+		agentHub := hub.NewAgentHub(jobDAO)
+		nodeSvc := service.NewNodeService(nodeDAO, agentHub)
+		ctx := context.Background()
+
+		nodeDTO, _, err := nodeSvc.CreateNode(ctx, "dyn-config-node")
+		require.NoError(t, err)
+
+		dyn := -1
+		updated, err := nodeSvc.UpdateNodeConfig(ctx, nodeDTO.ID, do.UpdateNodeConfigRequest{
+			MaxConcurrentJobs: &dyn,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, -1, updated.MaxConcurrentJobs)
+
+		zero := 0
+		_, err = nodeSvc.UpdateNodeConfig(ctx, nodeDTO.ID, do.UpdateNodeConfigRequest{
+			MaxConcurrentJobs: &zero,
+		})
+		require.Error(t, err)
+	})
+}
+
 // 5. JobService tests
 func TestJobService(t *testing.T) {
 	db := setupTestDB(t)

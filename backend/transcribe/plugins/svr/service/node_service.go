@@ -174,8 +174,8 @@ func (s *DefaultNodeService) UpdateNodeConfig(ctx context.Context, id uint64, re
 
 	maxConcurrentJobs := node.MaxConcurrentJobs
 	if req.MaxConcurrentJobs != nil {
-		if *req.MaxConcurrentJobs <= 0 {
-			return nil, errors.New("max_concurrent_jobs must be greater than 0")
+		if *req.MaxConcurrentJobs == 0 || *req.MaxConcurrentJobs < consts.DynamicMaxConcurrentJobs {
+			return nil, errors.New("max_concurrent_jobs must be -1 (dynamic) or greater than 0")
 		}
 		maxConcurrentJobs = *req.MaxConcurrentJobs
 	}
@@ -267,8 +267,8 @@ func (s *DefaultNodeService) toNodeDTO(node *entity.NodeEntity) *do.NodeDTO {
 	}
 
 	maxJobs := node.MaxConcurrentJobs
-	if maxJobs <= 0 {
-		maxJobs = 2
+	if maxJobs == 0 {
+		maxJobs = consts.DefaultMaxConcurrentJobs
 	}
 
 	dto := &do.NodeDTO{

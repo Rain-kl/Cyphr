@@ -1237,29 +1237,30 @@ WantedBy=multi-user.target`;
                       htmlFor='max-concurrent-jobs'
                       className='text-sm font-semibold'
                     >
-                      作业并行数
+                      {tConfig('jobsTitle')}
                     </Label>
                     <p className='text-xs text-muted-foreground'>
-                      控制调度器向该计算节点并发下发转录任务的最大上限（默认
-                      2，仅由控制台集中管控）
+                      {tConfig('jobsDesc')}
                     </p>
                   </div>
                   <div className='flex items-center gap-2 w-full sm:w-44'>
                     <Input
                       id='max-concurrent-jobs'
                       type='number'
-                      min={1}
+                      min={-1}
                       max={64}
                       value={maxConcurrentJobs}
                       onChange={(e) =>
                         setMaxConcurrentJobs(
-                          Math.max(1, parseInt(e.target.value, 10) || 1),
+                          Math.max(-1, parseInt(e.target.value, 10) || -1),
                         )
                       }
                       className='h-9 font-mono text-sm bg-background border-dashed shadow-none'
                     />
                     <span className='text-xs text-muted-foreground shrink-0'>
-                      任务
+                      {maxConcurrentJobs === -1
+                        ? tConfig('jobsDynamic')
+                        : tConfig('jobsUnit')}
                     </span>
                   </div>
                 </div>
