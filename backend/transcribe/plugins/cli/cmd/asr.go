@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -178,20 +179,51 @@ func prepareUploadMedia(cmd *cobra.Command, filePath string) (string, func(), er
 		return "", nil, fmt.Errorf("unsupported media file format '%s' (supported audio: mp3, wav, m4a, flac, aac, ogg; video: mp4, mkv, avi, mov, flv, webm)", filepath.Ext(filePath))
 	}
 
-	cmd.Printf("Pre-processing media file with ffmpeg (compressing to 16kHz mono MP3)...\n")
-	convertedPath, cleanup, convErr := media.ConvertToStandardAudio(cmd.Context(), filePath)
+	if cachedPath, ok := media.LookupCachedConversion(filePath); ok {
+		cmd.Printf("Reusing cached audio conversion (%s), skipping ffmpeg...\n", filepath.Base(cachedPath))
+	} else {
+		cmd.Printf("Pre-processing media file with ffmpeg (compressing to 16kHz mono MP3)...\n")
+	}
+	convertedPath, _, convErr := media.ConvertToStandardAudio(cmd.Context(), filePath)
 	if convErr != nil {
 		return "", nil, convErr
 	}
 
+	// Stage a pretty-named temporary copy for upload; the cached conversion stays intact.
 	origBase := filepath.Base(filePath)
 	prettyName := origBase[:len(origBase)-len(filepath.Ext(origBase))] + ".mp3"
-	prettyPath := filepath.Join(filepath.Dir(convertedPath), prettyName)
-	if renErr := os.Rename(convertedPath, prettyPath); renErr != nil {
+	stageDir, err := os.MkdirTemp("", "cyphr_upload_*")
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create upload staging directory: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(stageDir) }
+	prettyPath := filepath.Join(stageDir, prettyName)
+	if copyErr := copyFile(convertedPath, prettyPath); copyErr != nil {
 		cleanup()
-		return "", nil, fmt.Errorf("failed to rename converted audio: %w", renErr)
+		return "", nil, copyErr
 	}
 	return prettyPath, cleanup, nil
+}
+
+// copyFile copies src to dst with owner-only permissions.
+func copyFile(src, dst string) error {
+	in, err := os.Open(filepath.Clean(src)) //nolint:gosec // G304: Local CLI staging files
+	if err != nil {
+		return fmt.Errorf("failed to open converted audio: %w", err)
+	}
+	defer func() { _ = in.Close() }()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, resultFilePerm)
+	if err != nil {
+		return fmt.Errorf("failed to stage upload file: %w", err)
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return fmt.Errorf("failed to stage upload file: %w", err)
+	}
+	if err := out.Close(); err != nil {
+		return fmt.Errorf("failed to stage upload file: %w", err)
+	}
+	return nil
 }
 
 func resolveModelName() string {

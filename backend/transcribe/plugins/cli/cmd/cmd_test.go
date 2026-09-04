@@ -335,6 +335,8 @@ func TestClientOperations(t *testing.T) {
 }
 
 func TestCobraCommands(t *testing.T) {
+	// Keep converted-audio cache out of the real home directory.
+	t.Setenv("CYPHR_MEDIA_CACHE_DIR", t.TempDir())
 	ffmpegCleanup := media.SetFFmpegRunnerForTest(
 		func(string) (string, error) { return "/mock/ffmpeg", nil },
 		func(ctx context.Context, name string, args ...string) ([]byte, error) {

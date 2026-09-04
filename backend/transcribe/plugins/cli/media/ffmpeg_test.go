@@ -84,6 +84,9 @@ func TestConvertToStandardWav(t *testing.T) {
 		runCmdFunc = origRunCmd
 	}()
 
+	// Isolate the conversion cache from the real home directory.
+	t.Setenv("CYPHR_MEDIA_CACHE_DIR", t.TempDir())
+
 	tempDir := t.TempDir()
 	dummyMedia := filepath.Join(tempDir, "video.mp4")
 	require.NoError(t, os.WriteFile(dummyMedia, []byte("fake video content"), 0o600))
@@ -139,10 +142,72 @@ func TestConvertToStandardWav(t *testing.T) {
 		_, statErr := os.Stat(outPath)
 		assert.NoError(t, statErr)
 
-		// Verify cleanup removes the file
+		// Verify cleanup keeps the cached file on disk
 		cleanup()
 		_, statAfterErr := os.Stat(outPath)
-		assert.True(t, os.IsNotExist(statAfterErr))
+		assert.NoError(t, statAfterErr)
+	})
+
+	t.Run("cache hit skips ffmpeg", func(t *testing.T) {
+		lookPathFunc = func(file string) (string, error) {
+			return "/usr/bin/ffmpeg", nil
+		}
+
+		runCalls := 0
+		runCmdFunc = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			runCalls++
+			outPath := args[len(args)-1]
+			if writeErr := os.WriteFile(outPath, []byte("RIFF mock wav bytes"), 0o600); writeErr != nil {
+				return nil, writeErr
+			}
+			return []byte("ffmpeg version mock"), nil
+		}
+
+		// Use unseen content so the first call really converts.
+		repeated := filepath.Join(tempDir, "repeated.mp4")
+		require.NoError(t, os.WriteFile(repeated, []byte("repeated media content"), 0o600))
+
+		firstPath, _, err := ConvertToStandardAudio(context.Background(), repeated)
+		require.NoError(t, err)
+		require.Equal(t, 1, runCalls)
+
+		// Second conversion of identical content must not invoke ffmpeg again.
+		secondPath, _, err := ConvertToStandardAudio(context.Background(), repeated)
+		require.NoError(t, err)
+		assert.Equal(t, firstPath, secondPath)
+		assert.Equal(t, 1, runCalls)
+
+		// Lookup reports the cached conversion directly.
+		cachedPath, ok := LookupCachedConversion(repeated)
+		assert.True(t, ok)
+		assert.Equal(t, firstPath, cachedPath)
+	})
+
+	t.Run("changed source content misses cache", func(t *testing.T) {
+		lookPathFunc = func(file string) (string, error) {
+			return "/usr/bin/ffmpeg", nil
+		}
+
+		runCalls := 0
+		runCmdFunc = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			runCalls++
+			outPath := args[len(args)-1]
+			if writeErr := os.WriteFile(outPath, []byte("RIFF mock wav bytes"), 0o600); writeErr != nil {
+				return nil, writeErr
+			}
+			return []byte("ffmpeg version mock"), nil
+		}
+
+		altered := filepath.Join(tempDir, "altered.mp4")
+		require.NoError(t, os.WriteFile(altered, []byte("different fake content"), 0o600))
+
+		if _, ok := LookupCachedConversion(altered); ok {
+			t.Fatalf("LookupCachedConversion() = hit, want miss for unseen content")
+		}
+		outPath, _, err := ConvertToStandardAudio(context.Background(), altered)
+		require.NoError(t, err)
+		require.NotEmpty(t, outPath)
+		assert.Equal(t, 1, runCalls)
 	})
 
 	t.Run("ffmpeg execution fails", func(t *testing.T) {
@@ -154,7 +219,11 @@ func TestConvertToStandardWav(t *testing.T) {
 			return []byte("corrupt input stream"), errors.New("exit status 1")
 		}
 
-		outPath, cleanup, err := ConvertToStandardWav(context.Background(), dummyMedia)
+		// Use unseen content so the failure path runs instead of a cache hit.
+		broken := filepath.Join(tempDir, "broken.mp4")
+		require.NoError(t, os.WriteFile(broken, []byte("broken media content"), 0o600))
+
+		outPath, cleanup, err := ConvertToStandardWav(context.Background(), broken)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "ffmpeg audio conversion failed")
 		assert.Contains(t, err.Error(), "corrupt input stream")
