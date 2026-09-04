@@ -114,7 +114,8 @@ func UpdateInstaller(owner, repo string, useMirror bool, cb ProgressCallback) er
 	defer func() { _ = os.Remove(tmpArchive) }()
 
 	cb("extract", progressExtract, "正在解压可执行文件...")
-	tmpNewExe, err := extractBinaryFromArchive(tmpArchive, archiveName, "cyphr-installer")
+	targetDir := filepath.Dir(currentExe)
+	tmpNewExe, err := extractBinaryFromArchive(tmpArchive, archiveName, "cyphr-installer", targetDir)
 	if err != nil {
 		return fmt.Errorf("解压新版本失败: %w", err)
 	}
@@ -210,10 +211,14 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 	return tmpName, nil
 }
 
-func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (string, error) {
-	tmpExe, err := os.CreateTemp("", binaryName+"-*")
+func extractBinaryFromArchive(archivePath, archiveName, binaryName, targetDir string) (string, error) {
+	tmpExe, err := os.CreateTemp(targetDir, binaryName+"-*")
 	if err != nil {
-		return "", err
+		// Fallback to default temp dir if targetDir is unwritable
+		tmpExe, err = os.CreateTemp("", binaryName+"-*")
+		if err != nil {
+			return "", err
+		}
 	}
 	tmpExeName := tmpExe.Name()
 
@@ -289,18 +294,62 @@ func extractFromTarGz(archivePath, binaryName string, tmpExe *os.File) error {
 }
 
 func replaceExecutable(dst, src string) error {
+	dstDir := filepath.Dir(dst)
+	stageFile := src
+
+	if filepath.Clean(filepath.Dir(src)) != filepath.Clean(dstDir) {
+		staged, cleanup, err := stageFileToDir(src, dstDir, filepath.Base(dst))
+		if err != nil {
+			return err
+		}
+		defer cleanup()
+		stageFile = staged
+	}
+
 	oldExe := dst + ".old"
 	_ = os.Remove(oldExe)
 
 	if err := os.Rename(dst, oldExe); err != nil {
-		return err
+		return fmt.Errorf("备份当前可执行文件失败: %w", err)
 	}
 
-	if err := os.Rename(src, dst); err != nil {
-		_ = os.Rename(oldExe, dst)
-		return err
+	if err := os.Rename(stageFile, dst); err != nil {
+		_ = os.Rename(oldExe, dst) // Rollback
+		return fmt.Errorf("替换可执行程序失败: %w", err)
 	}
 
 	_ = os.Remove(oldExe)
 	return nil
+}
+
+func stageFileToDir(src, dstDir, baseName string) (string, func(), error) {
+	tmp, err := os.CreateTemp(dstDir, baseName+"-stage-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("在目标目录创建中转文件失败: %w", err)
+	}
+	stagePath := tmp.Name()
+	cleanup := func() { _ = os.Remove(stagePath) }
+
+	in, err := os.Open(filepath.Clean(src)) //nolint:gosec // Local file copy
+	if err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return "", nil, fmt.Errorf("读取新版本可执行文件失败: %w", err)
+	}
+
+	_, copyErr := io.Copy(tmp, in)
+	_ = in.Close()
+	_ = tmp.Close()
+	if copyErr != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("复制新版本至目标目录失败: %w", copyErr)
+	}
+
+	perm := os.FileMode(executablePerm)
+	if fi, statErr := os.Stat(src); statErr == nil {
+		perm = fi.Mode()
+	}
+	_ = os.Chmod(stagePath, perm)
+
+	return stagePath, cleanup, nil
 }

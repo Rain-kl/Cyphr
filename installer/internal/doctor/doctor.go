@@ -22,7 +22,7 @@ import (
 const (
 	defaultProbeTimeout = 3 * time.Second
 	smiProbeTimeout     = 4 * time.Second
-	deepProbeTimeout    = 8 * time.Second
+	deepProbeTimeout    = 30 * time.Second
 	minCSVFields        = 4
 )
 
@@ -301,7 +301,7 @@ func (r *Report) runPythonProbe() {
 	}
 
 	script := `
-import sys, json
+import sys, json, os
 res = {
     "python": sys.version.split()[0],
     "is_64bit": sys.maxsize > 2**32,
@@ -334,6 +334,8 @@ except Exception as e:
     res["pynvml"] = {"available": False, "error": str(e)}
 
 print(json.dumps(res))
+sys.stdout.flush()
+os._exit(0)
 `
 
 	ctx, cancel := context.WithTimeout(context.Background(), deepProbeTimeout)
@@ -343,20 +345,27 @@ print(json.dumps(res))
 	cmd.Dir = r.AgentDir
 	out, err := cmd.CombinedOutput()
 	r.ProbeRun = true
-	if err != nil {
-		r.ProbeErr = fmt.Sprintf("%v: %s", err, strings.TrimSpace(string(out)))
-		return
-	}
 
 	raw := strings.TrimSpace(string(out))
 	start := strings.Index(raw, "{")
 	end := strings.LastIndex(raw, "}")
+	var parseErr error
 	if start != -1 && end != -1 && end > start {
-		raw = raw[start : end+1]
+		jsonStr := raw[start : end+1]
+		parseErr = json.Unmarshal([]byte(jsonStr), &r.ProbeResult)
+	} else {
+		parseErr = fmt.Errorf("探针输出中未找到有效的 JSON 结构")
 	}
 
-	if unmarshalErr := json.Unmarshal([]byte(raw), &r.ProbeResult); unmarshalErr != nil {
-		r.ProbeErr = fmt.Sprintf("解析探针输出失败: %v, 原始输出:\n%s", unmarshalErr, raw)
+	if parseErr != nil {
+		if err != nil {
+			r.ProbeErr = fmt.Sprintf("%v: %s", err, raw)
+		} else {
+			r.ProbeErr = fmt.Sprintf("解析探针输出失败: %v, 原始输出:\n%s", parseErr, raw)
+		}
+	} else {
+		// Valid JSON successfully decoded. Clear probe error.
+		r.ProbeErr = ""
 	}
 }
 

@@ -37,7 +37,7 @@ func TestExtractBinaryFromArchive(t *testing.T) {
 	_ = gw.Close()
 	_ = f.Close()
 
-	extractedExe, err := extractBinaryFromArchive(tarGzPath, "cyphr-installer_v1.0.0_darwin_arm64.tar.gz", "cyphr-installer")
+	extractedExe, err := extractBinaryFromArchive(tarGzPath, "cyphr-installer_v1.0.0_darwin_arm64.tar.gz", "cyphr-installer", tempDir)
 	if err != nil {
 		t.Fatalf("extract failed: %v", err)
 	}
@@ -70,5 +70,22 @@ func TestReplaceExecutable(t *testing.T) {
 	}
 	if string(data) != "v2" {
 		t.Fatalf("expected v2, got %s", string(data))
+	}
+
+	// Test cross-directory replacement (simulating /tmp to app directory)
+	otherDir := t.TempDir()
+	externalNewExe := filepath.Join(otherDir, "cross_dev_new_exe")
+	_ = os.WriteFile(externalNewExe, []byte("v3"), 0755)
+
+	if err := replaceExecutable(currentExe, externalNewExe); err != nil {
+		t.Fatalf("replaceExecutable cross-directory failed: %v", err)
+	}
+
+	data2, err := os.ReadFile(currentExe)
+	if err != nil {
+		t.Fatalf("read replaced file failed: %v", err)
+	}
+	if string(data2) != "v3" {
+		t.Fatalf("expected v3, got %s", string(data2))
 	}
 }
