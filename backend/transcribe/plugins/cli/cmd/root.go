@@ -62,6 +62,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(NewLoginCmd())
 	rootCmd.AddCommand(NewProfileCmd())
 	rootCmd.AddCommand(NewAsrCmd())
+	rootCmd.AddCommand(NewBatchCmd())
 	rootCmd.AddCommand(NewJobsCmd())
 	rootCmd.AddCommand(NewModelsCmd())
 
