@@ -39,6 +39,7 @@ import {
   AdminTranscribeService,
   type JobListDTO,
   type JobSummaryDTO,
+  type NodeDTO,
 } from '@/lib/services/transcribe';
 import {
   ExternalLink,
@@ -73,6 +74,21 @@ export function AllJobsTab() {
   const [status, setStatus] = React.useState('all');
   const [userId, setUserId] = React.useState('');
   const [nodeId, setNodeId] = React.useState('');
+  const [nodesList, setNodesList] = React.useState<NodeDTO[]>([]);
+
+  React.useEffect(() => {
+    AdminTranscribeService.listNodes()
+      .then(setNodesList)
+      .catch(() => {});
+  }, []);
+
+  const nodeMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const n of nodesList) {
+      map[String(n.id)] = n.name;
+    }
+    return map;
+  }, [nodesList]);
   const [page, setPage] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
   const [retryingId, setRetryingId] = React.useState<string | number | null>(
@@ -313,16 +329,28 @@ export function AllJobsTab() {
           className='h-8 w-32 border-dashed shadow-none text-xs bg-background'
         />
 
-        <Input
-          type='number'
-          value={nodeId}
-          onChange={(e) => {
-            setNodeId(e.target.value);
+        <Select
+          value={nodeId || 'all'}
+          onValueChange={(val) => {
+            setNodeId(val === 'all' ? '' : val);
             setPage(1);
           }}
-          placeholder={t('filterNode')}
-          className='h-8 w-32 border-dashed shadow-none text-xs bg-background'
-        />
+        >
+          <SelectTrigger
+            className='h-8 w-36 border-dashed shadow-none text-xs bg-background'
+            aria-label={t('filterNode')}
+          >
+            <SelectValue placeholder={t('filterNode')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value='all'>{t('allNodes') || '全部节点'}</SelectItem>
+            {nodesList.map((n) => (
+              <SelectItem key={n.id} value={String(n.id)}>
+                {n.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <Button
           variant='outline'
@@ -462,12 +490,19 @@ export function AllJobsTab() {
                         'Anon'
                       )}
                     </TableCell>
-                    <TableCell className='font-mono text-xs text-muted-foreground'>
+                    <TableCell className='text-xs text-muted-foreground'>
                       {job.node_id ? (
-                        <span className='flex items-center gap-1 text-primary'>
-                          <Server className='size-3' />
-                          <span>#{job.node_id}</span>
-                        </span>
+                        <Link
+                          href={`/admin/nodes/${job.node_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className='inline-flex items-center gap-1 text-primary hover:underline font-medium'
+                          title={`#${job.node_id}`}
+                        >
+                          <Server className='size-3 shrink-0' />
+                          <span className='truncate max-w-[120px]'>
+                            {nodeMap[String(job.node_id)] || `#${job.node_id}`}
+                          </span>
+                        </Link>
                       ) : (
                         '-'
                       )}

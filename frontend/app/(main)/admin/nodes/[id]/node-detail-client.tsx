@@ -30,6 +30,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AdminTranscribeService,
@@ -94,6 +102,7 @@ export function NodeDetailClient() {
 
   // Translations
   const tConfig = useTranslations('adminAsr.nodeConfig');
+  const tCommon = useTranslations('common');
 
   // Active Main Tab
   const [activeTab, setActiveTab] = React.useState<'overview' | 'config'>(
@@ -354,49 +363,52 @@ WantedBy=multi-user.target`;
               variant='ghost'
               size='sm'
               onClick={() => router.push('/admin/nodes')}
-              className='gap-1.5 text-muted-foreground hover:text-foreground -ml-2 h-8 px-2'
+              className='gap-1 text-xs text-muted-foreground hover:text-foreground -ml-2 h-7 px-2'
             >
-              <ArrowLeft className='size-4' />
+              <ArrowLeft className='size-3.5' />
               <span>返回节点列表</span>
             </Button>
           </div>
 
-          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5'>
+          <div className='flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-dashed pb-5'>
             <div className='flex items-start gap-3.5'>
-              <div className='rounded-xl bg-primary/10 p-3 text-primary shrink-0 mt-0.5'>
-                <Server className='size-6' />
+              <div className='rounded-lg bg-primary/10 p-2 text-primary shrink-0 mt-0.5'>
+                <Server className='size-5' />
               </div>
               <div>
-                <div className='flex items-center gap-2.5 flex-wrap'>
-                  <h1 className='text-2xl font-bold tracking-tight'>
+                <div className='flex items-center gap-2 flex-wrap'>
+                  <h1 className='text-2xl font-semibold tracking-tight'>
                     {node.name}
                   </h1>
                   {node.is_online ? (
                     <Badge
                       variant='outline'
-                      className='gap-1.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 py-0.5'
+                      className='text-[10px] bg-emerald-500/10 border-emerald-500/20 text-emerald-600 rounded-full py-0 px-2 font-medium'
                     >
-                      <span className='size-2 rounded-full bg-emerald-500 animate-pulse' />
+                      <span className='size-1 bg-emerald-500 rounded-full mr-1.5 shrink-0 animate-pulse' />
                       <span>在线 (Online)</span>
                     </Badge>
                   ) : (
                     <Badge
                       variant='outline'
-                      className='gap-1.5 border-muted bg-muted/30 text-muted-foreground py-0.5'
+                      className='text-[10px] text-muted-foreground rounded-full py-0 px-2 font-medium'
                     >
-                      <span className='size-2 rounded-full bg-muted-foreground/50' />
+                      <span className='size-1 bg-muted-foreground rounded-full mr-1.5 shrink-0' />
                       <span>离线 (Offline)</span>
                     </Badge>
                   )}
-                  <Badge variant='secondary' className='font-mono text-xs'>
+                  <Badge
+                    variant='outline'
+                    className='font-mono text-[10px] rounded-full py-0 px-2'
+                  >
                     #{node.id}
                   </Badge>
                   {node.current_mode && (
                     <Badge
                       variant='outline'
-                      className='gap-1 border-primary/30 bg-primary/10 text-primary py-0.5 text-xs'
+                      className='text-[10px] border-primary/20 bg-primary/10 text-primary rounded-full py-0 px-2 font-medium'
                     >
-                      <Cpu className='size-3' />
+                      <Cpu className='size-2.5 mr-1' />
                       <span className='uppercase font-semibold'>
                         {node.current_mode}
                       </span>
@@ -416,16 +428,16 @@ WantedBy=multi-user.target`;
               </div>
             </div>
 
-            <div className='flex items-center gap-2.5'>
+            <div className='flex items-center gap-2'>
               <Button
                 variant='outline'
                 size='sm'
                 onClick={() => fetchNode()}
                 disabled={isRefreshing}
-                className='h-9 gap-1.5'
+                className='h-8 text-xs border-dashed shadow-none gap-1 px-2.5'
               >
                 <RefreshCw
-                  className={`size-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
+                  className={`size-3 ${isRefreshing ? 'animate-spin' : ''}`}
                 />
                 <span>刷新</span>
               </Button>
@@ -435,7 +447,7 @@ WantedBy=multi-user.target`;
                 variant='default'
                 disabled={!node.is_online}
                 onClick={() => setLoadModelOpen(true)}
-                className='h-9 gap-1.5 shadow-sm'
+                className='h-8 text-xs shadow-none gap-1 px-2.5'
               >
                 <Plus className='size-3.5' />
                 <span>加载模型</span>
@@ -446,7 +458,7 @@ WantedBy=multi-user.target`;
                   <Button
                     variant='outline'
                     size='sm'
-                    className='h-9 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-200 dark:border-rose-900/50'
+                    className='h-8 text-xs border-dashed shadow-none text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-200 dark:border-rose-900/50'
                   >
                     <Trash2 className='size-3.5 mr-1' />
                     <span>删除节点</span>
@@ -462,7 +474,9 @@ WantedBy=multi-user.target`;
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogCancel>
+                      {tCommon('cancel') || '取消'}
+                    </AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDeleteNode}
                       className='bg-rose-600 hover:bg-rose-700 text-white'
@@ -482,90 +496,104 @@ WantedBy=multi-user.target`;
           onValueChange={(val) => setActiveTab(val as 'overview' | 'config')}
           className='w-full'
         >
-          <TabsList className='h-10 p-1 bg-muted/60 mb-2'>
-            <TabsTrigger value='overview' className='gap-2 text-sm px-4'>
-              <Activity className='size-4' />
+          <TabsList className='h-8 p-0.5 border border-dashed shadow-none bg-background mb-4'>
+            <TabsTrigger
+              value='overview'
+              className='gap-1.5 text-xs h-7 px-3 data-[state=active]:bg-muted data-[state=active]:shadow-none'
+            >
+              <Activity className='size-3.5' />
               <span>{tConfig('tabOverview')}</span>
             </TabsTrigger>
-            <TabsTrigger value='config' className='gap-2 text-sm px-4'>
-              <Settings className='size-4' />
+            <TabsTrigger
+              value='config'
+              className='gap-1.5 text-xs h-7 px-3 data-[state=active]:bg-muted data-[state=active]:shadow-none'
+            >
+              <Settings className='size-3.5' />
               <span>{tConfig('tabConfig')}</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Overview & Telemetry */}
-          <TabsContent value='overview' className='mt-4 space-y-6'>
+          <TabsContent
+            value='overview'
+            className='mt-2 space-y-6 focus-visible:outline-none'
+          >
             {/* Top 4 Summary Metrics */}
             <div className='grid grid-cols-2 gap-4 md:grid-cols-4'>
-              <Card className='border shadow-sm'>
-                <CardContent className='flex items-center justify-between p-4'>
-                  <div>
-                    <p className='text-xs font-medium text-muted-foreground'>
-                      连接状态
-                    </p>
-                    <div className='mt-1 text-lg font-bold'>
-                      {node.is_online ? (
-                        <span className='text-emerald-600 dark:text-emerald-400'>
-                          正常连接
-                        </span>
-                      ) : (
-                        <span className='text-muted-foreground'>等待上线</span>
-                      )}
-                    </div>
+              <Card className='border-dashed shadow-none'>
+                <CardHeader className='flex flex-row items-center justify-between pb-2'>
+                  <span className='text-xs font-medium text-muted-foreground'>
+                    连接状态
+                  </span>
+                  <Wifi
+                    className={`size-4 ${node.is_online ? 'text-emerald-500' : 'text-muted-foreground'}`}
+                  />
+                </CardHeader>
+                <CardContent className='space-y-1'>
+                  <div className='text-2xl font-semibold tracking-tight'>
+                    {node.is_online ? (
+                      <span className='text-emerald-600 dark:text-emerald-400'>
+                        正常连接
+                      </span>
+                    ) : (
+                      <span className='text-muted-foreground'>等待上线</span>
+                    )}
                   </div>
-                  <div
-                    className={`rounded-xl p-2.5 ${node.is_online ? 'bg-emerald-500/10 text-emerald-500' : 'bg-muted text-muted-foreground'}`}
-                  >
-                    <Wifi className='size-5' />
-                  </div>
+                  <p className='text-[10px] text-muted-foreground flex items-center gap-1'>
+                    <span
+                      className={`size-1.5 rounded-full ${node.is_online ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`}
+                    />
+                    <span>{node.is_online ? '已就绪响应任务' : '离线中'}</span>
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card className='border shadow-sm'>
-                <CardContent className='flex items-center justify-between p-4'>
-                  <div>
-                    <p className='text-xs font-medium text-muted-foreground'>
-                      并发运行作业
-                    </p>
-                    <div className='mt-1 text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400'>
-                      {node.running_jobs || 0}
-                    </div>
+              <Card className='border-dashed shadow-none'>
+                <CardHeader className='flex flex-row items-center justify-between pb-2'>
+                  <span className='text-xs font-medium text-muted-foreground'>
+                    并发运行作业
+                  </span>
+                  <Layers className='size-4 text-amber-500' />
+                </CardHeader>
+                <CardContent className='space-y-1'>
+                  <div className='text-2xl font-semibold tracking-tight text-amber-600 dark:text-amber-400'>
+                    {node.running_jobs || 0}
                   </div>
-                  <div className='rounded-xl p-2.5 bg-amber-500/10 text-amber-500'>
-                    <Layers className='size-5' />
-                  </div>
+                  <p className='text-[10px] text-muted-foreground'>
+                    当前活跃推理任务
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card className='border shadow-sm'>
-                <CardContent className='flex items-center justify-between p-4'>
-                  <div>
-                    <p className='text-xs font-medium text-muted-foreground'>
-                      CPU 使用率
-                    </p>
-                    <div className='mt-1 text-2xl font-bold tracking-tight font-mono'>
-                      {sys ? `${sys.cpu_percent.toFixed(1)}%` : '-'}
-                    </div>
+              <Card className='border-dashed shadow-none'>
+                <CardHeader className='flex flex-row items-center justify-between pb-2'>
+                  <span className='text-xs font-medium text-muted-foreground'>
+                    CPU 使用率
+                  </span>
+                  <Cpu className='size-4 text-blue-500' />
+                </CardHeader>
+                <CardContent className='space-y-1'>
+                  <div className='text-2xl font-semibold tracking-tight font-mono'>
+                    {sys ? `${sys.cpu_percent.toFixed(1)}%` : '-'}
                   </div>
-                  <div className='rounded-xl p-2.5 bg-blue-500/10 text-blue-500'>
-                    <Cpu className='size-5' />
-                  </div>
+                  <Progress value={sys?.cpu_percent || 0} className='h-1.5' />
                 </CardContent>
               </Card>
 
-              <Card className='border shadow-sm'>
-                <CardContent className='flex items-center justify-between p-4'>
-                  <div>
-                    <p className='text-xs font-medium text-muted-foreground'>
-                      已载入模型数
-                    </p>
-                    <div className='mt-1 text-2xl font-bold tracking-tight text-primary'>
-                      {node.loaded_models?.length || 0}
-                    </div>
+              <Card className='border-dashed shadow-none'>
+                <CardHeader className='flex flex-row items-center justify-between pb-2'>
+                  <span className='text-xs font-medium text-muted-foreground'>
+                    已载入模型数
+                  </span>
+                  <Zap className='size-4 text-primary' />
+                </CardHeader>
+                <CardContent className='space-y-1'>
+                  <div className='text-2xl font-semibold tracking-tight text-primary'>
+                    {node.loaded_models?.length || 0}
                   </div>
-                  <div className='rounded-xl p-2.5 bg-primary/10 text-primary'>
-                    <Zap className='size-5' />
-                  </div>
+                  <p className='text-[10px] text-muted-foreground'>
+                    驻留在内存/显存中
+                  </p>
                 </CardContent>
               </Card>
             </div>
@@ -573,7 +601,7 @@ WantedBy=multi-user.target`;
             {/* Two Column Section: Telemetry & Models */}
             <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
               {/* Left 2 Cols: Hardware Telemetry */}
-              <Card className='lg:col-span-2 border shadow-sm'>
+              <Card className='lg:col-span-2 border-dashed shadow-none'>
                 <CardHeader className='pb-3'>
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-2'>
@@ -607,7 +635,7 @@ WantedBy=multi-user.target`;
                     </div>
                     <Progress
                       value={sys?.cpu_percent || 0}
-                      className='h-2.5 bg-muted'
+                      className='h-1.5 bg-muted'
                     />
                   </div>
 
@@ -626,7 +654,7 @@ WantedBy=multi-user.target`;
                     </div>
                     <Progress
                       value={sys?.ram_percent || 0}
-                      className='h-2.5 bg-muted'
+                      className='h-1.5 bg-muted'
                     />
                   </div>
 
@@ -656,12 +684,12 @@ WantedBy=multi-user.target`;
                             100
                           : sys?.gpu_percent || 0
                       }
-                      className='h-2.5 bg-muted'
+                      className='h-1.5 bg-muted'
                     />
                   </div>
 
                   {/* Info grid */}
-                  <div className='grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t text-xs'>
+                  <div className='grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-dashed text-xs'>
                     <div>
                       <span className='text-muted-foreground block'>
                         创建时间
@@ -699,14 +727,17 @@ WantedBy=multi-user.target`;
               </Card>
 
               {/* Right 1 Col: Loaded Models */}
-              <Card className='border shadow-sm flex flex-col justify-between'>
+              <Card className='border-dashed shadow-none flex flex-col justify-between'>
                 <CardHeader className='pb-3'>
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-2'>
                       <Zap className='size-4 text-primary' />
                       <CardTitle className='text-base'>已载入模型</CardTitle>
                     </div>
-                    <Badge variant='secondary' className='text-xs'>
+                    <Badge
+                      variant='outline'
+                      className='rounded-full py-0 px-2 font-medium text-[10px] border-dashed'
+                    >
                       {node.loaded_models?.length || 0} 个模型
                     </Badge>
                   </div>
@@ -720,7 +751,7 @@ WantedBy=multi-user.target`;
                       {node.loaded_models.map((modelName) => (
                         <div
                           key={modelName}
-                          className='flex items-center justify-between rounded-lg border bg-muted/20 p-2.5 text-xs'
+                          className='flex items-center justify-between rounded-lg border border-dashed bg-muted/20 p-2.5 text-xs'
                         >
                           <div className='flex items-center gap-2 overflow-hidden'>
                             <span className='size-2 rounded-full bg-primary shrink-0' />
@@ -759,7 +790,7 @@ WantedBy=multi-user.target`;
                     size='sm'
                     disabled={!node.is_online}
                     onClick={() => setLoadModelOpen(true)}
-                    className='w-full mt-4 h-8 text-xs gap-1.5'
+                    className='w-full mt-4 h-8 text-xs gap-1.5 border-dashed shadow-none'
                   >
                     <Plus className='size-3.5' />
                     <span>加载新模型</span>
@@ -769,7 +800,7 @@ WantedBy=multi-user.target`;
             </div>
 
             {/* Section 3: Connection Configuration (一键复制连接配置信息) */}
-            <Card className='border shadow-sm'>
+            <Card className='border-dashed shadow-none'>
               <CardHeader className='pb-3'>
                 <div className='flex items-center justify-between flex-wrap gap-2'>
                   <div className='flex items-center gap-2'>
@@ -789,7 +820,7 @@ WantedBy=multi-user.target`;
 
               <CardContent className='space-y-5'>
                 {/* Controller URL & Token Settings */}
-                <div className='rounded-xl border bg-muted/20 p-4 space-y-4'>
+                <div className='rounded-xl border border-dashed bg-muted/20 p-4 space-y-4'>
                   <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
                     <div className='space-y-0.5'>
                       <Label
@@ -809,12 +840,12 @@ WantedBy=multi-user.target`;
                         value={controllerUrl}
                         onChange={(e) => setControllerUrl(e.target.value)}
                         placeholder='http://your-server-ip:8000'
-                        className='font-mono text-xs h-8 bg-background'
+                        className='font-mono text-xs h-8 bg-background border-dashed shadow-none'
                       />
                     </div>
                   </div>
 
-                  <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t'>
+                  <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-dashed'>
                     <div className='space-y-0.5'>
                       <Label
                         htmlFor='agent-token-input'
@@ -834,7 +865,7 @@ WantedBy=multi-user.target`;
                           type={showToken ? 'text' : 'password'}
                           value={actualToken}
                           readOnly
-                          className='font-mono text-xs h-8 bg-background pr-8 select-all'
+                          className='font-mono text-xs h-8 bg-background border-dashed shadow-none pr-8 select-all'
                         />
                         <Button
                           type='button'
@@ -856,7 +887,7 @@ WantedBy=multi-user.target`;
                         variant='outline'
                         size='icon'
                         onClick={() => handleCopy(actualToken, 'token')}
-                        className='h-8 w-8 shrink-0'
+                        className='h-8 w-8 shrink-0 border-dashed shadow-none'
                         aria-label='复制 Token'
                       >
                         {copiedKey === 'token' ? (
@@ -872,7 +903,7 @@ WantedBy=multi-user.target`;
                 {/* Config Tabs */}
                 <Tabs defaultValue='shell' className='w-full'>
                   <div className='flex items-center justify-between flex-wrap gap-2 mb-2'>
-                    <TabsList className='h-9'>
+                    <TabsList className='h-9 border border-dashed shadow-none bg-background'>
                       <TabsTrigger value='shell' className='text-xs gap-1.5'>
                         <Terminal className='size-3.5' />
                         <span>Shell 环境变量</span>
@@ -894,12 +925,12 @@ WantedBy=multi-user.target`;
 
                   {/* Shell Tab */}
                   <TabsContent value='shell' className='mt-2 space-y-2'>
-                    <div className='relative rounded-xl border bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
+                    <div className='relative rounded-xl border border-dashed bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
                       <Button
                         size='sm'
                         variant='secondary'
                         onClick={() => handleCopy(shellSnippet, 'shell')}
-                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700'
+                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-dashed border-zinc-700 shadow-none'
                       >
                         {copiedKey === 'shell' ? (
                           <Check className='size-3.5 text-emerald-400' />
@@ -923,12 +954,12 @@ WantedBy=multi-user.target`;
 
                   {/* YAML Tab */}
                   <TabsContent value='yaml' className='mt-2 space-y-2'>
-                    <div className='relative rounded-xl border bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
+                    <div className='relative rounded-xl border border-dashed bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
                       <Button
                         size='sm'
                         variant='secondary'
                         onClick={() => handleCopy(yamlSnippet, 'yaml')}
-                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700'
+                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-dashed border-zinc-700 shadow-none'
                       >
                         {copiedKey === 'yaml' ? (
                           <Check className='size-3.5 text-emerald-400' />
@@ -956,12 +987,12 @@ WantedBy=multi-user.target`;
 
                   {/* Docker Tab */}
                   <TabsContent value='docker' className='mt-2 space-y-2'>
-                    <div className='relative rounded-xl border bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
+                    <div className='relative rounded-xl border border-dashed bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
                       <Button
                         size='sm'
                         variant='secondary'
                         onClick={() => handleCopy(dockerSnippet, 'docker')}
-                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700'
+                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-dashed border-zinc-700 shadow-none'
                       >
                         {copiedKey === 'docker' ? (
                           <Check className='size-3.5 text-emerald-400' />
@@ -984,12 +1015,12 @@ WantedBy=multi-user.target`;
 
                   {/* Systemd Tab */}
                   <TabsContent value='systemd' className='mt-2 space-y-2'>
-                    <div className='relative rounded-xl border bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
+                    <div className='relative rounded-xl border border-dashed bg-zinc-950 p-4 text-zinc-100 font-mono text-xs overflow-x-auto'>
                       <Button
                         size='sm'
                         variant='secondary'
                         onClick={() => handleCopy(systemdSnippet, 'systemd')}
-                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border-zinc-700'
+                        className='absolute top-3 right-3 h-7 gap-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-dashed border-zinc-700 shadow-none'
                       >
                         {copiedKey === 'systemd' ? (
                           <Check className='size-3.5 text-emerald-400' />
@@ -1024,7 +1055,7 @@ WantedBy=multi-user.target`;
           {/* Tab 2: Node Configuration & VRAM */}
           <TabsContent value='config' className='mt-4 space-y-6'>
             {/* Section: Inference Work Mode */}
-            <Card className='border shadow-sm'>
+            <Card className='border-dashed shadow-none'>
               <CardHeader className='pb-3'>
                 <div className='flex items-center justify-between'>
                   <div className='flex items-center gap-2'>
@@ -1036,7 +1067,7 @@ WantedBy=multi-user.target`;
                   {node.current_mode && (
                     <Badge
                       variant='outline'
-                      className='gap-1 border-primary/30 bg-primary/10 text-primary text-xs'
+                      className='rounded-full py-0 px-2 font-medium text-[10px] gap-1 border-dashed border-primary/30 bg-primary/10 text-primary'
                     >
                       <span>
                         {tConfig('currentModeBadge')}:{' '}
@@ -1066,7 +1097,7 @@ WantedBy=multi-user.target`;
                             ? 'opacity-50 cursor-not-allowed border-dashed bg-muted/20'
                             : isSelected
                               ? 'border-primary bg-primary/5 cursor-pointer ring-1 ring-primary'
-                              : 'border-border hover:border-primary/50 cursor-pointer bg-card'
+                              : 'border-dashed border-border hover:border-primary/50 cursor-pointer bg-card'
                         }`}
                       >
                         <div className='flex items-start justify-between gap-3'>
@@ -1104,7 +1135,7 @@ WantedBy=multi-user.target`;
                         className={`relative flex flex-col justify-between rounded-xl border p-4 transition-all cursor-pointer ${
                           isSelected
                             ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                            : 'border-border hover:border-primary/50 bg-card'
+                            : 'border-dashed border-border hover:border-primary/50 bg-card'
                         }`}
                       >
                         <div className='flex items-start justify-between gap-3'>
@@ -1135,7 +1166,7 @@ WantedBy=multi-user.target`;
             </Card>
 
             {/* Section: Auto-Load & Idle Auto-Unload */}
-            <Card className='border shadow-sm'>
+            <Card className='border-dashed shadow-none'>
               <CardHeader className='pb-3'>
                 <div className='flex items-center gap-2'>
                   <Activity className='size-4 text-primary' />
@@ -1149,7 +1180,7 @@ WantedBy=multi-user.target`;
               </CardHeader>
               <CardContent className='space-y-6 pt-2'>
                 {/* Allow Auto Load Switch */}
-                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-muted/20 p-4'>
+                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed bg-muted/20 p-4'>
                   <div className='space-y-0.5'>
                     <Label
                       htmlFor='auto-load-switch'
@@ -1169,7 +1200,7 @@ WantedBy=multi-user.target`;
                 </div>
 
                 {/* Auto Unload Minutes Input */}
-                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-muted/20 p-4'>
+                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed bg-muted/20 p-4'>
                   <div className='space-y-0.5'>
                     <Label
                       htmlFor='auto-unload-minutes'
@@ -1191,7 +1222,7 @@ WantedBy=multi-user.target`;
                       onChange={(e) =>
                         setAutoUnloadMinutes(parseInt(e.target.value, 10) || 0)
                       }
-                      className='h-9 font-mono text-sm bg-background'
+                      className='h-9 font-mono text-sm bg-background border-dashed shadow-none'
                     />
                     <span className='text-xs text-muted-foreground shrink-0'>
                       分钟
@@ -1200,7 +1231,7 @@ WantedBy=multi-user.target`;
                 </div>
 
                 {/* Max Concurrent Jobs Input (由中心控制台配置，禁止 Agent 自行设置) */}
-                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border bg-muted/20 p-4'>
+                <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-dashed bg-muted/20 p-4'>
                   <div className='space-y-0.5'>
                     <Label
                       htmlFor='max-concurrent-jobs'
@@ -1225,7 +1256,7 @@ WantedBy=multi-user.target`;
                           Math.max(1, parseInt(e.target.value, 10) || 1),
                         )
                       }
-                      className='h-9 font-mono text-sm bg-background'
+                      className='h-9 font-mono text-sm bg-background border-dashed shadow-none'
                     />
                     <span className='text-xs text-muted-foreground shrink-0'>
                       任务
@@ -1236,7 +1267,7 @@ WantedBy=multi-user.target`;
             </Card>
 
             {/* Section: Model VRAM Estimates Table */}
-            <Card className='border shadow-sm'>
+            <Card className='border-dashed shadow-none'>
               <CardHeader className='pb-3'>
                 <div className='flex items-center justify-between'>
                   <div className='flex items-center gap-2'>
@@ -1245,7 +1276,10 @@ WantedBy=multi-user.target`;
                       {tConfig('vramTitle')}
                     </CardTitle>
                   </div>
-                  <Badge variant='secondary' className='text-xs'>
+                  <Badge
+                    variant='outline'
+                    className='rounded-full py-0 px-2 font-medium text-[10px] border-dashed'
+                  >
                     {Object.keys(modelVramEstimates).length} 个配置项
                   </Badge>
                 </div>
@@ -1264,7 +1298,7 @@ WantedBy=multi-user.target`;
                     onClick={() =>
                       handleQuickAddEstimate('qwen3-asr-0.6b', 2000)
                     }
-                    className='h-7 text-xs gap-1 font-mono'
+                    className='h-7 text-xs gap-1 font-mono border-dashed shadow-none'
                   >
                     <Plus className='size-3' />
                     <span>qwen3-asr-0.6b (2000 MB)</span>
@@ -1276,7 +1310,7 @@ WantedBy=multi-user.target`;
                     onClick={() =>
                       handleQuickAddEstimate('qwen3-asr-1.7b', 5000)
                     }
-                    className='h-7 text-xs gap-1 font-mono'
+                    className='h-7 text-xs gap-1 font-mono border-dashed shadow-none'
                   >
                     <Plus className='size-3' />
                     <span>qwen3-asr-1.7b (5000 MB)</span>
@@ -1288,7 +1322,7 @@ WantedBy=multi-user.target`;
                     onClick={() =>
                       handleQuickAddEstimate('mock-whisper-base', 500)
                     }
-                    className='h-7 text-xs gap-1 font-mono'
+                    className='h-7 text-xs gap-1 font-mono border-dashed shadow-none'
                   >
                     <Plus className='size-3' />
                     <span>mock-whisper-base (500 MB)</span>
@@ -1296,43 +1330,45 @@ WantedBy=multi-user.target`;
                 </div>
 
                 {/* Estimates List Table */}
-                <div className='rounded-xl border overflow-hidden'>
-                  <table className='w-full text-xs'>
-                    <thead>
-                      <tr className='border-b bg-muted/40 text-muted-foreground font-medium'>
-                        <th className='text-left py-2.5 px-3'>
+                <div className='rounded-lg border border-dashed overflow-hidden bg-background'>
+                  <Table>
+                    <TableHeader className='bg-muted/40'>
+                      <TableRow className='border-dashed hover:bg-transparent'>
+                        <TableHead className='py-2.5 px-3 text-xs font-medium'>
                           {tConfig('modelName')}
-                        </th>
-                        <th className='text-left py-2.5 px-3'>
+                        </TableHead>
+                        <TableHead className='py-2.5 px-3 text-xs font-medium'>
                           {tConfig('estimateMb')}
-                        </th>
-                        <th className='text-right py-2.5 px-3'>操作</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        </TableHead>
+                        <TableHead className='py-2.5 px-3 text-xs font-medium text-right'>
+                          操作
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {Object.keys(modelVramEstimates).length === 0 ? (
-                        <tr>
-                          <td
+                        <TableRow className='border-dashed'>
+                          <TableCell
                             colSpan={3}
-                            className='py-6 text-center text-muted-foreground'
+                            className='py-6 text-center text-xs text-muted-foreground'
                           >
                             {tConfig('noEstimates')}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         Object.entries(modelVramEstimates).map(
                           ([mName, mb]) => (
-                            <tr
+                            <TableRow
                               key={mName}
-                              className='border-b last:border-b-0 hover:bg-muted/10'
+                              className='border-dashed hover:bg-muted/10'
                             >
-                              <td className='py-2.5 px-3 font-mono font-medium'>
+                              <TableCell className='py-2.5 px-3 font-mono font-medium text-xs'>
                                 {mName}
-                              </td>
-                              <td className='py-2.5 px-3 font-mono text-purple-600 dark:text-purple-400 font-semibold'>
+                              </TableCell>
+                              <TableCell className='py-2.5 px-3 font-mono text-purple-600 dark:text-purple-400 font-semibold text-xs'>
                                 {mb} MB
-                              </td>
-                              <td className='py-2.5 px-3 text-right'>
+                              </TableCell>
+                              <TableCell className='py-2.5 px-3 text-right'>
                                 <Button
                                   type='button'
                                   variant='ghost'
@@ -1344,13 +1380,13 @@ WantedBy=multi-user.target`;
                                 >
                                   <Trash2 className='size-3.5' />
                                 </Button>
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ),
                         )
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
 
                 {/* Add Custom Estimate Form */}
@@ -1359,7 +1395,7 @@ WantedBy=multi-user.target`;
                     value={newModelName}
                     onChange={(e) => setNewModelName(e.target.value)}
                     placeholder={tConfig('modelPlaceholder')}
-                    className='h-9 text-xs font-mono'
+                    className='h-9 text-xs font-mono border-dashed shadow-none'
                   />
                   <Input
                     type='number'
@@ -1367,14 +1403,14 @@ WantedBy=multi-user.target`;
                     value={newModelMb}
                     onChange={(e) => setNewModelMb(e.target.value)}
                     placeholder={tConfig('mbPlaceholder')}
-                    className='h-9 text-xs font-mono sm:w-40'
+                    className='h-9 text-xs font-mono sm:w-40 border-dashed shadow-none'
                   />
                   <Button
                     type='button'
                     variant='outline'
                     size='sm'
                     onClick={handleAddModelEstimate}
-                    className='h-9 text-xs gap-1.5 shrink-0 w-full sm:w-auto'
+                    className='h-9 text-xs gap-1.5 shrink-0 w-full sm:w-auto border-dashed shadow-none'
                   >
                     <Plus className='size-3.5' />
                     <span>{tConfig('addEstimate')}</span>
@@ -1388,7 +1424,7 @@ WantedBy=multi-user.target`;
               <Button
                 onClick={handleSaveConfig}
                 disabled={isSavingConfig}
-                className='gap-2 min-w-36 h-10 shadow-sm'
+                className='gap-2 min-w-36 h-10 shadow-none'
               >
                 {isSavingConfig ? (
                   <RefreshCw className='size-4 animate-spin' />
