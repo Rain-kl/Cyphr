@@ -199,24 +199,30 @@ func downloadFile(url string, progressCb func(float64)) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer tmpFile.Close()
+	tmpName := tmpFile.Name()
+	var closed bool
+	defer func() {
+		if !closed {
+			_ = tmpFile.Close()
+		}
+	}()
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpName)
 		return "", err
 	}
 
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpName)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpName)
 		return "", fmt.Errorf("下载失败 (HTTP %d): %s", resp.StatusCode, resp.Status)
 	}
 
@@ -228,7 +234,7 @@ func downloadFile(url string, progressCb func(float64)) (string, error) {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			if _, werr := tmpFile.Write(buf[:n]); werr != nil {
-				_ = os.Remove(tmpFile.Name())
+				_ = os.Remove(tmpName)
 				return "", werr
 			}
 			downloaded += int64(n)
@@ -240,12 +246,19 @@ func downloadFile(url string, progressCb func(float64)) (string, error) {
 			if err == io.EOF {
 				break
 			}
-			_ = os.Remove(tmpFile.Name())
+			_ = os.Remove(tmpName)
 			return "", err
 		}
 	}
 
-	return tmpFile.Name(), nil
+	// Close file explicitly before returning so other processes / zip.OpenReader can open it on Windows
+	closed = true
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return "", err
+	}
+
+	return tmpName, nil
 }
 
 func extractZip(zr *zip.Reader, destDir string) error {

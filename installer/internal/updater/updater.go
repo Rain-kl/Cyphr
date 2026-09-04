@@ -135,24 +135,30 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer tmpFile.Close()
+	tmpName := tmpFile.Name()
+	var closed bool
+	defer func() {
+		if !closed {
+			_ = tmpFile.Close()
+		}
+	}()
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpName)
 		return "", err
 	}
 
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Do(req)
 	if err != nil {
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpName)
 		return "", err
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		_ = os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpName)
 		return "", fmt.Errorf("下载失败 (HTTP %d): %s", resp.StatusCode, resp.Status)
 	}
 
@@ -164,7 +170,7 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			if _, werr := tmpFile.Write(buf[:n]); werr != nil {
-				_ = os.Remove(tmpFile.Name())
+				_ = os.Remove(tmpName)
 				return "", werr
 			}
 			downloaded += int64(n)
@@ -176,12 +182,18 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 			if err == io.EOF {
 				break
 			}
-			_ = os.Remove(tmpFile.Name())
+			_ = os.Remove(tmpName)
 			return "", err
 		}
 	}
 
-	return tmpFile.Name(), nil
+	closed = true
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return "", err
+	}
+
+	return tmpName, nil
 }
 
 func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (string, error) {
@@ -189,11 +201,18 @@ func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (stri
 	if err != nil {
 		return "", err
 	}
-	defer tmpExe.Close()
+	tmpExeName := tmpExe.Name()
+	var closed bool
+	defer func() {
+		if !closed {
+			_ = tmpExe.Close()
+		}
+	}()
 
 	if strings.HasSuffix(archiveName, ".zip") {
 		zr, err := zip.OpenReader(archivePath)
 		if err != nil {
+			_ = os.Remove(tmpExeName)
 			return "", err
 		}
 		defer zr.Close()
@@ -203,25 +222,37 @@ func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (stri
 			if base == binaryName || base == binaryName+".exe" {
 				rc, err := f.Open()
 				if err != nil {
+					_ = os.Remove(tmpExeName)
 					return "", err
 				}
 				defer rc.Close()
-				_, err = io.Copy(tmpExe, rc)
-				return tmpExe.Name(), err
+				if _, err = io.Copy(tmpExe, rc); err != nil {
+					_ = os.Remove(tmpExeName)
+					return "", err
+				}
+				closed = true
+				if err := tmpExe.Close(); err != nil {
+					_ = os.Remove(tmpExeName)
+					return "", err
+				}
+				return tmpExeName, nil
 			}
 		}
+		_ = os.Remove(tmpExeName)
 		return "", fmt.Errorf("在 zip 归档中未找到目标文件 %s", binaryName)
 	}
 
 	// Assume .tar.gz
 	f, err := os.Open(archivePath)
 	if err != nil {
+		_ = os.Remove(tmpExeName)
 		return "", err
 	}
 	defer f.Close()
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
+		_ = os.Remove(tmpExeName)
 		return "", err
 	}
 	defer gzr.Close()
@@ -233,15 +264,25 @@ func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (stri
 			break
 		}
 		if err != nil {
+			_ = os.Remove(tmpExeName)
 			return "", err
 		}
 		base := filepath.Base(hdr.Name)
 		if base == binaryName || base == binaryName+".exe" {
-			_, err = io.Copy(tmpExe, tr)
-			return tmpExe.Name(), err
+			if _, err = io.Copy(tmpExe, tr); err != nil {
+				_ = os.Remove(tmpExeName)
+				return "", err
+			}
+			closed = true
+			if err := tmpExe.Close(); err != nil {
+				_ = os.Remove(tmpExeName)
+				return "", err
+			}
+			return tmpExeName, nil
 		}
 	}
 
+	_ = os.Remove(tmpExeName)
 	return "", fmt.Errorf("在 tar.gz 归档中未找到目标文件 %s", binaryName)
 }
 
