@@ -1,3 +1,4 @@
+// Package config manages application paths, environment loading, and python runtime detection.
 package config
 
 import (
@@ -7,6 +8,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+)
+
+const (
+	defaultPythonCmd = "python"
+	python3Cmd       = "python3"
+	envKeyValueParts = 2
 )
 
 // AppPaths holds all relevant filesystem paths for the agent and installer.
@@ -29,8 +36,9 @@ type AppPaths struct {
 func FindAgentRoot() string {
 	// 1. Check CYPHR_AGENT_DIR environment variable override
 	if envDir := os.Getenv("CYPHR_AGENT_DIR"); envDir != "" {
-		if stat, err := os.Stat(envDir); err == nil && stat.IsDir() {
-			abs, _ := filepath.Abs(envDir)
+		cleanEnvDir := filepath.Clean(envDir)
+		if stat, err := os.Stat(cleanEnvDir); err == nil && stat.IsDir() {
+			abs, _ := filepath.Abs(cleanEnvDir)
 			return abs
 		}
 	}
@@ -92,9 +100,9 @@ func IsAgentDir(dir string) bool {
 func DetectPython(agentDir string) string {
 	candidates := []string{
 		filepath.Join(agentDir, ".venv", "Scripts", "python.exe"),
-		filepath.Join(agentDir, ".venv", "Scripts", "python"),
-		filepath.Join(agentDir, ".venv", "bin", "python"),
-		filepath.Join(agentDir, ".venv", "bin", "python3"),
+		filepath.Join(agentDir, ".venv", "Scripts", defaultPythonCmd),
+		filepath.Join(agentDir, ".venv", "bin", defaultPythonCmd),
+		filepath.Join(agentDir, ".venv", "bin", python3Cmd),
 	}
 	for _, c := range candidates {
 		if fi, err := os.Stat(c); err == nil && !fi.IsDir() {
@@ -103,22 +111,22 @@ func DetectPython(agentDir string) string {
 	}
 
 	if runtime.GOOS == "windows" {
-		for _, name := range []string{"python.exe", "python", "python3.exe", "python3"} {
+		for _, name := range []string{"python.exe", defaultPythonCmd, "python3.exe", python3Cmd} {
 			if path, err := exec.LookPath(name); err == nil {
 				if fi, err := os.Stat(path); err == nil && fi.Size() > 0 {
 					return path
 				}
 			}
 		}
-		return "python"
+		return defaultPythonCmd
 	}
 
-	for _, name := range []string{"python3", "python"} {
+	for _, name := range []string{python3Cmd, defaultPythonCmd} {
 		if path, err := exec.LookPath(name); err == nil {
 			return path
 		}
 	}
-	return "python3"
+	return python3Cmd
 }
 
 // NewAppPathsFromDir initializes AppPaths for a specific agent directory.
@@ -150,11 +158,11 @@ func NewAppPaths() *AppPaths {
 // LoadEnv loads key-value pairs from .env if it exists.
 func LoadEnv(envFile string) map[string]string {
 	res := make(map[string]string)
-	f, err := os.Open(envFile)
+	f, err := os.Open(filepath.Clean(envFile)) //nolint:gosec // Local .env file
 	if err != nil {
 		return res
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -162,13 +170,13 @@ func LoadEnv(envFile string) map[string]string {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
+		parts := strings.SplitN(line, "=", envKeyValueParts)
+		if len(parts) == envKeyValueParts {
 			k := strings.TrimSpace(parts[0])
 			v := strings.Trim(strings.TrimSpace(parts[1]), "\"'")
 			res[k] = v
 			if os.Getenv(k) == "" {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}

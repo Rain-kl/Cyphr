@@ -1,3 +1,4 @@
+// Package tui provides interactive terminal user interface views.
 package tui
 
 import (
@@ -10,7 +11,7 @@ import (
 
 func (m Model) updateDoctorView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case KeyEsc, KeyQ:
 		m.state = ViewMainMenu
 		return m, nil
 	case "r":

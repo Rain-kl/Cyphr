@@ -19,7 +19,7 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.catalogIndex = totalOptions - 1
 		}
-	case "down", "j":
+	case KeyDown, "j":
 		if m.catalogIndex < totalOptions-1 {
 			m.catalogIndex++
 		} else {
@@ -28,14 +28,14 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "m", "s":
 		// Cycle sources: modelscope -> hf-mirror -> hf -> modelscope
 		switch m.downloadSource {
-		case "modelscope":
-			m.downloadSource = "hf-mirror"
-		case "hf-mirror":
-			m.downloadSource = "hf"
+		case SourceModelScope:
+			m.downloadSource = SourceHFMirror
+		case SourceHFMirror:
+			m.downloadSource = SourceHF
 		default:
-			m.downloadSource = "modelscope"
+			m.downloadSource = SourceModelScope
 		}
-	case "enter":
+	case KeyEnter:
 		if m.downStatus != nil && m.downStatus.Running {
 			m.err = fmt.Errorf("当前已有下载任务正在运行中 (PID: %d)，请先停止或等待完成", m.downStatus.PID)
 			return m, nil
@@ -47,22 +47,22 @@ func (m Model) updateDownloadCatalog(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var endpoint string
 
 		switch m.downloadSource {
-		case "modelscope":
-			source = "modelscope"
+		case SourceModelScope:
+			source = SourceModelScope
 			endpoint = "https://modelscope.cn"
 			modelID = selectedPreset.ModelScopeID
 			if modelID == "" {
 				m.err = fmt.Errorf("模型 %s 暂无 ModelScope 官方源，请按 [m] 切换至 Hugging Face 镜像或官方源", selectedPreset.Name)
 				return m, nil
 			}
-		case "hf":
+		case SourceHF:
 			source = "huggingface"
 			endpoint = "https://huggingface.co"
 			modelID = selectedPreset.HuggingFaceID
 			if modelID == "" {
 				modelID = selectedPreset.ID
 			}
-		default: // "hf-mirror"
+		default: // SourceHFMirror
 			source = "huggingface"
 			endpoint = "https://hf-mirror.com"
 			modelID = selectedPreset.HuggingFaceID
@@ -99,9 +99,9 @@ func (m Model) viewDownloadCatalog() string {
 
 	var sourceText string
 	switch m.downloadSource {
-	case "modelscope":
+	case SourceModelScope:
 		sourceText = StyleBadgeSuccess.Render("ModelScope (阿里魔搭社区) [国内极速]")
-	case "hf-mirror":
+	case SourceHFMirror:
 		sourceText = StyleBadgeSuccess.Render("Hugging Face 国内镜像 (https://hf-mirror.com) [推荐]")
 	default:
 		sourceText = StyleBadgeWarning.Render("Hugging Face 官方源 (https://huggingface.co)")
@@ -125,7 +125,7 @@ func (m Model) viewDownloadCatalog() string {
 		desc := p.Description
 
 		// If current source is modelscope and model has no modelscope repo, show hint
-		if m.downloadSource == "modelscope" && p.ModelScopeID == "" {
+		if m.downloadSource == SourceModelScope && p.ModelScopeID == "" {
 			desc += " [ModelScope 暂未收录]"
 		}
 

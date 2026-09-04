@@ -9,7 +9,7 @@ import (
 
 func (m Model) updateDownloadProgress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case KeyEsc, KeyQ:
 		m.state = ViewMainMenu
 		return m, nil
 	case "x":

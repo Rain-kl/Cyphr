@@ -18,6 +18,7 @@ import (
 // ViewState defines which screen is currently visible.
 type ViewState int
 
+// View states supported by the TUI.
 const (
 	ViewMainMenu ViewState = iota
 	ViewInstallAgent
@@ -27,6 +28,11 @@ const (
 	ViewDownloadProgress
 	ViewAgentLogs
 	ViewDoctor
+)
+
+const (
+	minVpHeight = 4
+	minVpWidth  = 20
 )
 
 // TickMsg triggers periodic state refresh (e.g. status & log tailing).
@@ -78,7 +84,7 @@ type Model struct {
 	doctorOutput string
 
 	// Cached data
-	agentStatus *agent.AgentStatus
+	agentStatus *agent.Status
 	downStatus  *model.DownloadStatus
 	localModels []model.LocalModel
 }
@@ -99,8 +105,8 @@ func NewModel(paths *config.AppPaths) Model {
 		state:          ViewMainMenu,
 		lastState:      ViewMainMenu,
 		spinner:        s,
-		downloadSource: "modelscope",
-		downloadMirror: "modelscope",
+		downloadSource: SourceModelScope,
+		downloadMirror: SourceModelScope,
 		downloadMode:   "bg",
 		installMirror:  true,
 		updateMirror:   true,
@@ -136,15 +142,6 @@ func (m *Model) renderHeader() string {
 	return b.String()
 }
 
-func (m *Model) renderFooter() string {
-	if m.viewport.TotalLineCount() <= m.viewport.Height {
-		return ""
-	}
-	pct := int(m.viewport.ScrollPercent() * 100)
-	footerText := fmt.Sprintf("─── [ 滚动位置: %d%% | 滚轮或 ↑/↓/PgUp/PgDn 翻页 ] ───", pct)
-	return StyleSubtitle.Render(footerText)
-}
-
 func (m *Model) currentViewContent() string {
 	switch m.state {
 	case ViewMainMenu:
@@ -175,12 +172,12 @@ func (m *Model) syncViewportSize() {
 	headerHeight := lipgloss.Height(m.renderHeader())
 	// Account for app padding (vertical: 2 lines) and footer (1 line)
 	vpHeight := m.height - headerHeight - 3
-	if vpHeight < 4 {
-		vpHeight = 4
+	if vpHeight < minVpHeight {
+		vpHeight = minVpHeight
 	}
 	vpWidth := m.width - 4
-	if vpWidth < 20 {
-		vpWidth = 20
+	if vpWidth < minVpWidth {
+		vpWidth = minVpWidth
 	}
 
 	if !m.ready {
@@ -205,6 +202,58 @@ func (m *Model) syncViewportContent(preserveOffset bool) {
 		} else {
 			m.viewport.GotoTop()
 		}
+	}
+}
+
+func (m Model) handleKeyNav(k string) (tea.Model, tea.Cmd, bool) {
+	switch k {
+	case "ctrl+c":
+		return m, tea.Quit, true
+	case "pgup", "ctrl+b":
+		m.viewport.HalfViewUp()
+		return m, nil, true
+	case "pgdown", "ctrl+f":
+		m.viewport.HalfViewDown()
+		return m, nil, true
+	case "home":
+		m.viewport.GotoTop()
+		return m, nil, true
+	case "end":
+		m.viewport.GotoBottom()
+		return m, nil, true
+	case KeyQ, KeyEsc:
+		if m.state != ViewMainMenu {
+			m.state = ViewMainMenu
+			m.statusMsg = ""
+			m.err = nil
+			m.syncViewportContent(false)
+			return m, nil, true
+		}
+		return m, tea.Quit, true
+	}
+	return m, nil, false
+}
+
+func (m Model) dispatchViewUpdate(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.state {
+	case ViewMainMenu:
+		return m.updateMainMenu(msg)
+	case ViewInstallAgent:
+		return m.updateInstallView(msg)
+	case ViewUpdateMenu:
+		return m.updateUpdateView(msg)
+	case ViewStatusDashboard:
+		return m.updateStatusDashboard(msg)
+	case ViewDownloadCatalog:
+		return m.updateDownloadCatalog(msg)
+	case ViewDownloadProgress:
+		return m.updateDownloadProgress(msg)
+	case ViewAgentLogs:
+		return m.updateAgentLogs(msg)
+	case ViewDoctor:
+		return m.updateDoctorView(msg)
+	default:
+		return m, nil
 	}
 }
 
@@ -256,62 +305,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.syncViewportContent(true)
 
 	case tea.MouseMsg:
-		// Mouse wheel scrolling
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		return m, cmd
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "pgup", "ctrl+b":
-			m.viewport.HalfViewUp()
-			return m, nil
-		case "pgdown", "ctrl+f":
-			m.viewport.HalfViewDown()
-			return m, nil
-		case "home":
-			m.viewport.GotoTop()
-			return m, nil
-		case "end":
-			m.viewport.GotoBottom()
-			return m, nil
-		case "q", "esc":
-			if m.state != ViewMainMenu {
-				m.state = ViewMainMenu
-				m.statusMsg = ""
-				m.err = nil
-				m.syncViewportContent(false)
-				return m, nil
-			}
-			return m, tea.Quit
+		if updatedM, cmd, handled := m.handleKeyNav(msg.String()); handled {
+			return updatedM, cmd
 		}
 
-		// Delegate to current view updater
-		var updatedModel tea.Model
-		var cmd tea.Cmd
-		switch m.state {
-		case ViewMainMenu:
-			updatedModel, cmd = m.updateMainMenu(msg)
-		case ViewInstallAgent:
-			updatedModel, cmd = m.updateInstallView(msg)
-		case ViewUpdateMenu:
-			updatedModel, cmd = m.updateUpdateView(msg)
-		case ViewStatusDashboard:
-			updatedModel, cmd = m.updateStatusDashboard(msg)
-		case ViewDownloadCatalog:
-			updatedModel, cmd = m.updateDownloadCatalog(msg)
-		case ViewDownloadProgress:
-			updatedModel, cmd = m.updateDownloadProgress(msg)
-		case ViewAgentLogs:
-			updatedModel, cmd = m.updateAgentLogs(msg)
-		case ViewDoctor:
-			updatedModel, cmd = m.updateDoctorView(msg)
-		default:
-			updatedModel = m
-		}
-
+		updatedModel, cmd := m.dispatchViewUpdate(msg)
 		if newM, ok := updatedModel.(Model); ok {
 			m = newM
 			if m.state != m.lastState {
@@ -337,11 +340,6 @@ func (m Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.renderHeader())
 	b.WriteString(m.viewport.View())
-
-	footer := m.renderFooter()
-	if footer != "" {
-		b.WriteString("\n" + footer)
-	}
 
 	return StyleApp.Render(b.String())
 }

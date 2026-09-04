@@ -16,6 +16,19 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	largeBufSize           = 256 * 1024
+	smallBufSize           = 128 * 1024
+	largeFileThreshold     = 5 * 1024 * 1024
+	pgetChunkSize          = 10 * 1024 * 1024
+	maxPgetConcurrency     = 8
+	progressReportInterval = 200 * time.Millisecond
+	defaultHTTPTimeout     = 30 * time.Second
+	downloadStreamTimeout  = 60 * time.Second
+	dirPerm                = 0750
+	filePerm               = 0600
+)
+
 func init() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
@@ -58,12 +71,12 @@ func fetchHuggingFaceFiles(ctx context.Context, modelID, endpoint string) ([]Rem
 	}
 	req.Header.Set("User-Agent", "Cyphr-Downloader/1.0")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: defaultHTTPTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("请求 Hugging Face API 失败: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("hugging Face API 返回状态码 %d: %s (模型 ID: %s)", resp.StatusCode, resp.Status, modelID)
@@ -122,12 +135,12 @@ func fetchModelScopeFiles(ctx context.Context, modelID string) ([]RemoteFile, er
 	}
 	req.Header.Set("User-Agent", "Cyphr-Downloader/1.0")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: defaultHTTPTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("请求 ModelScope API 失败: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("ModelScope API 返回状态码 %d: %s (模型 ID: %s)", resp.StatusCode, resp.Status, modelID)
@@ -170,10 +183,10 @@ func fetchModelScopeFiles(ctx context.Context, modelID string) ([]RemoteFile, er
 	return files, nil
 }
 
-// DownloadFile downloads a single file using replicate/pget for large files (> 5MB) or direct HTTP stream for small files.
+// DownloadFile downloads a single file using replicate/pget for large files or direct HTTP stream for small files.
 func DownloadFile(ctx context.Context, f RemoteFile, destDir string, cb func(bytesWritten int64, speed float64)) error {
 	targetPath := filepath.Join(destDir, f.Path)
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(targetPath), dirPerm); err != nil { //nolint:gosec // Directory permissions
 		return err
 	}
 
@@ -190,74 +203,39 @@ func DownloadFile(ctx context.Context, f RemoteFile, destDir string, cb func(byt
 	tmpPath := targetPath + ".part"
 	_ = os.Remove(tmpPath)
 
-	// Small files (< 5MB) or files with unknown size: download via standard HTTP stream
-	if f.Size > 0 && f.Size < 5*1024*1024 {
+	if f.Size > 0 && f.Size < largeFileThreshold {
 		return downloadSmallFile(ctx, f, targetPath, tmpPath, cb)
 	}
 
-	// Large files: use replicate/pget parallel chunk engine
+	return downloadLargeFile(ctx, f, targetPath, tmpPath, cb)
+}
+
+func downloadLargeFile(ctx context.Context, f RemoteFile, targetPath, tmpPath string, cb func(bytesWritten int64, speed float64)) error {
 	pgetOpts := download.Options{
-		MaxConcurrency: 8,
-		ChunkSize:      10 * 1024 * 1024,
+		MaxConcurrency: maxPgetConcurrency,
+		ChunkSize:      pgetChunkSize,
 	}
 	bufferMode := download.GetBufferMode(pgetOpts)
 
 	reader, _, err := bufferMode.Fetch(ctx, f.URL)
 	if err != nil {
-		// Fallback to direct HTTP stream if pget Fetch errors
 		return downloadSmallFile(ctx, f, targetPath, tmpPath, cb)
 	}
 	defer func() {
 		if rc, ok := reader.(io.Closer); ok {
-			rc.Close()
+			_ = rc.Close()
 		}
 	}()
 
-	out, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	out, err := os.OpenFile(filepath.Clean(tmpPath), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePerm) //nolint:gosec // Download part file
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
-	var written int64
-	buf := make([]byte, 256*1024)
-	startTime := time.Now()
-	lastReport := startTime
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		n, rErr := reader.Read(buf)
-		if n > 0 {
-			if _, wErr := out.Write(buf[:n]); wErr != nil {
-				return wErr
-			}
-			written += int64(n)
-
-			now := time.Now()
-			if now.Sub(lastReport) >= 200*time.Millisecond {
-				elapsed := now.Sub(startTime).Seconds()
-				var speed float64
-				if elapsed > 0 {
-					speed = float64(written) / elapsed
-				}
-				if cb != nil {
-					cb(written, speed)
-				}
-				lastReport = now
-			}
-		}
-
-		if rErr != nil {
-			if rErr == io.EOF {
-				break
-			}
-			return rErr
-		}
+	written, copyErr := copyWithProgress(ctx, reader, out, largeBufSize, cb)
+	if copyErr != nil {
+		return copyErr
 	}
 
 	_ = out.Close()
@@ -270,68 +248,32 @@ func DownloadFile(ctx context.Context, f RemoteFile, destDir string, cb func(byt
 }
 
 func downloadSmallFile(ctx context.Context, f RemoteFile, targetPath, tmpPath string, cb func(bytesWritten int64, speed float64)) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", f.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, f.URL, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("User-Agent", "Cyphr-Downloader/1.0")
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: downloadStreamTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
 		return fmt.Errorf("下载失败 HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	out, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	out, err := os.OpenFile(filepath.Clean(tmpPath), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, filePerm) //nolint:gosec // Download part file
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
-	var written int64
-	buf := make([]byte, 128*1024)
-	startTime := time.Now()
-	lastReport := startTime
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		n, rErr := resp.Body.Read(buf)
-		if n > 0 {
-			if _, wErr := out.Write(buf[:n]); wErr != nil {
-				return wErr
-			}
-			written += int64(n)
-
-			now := time.Now()
-			if now.Sub(lastReport) >= 200*time.Millisecond {
-				elapsed := now.Sub(startTime).Seconds()
-				var speed float64
-				if elapsed > 0 {
-					speed = float64(written) / elapsed
-				}
-				if cb != nil {
-					cb(written, speed)
-				}
-				lastReport = now
-			}
-		}
-
-		if rErr != nil {
-			if rErr == io.EOF {
-				break
-			}
-			return rErr
-		}
+	written, copyErr := copyWithProgress(ctx, resp.Body, out, smallBufSize, cb)
+	if copyErr != nil {
+		return copyErr
 	}
 
 	_ = out.Close()
@@ -343,6 +285,54 @@ func downloadSmallFile(ctx context.Context, f RemoteFile, targetPath, tmpPath st
 	return os.Rename(tmpPath, targetPath)
 }
 
+func copyWithProgress(ctx context.Context, src io.Reader, dst io.Writer, bufSize int, cb func(bytesWritten int64, speed float64)) (int64, error) {
+	var written int64
+	buf := make([]byte, bufSize)
+	startTime := time.Now()
+	lastReport := startTime
+
+	for {
+		select {
+		case <-ctx.Done():
+			return written, ctx.Err()
+		default:
+		}
+
+		n, rErr := src.Read(buf)
+		if n > 0 {
+			if _, wErr := dst.Write(buf[:n]); wErr != nil {
+				return written, wErr
+			}
+			written += int64(n)
+			reportDownloadProgress(startTime, &lastReport, written, cb)
+		}
+
+		if rErr != nil {
+			if rErr == io.EOF {
+				break
+			}
+			return written, rErr
+		}
+	}
+	return written, nil
+}
+
+func reportDownloadProgress(startTime time.Time, lastReport *time.Time, written int64, cb func(int64, float64)) {
+	now := time.Now()
+	if now.Sub(*lastReport) < progressReportInterval {
+		return
+	}
+	elapsed := now.Sub(startTime).Seconds()
+	var speed float64
+	if elapsed > 0 {
+		speed = float64(written) / elapsed
+	}
+	if cb != nil {
+		cb(written, speed)
+	}
+	*lastReport = now
+}
+
 // RunModelDownload downloads all files of a model repository, reporting progress through a callback.
 func RunModelDownload(ctx context.Context, source, modelID, endpoint, destDir string, cb DownloadProgressCallback) error {
 	files, err := FetchRepoFiles(ctx, source, modelID, endpoint)
@@ -350,7 +340,7 @@ func RunModelDownload(ctx context.Context, source, modelID, endpoint, destDir st
 		return err
 	}
 
-	if err := os.MkdirAll(destDir, 0755); err != nil {
+	if err := os.MkdirAll(destDir, dirPerm); err != nil { //nolint:gosec // Directory permissions
 		return fmt.Errorf("创建模型目标目录失败: %w", err)
 	}
 

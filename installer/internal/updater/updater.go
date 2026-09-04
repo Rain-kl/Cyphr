@@ -1,3 +1,4 @@
+// Package updater provides self-update functionality for the installer executable.
 package updater
 
 import (
@@ -14,6 +15,21 @@ import (
 	"runtime"
 	"strings"
 	"time"
+)
+
+const (
+	progressCheck        = 0.1
+	progressDownload     = 0.2
+	progressDownloadSpan = 0.5
+	progressExtract      = 0.75
+	progressReplace      = 0.9
+	progressFinish       = 1.0
+
+	downloadBufSize   = 32 * 1024
+	percentMultiplier = 100
+	httpTimeout       = 15 * time.Second
+	downloadTimeout   = 5 * time.Minute
+	executablePerm    = 0755
 )
 
 // ProgressCallback informs the caller about stages and progress percentage (0.0 to 1.0).
@@ -40,12 +56,12 @@ func FetchLatestRelease(owner, repo string) (*GitHubReleaseInfo, error) {
 	req.Header.Set("User-Agent", "Cyphr-Installer")
 	req.Header.Set("Accept", "application/vnd.github+json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := &http.Client{Timeout: httpTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, resp.Status)
@@ -73,61 +89,59 @@ func UpdateInstaller(owner, repo string, useMirror bool, cb ProgressCallback) er
 		return fmt.Errorf("解析可执行文件真实路径失败: %w", err)
 	}
 
-	cb("check", 0.1, "正在查询 GitHub 最新 Installer 发布版本...")
+	cb("check", progressCheck, "正在查询 GitHub 最新 Installer 发布版本...")
 	rel, err := FetchLatestRelease(owner, repo)
 	if err != nil {
 		return fmt.Errorf("获取最新发布版本信息失败: %w", err)
 	}
 
-	// Target matching: cyphr-installer_<VERSION>_<GOOS>_<GOARCH>.(tar.gz|zip)
-	targetOs := runtime.GOOS
-	targetArch := runtime.GOARCH
-	var downloadURL string
-	var archiveName string
-
-	for _, a := range rel.Assets {
-		name := strings.ToLower(a.Name)
-		if strings.Contains(name, "installer") && strings.Contains(name, targetOs) && strings.Contains(name, targetArch) {
-			downloadURL = a.BrowserDownloadURL
-			archiveName = a.Name
-			break
-		}
-	}
-
-	if downloadURL == "" {
-		return fmt.Errorf("未在最新版本 %s 中找到适配当前平台 (%s/%s) 的发布包", rel.TagName, targetOs, targetArch)
+	downloadURL, archiveName, err := findPlatformAsset(rel)
+	if err != nil {
+		return err
 	}
 
 	if useMirror && !strings.Contains(downloadURL, "ghproxy") && !strings.Contains(downloadURL, "mirror") {
 		downloadURL = "https://ghproxy.net/" + downloadURL
 	}
 
-	cb("download", 0.2, fmt.Sprintf("正在下载新版 Installer (%s)...", archiveName))
+	cb("download", progressDownload, fmt.Sprintf("正在下载新版 Installer (%s)...", archiveName))
 	tmpArchive, err := downloadToTemp(downloadURL, func(p float64) {
-		cb("download", 0.2+(p*0.5), fmt.Sprintf("正在下载新版 Installer... %.1f%%", p*100))
+		cb("download", progressDownload+(p*progressDownloadSpan), fmt.Sprintf("正在下载新版 Installer... %.1f%%", p*percentMultiplier))
 	})
 	if err != nil {
 		return fmt.Errorf("下载发布包失败: %w", err)
 	}
-	defer os.Remove(tmpArchive)
+	defer func() { _ = os.Remove(tmpArchive) }()
 
-	cb("extract", 0.75, "正在解压可执行文件...")
+	cb("extract", progressExtract, "正在解压可执行文件...")
 	tmpNewExe, err := extractBinaryFromArchive(tmpArchive, archiveName, "cyphr-installer")
 	if err != nil {
 		return fmt.Errorf("解压新版本失败: %w", err)
 	}
-	defer os.Remove(tmpNewExe)
+	defer func() { _ = os.Remove(tmpNewExe) }()
 
-	// Set executable permissions
-	_ = os.Chmod(tmpNewExe, 0755)
+	_ = os.Chmod(tmpNewExe, executablePerm) //nolint:gosec // Executable file permission
 
-	cb("replace", 0.9, "正在替换当前可执行文件...")
+	cb("replace", progressReplace, "正在替换当前可执行文件...")
 	if err := replaceExecutable(currentExe, tmpNewExe); err != nil {
 		return fmt.Errorf("替换可执行程序失败: %w", err)
 	}
 
-	cb("finish", 1.0, fmt.Sprintf("✓ Installer 已成功更新至最新版本 %s！", rel.TagName))
+	cb("finish", progressFinish, fmt.Sprintf("✓ Installer 已成功更新至最新版本 %s！", rel.TagName))
 	return nil
+}
+
+func findPlatformAsset(rel *GitHubReleaseInfo) (string, string, error) {
+	targetOs := runtime.GOOS
+	targetArch := runtime.GOARCH
+
+	for _, a := range rel.Assets {
+		name := strings.ToLower(a.Name)
+		if strings.Contains(name, "installer") && strings.Contains(name, targetOs) && strings.Contains(name, targetArch) {
+			return a.BrowserDownloadURL, a.Name, nil
+		}
+	}
+	return "", "", fmt.Errorf("未在最新版本 %s 中找到适配当前平台 (%s/%s) 的发布包", rel.TagName, targetOs, targetArch)
 }
 
 func downloadToTemp(url string, progressCb func(float64)) (string, error) {
@@ -149,25 +163,25 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 		return "", err
 	}
 
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := &http.Client{Timeout: downloadTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		_ = os.Remove(tmpName)
 		return "", err
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		_ = os.Remove(tmpName)
 		return "", fmt.Errorf("下载失败 (HTTP %d): %s", resp.StatusCode, resp.Status)
 	}
 
 	total := resp.ContentLength
 	var downloaded int64
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, downloadBufSize)
 
 	for {
-		n, err := resp.Body.Read(buf)
+		n, rerr := resp.Body.Read(buf)
 		if n > 0 {
 			if _, werr := tmpFile.Write(buf[:n]); werr != nil {
 				_ = os.Remove(tmpName)
@@ -178,12 +192,12 @@ func downloadToTemp(url string, progressCb func(float64)) (string, error) {
 				progressCb(float64(downloaded) / float64(total))
 			}
 		}
-		if err != nil {
-			if err == io.EOF {
+		if rerr != nil {
+			if rerr == io.EOF {
 				break
 			}
 			_ = os.Remove(tmpName)
-			return "", err
+			return "", rerr
 		}
 	}
 
@@ -202,60 +216,59 @@ func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (stri
 		return "", err
 	}
 	tmpExeName := tmpExe.Name()
-	var closed bool
-	defer func() {
-		if !closed {
-			_ = tmpExe.Close()
-		}
-	}()
 
+	var extractErr error
 	if strings.HasSuffix(archiveName, ".zip") {
-		zr, err := zip.OpenReader(archivePath)
-		if err != nil {
-			_ = os.Remove(tmpExeName)
-			return "", err
-		}
-		defer zr.Close()
-
-		for _, f := range zr.File {
-			base := filepath.Base(f.Name)
-			if base == binaryName || base == binaryName+".exe" {
-				rc, err := f.Open()
-				if err != nil {
-					_ = os.Remove(tmpExeName)
-					return "", err
-				}
-				defer rc.Close()
-				if _, err = io.Copy(tmpExe, rc); err != nil {
-					_ = os.Remove(tmpExeName)
-					return "", err
-				}
-				closed = true
-				if err := tmpExe.Close(); err != nil {
-					_ = os.Remove(tmpExeName)
-					return "", err
-				}
-				return tmpExeName, nil
-			}
-		}
-		_ = os.Remove(tmpExeName)
-		return "", fmt.Errorf("在 zip 归档中未找到目标文件 %s", binaryName)
+		extractErr = extractFromZip(archivePath, binaryName, tmpExe)
+	} else {
+		extractErr = extractFromTarGz(archivePath, binaryName, tmpExe)
 	}
 
-	// Assume .tar.gz
-	f, err := os.Open(archivePath)
+	_ = tmpExe.Close()
+	if extractErr != nil {
+		_ = os.Remove(tmpExeName)
+		return "", extractErr
+	}
+
+	return tmpExeName, nil
+}
+
+func extractFromZip(archivePath, binaryName string, tmpExe *os.File) error {
+	zr, err := zip.OpenReader(archivePath)
 	if err != nil {
-		_ = os.Remove(tmpExeName)
-		return "", err
+		return err
 	}
-	defer f.Close()
+	defer func() { _ = zr.Close() }()
+
+	for _, f := range zr.File {
+		base := filepath.Base(f.Name)
+		if base != binaryName && base != binaryName+".exe" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rc.Close() }()
+
+		_, err = io.Copy(tmpExe, rc) //nolint:gosec // Binary extraction
+		return err
+	}
+	return fmt.Errorf("在 zip 归档中未找到目标文件 %s", binaryName)
+}
+
+func extractFromTarGz(archivePath, binaryName string, tmpExe *os.File) error {
+	f, err := os.Open(filepath.Clean(archivePath)) //nolint:gosec // Archive path
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		_ = os.Remove(tmpExeName)
-		return "", err
+		return err
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tr := tar.NewReader(gzr)
 	for {
@@ -264,26 +277,15 @@ func extractBinaryFromArchive(archivePath, archiveName, binaryName string) (stri
 			break
 		}
 		if err != nil {
-			_ = os.Remove(tmpExeName)
-			return "", err
+			return err
 		}
 		base := filepath.Base(hdr.Name)
 		if base == binaryName || base == binaryName+".exe" {
-			if _, err = io.Copy(tmpExe, tr); err != nil {
-				_ = os.Remove(tmpExeName)
-				return "", err
-			}
-			closed = true
-			if err := tmpExe.Close(); err != nil {
-				_ = os.Remove(tmpExeName)
-				return "", err
-			}
-			return tmpExeName, nil
+			_, copyErr := io.Copy(tmpExe, tr) //nolint:gosec // Binary extraction
+			return copyErr
 		}
 	}
-
-	_ = os.Remove(tmpExeName)
-	return "", fmt.Errorf("在 tar.gz 归档中未找到目标文件 %s", binaryName)
+	return fmt.Errorf("在 tar.gz 归档中未找到目标文件 %s", binaryName)
 }
 
 func replaceExecutable(dst, src string) error {

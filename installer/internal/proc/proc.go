@@ -1,3 +1,4 @@
+// Package proc provides cross-platform process management, daemonization, and status inspection.
 package proc
 
 import (
@@ -7,6 +8,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	dirPerm  = 0750
+	filePerm = 0600
 )
 
 // ProcessStats holds runtime metrics for a running process.
@@ -24,7 +30,7 @@ func IsRunning(pid int) bool {
 
 // ReadPid reads and parses an integer PID from a file.
 func ReadPid(pidFile string) (int, error) {
-	data, err := os.ReadFile(pidFile)
+	data, err := os.ReadFile(filepath.Clean(pidFile)) //nolint:gosec // Local PID file read
 	if err != nil {
 		return 0, err
 	}
@@ -39,10 +45,10 @@ func ReadPid(pidFile string) (int, error) {
 // WritePid writes an integer PID to a file.
 func WritePid(pidFile string, pid int) error {
 	dir := filepath.Dir(pidFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, dirPerm); err != nil { //nolint:gosec // Directory permissions
 		return err
 	}
-	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)+"\n"), 0644)
+	return os.WriteFile(filepath.Clean(pidFile), []byte(strconv.Itoa(pid)+"\n"), filePerm) //nolint:gosec // Local PID file write
 }
 
 // RemovePid removes a PID file safely.
@@ -83,7 +89,7 @@ func GetStats(pid int) ProcessStats {
 
 // TailLines returns the last n lines of a file.
 func TailLines(filePath string, n int) []string {
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filepath.Clean(filePath)) //nolint:gosec // Local log file read
 	if err != nil {
 		return nil
 	}

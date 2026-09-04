@@ -15,6 +15,13 @@ import (
 	"time"
 )
 
+const (
+	pollInterval     = 150 * time.Millisecond
+	minMetricsFields = 2
+	logDirPerm       = 0750
+	logFilePerm      = 0600
+)
+
 // isProcessAlive checks if a process responds to signal 0 and is not a zombie.
 func isProcessAlive(pid int) bool {
 	if pid <= 0 {
@@ -25,7 +32,7 @@ func isProcessAlive(pid int) bool {
 		return false
 	}
 
-	out, err := exec.CommandContext(context.Background(), "ps", "-p", strconv.Itoa(pid), "-o", "stat=").Output()
+	out, err := exec.CommandContext(context.Background(), "ps", "-p", strconv.Itoa(pid), "-o", "stat=").Output() //nolint:gosec // Process check
 	if err != nil {
 		return false
 	}
@@ -43,11 +50,11 @@ func daemonizeProcess(command []string, env []string, cwd string, logPath string
 		return 0, fmt.Errorf("empty command")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(logPath), logDirPerm); err != nil { //nolint:gosec // Directory permissions
 		return 0, fmt.Errorf("create log dir failed: %w", err)
 	}
 
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(filepath.Clean(logPath), os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerm) //nolint:gosec // Log file
 	if err != nil {
 		return 0, fmt.Errorf("open log file failed: %w", err)
 	}
@@ -58,7 +65,7 @@ func daemonizeProcess(command []string, env []string, cwd string, logPath string
 		return 0, fmt.Errorf("open devnull failed: %w", err)
 	}
 
-	cmd := exec.CommandContext(context.Background(), command[0], command[1:]...)
+	cmd := exec.CommandContext(context.Background(), command[0], command[1:]...) //nolint:gosec // Subprocess invocation
 	if cwd != "" {
 		cmd.Dir = cwd
 	}
@@ -94,63 +101,48 @@ func killProcess(pid int, sig syscall.Signal) error {
 	return syscall.Kill(pid, sig)
 }
 
-// gracefulStopProcess handles Unix graceful process termination.
-func gracefulStopProcess(pid int, timeout time.Duration) error {
+func stopProcessWithSignal(pid int, sig syscall.Signal, timeout time.Duration) error {
 	if !isProcessAlive(pid) {
 		return nil
 	}
 
-	_ = killProcess(pid, syscall.SIGTERM)
+	_ = killProcess(pid, sig)
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if !isProcessAlive(pid) {
 			return nil
 		}
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(pollInterval)
 	}
 
 	if isProcessAlive(pid) {
 		_ = killProcess(pid, syscall.SIGKILL)
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(pollInterval)
 	}
 
 	return nil
+}
+
+// gracefulStopProcess handles Unix graceful process termination.
+func gracefulStopProcess(pid int, timeout time.Duration) error {
+	return stopProcessWithSignal(pid, syscall.SIGTERM, timeout)
 }
 
 // gracefulStopDownloadProcess stops a download process gracefully on Unix.
 func gracefulStopDownloadProcess(pid int, timeout time.Duration) error {
-	if !isProcessAlive(pid) {
-		return nil
-	}
-
-	_ = killProcess(pid, syscall.SIGINT)
-
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		if !isProcessAlive(pid) {
-			return nil
-		}
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	if isProcessAlive(pid) {
-		_ = killProcess(pid, syscall.SIGKILL)
-		time.Sleep(150 * time.Millisecond)
-	}
-
-	return nil
+	return stopProcessWithSignal(pid, syscall.SIGINT, timeout)
 }
 
 // getProcessMetrics retrieves uptime and RSS using ps.
 func getProcessMetrics(pid int) (uptime string, rssMB int) {
-	out, err := exec.CommandContext(context.Background(), "ps", "-p", strconv.Itoa(pid), "-o", "etime=,rss=").Output()
+	out, err := exec.CommandContext(context.Background(), "ps", "-p", strconv.Itoa(pid), "-o", "etime=,rss=").Output() //nolint:gosec // Process metrics
 	if err == nil {
 		fields := strings.Fields(string(bytes.TrimSpace(out)))
 		if len(fields) >= 1 {
 			uptime = fields[0]
 		}
-		if len(fields) >= 2 {
+		if len(fields) >= minMetricsFields {
 			if rssKB, err := strconv.Atoi(fields[1]); err == nil {
 				rssMB = rssKB / 1024
 			}

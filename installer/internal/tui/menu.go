@@ -9,6 +9,7 @@ import (
 	"cyphr/installer/internal/doctor"
 )
 
+// MenuItem represents a single selectable menu entry.
 type MenuItem struct {
 	Title string
 	Desc  string
@@ -38,12 +39,22 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.menuIndex = len(mainMenuItems) - 1
 		}
-	case "down", "j":
+	case KeyDown, "j":
 		if m.menuIndex < len(mainMenuItems)-1 {
 			m.menuIndex++
 		} else {
 			m.menuIndex = 0
 		}
+	case KeyEnter:
+		return m.handleMenuEnter()
+	default:
+		return m.handleMenuKeyShortcuts(msg.String())
+	}
+	return m, nil
+}
+
+func (m Model) handleMenuKeyShortcuts(k string) (tea.Model, tea.Cmd) {
+	switch k {
 	case "1":
 		return m.handleStartService()
 	case "2":
@@ -74,34 +85,37 @@ func (m Model) updateMainMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.state = ViewDoctor
 		m.doctorOutput = doctor.Run(m.paths).Format()
 		return m, nil
-	case "enter":
-		switch m.menuIndex {
-		case 0:
-			return m.handleStartService()
-		case 1:
-			return m.handleStopService()
-		case 2:
-			return m.handleRestartService()
-		case 3:
-			m.state = ViewInstallAgent
-		case 4:
-			m.state = ViewUpdateMenu
-		case 5:
-			m.state = ViewStatusDashboard
-		case 6:
-			m.state = ViewDownloadCatalog
-		case 7:
-			m.state = ViewDownloadProgress
-		case 8:
-			return m.handleStopDownload()
-		case 9:
-			m.state = ViewAgentLogs
-		case 10:
-			m.state = ViewDoctor
-			m.doctorOutput = doctor.Run(m.paths).Format()
-		case 11:
-			return m, tea.Quit
-		}
+	}
+	return m, nil
+}
+
+func (m Model) handleMenuEnter() (tea.Model, tea.Cmd) {
+	switch m.menuIndex {
+	case 0:
+		return m.handleStartService()
+	case 1:
+		return m.handleStopService()
+	case 2:
+		return m.handleRestartService()
+	case 3:
+		m.state = ViewInstallAgent
+	case 4:
+		m.state = ViewUpdateMenu
+	case 5:
+		m.state = ViewStatusDashboard
+	case 6:
+		m.state = ViewDownloadCatalog
+	case 7:
+		m.state = ViewDownloadProgress
+	case 8:
+		return m.handleStopDownload()
+	case 9:
+		m.state = ViewAgentLogs
+	case 10:
+		m.state = ViewDoctor
+		m.doctorOutput = doctor.Run(m.paths).Format()
+	case 11:
+		return m, tea.Quit
 	}
 	return m, nil
 }

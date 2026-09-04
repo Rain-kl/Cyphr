@@ -9,9 +9,11 @@ import (
 	"cyphr/installer/internal/proc"
 )
 
+const maxLogLines = 100
+
 func (m Model) updateAgentLogs(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case KeyEsc, KeyQ:
 		m.state = ViewMainMenu
 		return m, nil
 	case "r":
@@ -30,7 +32,7 @@ func (m Model) viewAgentLogs() string {
 
 	b.WriteString(StyleCardTitle.Render("📋 Agent 服务运行日志 (实时自动刷新)") + "\n\n")
 
-	lines := proc.TailLines(m.paths.LogFile, 100)
+	lines := proc.TailLines(m.paths.LogFile, maxLogLines)
 	if len(lines) == 0 {
 		b.WriteString(StyleBadgeMuted.Render("暂无服务日志输出。") + "\n\n")
 	} else {

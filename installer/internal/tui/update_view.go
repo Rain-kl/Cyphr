@@ -10,13 +10,16 @@ import (
 	"cyphr/installer/internal/updater"
 )
 
+// UpdateTarget specifies the entity to update.
 type UpdateTarget int
 
+// Update targets supported by the installer.
 const (
 	UpdateTargetAgent UpdateTarget = iota
 	UpdateTargetInstaller
 )
 
+// UpdateProgressMsg conveys progress of an active update process.
 type UpdateProgressMsg struct {
 	Stage    string
 	Progress float64
@@ -27,13 +30,13 @@ type UpdateProgressMsg struct {
 
 func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "esc", "q":
+	case KeyEsc, KeyQ:
 		if !m.updating {
 			m.state = ViewMainMenu
 		}
 		return m, nil
 
-	case "up", "k", "down", "j", "tab":
+	case "up", "k", KeyDown, "j", "tab":
 		if !m.updating {
 			if m.updateTarget == UpdateTargetAgent {
 				m.updateTarget = UpdateTargetInstaller
@@ -49,7 +52,7 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "enter":
+	case KeyEnter:
 		if m.updating {
 			return m, nil
 		}
@@ -70,7 +73,7 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				AutoConfig: true,
 			}
 			return m, func() tea.Msg {
-				err := m.agentSvc.InstallAgent(opts, func(stage string, progress float64, message string) {
+				err := m.agentSvc.InstallAgent(opts, func(_ string, _ float64, _ string) {
 					// Progress callback
 				})
 				return UpdateProgressMsg{Done: true, Err: err}
@@ -81,7 +84,7 @@ func (m Model) updateUpdateView(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.updateMsg = "正在从 GitHub 下载最新版本 Installer 并自动替换..."
 		useMirror := m.updateMirror
 		return m, func() tea.Msg {
-			err := updater.UpdateInstaller("Rain-kl", "Cyphr", useMirror, func(stage string, progress float64, message string) {
+			err := updater.UpdateInstaller("Rain-kl", "Cyphr", useMirror, func(_ string, _ float64, _ string) {
 				// Progress callback
 			})
 			return UpdateProgressMsg{Done: true, Err: err}
@@ -134,20 +137,19 @@ func (m Model) viewUpdateView() string {
 		b.WriteString(StyleMenuItemSelected.Render(StyleCard.Render(installerCard.String())) + "\n\n")
 	}
 
-	switch {
-	case m.updating:
-		b.WriteString(StyleBadgeWarning.Render(fmt.Sprintf("%s %s", m.spinner.View(), m.updateMsg)) + "\n\n")
-		b.WriteString(StyleSubtitle.Render("正在联网执行更新操作，请耐心等待...") + "\n\n")
-	case m.updateErr != nil:
-		b.WriteString(StyleBadgeDanger.Render(fmt.Sprintf("✗ 更新失败: %v", m.updateErr)) + "\n\n")
-		b.WriteString(StyleKeyHelp.Render("[Enter] 重新尝试更新   [↑/↓] 切换更新目标   [m] 切换加速镜像   [Esc/q] 返回主菜单"))
-	case m.updateDone:
-		b.WriteString(StyleBadgeSuccess.Render("✓ 更新完成！") + "\n\n")
-		b.WriteString(StyleKeyHelp.Render("[Enter] 再次更新   [↑/↓] 切换更新目标   [Esc/q] 返回主菜单"))
-	default:
-		b.WriteString(StyleSubtitle.Render("使用 [↑/↓] 选择需要更新的组件，按 [Enter] 开始在线更新：") + "\n\n")
-		b.WriteString(StyleKeyHelp.Render("[Enter] 开始更新所选组件   [↑/↓] 切换更新组件   [m] 切换镜像源   [Esc/q] 返回主菜单"))
-	}
+	renderActionFooter(&b, actionFooterOptions{
+		Active:     m.updating,
+		ActiveMsg:  m.updateMsg,
+		Spinner:    m.spinner.View(),
+		WaitTip:    "正在联网执行更新操作，请耐心等待...",
+		Err:        m.updateErr,
+		ErrHelp:    "[Enter] 重新尝试更新   [↑/↓] 切换更新目标   [m] 切换加速镜像   [Esc/q] 返回主菜单",
+		Done:       m.updateDone,
+		DoneMsg:    "✓ 更新完成！",
+		DoneHelp:   "[Enter] 再次更新   [↑/↓] 切换更新目标   [Esc/q] 返回主菜单",
+		DefaultTip: "使用 [↑/↓] 选择需要更新的组件，按 [Enter] 开始在线更新：",
+		DefHelp:    "[Enter] 开始更新所选组件   [↑/↓] 切换更新组件   [m] 切换镜像源   [Esc/q] 返回主菜单",
+	})
 
 	return b.String()
 }

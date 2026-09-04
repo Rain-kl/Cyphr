@@ -1,3 +1,4 @@
+// Package agent manages the lifecycle, installation, and status of the Cyphr agent.
 package agent
 
 import (
@@ -10,8 +11,17 @@ import (
 	"cyphr/installer/internal/proc"
 )
 
-// AgentStatus represents current agent runtime status.
-type AgentStatus struct {
+const (
+	recentLogLines = 8
+	errorLogLines  = 10
+
+	agentStartupDelay = 1200 * time.Millisecond
+	agentStopTimeout  = 5 * time.Second
+	restartDelay      = 500 * time.Millisecond
+)
+
+// Status represents current agent runtime status.
+type Status struct {
 	Installed  bool
 	Running    bool
 	PID        int
@@ -45,23 +55,23 @@ func (s *Service) IsInstalled() bool {
 }
 
 // Status inspects the current agent daemon status.
-func (s *Service) Status() *AgentStatus {
+func (s *Service) Status() *Status {
 	installed := s.IsInstalled()
 
 	pid, err := proc.ReadPid(s.paths.PidFile)
 	if err != nil || pid <= 0 || !proc.IsRunning(pid) {
 		proc.RemovePid(s.paths.PidFile)
-		return &AgentStatus{
+		return &Status{
 			Installed:  installed,
 			Running:    false,
 			AgentDir:   s.paths.AgentDir,
 			LogPath:    s.paths.LogFile,
-			RecentLogs: proc.TailLines(s.paths.LogFile, 8),
+			RecentLogs: proc.TailLines(s.paths.LogFile, recentLogLines),
 		}
 	}
 
 	stats := proc.GetStats(pid)
-	return &AgentStatus{
+	return &Status{
 		Installed:  installed,
 		Running:    true,
 		PID:        pid,
@@ -69,12 +79,12 @@ func (s *Service) Status() *AgentStatus {
 		RSSMB:      stats.RSSMB,
 		AgentDir:   s.paths.AgentDir,
 		LogPath:    s.paths.LogFile,
-		RecentLogs: proc.TailLines(s.paths.LogFile, 8),
+		RecentLogs: proc.TailLines(s.paths.LogFile, recentLogLines),
 	}
 }
 
 // Start launches the agent daemon in background.
-func (s *Service) Start() (*AgentStatus, error) {
+func (s *Service) Start() (*Status, error) {
 	if !s.IsInstalled() {
 		return nil, fmt.Errorf("agent 尚未安装 (未找到 %s/main.py)，请先选择【安装/更新 Agent】", s.paths.AgentDir)
 	}
@@ -109,12 +119,12 @@ func (s *Service) Start() (*AgentStatus, error) {
 		return nil, fmt.Errorf("save pid failed: %w", err)
 	}
 
-	// Wait 1.2s to confirm process survived initialization
-	time.Sleep(1200 * time.Millisecond)
+	// Wait to confirm process survived initialization
+	time.Sleep(agentStartupDelay)
 
 	if !proc.IsRunning(pid) {
 		proc.RemovePid(s.paths.PidFile)
-		recent := proc.TailLines(s.paths.LogFile, 10)
+		recent := proc.TailLines(s.paths.LogFile, errorLogLines)
 		return nil, fmt.Errorf("agent 服务启动后异常退出，最新日志:\n%v", recent)
 	}
 
@@ -129,14 +139,14 @@ func (s *Service) Stop() error {
 		return nil
 	}
 
-	err := proc.GracefulStop(st.PID, 5*time.Second)
+	err := proc.GracefulStop(st.PID, agentStopTimeout)
 	proc.RemovePid(s.paths.PidFile)
 	return err
 }
 
 // Restart restarts the agent service.
-func (s *Service) Restart() (*AgentStatus, error) {
+func (s *Service) Restart() (*Status, error) {
 	_ = s.Stop()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(restartDelay)
 	return s.Start()
 }

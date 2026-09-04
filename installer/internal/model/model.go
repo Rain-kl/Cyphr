@@ -14,6 +14,19 @@ import (
 	"cyphr/installer/internal/proc"
 )
 
+const (
+	defaultSource   = "huggingface"
+	partsCount      = 2
+	logTailLines    = 12
+	startWaitTime   = 800 * time.Millisecond
+	pctMultiplier   = 100
+	pctStep         = 10
+	stopTimeout     = 5 * time.Second
+	modelsDirPerm   = 0750
+	downloadLogPerm = 0600
+	infoFilePerm    = 0600
+)
+
 // LocalModel represents an installed model folder on disk.
 type LocalModel struct {
 	DirName  string
@@ -102,7 +115,7 @@ func (s *Service) ListLocalModels() ([]LocalModel, error) {
 func checkModelIntegrity(dir string) (string, bool) {
 	// Check for .part or .aria2 files
 	hasPart := false
-	_ = filepath.Walk(dir, func(p string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
 			if strings.HasSuffix(info.Name(), ".part") || strings.HasSuffix(info.Name(), ".aria2") {
 				hasPart = true
@@ -125,7 +138,7 @@ func checkModelIntegrity(dir string) (string, bool) {
 }
 
 func getDirSize(dir string) string {
-	out, err := exec.CommandContext(context.Background(), "du", "-sh", dir).Output()
+	out, err := exec.CommandContext(context.Background(), "du", "-sh", dir).Output() //nolint:gosec // Directory size check
 	if err != nil {
 		return "未知"
 	}
@@ -141,20 +154,20 @@ func (s *Service) ReadMetadata() *DownloadMetadata {
 	meta := &DownloadMetadata{
 		ModelID:  "未知",
 		PkgDir:   "未知",
-		Source:   "huggingface",
+		Source:   defaultSource,
 		Endpoint: "未知",
 	}
-	f, err := os.Open(s.paths.DownloadInfoFile)
+	f, err := os.Open(filepath.Clean(s.paths.DownloadInfoFile))
 	if err != nil {
 		return meta
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
+		parts := strings.SplitN(line, "=", partsCount)
+		if len(parts) == partsCount {
 			k := parts[0]
 			v := parts[1]
 			switch k {
@@ -189,7 +202,7 @@ func (s *Service) Status() *DownloadStatus {
 			Source:     meta.Source,
 			Endpoint:   meta.Endpoint,
 			StartTime:  meta.StartTime,
-			RecentLogs: proc.TailLines(s.paths.DownloadLogFile, 12),
+			RecentLogs: proc.TailLines(s.paths.DownloadLogFile, logTailLines),
 		}
 	}
 
@@ -210,7 +223,7 @@ func (s *Service) Status() *DownloadStatus {
 		Endpoint:   meta.Endpoint,
 		StartTime:  meta.StartTime,
 		DiskUsage:  diskUsage,
-		RecentLogs: proc.TailLines(s.paths.DownloadLogFile, 12),
+		RecentLogs: proc.TailLines(s.paths.DownloadLogFile, logTailLines),
 	}
 }
 
@@ -222,10 +235,10 @@ func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 	}
 
 	proc.RemovePid(s.paths.DownloadPidFile)
-	_ = os.MkdirAll(s.paths.ModelsDir, 0755)
+	_ = os.MkdirAll(s.paths.ModelsDir, modelsDirPerm) //nolint:gosec // Directory permissions
 
 	if opts.Source == "" {
-		opts.Source = "huggingface"
+		opts.Source = defaultSource
 	}
 	if opts.Endpoint == "" {
 		if strings.ToLower(opts.Source) == "modelscope" {
@@ -247,12 +260,12 @@ func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 	// Write metadata file
 	infoContent := fmt.Sprintf("MODEL_ID=%s\nPKG_DIR=%s\nSOURCE=%s\nENDPOINT=%s\nSTART_TIME=%s\nMODE=%s\n",
 		opts.ModelID, opts.PkgDir, opts.Source, opts.Endpoint, now, opts.Mode)
-	_ = os.WriteFile(s.paths.DownloadInfoFile, []byte(infoContent), 0644)
+	_ = os.WriteFile(s.paths.DownloadInfoFile, []byte(infoContent), infoFilePerm) //nolint:gosec // Local file write
 
 	// Append banner to download log
 	banner := fmt.Sprintf("\n========================================================\n下载任务启动时间: %s\n平台平台源: %s\n模型 ID: %s\n目标目录: models/%s\n下载源地址: %s\n下载模式: %s\n========================================================\n",
 		now, opts.Source, opts.ModelID, opts.PkgDir, opts.Endpoint, opts.Mode)
-	if f, err := os.OpenFile(s.paths.DownloadLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+	if f, err := os.OpenFile(s.paths.DownloadLogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, downloadLogPerm); err == nil { //nolint:gosec // Local file write
 		_, _ = f.WriteString(banner)
 		_ = f.Close()
 	}
@@ -285,10 +298,10 @@ func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 		return pid, fmt.Errorf("记录下载 PID 失败: %w", err)
 	}
 
-	time.Sleep(800 * time.Millisecond)
+	time.Sleep(startWaitTime)
 	if !proc.IsRunning(pid) {
 		proc.RemovePid(s.paths.DownloadPidFile)
-		recent := proc.TailLines(s.paths.DownloadLogFile, 12)
+		recent := proc.TailLines(s.paths.DownloadLogFile, logTailLines)
 		return 0, fmt.Errorf("下载任务启动后立即异常退出，最新日志:\n%s", strings.Join(recent, "\n"))
 	}
 
@@ -299,7 +312,7 @@ func (s *Service) StartDownload(opts DownloadOptions) (int, error) {
 func (s *Service) ExecuteDownloadTask(opts DownloadOptions) error {
 	destDir := filepath.Join(s.paths.ModelsDir, opts.PkgDir)
 	if opts.Source == "" {
-		opts.Source = "huggingface"
+		opts.Source = defaultSource
 	}
 
 	fmt.Printf("开始下载模型: %s\n平台源: %s\n目标目录: %s\n源地址: %s\n\n", opts.ModelID, opts.Source, destDir, opts.Endpoint)
@@ -317,11 +330,11 @@ func (s *Service) ExecuteDownloadTask(opts DownloadOptions) error {
 
 		pct := 0
 		if totalBytes > 0 {
-			pct = int(float64(currentBytes) / float64(totalBytes) * 100)
+			pct = int(float64(currentBytes) / float64(totalBytes) * pctMultiplier)
 		}
 
 		// Throttle log writes to every 10% progress or file completion to avoid log flooding
-		if pct/10 != lastPercent/10 || currentBytes == totalBytes {
+		if pct/pctStep != lastPercent/pctStep || currentBytes == totalBytes {
 			lastPercent = pct
 			speedStr := ""
 			if speedBytesPerSec > 0 {
@@ -348,7 +361,7 @@ func (s *Service) StopDownload() error {
 		return nil
 	}
 
-	err := proc.GracefulStopDownload(st.PID, 5*time.Second)
+	err := proc.GracefulStopDownload(st.PID, stopTimeout)
 	proc.RemovePid(s.paths.DownloadPidFile)
 	return err
 }
