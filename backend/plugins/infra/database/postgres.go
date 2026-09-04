@@ -66,6 +66,24 @@ func initSQLiteWithConfig(cfg Config, isProd bool) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// SQLite 是单写者引擎：并发 agent 日志/调度写入在默认回滚日志模式下会
+	// 触发 SQLITE_BUSY（表现为 agent 上报 500）。WAL + 忙等待 + 单连接
+	// 序列化写入，从根源消除该竞争。
+	for _, pragma := range []string{
+		"PRAGMA journal_mode=WAL;",
+		"PRAGMA busy_timeout = 5000;",
+	} {
+		if err := targetDB.Exec(pragma).Error; err != nil {
+			return nil, fmt.Errorf("sqlite pragma %q failed: %w", pragma, err)
+		}
+	}
+	sqlDB, err := targetDB.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+
 	// Trace 注入
 	if err = targetDB.Use(
 		tracing.NewPlugin(
