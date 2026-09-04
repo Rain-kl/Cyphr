@@ -88,9 +88,11 @@ func CheckFFmpeg() error {
 	return nil
 }
 
-// ConvertToStandardWav converts any audio or video file into 16kHz mono 16-bit PCM WAV using ffmpeg.
-// It returns the path to the temporary WAV file and a cleanup function to delete it when done.
-func ConvertToStandardWav(ctx context.Context, inputPath string) (outputPath string, cleanup func(), err error) {
+// ConvertToStandardAudio converts any audio or video file into a compressed 16kHz mono MP3 (32kbps) using ffmpeg.
+// This significantly reduces upload bandwidth and storage overhead (~8x smaller than uncompressed WAV)
+// while perfectly matching the 16kHz mono input requirement for speech recognition models (e.g. Qwen3-ASR).
+// It returns the path to the temporary audio file and a cleanup function to delete it when done.
+func ConvertToStandardAudio(ctx context.Context, inputPath string) (outputPath string, cleanup func(), err error) {
 	if _, statErr := os.Stat(inputPath); statErr != nil {
 		return "", nil, fmt.Errorf("input media file does not exist: %w", statErr)
 	}
@@ -99,9 +101,9 @@ func ConvertToStandardWav(ctx context.Context, inputPath string) (outputPath str
 		return "", nil, err
 	}
 
-	tmpFile, err := os.CreateTemp("", "transcribe_standard_*.wav")
+	tmpFile, err := os.CreateTemp("", "transcribe_audio_*.mp3")
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create temporary wav file: %w", err)
+		return "", nil, fmt.Errorf("failed to create temporary audio file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
 	_ = tmpFile.Close()
@@ -110,14 +112,15 @@ func ConvertToStandardWav(ctx context.Context, inputPath string) (outputPath str
 		_ = os.Remove(tmpPath)
 	}
 
-	// Command: ffmpeg -y -i <input> -vn -ac 1 -ar 16000 -c:a pcm_s16le <tmp.wav>
+	// Command: ffmpeg -y -i <input> -vn -ac 1 -ar 16000 -c:a libmp3lame -b:a 32k <tmp.mp3>
 	args := []string{
 		"-y",
 		"-i", inputPath,
 		"-vn",
 		"-ac", "1",
 		"-ar", "16000",
-		"-c:a", "pcm_s16le",
+		"-c:a", "libmp3lame",
+		"-b:a", "32k",
 		tmpPath,
 	}
 
@@ -130,9 +133,14 @@ func ConvertToStandardWav(ctx context.Context, inputPath string) (outputPath str
 	return tmpPath, cleanup, nil
 }
 
-// ExtractAudio extracts 16kHz mono audio from a video file into a temporary MP3 file using ffmpeg.
+// ConvertToStandardWav is kept for compatibility, converting to compressed standard audio.
+func ConvertToStandardWav(ctx context.Context, inputPath string) (outputPath string, cleanup func(), err error) {
+	return ConvertToStandardAudio(ctx, inputPath)
+}
+
+// ExtractAudio extracts audio from a video file into a temporary audio file using ffmpeg.
 //
-// Deprecated: Use ConvertToStandardWav instead for direct 16kHz mono WAV conversion.
+// Deprecated: Use ConvertToStandardAudio instead.
 func ExtractAudio(ctx context.Context, videoPath string) (outputPath string, cleanup func(), err error) {
-	return ConvertToStandardWav(ctx, videoPath)
+	return ConvertToStandardAudio(ctx, videoPath)
 }

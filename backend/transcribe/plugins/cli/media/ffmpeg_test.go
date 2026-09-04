@@ -120,10 +120,10 @@ func TestConvertToStandardWav(t *testing.T) {
 			return []byte("ffmpeg version mock"), nil
 		}
 
-		outPath, cleanup, err := ConvertToStandardWav(context.Background(), dummyMedia)
+		outPath, cleanup, err := ConvertToStandardAudio(context.Background(), dummyMedia)
 		require.NoError(t, err)
 		require.NotEmpty(t, outPath)
-		assert.True(t, strings.HasSuffix(outPath, ".wav"))
+		assert.True(t, strings.HasSuffix(outPath, ".mp3"))
 
 		// Check arguments passed to ffmpeg
 		assert.Contains(t, capturedArgs, "-vn")
@@ -131,7 +131,9 @@ func TestConvertToStandardWav(t *testing.T) {
 		assert.Contains(t, capturedArgs, "1")
 		assert.Contains(t, capturedArgs, "-ar")
 		assert.Contains(t, capturedArgs, "16000")
-		assert.Contains(t, capturedArgs, "pcm_s16le")
+		assert.Contains(t, capturedArgs, "libmp3lame")
+		assert.Contains(t, capturedArgs, "-b:a")
+		assert.Contains(t, capturedArgs, "32k")
 
 		// Verify file exists
 		_, statErr := os.Stat(outPath)

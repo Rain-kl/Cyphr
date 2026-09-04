@@ -133,4 +133,3 @@ func TruncateVisual(s string, maxWidth int) string {
 	available := maxWidth - minEllipsisWidth
 	return truncateRunes(s, available) + ellipsisStr
 }
-
