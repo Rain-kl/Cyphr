@@ -253,7 +253,8 @@ func extractZip(zr *zip.Reader, destDir string) error {
 		// Strip leading "agent/" prefix if present in zip
 		relPath := f.Name
 		relPath = strings.TrimPrefix(relPath, "agent/")
-		if relPath == "" || strings.HasPrefix(relPath, ".") {
+		cleanRel := filepath.Clean(relPath)
+		if cleanRel == "." || cleanRel == "/" || strings.HasPrefix(cleanRel, "..") {
 			continue
 		}
 
@@ -298,8 +299,9 @@ func extractZip(zr *zip.Reader, destDir string) error {
 func setupPythonEnv(agentDir string, cb InstallProgressCallback) error {
 	// 1. Try uv if installed
 	if _, err := exec.LookPath("uv"); err == nil {
-		cb("venv", 0.85, "检测到 uv 包管理器，正在执行 uv sync 同步虚拟环境...")
-		cmd := exec.CommandContext(context.Background(), "uv", "sync")
+		cb("venv", 0.85, "检测到 uv 包管理器，正在同步 Python 3.12 虚拟环境与依赖...")
+		// Use --python 3.12 explicitly to prevent pulling incompatible Python versions (e.g. 3.14)
+		cmd := exec.CommandContext(context.Background(), "uv", "sync", "--python", "3.12")
 		cmd.Dir = agentDir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("uv sync 失败: %w, 日志:\n%s", err, string(out))
@@ -307,19 +309,26 @@ func setupPythonEnv(agentDir string, cb InstallProgressCallback) error {
 		return nil
 	}
 
-	// 2. Try python3 -m venv
-	pyBin := "python3"
-	if _, err := exec.LookPath(pyBin); err != nil {
-		pyBin = "python"
-		if _, err := exec.LookPath(pyBin); err != nil {
-			return fmt.Errorf("未在系统 PATH 中检测到 python3 或 uv，请先安装 Python >= 3.12")
+	// 2. Try python3 / python (prefer 3.12 if available)
+	pyBin := ""
+	for _, candidate := range []string{"python3.12", "py", "python3", "python"} {
+		if _, err := exec.LookPath(candidate); err == nil {
+			pyBin = candidate
+			break
 		}
+	}
+	if pyBin == "" {
+		return fmt.Errorf("未在系统 PATH 中检测到 python3 或 uv，请先安装 Python 3.12")
 	}
 
 	venvDir := filepath.Join(agentDir, ".venv")
 	if _, err := os.Stat(venvDir); os.IsNotExist(err) {
 		cb("venv", 0.85, "创建 Python 虚拟环境 (.venv)...")
-		cmd := exec.CommandContext(context.Background(), pyBin, "-m", "venv", ".venv")
+		args := []string{"-m", "venv", ".venv"}
+		if pyBin == "py" {
+			args = []string{"-3.12", "-m", "venv", ".venv"}
+		}
+		cmd := exec.CommandContext(context.Background(), pyBin, args...)
 		cmd.Dir = agentDir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("创建虚拟环境失败: %w, 日志:\n%s", err, string(out))

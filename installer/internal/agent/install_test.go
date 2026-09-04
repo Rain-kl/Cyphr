@@ -28,6 +28,10 @@ func TestInstallAgentFromLocalZip(t *testing.T) {
 	w2, _ := zw.Create("agent/config.example.yaml")
 	_, _ = w2.Write([]byte("controller_url: http://localhost:8080"))
 
+	// Write mock .python-version
+	w3, _ := zw.Create("agent/.python-version")
+	_, _ = w3.Write([]byte("3.12\n"))
+
 	_ = zw.Close()
 	_ = zf.Close()
 
@@ -61,6 +65,11 @@ func TestInstallAgentFromLocalZip(t *testing.T) {
 	cfgFile := filepath.Join(destDir, "config.yaml")
 	if _, err := os.Stat(cfgFile); err != nil {
 		t.Fatalf("expected config.yaml to exist in %s", destDir)
+	}
+
+	pyVerFile := filepath.Join(destDir, ".python-version")
+	if _, err := os.Stat(pyVerFile); err != nil {
+		t.Fatalf("expected .python-version to exist in %s", destDir)
 	}
 
 	if !svc.IsInstalled() {

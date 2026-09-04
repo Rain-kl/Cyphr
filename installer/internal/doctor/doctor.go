@@ -377,10 +377,19 @@ func (r *Report) synthesize() {
 		}
 	}
 
-	// 1. Check Python Bit width
-	if r.ProbeRun && r.ProbeResult.PythonVersion != "" && !r.ProbeResult.Is64Bit {
-		r.Issues = append(r.Issues, "检测到 Agent 运行在 32 位 Python 解释器环境下。PyTorch CUDA 仅支持 64 位 (x64) 架构！")
-		r.Suggestions = append(r.Suggestions, "请卸载 32 位 Python，前往 python.org 重新下载并安装 64 位 (Windows x86-64) Python 3.12。")
+	// 1. Check Python Bit width & Version Compatibility
+	if r.ProbeRun && r.ProbeResult.PythonVersion != "" {
+		if !r.ProbeResult.Is64Bit {
+			r.Issues = append(r.Issues, "检测到 Agent 运行在 32 位 Python 解释器环境下。PyTorch CUDA 仅支持 64 位 (x64) 架构！")
+			r.Suggestions = append(r.Suggestions, "请使用 64 位 Python 3.12 重新构建虚拟环境：uv venv --python 3.12")
+		}
+		if strings.HasPrefix(r.ProbeResult.PythonVersion, "3.14") || strings.HasPrefix(r.ProbeResult.PythonVersion, "3.15") {
+			r.Issues = append(r.Issues, fmt.Sprintf("检测到 Agent 虚拟环境使用了 Python %s。PyTorch 官方目前最高仅支持至 Python 3.13（推荐 Python 3.12）！", r.ProbeResult.PythonVersion))
+			r.Suggestions = append(r.Suggestions, "请重新使用 Python 3.12 创建虚拟环境并同步依赖：\n"+
+				"   1) 删除现有 .venv: Remove-Item -Recurse -Force .venv\n"+
+				"   2) 用 uv 指定 3.12: uv venv --python 3.12\n"+
+				"   3) 安装 CUDA 依赖: uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124")
+		}
 	}
 
 	// 2. Check PyTorch CUDA capability
